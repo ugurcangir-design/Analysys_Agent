@@ -285,6 +285,26 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
   display: flex; align-items: center; justify-content: center;
   font-size: 10.5px; font-weight: 600;
 }
+/* ── Extended Thinking chip ──────────────────────────────── */
+.et-chip { position: relative; display: flex; align-items: center; }
+.et-chip-inner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: default; transition: border-color .15s, background .15s;
+}
+.et-chip-inner:hover { border-color: var(--border-strong); background: var(--surface2); }
+.et-chip-inner.active { border-color: var(--accent); background: var(--accent-soft); }
+.et-label { font-size: 11.5px; color: var(--text2); white-space: nowrap; }
+.et-chip-inner.active .et-label { color: var(--accent); font-weight: 500; }
+.et-tooltip {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  width: 260px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 13px;
+  font-size: 11.5px; color: var(--text2); line-height: 1.65;
+  box-shadow: var(--shadow); z-index: 200; pointer-events: none;
+}
+.et-chip:hover .et-tooltip { display: block; }
 
 /* ── Workflow bar ──────────────────────────────────────────────── */
 .wf-bar {
@@ -1212,6 +1232,18 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-settings"/></svg>
         <span class="nav-label">Ayarlar</span>
       </div>
+      <div class="nav-item" id="nav-jira-settings" onclick="switchTab('jira-settings')">
+        <svg class="ico"><use href="#i-ticket"/></svg>
+        <span class="nav-label">Jira Ayarları</span>
+      </div>
+      <div class="nav-item" id="nav-prompts" onclick="switchTab('prompts')">
+        <svg class="ico"><use href="#i-file-text"/></svg>
+        <span class="nav-label">Sistem Promptları</span>
+      </div>
+      <div class="nav-item" id="nav-update" onclick="switchTab('update')">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="nav-label">Güncelleme</span>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -1240,11 +1272,24 @@ function temaDegistir() {
         <span id="topbar-status">Hazır</span>
       </div>
       <span class="topbar-sep"></span>
+      <div class="et-chip">
+        <div class="et-chip-inner" id="et-chip-inner">
+          <span class="et-label">Extended Thinking</span>
+          <label class="toggle-wrap" style="margin:0">
+            <input type="checkbox" id="thinking-toggle" onchange="thinkingModDegistir(this)">
+            <span id="thinking-toggle-track" class="toggle-track"></span>
+            <span id="thinking-toggle-thumb" class="toggle-thumb"></span>
+          </label>
+        </div>
+        <div class="et-tooltip">
+          Claude yanıt vermeden önce derin akıl yürütür.<br>
+          <strong style="color:var(--text)">Teknik Analiz</strong> ve <strong style="color:var(--text)">BRD Analizi</strong> için geçerlidir.<br><br>
+          Daha kapsamlı ve ayrıntılı çıktı üretir, ancak daha yavaş ve daha yüksek maliyetlidir.
+        </div>
+      </div>
+      <span class="topbar-sep"></span>
       <button class="btn btn-ghost btn-sm" onclick="switchTab('settings')" title="Ayarlar">
         <svg class="ico"><use href="#i-settings"/></svg>
-      </button>
-      <button class="btn btn-ghost btn-sm" title="Yardım">
-        <svg class="ico"><use href="#i-help"/></svg>
       </button>
       <div class="user-avatar" title="Kullanıcı">A</div>
     </div>
@@ -1856,7 +1901,7 @@ function temaDegistir() {
       <div class="ph">
         <div class="ph-text">
           <h1>Ayarlar</h1>
-          <p>Anthropic API, Claude CLI ve Jira entegrasyonu.</p>
+          <p>Anthropic API ve Claude CLI ayarları.</p>
         </div>
       </div>
 
@@ -1901,97 +1946,6 @@ function temaDegistir() {
           </div>
         </div>
 
-        <!-- Jira -->
-        <div class="jira-section">
-          <h3><svg class="ico"><use href="#i-ticket"/></svg> Jira Entegrasyonu</h3>
-          <p>Teknik analizi doğrudan Jira'ya task olarak oluşturun. OAuth 2.0 ile güvenli bağlantı.</p>
-          <div id="jira-conn-status"></div>
-          <div class="jira-grid">
-            <div class="form-group">
-              <label>Client ID</label>
-              <input type="text" id="jira-client-id" placeholder="Atlassian OAuth app Client ID" autocomplete="off">
-            </div>
-            <div class="form-group">
-              <label>Client Secret</label>
-              <input type="password" id="jira-client-secret" placeholder="••••••••" autocomplete="off">
-              <small id="jira-secret-hint"></small>
-            </div>
-            <div class="form-group">
-              <label>Project Key</label>
-              <input type="text" id="jira-project-key" placeholder="PROJ" autocomplete="off">
-            </div>
-            <div class="form-group">
-              <label>Jira URL</label>
-              <input type="text" id="jira-url" placeholder="https://yourcompany.atlassian.net" autocomplete="off">
-            </div>
-          </div>
-          <div class="btn-group" style="margin-bottom:12px">
-            <button class="btn btn-outline btn-sm" onclick="jiraAyarlarKaydet()">Ayarları Kaydet</button>
-            <button class="btn btn-primary btn-sm" id="jira-auth-btn" onclick="jiraYetkilendir()">
-              <svg class="ico"><use href="#i-link"/></svg> Jira'ya Bağlan
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="jiraTest()">Bağlantıyı Test Et</button>
-            <button class="btn btn-outline btn-sm" onclick="confluenceDiagnose()">Confluence İzinlerini Kontrol Et</button>
-          </div>
-          <div id="conf-diagnose-result" style="display:none;margin-bottom:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11.5px;line-height:1.65"></div>
-          <div style="font-size:11px;color:var(--text3);line-height:1.65">
-            <strong style="color:var(--text2)">Kurulum:</strong> Atlassian Developer Console'da OAuth 2.0 app oluşturun.
-            Callback URL: <code>http://localhost:5002/api/jira/callback</code><br>
-            <strong style="color:var(--text2)">Confluence için:</strong> developer.atlassian.com → Uygulamanız → Permissions → <em>Confluence API</em> ekleyin, ardından "Jira'ya Bağlan" ile yeniden yetkilendirin.
-          </div>
-        </div>
-
-        <!-- Güncelleme -->
-        <div class="settings-section">
-          <div style="display:flex;align-items:flex-start;gap:12px">
-            <div style="flex:1">
-              <div class="section-title">Güncelleme</div>
-              <div class="section-desc">GitHub'daki son değişiklikleri çekin. Güncelleme sonrası uygulama otomatik yeniden başlar.</div>
-              <div id="version-info" style="font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-top:6px"></div>
-            </div>
-            <button class="btn btn-outline btn-sm" id="update-btn" onclick="guncellemeYap()" style="white-space:nowrap;margin-top:2px">
-              <svg class="ico"><use href="#i-refresh"/></svg> Güncelle
-            </button>
-          </div>
-          <div id="update-log" style="display:none;margin-top:10px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:'Geist Mono',monospace;color:var(--text2);white-space:pre-wrap;line-height:1.6"></div>
-        </div>
-
-        <!-- Extended Thinking -->
-        <div id="extended-thinking-section" class="settings-section">
-          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
-            <div style="flex:1">
-              <div class="section-title">Extended Thinking</div>
-              <div class="section-desc">Claude'un yanıt vermeden önce derin akıl yürütmesini sağlar. Teknik Analiz ve BRD Analizi için geçerlidir — daha kapsamlı çıktı üretir, ancak daha yavaş ve pahalıdır.</div>
-            </div>
-            <label class="toggle-wrap" style="margin-top:2px">
-              <input type="checkbox" id="thinking-toggle" onchange="thinkingModDegistir(this)">
-              <span id="thinking-toggle-track" class="toggle-track"></span>
-              <span id="thinking-toggle-thumb" class="toggle-thumb"></span>
-            </label>
-          </div>
-          <div id="thinking-status" style="font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-family:'Geist Mono',monospace"></div>
-        </div>
-
-        <!-- Sistem Promptları -->
-        <div class="prompt-editor-section">
-          <div class="prompt-editor-head" id="prompt-editor-head" onclick="promptEditorToggle()">
-            <svg class="ico" style="color:var(--accent)"><use href="#i-file-text"/></svg>
-            <span class="pe-title">Sistem Promptları</span>
-            <span id="prompt-modified-count" style="font-size:10.5px;background:var(--yellow-soft);color:var(--yellow);padding:2px 8px;border-radius:10px;display:none"></span>
-            <svg class="ico pe-chevron" style="width:14px;height:14px"><use href="#i-chevron-down"/></svg>
-          </div>
-          <div class="prompt-editor-body" id="prompt-editor-body">
-            <div class="prompt-skill-tabs" id="prompt-skill-tabs"></div>
-            <div class="prompt-meta" id="prompt-skill-aciklama"></div>
-            <textarea class="prompt-textarea" id="prompt-textarea" spellcheck="false" placeholder="Yükleniyor..."></textarea>
-            <div class="prompt-actions">
-              <button class="btn btn-primary btn-sm" onclick="promptKaydet()">Kaydet</button>
-              <button class="btn btn-outline btn-sm" onclick="promptSifirla()">Varsayılana Dön</button>
-              <span class="prompt-modified-badge" id="prompt-modified-badge">● Özelleştirilmiş</span>
-            </div>
-          </div>
-        </div>
-
         <!-- Kullanıcı Yönetimi — sadece admin görür -->
         <div class="settings-section" id="user-mgmt-section" style="display:none">
           <div class="section-title">Kullanıcı Yönetimi</div>
@@ -2031,6 +1985,115 @@ python cli.py ui ~/export.zip</pre>
       </div>
     </div>
 
+    <!-- ─── JİRA AYARLARI ─── -->
+    <div class="page" id="page-jira-settings">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Jira Entegrasyonu</h1>
+          <p>OAuth 2.0 ile Atlassian bağlantısı kurun, task ve Confluence yönetin.</p>
+        </div>
+      </div>
+      <div class="settings-form">
+        <div class="jira-section">
+          <h3><svg class="ico"><use href="#i-ticket"/></svg> Jira Bağlantı Ayarları</h3>
+          <p>Teknik analizi doğrudan Jira'ya task olarak oluşturun. OAuth 2.0 ile güvenli bağlantı.</p>
+          <div id="jira-conn-status"></div>
+          <div class="jira-grid">
+            <div class="form-group">
+              <label>Client ID</label>
+              <input type="text" id="jira-client-id" placeholder="Atlassian OAuth app Client ID" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Client Secret</label>
+              <input type="password" id="jira-client-secret" placeholder="••••••••" autocomplete="off">
+              <small id="jira-secret-hint"></small>
+            </div>
+            <div class="form-group">
+              <label>Project Key</label>
+              <input type="text" id="jira-project-key" placeholder="PROJ" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Jira URL</label>
+              <input type="text" id="jira-url" placeholder="https://yourcompany.atlassian.net" autocomplete="off">
+            </div>
+          </div>
+          <div class="btn-group" style="margin-bottom:12px">
+            <button class="btn btn-outline btn-sm" onclick="jiraAyarlarKaydet()">Ayarları Kaydet</button>
+            <button class="btn btn-primary btn-sm" id="jira-auth-btn" onclick="jiraYetkilendir()">
+              <svg class="ico"><use href="#i-link"/></svg> Jira'ya Bağlan
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="jiraTest()">Bağlantıyı Test Et</button>
+            <button class="btn btn-outline btn-sm" onclick="confluenceDiagnose()">Confluence İzinlerini Kontrol Et</button>
+          </div>
+          <div id="conf-diagnose-result" style="display:none;margin-bottom:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11.5px;line-height:1.65"></div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.65">
+            <strong style="color:var(--text2)">Kurulum:</strong> Atlassian Developer Console'da OAuth 2.0 app oluşturun.
+            Callback URL: <code>http://localhost:5002/api/jira/callback</code><br>
+            <strong style="color:var(--text2)">Confluence için:</strong> developer.atlassian.com → Uygulamanız → Permissions → <em>Confluence API</em> ekleyin, ardından "Jira'ya Bağlan" ile yeniden yetkilendirin.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SİSTEM PROMPTLARI ─── -->
+    <div class="page" id="page-prompts">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Sistem Promptları</h1>
+          <p>Her analiz adımı için kullanılan AI talimatlarını özelleştirin veya varsayılana döndürün.</p>
+        </div>
+      </div>
+      <div class="settings-form" style="max-width:800px">
+        <div class="settings-section" style="padding:0;overflow:hidden">
+          <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+            <svg class="ico" style="color:var(--accent)"><use href="#i-file-text"/></svg>
+            <span style="font-size:13px;font-weight:600;flex:1">Prompt Düzenleyici</span>
+            <span id="prompt-modified-count" style="font-size:10.5px;background:var(--yellow-soft);color:var(--yellow);padding:2px 8px;border-radius:10px;display:none"></span>
+          </div>
+          <div style="padding:16px">
+            <div class="prompt-skill-tabs" id="prompt-skill-tabs"></div>
+            <div class="prompt-meta" id="prompt-skill-aciklama"></div>
+            <textarea class="prompt-textarea" id="prompt-textarea" spellcheck="false" placeholder="Yükleniyor..."></textarea>
+            <div class="prompt-actions">
+              <button class="btn btn-primary btn-sm" onclick="promptKaydet()">Kaydet</button>
+              <button class="btn btn-outline btn-sm" onclick="promptSifirla()">Varsayılana Dön</button>
+              <span class="prompt-modified-badge" id="prompt-modified-badge">● Özelleştirilmiş</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── GÜNCELLEME ─── -->
+    <div class="page" id="page-update">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Güncelleme</h1>
+          <p>GitHub'daki son değişiklikleri çekin. Güncelleme sonrası uygulama otomatik yeniden başlar.</p>
+        </div>
+      </div>
+      <div class="settings-form">
+        <div class="settings-section">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div style="flex:1">
+              <div class="section-title">Mevcut Sürüm</div>
+              <div id="version-info" style="font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-top:6px"></div>
+            </div>
+            <button class="btn btn-outline btn-sm" id="update-btn" onclick="guncellemeYap()" style="white-space:nowrap;margin-top:2px">
+              <svg class="ico"><use href="#i-refresh"/></svg> Güncelle
+            </button>
+          </div>
+          <div id="update-log" style="display:none;margin-top:10px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:'Geist Mono',monospace;color:var(--text2);white-space:pre-wrap;line-height:1.6"></div>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">Nasıl Çalışır?</div>
+          <div class="section-desc" style="margin-bottom:0;line-height:1.75">
+            "Güncelle" butonuna basıldığında GitHub'dan son commit'ler çekilir, gerekli paketler yüklenir ve uygulama otomatik olarak yeniden başlatılır. Sayfa birkaç saniye içinde otomatik yenilenir.
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /.main -->
 </div><!-- /.layout -->
 
@@ -2065,13 +2128,16 @@ function switchTab(tab) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç Analizi',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar'};
+  const _crumbLabels = {surec:'Süreç Analizi',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
-  if (tab === 'history')     loadHistory();
-  if (tab === 'output')      refreshOutputTabs();
-  if (tab === 'ui-code')     loadUiFiles();
-  if (tab === 'settings')    { settingsYukle(); jiraConfigYukle(); }
-  if (tab === 'referanslar') { loadSources(); loadRefDocs(); }
+  if (tab === 'history')       loadHistory();
+  if (tab === 'output')        refreshOutputTabs();
+  if (tab === 'ui-code')       loadUiFiles();
+  if (tab === 'settings')      settingsYukle();
+  if (tab === 'jira-settings') jiraConfigYukle();
+  if (tab === 'prompts')       promptlariYukle();
+  if (tab === 'update')        versiyonYukle();
+  if (tab === 'referanslar')   { loadSources(); loadRefDocs(); }
 }
 
 // ─── Heartbeat & Uyku Yönetimi ───────────────────────────────────────────────
@@ -3160,18 +3226,16 @@ function _cliToggleGuncelle(aktif) {
 function _thinkingToggleGuncelle(aktif) {
   const track = document.getElementById('thinking-toggle-track');
   const thumb = document.getElementById('thinking-toggle-thumb');
-  const status = document.getElementById('thinking-status');
+  const inner = document.getElementById('et-chip-inner');
   if (!track) return;
   if (aktif) {
     track.style.background = 'var(--accent)';
     thumb.style.left = '19px';
-    status.textContent = '✓ Extended thinking aktif — Teknik Analiz ve BRD Analizi daha derin akıl yürütür';
-    status.style.color = 'var(--green)';
+    if (inner) inner.classList.add('active');
   } else {
     track.style.background = 'var(--border-strong)';
     thumb.style.left = '3px';
-    status.textContent = 'Kapalı — standart mod, daha hızlı ve daha düşük maliyet';
-    status.style.color = 'var(--text3)';
+    if (inner) inner.classList.remove('active');
   }
 }
 
@@ -3795,14 +3859,25 @@ async function cikisYap() {
   window.location.href = '/login';
 }
 
-// Ayarlar sekmesi açılınca kullanıcıları yükle
-const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
+// Sekme değişince ilgili yükleyicileri tetikle
 document.addEventListener('click', e => {
   const btn = e.target.closest('[onclick]');
-  if (btn && btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'settings'")) {
-    setTimeout(() => { kullanicilariYukle(); versiyonYukle(); }, 100);
-  }
+  if (!btn) return;
+  const oc = btn.getAttribute('onclick') || '';
+  if (oc.includes("'settings'"))      setTimeout(() => { kullanicilariYukle(); }, 100);
+  if (oc.includes("'update'"))        setTimeout(() => { kullanicilariYukle(); versiyonYukle(); }, 100);
 });
+
+// Sayfa yüklenince thinking toggle durumunu çek
+(async () => {
+  try {
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    const toggle = document.getElementById('thinking-toggle');
+    if (toggle) toggle.checked = d.extended_thinking || false;
+    _thinkingToggleGuncelle(d.extended_thinking || false);
+  } catch {}
+})();
 </script>
 </body>
 </html>
