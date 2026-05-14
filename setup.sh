@@ -40,5 +40,9 @@ EOF
 chmod +x start.sh
 
 echo ""
+echo "=== Masaüstü ikonu oluşturuluyor ==="
+bash create_app.sh
+
+echo ""
 echo "=== Kurulum tamamlandı ==="
-echo "Başlatmak için: ./start.sh"
+echo "Masaüstündeki 'BRD Analyst Agent' ikonuna çift tıklayarak başlatabilirsiniz."

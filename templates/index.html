@@ -2079,6 +2079,20 @@ function sendHeartbeat() {
 // Periyodik heartbeat — tab aktifken her 20s
 setInterval(() => { if (document.visibilityState !== 'hidden') sendHeartbeat(); }, 20000);
 
+// Desktop modu: sekme kapanınca server'ı da kapat
+let _desktopMode = false;
+async function _desktopModKontrol() {
+  try {
+    const r = await fetch('/api/heartbeat', {method:'POST'});
+    const d = await r.json();
+    _desktopMode = d.desktop_mode || false;
+  } catch {}
+}
+_desktopModKontrol();
+window.addEventListener('beforeunload', () => {
+  if (_desktopMode) navigator.sendBeacon('/api/shutdown', '{}');
+});
+
 // Herhangi bir tıklama → heartbeat + uyandır
 document.addEventListener('click', () => {
   if (_uyuyorMu) return;  // overlay tıklaması uyandır() ile ayrı ele alınır

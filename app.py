@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import time
+import signal
 import shutil
 import logging
 import zipfile
@@ -338,16 +339,21 @@ _suspended = False          # True → tarayıcı 2+ dakikadır bağlı değil
 _process: subprocess.Popen | None = None
 _process_lock = threading.Lock()
 
-SUSPEND_SURE = 120          # saniye — bu kadar heartbeat gelmezse uyku
+SUSPEND_SURE = 60           # saniye — bu kadar heartbeat gelmezse uyku
+DESKTOP_MODE = os.getenv("DESKTOP_MODE", "false").lower() in ("1", "true", "yes")
 
 
 def _heartbeat_izle():
     global _suspended
     while True:
-        time.sleep(15)
+        time.sleep(10)
         with _heartbeat_lock:
             gecen = time.time() - _son_heartbeat
         _suspended = gecen > SUSPEND_SURE
+        # Desktop modunda: uyku sonrası 30 saniye daha beklenir, ardından kapat
+        if DESKTOP_MODE and gecen > SUSPEND_SURE + 30:
+            logger.info("Desktop modu: tarayıcı bağlantısı kesildi, uygulama kapatılıyor.")
+            os.kill(os.getpid(), signal.SIGINT)
 
 
 threading.Thread(target=_heartbeat_izle, daemon=True).start()
@@ -428,6 +434,18 @@ def heartbeat():
     with _heartbeat_lock:
         _son_heartbeat = time.time()
     _suspended = False
+    return jsonify({"ok": True, "desktop_mode": DESKTOP_MODE})
+
+
+@app.route("/api/shutdown", methods=["POST"])
+def shutdown():
+    if not DESKTOP_MODE:
+        return jsonify({"ok": False}), 200
+    def _kapat():
+        time.sleep(2)
+        logger.info("Desktop modu: sekme kapatıldı, uygulama kapatılıyor.")
+        os.kill(os.getpid(), signal.SIGINT)
+    threading.Thread(target=_kapat, daemon=True).start()
     return jsonify({"ok": True})
 
 
