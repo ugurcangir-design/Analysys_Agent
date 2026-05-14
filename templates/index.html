@@ -1941,6 +1941,21 @@ function temaDegistir() {
           </div>
         </div>
 
+        <!-- Güncelleme -->
+        <div class="settings-section">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div style="flex:1">
+              <div class="section-title">Güncelleme</div>
+              <div class="section-desc">GitHub'daki son değişiklikleri çekin. Güncelleme sonrası uygulama otomatik yeniden başlar.</div>
+              <div id="version-info" style="font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-top:6px"></div>
+            </div>
+            <button class="btn btn-outline btn-sm" id="update-btn" onclick="guncellemeYap()" style="white-space:nowrap;margin-top:2px">
+              <svg class="ico"><use href="#i-refresh"/></svg> Güncelle
+            </button>
+          </div>
+          <div id="update-log" style="display:none;margin-top:10px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:'Geist Mono',monospace;color:var(--text2);white-space:pre-wrap;line-height:1.6"></div>
+        </div>
+
         <!-- Extended Thinking -->
         <div id="extended-thinking-section" class="settings-section">
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
@@ -3029,6 +3044,72 @@ function toast(msg, type='info') {
   setTimeout(() => t.remove(), 3500);
 }
 
+// ─── Güncelleme ───────────────────────────────────────────────────────────────
+async function versiyonYukle() {
+  try {
+    const r = await fetch('/api/version');
+    const d = await r.json();
+    const el = document.getElementById('version-info');
+    if (el) el.textContent = d.hata ? '⚠ Git bilgisi alınamadı' : `v${d.hash} · ${d.tarih} · ${d.mesaj}`;
+  } catch {}
+}
+
+async function guncellemeYap() {
+  const btn = document.getElementById('update-btn');
+  const log = document.getElementById('update-log');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Kontrol ediliyor...';
+  log.style.display = 'none';
+
+  try {
+    const r = await fetch('/api/update', {method: 'POST'});
+    const d = await r.json();
+
+    if (!r.ok) {
+      log.textContent = d.mesaj || 'Hata oluştu';
+      log.style.display = 'block';
+      log.style.borderColor = 'var(--red)';
+      toast('Güncelleme başarısız', 'error');
+      return;
+    }
+
+    log.style.borderColor = 'var(--border)';
+
+    if (!d.guncelleme_var) {
+      log.textContent = '✓ Zaten en güncel sürümdesiniz.';
+      log.style.display = 'block';
+      toast('Zaten güncel', 'info');
+      return;
+    }
+
+    // Güncelleme var — server yeniden başlıyor
+    log.textContent = d.mesaj + '\n\nUygulama yeniden başlatılıyor...';
+    log.style.display = 'block';
+    toast('Güncelleme tamamlandı, yeniden bağlanılıyor...', 'success');
+
+    // 3 saniye bekle, sonra sayfayı yenile
+    setTimeout(() => {
+      let kalan = 5;
+      const interval = setInterval(() => {
+        btn.innerHTML = `Yeniden bağlanılıyor... (${kalan}s)`;
+        kalan--;
+        if (kalan < 0) {
+          clearInterval(interval);
+          window.location.reload();
+        }
+      }, 1000);
+    }, 3000);
+
+  } catch (e) {
+    toast('Bağlantı hatası: ' + e.message, 'error');
+  } finally {
+    if (btn.disabled && !document.getElementById('update-log').textContent.includes('Yeniden')) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Güncelle';
+    }
+  }
+}
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 async function settingsYukle() {
   const r = await fetch('/api/settings');
@@ -3728,7 +3809,7 @@ const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
 document.addEventListener('click', e => {
   const btn = e.target.closest('[onclick]');
   if (btn && btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'settings'")) {
-    setTimeout(kullanicilariYukle, 100);
+    setTimeout(() => { kullanicilariYukle(); versiyonYukle(); }, 100);
   }
 });
 </script>

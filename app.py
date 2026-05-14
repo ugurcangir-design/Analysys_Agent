@@ -437,6 +437,56 @@ def heartbeat():
     return jsonify({"ok": True, "desktop_mode": DESKTOP_MODE})
 
 
+@app.route("/api/version", methods=["GET"])
+def version_bilgi():
+    try:
+        commit = subprocess.check_output(
+            ["git", "log", "-1", "--format=%h|%s|%ci"], cwd=BASE_DIR, text=True
+        ).strip()
+        hash_, mesaj, tarih = commit.split("|", 2)
+        guncel = subprocess.check_output(
+            ["git", "fetch", "--dry-run"], cwd=BASE_DIR, stderr=subprocess.STDOUT, text=True
+        )
+        return jsonify({"hash": hash_, "mesaj": mesaj, "tarih": tarih[:19], "hata": None})
+    except Exception as e:
+        return jsonify({"hash": "?", "mesaj": "Git bilgisi alınamadı", "tarih": "", "hata": str(e)})
+
+
+@app.route("/api/update", methods=["POST"])
+def guncelle():
+    try:
+        # git pull
+        pull = subprocess.run(
+            ["git", "pull"], cwd=BASE_DIR, capture_output=True, text=True, timeout=60
+        )
+        cikti = (pull.stdout + pull.stderr).strip()
+
+        if "Already up to date" in cikti or "Zaten güncel" in cikti:
+            return jsonify({"ok": True, "guncelleme_var": False, "mesaj": "Zaten en güncel sürümdesiniz."})
+
+        # Bağımlılıklar değiştiyse güncelle
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", str(BASE_DIR / "requirements.txt"), "-q"],
+            capture_output=True, timeout=120
+        )
+
+        logger.info("Güncelleme tamamlandı, uygulama yeniden başlatılıyor...")
+
+        # 1 saniye sonra kendini yeniden başlat (os.execv = aynı PID, temiz restart)
+        def _yeniden_basla():
+            time.sleep(1)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+
+        threading.Thread(target=_yeniden_basla, daemon=True).start()
+
+        return jsonify({"ok": True, "guncelleme_var": True, "mesaj": cikti, "yeniden_basliyor": True})
+
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "mesaj": "Zaman aşımı — ağ bağlantısını kontrol edin."}), 500
+    except Exception as e:
+        return jsonify({"ok": False, "mesaj": str(e)}), 500
+
+
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():
     if not DESKTOP_MODE:
