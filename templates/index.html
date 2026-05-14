@@ -1,0 +1,3595 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRD Analyst Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────────
+   BRD Analyst Agent — Kurumsal Yön C
+   Tek dosyada light/dark · slate + teal · Geist tipografi
+   ───────────────────────────────────────────────────────────────── */
+
+/* ── Token sistemi ─────────────────────────────────────────────── */
+:root, html[data-theme="dark"] {
+  /* dark (default) */
+  --bg:           #080B12;
+  --surface:      #0E141E;
+  --surface2:     #131A26;
+  --surface3:     #1A2331;
+  --border:       #1E2735;
+  --border-strong:#2A3445;
+
+  --text:         #E5EAF1;
+  --text2:        #9CA7B8;
+  --text3:        #5F6B7E;
+
+  --sidebar-bg:    #0A0F18;
+  --sidebar-bd:    #171E2B;
+
+  --accent:       #2DD4BF;
+  --accent2:      #14B8A6;
+  --accent-soft:  #0E3530;
+  --accent-deep:  #14B8A6;
+  --on-accent:    #03201D;
+
+  --green:        #34D399;
+  --green-soft:   #0D3329;
+  --yellow:       #FBBF24;
+  --yellow-soft:  #3A2D08;
+  --red:          #F87171;
+  --red-soft:     #3A1414;
+  --blue:         #60A5FA;
+  --blue-soft:    #0E2447;
+  --purple:       #C4B5FD;
+  --orange:       #FB923C;
+
+  --radius:       6px;
+  --radius-sm:    5px;
+  --radius-xs:    4px;
+
+  --shadow:       0 1px 0 rgba(0,0,0,.3);
+  --shadow-md:    0 8px 24px rgba(0,0,0,.4);
+
+  --focus-ring:   0 0 0 3px rgba(45,212,191,.18);
+}
+
+html[data-theme="light"] {
+  --bg:           #F5F7FA;
+  --surface:      #FFFFFF;
+  --surface2:     #F0F3F7;
+  --surface3:     #E8ECF2;
+  --border:       #E1E6ED;
+  --border-strong:#CDD4DE;
+
+  --text:         #1A2233;
+  --text2:        #586375;
+  --text3:        #8A93A2;
+
+  --sidebar-bg:   #FFFFFF;
+  --sidebar-bd:   #E1E6ED;
+
+  --accent:       #0F766E;
+  --accent2:      #115E59;
+  --accent-soft:  #D1FAE5;
+  --accent-deep:  #115E59;
+  --on-accent:    #FFFFFF;
+
+  --green:        #16A34A;
+  --green-soft:   #DCFCE7;
+  --yellow:       #B45309;
+  --yellow-soft:  #FEF3C7;
+  --red:          #DC2626;
+  --red-soft:     #FEE2E2;
+  --blue:         #1D4ED8;
+  --blue-soft:    #DBEAFE;
+  --purple:       #7C3AED;
+  --orange:       #D97706;
+
+  --shadow:       0 1px 2px rgba(20,30,55,.04);
+  --shadow-md:    0 4px 12px rgba(20,30,55,.08);
+
+  --focus-ring:   0 0 0 3px rgba(15,118,110,.15);
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+body { overflow: hidden; }
+
+code, pre, .mono { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); background-clip: padding-box; }
+
+.ico { width: 14px; height: 14px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm { width: 12px; height: 12px; }
+.ico-md { width: 16px; height: 16px; }
+.ico-lg { width: 22px; height: 22px; }
+
+/* ── Layout ────────────────────────────────────────────────────── */
+.layout { display: flex; height: 100vh; overflow: hidden; }
+
+.sidebar {
+  width: 232px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-bd);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────── */
+.sidebar-brand {
+  padding: 14px 14px;
+  border-bottom: 1px solid var(--sidebar-bd);
+  display: flex; align-items: center; gap: 10px;
+}
+.brand-mark {
+  width: 26px; height: 26px; border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  color: var(--on-accent); flex-shrink: 0;
+}
+.brand-mark .ico { width: 14px; height: 14px; stroke-width: 2; }
+.brand-meta { flex: 1; min-width: 0; }
+.brand-title { font-size: 12.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.15; }
+.brand-sub { font-size: 10px; color: var(--text3); font-family: 'Geist Mono', monospace; margin-top: 1px; }
+
+.sidebar-search {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sidebar-bd);
+}
+.sidebar-search-inner {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 9px; border-radius: 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text3);
+  cursor: text;
+}
+.sidebar-search-inner .ico { width: 12px; height: 12px; }
+.sidebar-search-inner span { flex: 1; }
+.kbd {
+  font-family: 'Geist Mono', monospace; font-size: 10px;
+  padding: 1px 5px; border-radius: 3px;
+  background: var(--surface); color: var(--text3);
+  border: 1px solid var(--border);
+}
+
+.sidebar-nav { padding: 6px 8px; flex: 1; overflow-y: auto; }
+.nav-section {
+  padding: 10px 8px 5px;
+  font-size: 9.5px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 8px; border-radius: 4px;
+  margin-bottom: 1px;
+  font-size: 12.5px; color: var(--text2);
+  cursor: pointer; user-select: none;
+  position: relative;
+  transition: background .12s, color .12s;
+}
+.nav-item .ico { color: var(--text3); }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item:hover .ico { color: var(--text2); }
+.nav-item.active {
+  background: var(--surface2);
+  color: var(--text);
+}
+.nav-item.active::before {
+  content: ''; position: absolute; left: -8px; top: 5px; bottom: 5px;
+  width: 2px; background: var(--accent); border-radius: 1px;
+}
+.nav-item.active .ico { color: var(--accent); }
+.nav-item .nav-label { flex: 1; }
+.nav-item .badge {
+  font-size: 10px; padding: 0 6px; border-radius: 9px;
+  background: var(--surface3); color: var(--text2);
+  font-weight: 500; font-family: 'Geist Mono', monospace;
+  display: inline-flex; align-items: center; min-height: 16px;
+}
+.nav-item.active .badge { background: var(--accent-soft); color: var(--accent); }
+
+.sidebar-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--sidebar-bd);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11.5px; color: var(--text2);
+}
+.sidebar-footer .theme-toggle {
+  margin-left: auto;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text2); padding: 4px 6px;
+  border-radius: 4px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-family: inherit;
+}
+.sidebar-footer .theme-toggle:hover { color: var(--text); background: var(--surface2); }
+html[data-theme="light"] .theme-toggle .ico-sun,
+html[data-theme="dark"] .theme-toggle .ico-moon { display: inline; }
+html[data-theme="light"] .theme-toggle .ico-moon,
+html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
+
+/* ── Status dots ───────────────────────────────────────────────── */
+.status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; position: relative; }
+.status-idle    { background: var(--text3); }
+.status-running { background: var(--yellow); }
+.status-running::after, .status-waiting::after {
+  content: ''; position: absolute; inset: -3px;
+  border-radius: 50%; border: 1px solid currentColor; opacity: .35;
+  animation: pulse-ring 1.5s infinite;
+}
+.status-running { color: var(--yellow); }
+.status-waiting { background: var(--blue); color: var(--blue); }
+.status-done    { background: var(--green); }
+.status-error   { background: var(--red); }
+@keyframes pulse-ring { 0%{transform:scale(1);opacity:.4} 80%{transform:scale(2);opacity:0} 100%{opacity:0} }
+
+/* ── Topbar ────────────────────────────────────────────────────── */
+.topbar {
+  padding: 9px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; gap: 12px;
+  height: 44px; flex-shrink: 0;
+}
+.crumb { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text2); }
+.crumb .ico { width: 11px; height: 11px; color: var(--text3); }
+.crumb-step { color: var(--text3); }
+.crumb-now { color: var(--text); font-weight: 500; }
+.crumb-tag {
+  margin-left: 4px; font-size: 9.5px; font-weight: 600;
+  padding: 1px 6px; border-radius: 10px;
+  background: var(--accent-soft); color: var(--accent-deep);
+  font-family: 'Geist Mono', monospace; letter-spacing: 0.04em;
+}
+.topbar-sep { width: 1px; height: 16px; background: var(--border); }
+.topbar-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text3);
+}
+.user-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 600;
+}
+
+/* ── Workflow bar ──────────────────────────────────────────────── */
+.wf-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 22px;
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.wf-bar .wf-label { font-size: 12px; font-weight: 500; flex: 1; color: var(--text); }
+.wf-bar .wf-sub { font-size: 11px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+
+/* ── Page container ────────────────────────────────────────────── */
+.page { display: none; padding: 20px 22px; flex: 1; }
+.page.active { display: block; }
+.page-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+.page-grid > main { min-width: 0; }
+.page-grid > aside { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Page header ───────────────────────────────────────────────── */
+.ph { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.ph-text { flex: 1; min-width: 0; }
+.ph h1 {
+  font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
+  margin: 0 0 3px; color: var(--text);
+}
+.ph p { font-size: 12.5px; color: var(--text2); margin: 0; }
+.ph-actions { display: flex; gap: 6px; align-items: center; }
+
+/* ── Panel — base card ────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.panel-head {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.panel-head .panel-title {
+  font-size: 11.5px; font-weight: 600; color: var(--text);
+  letter-spacing: -0.005em;
+}
+.panel-head .panel-tag {
+  font-size: 9.5px; font-weight: 600; padding: 1px 6px; border-radius: 3px;
+  background: var(--surface2); color: var(--text3);
+  font-family: 'Geist Mono', monospace; letter-spacing: 0.04em;
+}
+.panel-head .panel-spacer { flex: 1; }
+.panel-body { padding: 14px; }
+.panel-section-label {
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.1em; margin-bottom: 8px;
+}
+
+/* ── Step flow ─────────────────────────────────────────────────── */
+.steps-flow {
+  display: flex; align-items: center;
+  gap: 0; flex-wrap: nowrap; overflow-x: auto;
+}
+.step {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 130px;
+  color: var(--text2);
+}
+.step-num {
+  width: 24px; height: 24px; border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  font-family: 'Geist Mono', monospace;
+  flex-shrink: 0;
+}
+.step-text { min-width: 0; }
+.step-text > span { font-size: 12px; font-weight: 500; color: var(--text2); display: block; }
+.step-dur { font-size: 10.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+.step.done .step-num { background: var(--green-soft); color: var(--green); border-color: transparent; }
+.step.done .step-num::before { content: ''; }
+.step.done .step-text > span { color: var(--text); }
+.step.active-step .step-num { background: var(--accent); color: var(--on-accent); border-color: var(--accent); box-shadow: var(--focus-ring); }
+.step.active-step .step-text > span { color: var(--text); }
+.step.waiting-step .step-num { background: var(--blue-soft); color: var(--blue); border-color: transparent; }
+.step.waiting-step .step-text > span { color: var(--text); }
+.step-arrow { color: var(--border-strong); flex-shrink: 0; margin: 0 6px; }
+.step-arrow svg { width: 14px; height: 14px; }
+
+/* ── Upload zone ───────────────────────────────────────────────── */
+.upload-zone {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 22px 18px;
+  background: var(--surface2);
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.upload-zone .icon-lg {
+  width: 38px; height: 38px; border-radius: 5px;
+  background: var(--accent-soft); color: var(--accent-deep);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.upload-zone .icon-lg .ico { width: 16px; height: 16px; }
+.upload-zone .upload-meta { flex: 1; min-width: 0; }
+.upload-zone p { font-size: 12.5px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+.upload-zone small { font-size: 11px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+.upload-zone input { display: none; }
+
+.uploaded-file {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  font-size: 12px;
+}
+.uploaded-file .ico { color: var(--text3); }
+.uploaded-file .fname { flex: 1; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uploaded-file .fsize { color: var(--text3); font-size: 11px; font-family: 'Geist Mono', monospace; flex-shrink: 0; }
+.uploaded-file .fremove { cursor: pointer; color: var(--text3); padding: 3px; border-radius: 3px; line-height: 0; }
+.uploaded-file .fremove:hover { color: var(--red); background: var(--red-soft); }
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500;
+  font-family: inherit; letter-spacing: -0.003em;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background .12s, border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn .ico { width: 13px; height: 13px; }
+
+.btn-primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: var(--accent2); border-color: var(--accent2); }
+
+.btn-success { background: var(--green); color: var(--on-accent); border-color: var(--green); font-weight: 600; }
+.btn-success:hover:not(:disabled) { filter: brightness(1.08); }
+
+.btn-danger { background: var(--red); color: #fff; border-color: var(--red); font-weight: 600; }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.08); }
+
+.btn-outline { background: transparent; color: var(--text); border-color: var(--border-strong); }
+.btn-outline:hover:not(:disabled) { background: var(--surface2); border-color: var(--text3); }
+
+.btn-ghost { background: transparent; color: var(--text2); border-color: transparent; padding: 5px 8px; }
+.btn-ghost:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+
+.btn-sm { padding: 5px 10px; font-size: 11.5px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 4px; }
+
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* ── Forms ─────────────────────────────────────────────────────── */
+.field-label {
+  display: block;
+  font-size: 10.5px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.field-sub { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+.field-hint { font-size: 11px; color: var(--text3); margin-top: 5px; display: block; }
+.field-input,
+input[type="text"].field-input,
+input[type="password"].field-input,
+input[type="email"].field-input,
+.ctx-input,
+.source-add-row input,
+.form-group input,
+.conf-publish-row select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+.field-input:focus,
+.ctx-input:focus,
+.source-add-row input:focus,
+.form-group input:focus,
+.conf-publish-row select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-size: 10.5px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.form-group small { font-size: 11px; color: var(--text3); margin-top: 5px; display: block; }
+.form-group input { font-family: 'Geist Mono', monospace; font-size: 12px; }
+
+/* ── Context filter ────────────────────────────────────────────── */
+.ctx-toggle {
+  display: flex; align-items: center; gap: 9px;
+  cursor: pointer; user-select: none;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color .15s;
+}
+.ctx-toggle:hover { border-color: var(--text3); }
+.ctx-toggle .ico { color: var(--text2); }
+.ctx-toggle-label { font-size: 12.5px; font-weight: 500; color: var(--text); flex: 1; }
+.ctx-toggle-arrow { color: var(--text3); transition: transform .18s; }
+.ctx-toggle.open .ctx-toggle-arrow { transform: rotate(90deg); }
+.ctx-fields { display: none; flex-direction: column; gap: 10px; padding: 12px 14px 4px; }
+.ctx-fields.open { display: flex; }
+.ctx-input { font-size: 12px; }
+.ctx-field-label {
+  font-size: 10.5px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.ctx-field-sub { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+.ctx-active-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; padding: 1px 8px;
+  background: var(--accent-soft); color: var(--accent-deep);
+  border-radius: 10px; font-weight: 600;
+}
+
+/* ── Output tabs ───────────────────────────────────────────────── */
+.output-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.output-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap; flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+}
+.output-tab {
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 11.5px; font-weight: 500;
+  cursor: pointer; border: 1px solid transparent;
+  background: transparent;
+  color: var(--text3);
+  font-family: inherit;
+  transition: background .12s, color .12s;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.output-tab::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+.output-tab:hover { color: var(--text); background: var(--surface2); }
+.output-tab.has-content::before { background: var(--green); }
+.output-tab.active { background: var(--surface2); color: var(--text); }
+.output-tab.has-content.active::before { background: var(--green); }
+
+.output-wrapper { position: relative; }
+.output-actions {
+  display: flex; gap: 6px; margin-bottom: 8px;
+  justify-content: flex-end; flex-wrap: wrap; align-items: center;
+}
+
+.conf-publish-row,
+.jira-hierarchy-row,
+.mockup-gen-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+.conf-publish-row select { max-width: 200px; flex: 0 0 auto; font-family: inherit; font-size: 11.5px; padding: 4px 8px; }
+.conf-publish-msg,
+.jira-hierarchy-result,
+.mockup-gen-msg {
+  font-size: 11px; color: var(--text3); margin-left: 4px;
+  font-family: 'Geist Mono', monospace;
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.conf-publish-msg.ok, .jira-hierarchy-result.ok, .mockup-gen-msg.ok { color: var(--green); }
+.conf-publish-msg.err, .jira-hierarchy-result.err, .mockup-gen-msg.err { color: var(--red); }
+
+#mockup-iframe {
+  width: 100%; border: 1px solid var(--border);
+  border-radius: var(--radius); background: #fff; display: none;
+}
+
+.output-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  min-height: 320px;
+  box-shadow: var(--shadow);
+}
+.output-content.empty {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text3); font-size: 12.5px;
+}
+.output-editor { display: none; flex-direction: column; gap: 8px; }
+.output-editor textarea {
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 14px;
+  color: var(--text);
+  font-family: 'Geist Mono', monospace; font-size: 12px;
+  line-height: 1.6; resize: vertical; min-height: 420px; outline: none; width: 100%;
+}
+.editor-actions { display: flex; gap: 6px; }
+
+/* ── Correction panel ──────────────────────────────────────────── */
+.correction-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px; margin-top: 12px; display: none;
+}
+.correction-panel h5 { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.correction-panel textarea {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 11px; color: var(--text);
+  font-size: 12px; line-height: 1.55; resize: vertical; min-height: 78px;
+  outline: none; font-family: inherit;
+}
+.correction-panel textarea:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
+.correction-panel .hint { font-size: 11px; color: var(--text3); margin-top: 5px; }
+.rerun-progress {
+  display: none; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text2); margin-top: 8px;
+}
+
+/* ── Markdown ──────────────────────────────────────────────────── */
+.md-body { font-size: 13px; line-height: 1.7; color: var(--text); }
+.md-body h1 {
+  font-size: 19px; font-weight: 600;
+  margin: 20px 0 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 7px; letter-spacing: -0.02em;
+}
+.md-body h2 { font-size: 15px; font-weight: 600; margin: 18px 0 6px; color: var(--text); letter-spacing: -0.01em; }
+.md-body h3 { font-size: 13.5px; font-weight: 600; margin: 14px 0 5px; }
+.md-body h4 { font-size: 12.5px; font-weight: 600; margin: 12px 0 4px; color: var(--text2); }
+.md-body h2::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); border-radius: 2px; margin-right: 8px; transform: translateY(2px); }
+.md-body p { margin-bottom: 9px; }
+.md-body ul, .md-body ol { margin: 6px 0 8px 20px; }
+.md-body li { margin-bottom: 3px; }
+.md-body code {
+  background: var(--surface2); padding: 1.5px 5px; border-radius: 3px;
+  font-family: 'Geist Mono', monospace; font-size: 11.5px;
+  border: 1px solid var(--border); color: var(--accent-deep);
+}
+.md-body pre {
+  background: var(--surface2); padding: 12px 14px;
+  border-radius: var(--radius-sm); overflow-x: auto;
+  margin: 10px 0; border: 1px solid var(--border);
+}
+.md-body pre code { background: none; padding: 0; border: none; color: var(--text); }
+.md-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 6px 0 6px 12px; color: var(--text2); margin: 10px 0;
+  background: var(--surface2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.md-body strong { color: var(--text); font-weight: 600; }
+.md-body table {
+  border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+}
+.md-body th, .md-body td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; }
+.md-body th { background: var(--surface2); font-weight: 600; color: var(--text); font-size: 11px; letter-spacing: 0.02em; text-transform: uppercase; }
+.md-body tr:nth-child(even) td { background: var(--surface2); }
+.md-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── UI Code tab ───────────────────────────────────────────────── */
+.ui-layout {
+  display: grid; grid-template-columns: 280px 1fr;
+  gap: 14px; height: calc(100vh - 120px);
+}
+.ui-file-list {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); display: flex; flex-direction: column;
+  overflow: hidden; box-shadow: var(--shadow);
+}
+.ui-file-list-header {
+  padding: 9px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.ui-file-list-header h4 { font-size: 12px; font-weight: 600; flex: 1; }
+.ui-stats { font-size: 10.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+
+.ui-upload-zone { padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.ui-upload-zone-inner {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm); padding: 14px;
+  text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.ui-upload-zone-inner:hover,
+.ui-upload-zone-inner.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+.ui-upload-zone-inner p { font-size: 11.5px; color: var(--text); margin-bottom: 3px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.ui-upload-zone-inner small { font-size: 10.5px; color: var(--text3); }
+.ui-upload-secondary { display: flex; gap: 5px; margin-top: 8px; }
+.ui-files-inner { overflow-y: auto; flex: 1; padding: 4px 0; }
+.ui-folder-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; cursor: pointer;
+  font-size: 10.5px; font-weight: 600;
+  color: var(--text2); text-transform: uppercase;
+  letter-spacing: 0.04em; user-select: none;
+}
+.ui-folder-header:hover { color: var(--text); background: var(--surface2); }
+.ui-folder-header .fold-icon { font-size: 9px; transition: transform .15s; display: inline-block; }
+.ui-folder-header.collapsed .fold-icon { transform: rotate(-90deg); }
+.ui-folder-header .ico { width: 11px; height: 11px; color: var(--text3); }
+.ui-folder-files.hidden { display: none; }
+.ui-file-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 10px 5px 20px; cursor: pointer;
+  font-size: 11.5px; color: var(--text2);
+}
+.ui-file-item:hover { background: var(--surface2); color: var(--text); }
+.ui-file-item.active { background: var(--surface2); color: var(--accent); position: relative; }
+.ui-file-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px;
+  background: var(--accent); border-radius: 1px;
+}
+.ext-badge {
+  font-size: 9px; background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 4px;
+  font-family: 'Geist Mono', monospace; flex-shrink: 0;
+  color: var(--text3); font-weight: 500;
+}
+.fi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'Geist Mono', monospace; font-size: 11px; }
+.fi-del { opacity: 0; color: var(--text3); font-size: 11px; padding: 2px 4px; border-radius: 3px; flex-shrink: 0; line-height: 0; }
+.ui-file-item:hover .fi-del { opacity: 1; }
+.fi-del:hover { color: var(--red); background: var(--red-soft); }
+.ui-footer { padding: 8px 10px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+
+.ui-code-view {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  display: flex; flex-direction: column; box-shadow: var(--shadow);
+}
+.ui-code-view-header {
+  padding: 9px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px; color: var(--text2);
+  font-family: 'Geist Mono', monospace;
+  background: var(--surface2); display: flex; align-items: center; gap: 8px;
+}
+.ui-code-view-header .file-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-code-view pre {
+  flex: 1; overflow: auto; padding: 16px;
+  font-family: 'Geist Mono', monospace; font-size: 11.5px;
+  line-height: 1.6; color: var(--text);
+  background: var(--surface); margin: 0; white-space: pre;
+}
+.ui-empty {
+  display: flex; align-items: center; justify-content: center; flex: 1;
+  color: var(--text3); font-size: 12.5px;
+  flex-direction: column; gap: 8px;
+  padding: 30px; text-align: center;
+}
+.ui-empty .ico { width: 28px; height: 28px; color: var(--text3); }
+
+/* ── Upload overlay ────────────────────────────────────────────── */
+.upload-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(8,11,18,.85);
+  backdrop-filter: blur(8px); z-index: 100;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 14px;
+}
+html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
+.upload-overlay.visible { display: flex; }
+.upload-overlay p { font-size: 13px; font-weight: 600; color: var(--text); }
+.upload-overlay small { font-size: 11.5px; color: var(--text3); }
+.spinner {
+  width: 30px; height: 30px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── History ───────────────────────────────────────────────────── */
+.history-list { display: flex; flex-direction: column; gap: 6px; }
+.history-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 16px;
+  display: flex; align-items: center; gap: 12px;
+  transition: border-color .15s;
+}
+.history-item:hover { border-color: var(--text3); }
+.history-item .htime {
+  font-size: 11px; color: var(--text3);
+  min-width: 130px;
+  font-family: 'Geist Mono', monospace;
+}
+.history-item .hfiles { flex: 1; display: flex; gap: 5px; flex-wrap: wrap; }
+.file-chip {
+  background: var(--surface2); border-radius: 4px;
+  padding: 3px 8px; font-size: 10.5px; color: var(--text2);
+  cursor: pointer; border: 1px solid var(--border);
+  font-family: 'Geist Mono', monospace;
+  transition: all .12s;
+}
+.file-chip:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+/* ── Reference sections ────────────────────────────────────────── */
+.ref-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  margin-bottom: 12px; box-shadow: var(--shadow);
+}
+.ref-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+.ref-section h3 .ico { color: var(--text3); }
+.ref-section > p { font-size: 11.5px; color: var(--text2); margin-bottom: 12px; }
+.ref-file-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; min-height: 28px; }
+.ref-file-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border-radius: var(--radius-sm);
+  padding: 6px 10px; font-size: 11.5px; border: 1px solid var(--border);
+}
+.ref-file-row .rf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.ref-file-row .rf-size { color: var(--text3); font-size: 10.5px; font-family: 'Geist Mono', monospace; flex-shrink: 0; }
+.ref-file-row .rf-del { cursor: pointer; color: var(--text3); padding: 2px 4px; border-radius: 3px; font-size: 10.5px; flex-shrink: 0; line-height: 0; }
+.ref-file-row .rf-del:hover { color: var(--red); background: var(--red-soft); }
+.ref-upload-bar { display: flex; align-items: center; gap: 8px; }
+.ref-drop-hint { font-size: 10.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+
+.ref-fetch-output {
+  margin-top: 8px; font-size: 11.5px; color: var(--text2);
+  white-space: pre-wrap; display: none;
+  background: var(--surface2);
+  border-radius: var(--radius-sm); padding: 9px 11px;
+  border: 1px solid var(--border);
+  font-family: 'Geist Mono', monospace;
+  max-height: 200px; overflow: auto;
+}
+
+.ref-fetch-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px;
+  background: var(--surface2); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text); font-size: 11.5px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+  transition: all .12s;
+}
+.ref-fetch-btn:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); }
+.ref-fetch-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ref-delete-btn {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; font-size: 11px; padding: 2px 6px; border-radius: 3px;
+  font-family: inherit;
+}
+.ref-delete-btn:hover { color: var(--red); background: var(--red-soft); }
+
+.sync-log {
+  margin-top: 10px; padding: 9px 11px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px; color: var(--text2);
+  white-space: pre-wrap; max-height: 160px;
+  overflow-y: auto; display: none;
+}
+
+.source-sync-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.source-last-sync { font-size: 10.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+.source-section-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text3); margin: 12px 0 6px;
+}
+.source-add-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.source-add-row input { flex: 1; min-width: 100px; font-size: 12px; }
+.source-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 6px 11px;
+  margin-bottom: 3px; font-size: 11.5px;
+}
+.source-item-key { font-weight: 600; color: var(--text); font-family: 'Geist Mono', monospace; }
+.source-item-name { font-size: 10.5px; color: var(--text3); margin-top: 1px; }
+
+/* ── Jira section ──────────────────────────────────────────────── */
+.jira-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  margin-bottom: 14px; margin-top: 16px; box-shadow: var(--shadow);
+}
+.jira-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+.jira-section h3 .ico { color: var(--text3); }
+.jira-section > p { font-size: 11.5px; color: var(--text2); margin-bottom: 14px; }
+.jira-connected,
+.jira-disconnected {
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  font-size: 11.5px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.jira-connected { background: var(--green-soft); border: 1px solid var(--green); color: var(--green); }
+.jira-disconnected { background: var(--yellow-soft); border: 1px solid var(--yellow); color: var(--yellow); }
+.jira-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── Settings extras ───────────────────────────────────────────── */
+.settings-form { max-width: 640px; }
+.settings-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.settings-section .section-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.settings-section .section-desc { font-size: 11.5px; color: var(--text2); margin-bottom: 12px; }
+
+/* ── Prompt Editor ─────────────────────────────────────────────── */
+.prompt-editor-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 14px; box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.prompt-editor-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 16px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid transparent; transition: border-color .15s;
+}
+.prompt-editor-head:hover { background: var(--surface2); }
+.prompt-editor-head.open { border-bottom-color: var(--border); }
+.prompt-editor-head .pe-title { font-size: 13px; font-weight: 600; flex: 1; }
+.prompt-editor-head .pe-chevron { color: var(--text3); transition: transform .2s; }
+.prompt-editor-head.open .pe-chevron { transform: rotate(180deg); }
+.prompt-editor-body { padding: 16px; display: none; }
+.prompt-editor-body.open { display: block; }
+.prompt-skill-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.prompt-skill-tab {
+  padding: 5px 11px; border-radius: var(--radius-sm);
+  background: var(--surface2); border: 1px solid var(--border);
+  font-size: 11.5px; cursor: pointer; color: var(--text2);
+  transition: all .15s;
+}
+.prompt-skill-tab:hover { border-color: var(--border-strong); color: var(--text); }
+.prompt-skill-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.prompt-skill-tab .modified-dot {
+  display: inline-block; width: 6px; height: 6px;
+  background: var(--yellow); border-radius: 50%; margin-left: 5px; vertical-align: middle;
+}
+.prompt-meta { font-size: 11px; color: var(--text3); margin-bottom: 10px; line-height: 1.5; }
+.prompt-textarea {
+  width: 100%; min-height: 280px; resize: vertical;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+  font-family: 'Geist Mono', monospace; font-size: 11.5px;
+  color: var(--text); line-height: 1.65; outline: none;
+  transition: border-color .15s;
+}
+.prompt-textarea:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
+.prompt-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.prompt-modified-badge {
+  font-size: 10.5px; color: var(--yellow); display: none;
+  background: var(--yellow-soft); padding: 2px 8px; border-radius: 10px;
+}
+
+/* ── Suspend overlay ───────────────────────────────────────────── */
+.suspend-overlay {
+  position: fixed; inset: 0;
+  background: rgba(8,11,18,.88);
+  backdrop-filter: blur(10px); z-index: 10000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px; cursor: pointer;
+}
+html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
+.suspend-overlay .s-icon { color: var(--text3); }
+.suspend-overlay .s-icon .ico { width: 38px; height: 38px; }
+.suspend-overlay .s-title { font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+.suspend-overlay .s-sub { font-size: 12px; color: var(--text3); }
+
+/* ── Toast ─────────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed; bottom: 20px; right: 20px;
+  z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text3);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  font-size: 12.5px; min-width: 240px;
+  animation: slide-in .2s ease;
+  display: flex; align-items: center; gap: 9px;
+  box-shadow: var(--shadow-md); color: var(--text);
+}
+.toast .ico { width: 14px; height: 14px; flex-shrink: 0; }
+.toast.success { border-left-color: var(--green); }
+.toast.success .ico { color: var(--green); }
+.toast.error   { border-left-color: var(--red); }
+.toast.error .ico { color: var(--red); }
+.toast.info    { border-left-color: var(--blue); }
+.toast.info .ico { color: var(--blue); }
+@keyframes slide-in { from{transform:translateX(16px);opacity:0} to{transform:none;opacity:1} }
+
+/* ── Badge ─────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent);
+  border-radius: 9px; font-size: 9.5px; font-weight: 600;
+  padding: 0 6px; min-width: 16px; height: 16px;
+  font-family: 'Geist Mono', monospace;
+}
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── Pipeline action area ──────────────────────────────────────── */
+.action-area {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.action-desc {
+  font-size: 12.5px; color: var(--text2);
+  margin-bottom: 12px; line-height: 1.55;
+}
+.action-area .action-foot {
+  margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--text3);
+}
+
+/* ── Metric tiles (side column) ────────────────────────────────── */
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric-val { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); line-height: 1.1; }
+.metric-label {
+  font-size: 10.5px; color: var(--text3);
+  display: flex; align-items: center; gap: 4px;
+}
+.metric-delta { color: var(--accent); font-family: 'Geist Mono', monospace; font-size: 10.5px; }
+
+/* ── Connection rows ───────────────────────────────────────────── */
+.conn-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; font-size: 11.5px;
+  border-bottom: 1px solid var(--border);
+}
+.conn-row:last-child { border-bottom: 0; }
+.conn-row .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.conn-row .dot.ok { background: var(--green); }
+.conn-row .dot.warn { background: var(--yellow); }
+.conn-row .conn-name { flex: 1; color: var(--text2); }
+.conn-row .conn-meta { font-size: 10.5px; font-family: 'Geist Mono', monospace; color: var(--text3); }
+.conn-row .conn-meta.ok { color: var(--green); }
+.conn-row .conn-meta.warn { color: var(--yellow); }
+
+/* ── Misc ──────────────────────────────────────────────────────── */
+.mono-meta { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--text3); }
+.kv-row { display: flex; gap: 8px; font-size: 11.5px; padding: 3px 0; }
+.kv-row .k { color: var(--text3); width: 110px; flex-shrink: 0; }
+.kv-row .v { color: var(--text); font-family: 'Geist Mono', monospace; font-size: 11px; }
+.kv-row .v.muted { color: var(--text3); }
+
+/* ── Toggle switch ─────────────────────────────────────────────── */
+.toggle-wrap { position: relative; display: inline-block; width: 38px; height: 22px; cursor: pointer; }
+.toggle-wrap input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0; border-radius: 11px;
+  background: var(--border-strong);
+  transition: .2s;
+}
+.toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: .2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .page-grid { grid-template-columns: 1fr; }
+  .ui-layout { grid-template-columns: 240px 1fr; }
+}
+@media (max-width: 900px) {
+  .ui-layout { grid-template-columns: 1fr; grid-template-rows: 180px 1fr; }
+  .page { padding: 16px 14px; }
+  .jira-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+}
+
+</style>
+
+<script>
+(function initTheme() {
+  try {
+    const saved = localStorage.getItem('brd-theme');
+    document.documentElement.dataset.theme = saved || 'dark';
+  } catch { document.documentElement.dataset.theme = 'dark'; }
+})();
+function temaDegistir() {
+  const cur = document.documentElement.dataset.theme || 'dark';
+  const nxt = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = nxt;
+  try { localStorage.setItem('brd-theme', nxt); } catch {}
+}
+</script>
+
+</head>
+<body>
+<!-- SVG icon sprite — Lucide-style 1.5px stroke -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-workflow" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6"/><path d="M14 12l4-3-4-3"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9z"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-zip" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><line x1="12" y1="22" x2="12" y2="12"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M6 14l1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2M13 17v2M13 11v2"/></symbol>
+    <symbol id="i-confluence" viewBox="0 0 24 24"><path d="M2 14c2-3 6-3 8 0s6 3 8 0M2 18c2-3 6-3 8 0s6 3 8 0"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="7" rx="1.5"/><rect x="2" y="14" width="20" height="7" rx="1.5"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.78A6 6 0 0 0 4.5 13.5 4 4 0 0 0 5 19h12.5z"/></symbol>
+    <symbol id="i-sleep" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><path d="M15 4h4M15 4l4 4M15 4l4 4"/></symbol>
+    <symbol id="i-loader" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></symbol>
+  </defs>
+</svg>
+
+<div class="layout">
+
+  <!-- ─────────────── SIDEBAR ─────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark"><svg class="ico"><use href="#i-layers"/></svg></div>
+      <div class="brand-meta">
+        <div class="brand-title">BRD Analyst Agent</div>
+        <div class="brand-sub">v1.1 · local</div>
+      </div>
+    </div>
+
+    <div class="sidebar-search">
+      <div class="sidebar-search-inner">
+        <svg class="ico"><use href="#i-search"/></svg>
+        <span>Ara</span>
+        <span class="kbd">⌘K</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Pipeline</div>
+      <div class="nav-item active" id="nav-surec" onclick="switchTab('surec')">
+        <svg class="ico"><use href="#i-workflow"/></svg>
+        <span class="nav-label">Süreç Analizi</span>
+      </div>
+      <div class="nav-item" id="nav-brd" onclick="switchTab('brd')">
+        <svg class="ico"><use href="#i-clipboard"/></svg>
+        <span class="nav-label">BRD Analizi</span>
+      </div>
+
+      <div class="nav-section">Çıktılar</div>
+      <div class="nav-item" id="nav-output" onclick="switchTab('output')">
+        <svg class="ico"><use href="#i-file-text"/></svg>
+        <span class="nav-label">Çıktılar</span>
+      </div>
+      <div class="nav-item" id="nav-ui-code" onclick="switchTab('ui-code')">
+        <svg class="ico"><use href="#i-monitor"/></svg>
+        <span class="nav-label">Mevcut UI</span>
+        <span class="badge" id="ui-badge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" id="nav-referanslar" onclick="switchTab('referanslar')">
+        <svg class="ico"><use href="#i-book"/></svg>
+        <span class="nav-label">Referanslar</span>
+      </div>
+      <div class="nav-item" id="nav-history" onclick="switchTab('history')">
+        <svg class="ico"><use href="#i-clock"/></svg>
+        <span class="nav-label">Geçmiş</span>
+      </div>
+
+      <div class="nav-section">Sistem</div>
+      <div class="nav-item" id="nav-settings" onclick="switchTab('settings')">
+        <svg class="ico"><use href="#i-settings"/></svg>
+        <span class="nav-label">Ayarlar</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="status-dot status-idle" id="sidebar-dot"></span>
+      <span id="sidebar-status-text">Hazır</span>
+      <button class="theme-toggle" onclick="temaDegistir()" title="Tema değiştir">
+        <svg class="ico ico-sun" style="width:12px;height:12px"><use href="#i-sun"/></svg>
+        <svg class="ico ico-moon" style="width:12px;height:12px"><use href="#i-moon"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ─────────────── MAIN ─────────────── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="crumb">
+        <span class="crumb-step">Pipeline</span>
+        <svg class="ico"><use href="#i-chevron-right"/></svg>
+        <span class="crumb-now" id="crumb-now">Süreç Analizi</span>
+      </div>
+      <div style="flex:1"></div>
+      <div class="topbar-meta">
+        <span class="status-dot status-idle" id="topbar-dot"></span>
+        <span id="topbar-status">Hazır</span>
+      </div>
+      <span class="topbar-sep"></span>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('settings')" title="Ayarlar">
+        <svg class="ico"><use href="#i-settings"/></svg>
+      </button>
+      <button class="btn btn-ghost btn-sm" title="Yardım">
+        <svg class="ico"><use href="#i-help"/></svg>
+      </button>
+      <div class="user-avatar" title="Kullanıcı">A</div>
+    </div>
+
+    <!-- Workflow bar (sticky görünür sadece aktifken) -->
+    <div class="wf-bar" id="wf-bar" style="display:none">
+      <span class="status-dot" id="wf-dot"></span>
+      <div style="flex:1">
+        <div class="wf-label" id="wf-label">-</div>
+        <div class="wf-sub" id="wf-msg"></div>
+      </div>
+    </div>
+
+    <!-- ─── SÜREÇ ANALİZİ ─── -->
+    <div class="page active" id="page-surec">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Süreç Pipeline</h1>
+          <p>Süreç dokümanını analiz et, analist onayı sonrası teknik analiz ve Jira hiyerarşisi üret.</p>
+        </div>
+      </div>
+
+      <!-- Step rail -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title">İş Akışı</span>
+          <span class="panel-tag">4 ADIM</span>
+          <span class="panel-spacer"></span>
+        </div>
+        <div class="panel-body" style="padding-top:12px">
+          <div class="steps-flow">
+            <div class="step" id="step-surec-1">
+              <div class="step-num">1</div>
+              <div class="step-text"><span>Süreç Analizi</span><small class="step-dur" id="dur-surec-1"></small></div>
+            </div>
+            <span class="step-arrow"><svg><use href="#i-chevron-right"/></svg></span>
+            <div class="step" id="step-surec-2">
+              <div class="step-num">2</div>
+              <div class="step-text"><span>Analist Onayı</span><small class="step-dur" id="dur-surec-2"></small></div>
+            </div>
+            <span class="step-arrow"><svg><use href="#i-chevron-right"/></svg></span>
+            <div class="step" id="step-surec-3">
+              <div class="step-num">3</div>
+              <div class="step-text"><span>Teknik Analiz</span><small class="step-dur" id="dur-surec-3"></small></div>
+            </div>
+            <span class="step-arrow"><svg><use href="#i-chevron-right"/></svg></span>
+            <div class="step" id="step-surec-4">
+              <div class="step-num">4</div>
+              <div class="step-text"><span>Jira Hiyerarşi</span><small class="step-dur" id="dur-surec-4"></small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aksiyon alanı -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title">Girdi Dokümanı</span>
+          <span class="panel-tag">STEP 1/4</span>
+          <span class="panel-spacer"></span>
+        </div>
+        <div class="panel-body">
+
+          <!-- IDLE -->
+          <div id="surec-act-idle">
+            <div class="upload-zone" id="upload-zone-surec"
+                 ondrop="handleDrop(event,'surec')" ondragover="event.preventDefault()"
+                 onclick="document.getElementById('file-surec').click()">
+              <div class="icon-lg"><svg class="ico"><use href="#i-upload"/></svg></div>
+              <div class="upload-meta">
+                <p>Süreç dokümanı yükle</p>
+                <small>PDF · DOCX · PNG · TXT · MD</small>
+              </div>
+              <input type="file" id="file-surec" accept=".pdf,.png,.jpg,.txt,.md,.docx" onchange="dosyaSec(this,'surec')">
+            </div>
+            <div class="uploaded-file" id="uploaded-surec" style="display:none;margin-top:10px">
+              <svg class="ico"><use href="#i-file-text"/></svg>
+              <span class="fname" id="uploaded-surec-name"></span>
+              <span class="fsize" id="uploaded-surec-size"></span>
+              <span class="fremove" onclick="dosyaKaldir('surec')" title="Kaldır"><svg class="ico ico-sm"><use href="#i-x"/></svg></span>
+            </div>
+            <div class="btn-group" style="margin-top:12px">
+              <button class="btn btn-primary" id="btn-surec" onclick="runPipeline('surec')" disabled>
+                <svg class="ico"><use href="#i-play"/></svg> Başlat
+              </button>
+            </div>
+          </div>
+
+          <!-- RUNNING -->
+          <div id="surec-act-running" style="display:none">
+            <div class="action-desc" id="surec-running-desc">Çalışıyor...</div>
+            <div class="btn-group">
+              <button class="btn btn-danger btn-sm" onclick="resetWorkflow()">
+                <svg class="ico"><use href="#i-stop"/></svg> Durdur
+              </button>
+            </div>
+          </div>
+
+          <!-- ONAY_BEKLENIYOR -->
+          <div id="surec-act-onay" style="display:none">
+            <div class="action-desc">Süreç analizi tamamlandı. İnceledikten sonra teknik analiz için devam edin.</div>
+            <div class="btn-group">
+              <button class="btn btn-success" onclick="onayla()">
+                <svg class="ico"><use href="#i-check"/></svg> Devam Et — Teknik Analiz Başlat
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="reddet()">
+                <svg class="ico"><use href="#i-stop"/></svg> Durdur
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Çıktıyı İncele</button>
+            </div>
+            <div class="action-foot">
+              <span>İsteğe bağlı:</span>
+              <button class="btn btn-outline btn-sm" id="btn-mockup-onay" onclick="mockupOlustur()">
+                <svg class="ico"><use href="#i-zap"/></svg> HTML Prototip Oluştur
+              </button>
+              <span id="mockup-onay-msg" class="mono-meta"></span>
+            </div>
+          </div>
+
+          <!-- TEKNIK_ANALIZ_ONAY_BEKLENIYOR -->
+          <div id="surec-act-teknik-onay" style="display:none">
+            <div class="action-desc">Teknik analiz ve açık sorular oluşturuldu. İnceleyip Jira task oluşturmak için devam edin.</div>
+            <div class="btn-group">
+              <button class="btn btn-success" onclick="teknikOnayla()">
+                <svg class="ico"><use href="#i-check"/></svg> Devam Et — Jira Task Oluştur
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="teknikReddet()">
+                <svg class="ico"><use href="#i-stop"/></svg> Durdur
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Teknik Analizi İncele</button>
+            </div>
+          </div>
+
+          <!-- DONE -->
+          <div id="surec-act-done" style="display:none">
+            <div class="action-desc" id="surec-done-msg">Pipeline tamamlandı.</div>
+            <div class="btn-group">
+              <button class="btn btn-success" onclick="surecleriSifirla()">
+                <svg class="ico"><use href="#i-check"/></svg> Bitir
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Çıktıları Görüntüle</button>
+            </div>
+          </div>
+
+          <!-- ERROR -->
+          <div id="surec-act-error" style="display:none">
+            <div class="action-desc" id="surec-error-msg" style="color:var(--red)">Bir hata oluştu.</div>
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="surecleriSifirla()">
+                <svg class="ico"><use href="#i-refresh"/></svg> Yeniden Başlat
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bağlam Filtresi -->
+      <div class="ctx-toggle" id="ctx-toggle" onclick="toggleCtx()">
+        <svg class="ico"><use href="#i-filter"/></svg>
+        <span class="ctx-toggle-label">Bağlam Filtresi</span>
+        <span id="ctx-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
+        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div class="ctx-fields" id="ctx-fields">
+        <div>
+          <div class="ctx-field-label">Anahtar Kelimeler</div>
+          <div class="ctx-field-sub">Confluence sayfalarda ve Jira task'larda bu kelimeleri ara</div>
+          <input class="ctx-input" id="ctx-keywords" type="text" placeholder="örn: ödeme, payment, sipariş" oninput="updateCtxBadge()">
+        </div>
+        <div>
+          <div class="ctx-field-label">Jira Issue Keys</div>
+          <div class="ctx-field-sub">Sadece bu task'ları bağlama ekle</div>
+          <input class="ctx-input" id="ctx-jira-keys" type="text" placeholder="örn: PROJ-123, PROJ-456" oninput="updateCtxBadge()">
+        </div>
+        <div>
+          <div class="ctx-field-label">Confluence Sayfa Adları</div>
+          <div class="ctx-field-sub">Boş bırakılırsa içerik bazlı aranır</div>
+          <input class="ctx-input" id="ctx-conf-pages" type="text" placeholder="örn: Ödeme Entegrasyonu, Kullanıcı Yönetimi" oninput="updateCtxBadge()">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="ctxFilterKaydet()">Kaydet</button>
+          <button class="btn btn-outline btn-sm" onclick="ctxFilterTemizle()">Temizle</button>
+          <span id="ctx-save-status" class="mono-meta"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── BRD ANALİZİ ─── -->
+    <div class="page" id="page-brd">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>BRD Pipeline</h1>
+          <p>BRD dokümanını analiz et, sorular üret, PO revizyonu sonrası kapsam analizi yap.</p>
+        </div>
+      </div>
+
+      <!-- Step rail -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title">İş Akışı</span>
+          <span class="panel-tag">3 ADIM</span>
+        </div>
+        <div class="panel-body" style="padding-top:12px">
+          <div class="steps-flow">
+            <div class="step" id="step-brd-1">
+              <div class="step-num">1</div>
+              <div class="step-text"><span>BRD Analizi + Sorular</span><small class="step-dur" id="dur-brd-1"></small></div>
+            </div>
+            <span class="step-arrow"><svg><use href="#i-chevron-right"/></svg></span>
+            <div class="step" id="step-brd-2">
+              <div class="step-num">2</div>
+              <div class="step-text"><span>PO Revizyonu</span><small class="step-dur" id="dur-brd-2"></small></div>
+            </div>
+            <span class="step-arrow"><svg><use href="#i-chevron-right"/></svg></span>
+            <div class="step" id="step-brd-3">
+              <div class="step-num">3</div>
+              <div class="step-text"><span>Kapsam Analizi</span><small class="step-dur" id="dur-brd-3"></small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Girdi Dokümanı</span>
+          <span class="panel-tag">STEP 1/3</span>
+        </div>
+        <div class="panel-body">
+
+          <!-- IDLE -->
+          <div id="brd-act-idle">
+            <div class="upload-zone" id="upload-zone-brd"
+                 ondrop="handleDrop(event,'brd')" ondragover="event.preventDefault()"
+                 onclick="document.getElementById('file-brd').click()">
+              <div class="icon-lg"><svg class="ico"><use href="#i-upload"/></svg></div>
+              <div class="upload-meta">
+                <p>BRD dokümanı yükle</p>
+                <small>PDF · DOCX · PNG · TXT · MD — Tüm doküman analiz edilir</small>
+              </div>
+              <input type="file" id="file-brd" accept=".pdf,.png,.jpg,.txt,.md,.docx" onchange="dosyaSec(this,'brd')">
+            </div>
+            <div class="uploaded-file" id="uploaded-brd" style="display:none;margin-top:10px">
+              <svg class="ico"><use href="#i-file-text"/></svg>
+              <span class="fname" id="uploaded-brd-name"></span>
+              <span class="fsize" id="uploaded-brd-size"></span>
+              <span class="fremove" onclick="dosyaKaldir('brd')" title="Kaldır"><svg class="ico ico-sm"><use href="#i-x"/></svg></span>
+            </div>
+            <div class="btn-group" style="margin-top:12px">
+              <button class="btn btn-primary" id="btn-brd" onclick="runPipeline('brd')" disabled>
+                <svg class="ico"><use href="#i-play"/></svg> Başlat
+              </button>
+            </div>
+          </div>
+
+          <!-- RUNNING -->
+          <div id="brd-act-running" style="display:none">
+            <div class="action-desc" id="brd-running-desc">Çalışıyor...</div>
+            <div class="btn-group">
+              <button class="btn btn-danger btn-sm" onclick="resetWorkflow()">
+                <svg class="ico"><use href="#i-stop"/></svg> Durdur
+              </button>
+            </div>
+          </div>
+
+          <!-- BRD_REVIZE_BEKLENIYOR -->
+          <div id="brd-act-revize" style="display:none">
+            <div class="action-desc">BRD analizi ve sorular hazır. PO soruları yanıtlayıp BRD'yi revize ettikten sonra güncel versiyonu yükleyin.</div>
+            <div style="margin-bottom:12px">
+              <div class="field-label">Revize BRD</div>
+              <input type="file" id="revize-input" accept=".pdf,.txt,.md,.png,.jpg,.docx" style="display:none" onchange="revizeDosyaSecildi(this)">
+              <div style="display:flex;align-items:center;gap:10px">
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('revize-input').click()">
+                  <svg class="ico"><use href="#i-upload"/></svg> Dosya Seç
+                </button>
+                <span id="revize-dosya-adi" class="mono-meta"></span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-primary" id="revize-yukle-btn" onclick="revizeBrdYukle()" disabled>
+                <svg class="ico"><use href="#i-check"/></svg> Devam Et — Kapsam Analizi Başlat
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="kapsamAtla()">Analiz Olmadan Kaydet</button>
+              <button class="btn btn-outline btn-sm" onclick="resetWorkflow()">Durdur</button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">BRD Sorularını Görüntüle</button>
+            </div>
+          </div>
+
+          <!-- DONE -->
+          <div id="brd-act-done" style="display:none">
+            <div class="action-desc" id="brd-done-msg">BRD pipeline tamamlandı.</div>
+            <div class="btn-group">
+              <button class="btn btn-success" onclick="surecleriSifirla()">
+                <svg class="ico"><use href="#i-check"/></svg> Bitir
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Çıktıları Görüntüle</button>
+            </div>
+          </div>
+
+          <!-- ERROR -->
+          <div id="brd-act-error" style="display:none">
+            <div class="action-desc" id="brd-error-msg" style="color:var(--red)">Bir hata oluştu.</div>
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="surecleriSifirla()">
+                <svg class="ico"><use href="#i-refresh"/></svg> Yeniden Başlat
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ÇIKTILAR ─── -->
+    <div class="page" id="page-output">
+      <div class="output-toolbar">
+        <div class="output-tabs" id="output-tabs">
+          <button class="output-tab" data-file="surec-analizi.md"       onclick="outputSec(this)">Süreç Analizi</button>
+          <button class="output-tab" data-file="teknik-analiz.md"       onclick="outputSec(this)">Teknik Analiz</button>
+          <button class="output-tab" data-file="acik-sorular.md"        onclick="outputSec(this)">Açık Sorular</button>
+          <button class="output-tab" data-file="brd-analizi.md"         onclick="outputSec(this)">BRD Analizi</button>
+          <button class="output-tab" data-file="brd-sorular.md"         onclick="outputSec(this)">BRD Soruları</button>
+          <button class="output-tab" data-file="kapsam-analizi.md"      onclick="outputSec(this)">Kapsam Analizi</button>
+          <button class="output-tab" data-file="alternatif-surecler.md" onclick="outputSec(this)">Alternatif Süreçler</button>
+          <button class="output-tab" data-file="mockup.html"            onclick="outputSec(this)">Prototip</button>
+        </div>
+      </div>
+
+      <div class="output-wrapper" id="output-wrapper">
+        <!-- Mockup üretim satırı -->
+        <div class="mockup-gen-row" id="mockup-gen-row" style="display:none">
+          <svg class="ico" style="color:var(--text3)"><use href="#i-zap"/></svg>
+          <span class="mono-meta" style="white-space:nowrap">HTML Prototip:</span>
+          <button class="btn btn-outline btn-xs" id="mockup-gen-btn" onclick="mockupOlustur()">Yeniden Üret</button>
+          <button class="btn btn-outline btn-xs" id="mockup-abort-btn" onclick="mockupIptal()" style="display:none">Durdur</button>
+          <button class="btn btn-outline btn-xs" id="mockup-indir-btn" onclick="ciktiIndir()" title="HTML dosyasını indir" style="display:none">
+            <svg class="ico"><use href="#i-download"/></svg> İndir
+          </button>
+          <span class="mockup-gen-msg" id="mockup-gen-msg"></span>
+        </div>
+
+        <!-- Jira hiyerarşi satırı -->
+        <div class="jira-hierarchy-row" id="jira-hierarchy-row" style="display:none">
+          <svg class="ico" style="color:var(--text3)"><use href="#i-ticket"/></svg>
+          <span class="mono-meta" style="white-space:nowrap">Jira:</span>
+          <button class="btn btn-outline btn-xs" id="jira-hierarchy-btn" onclick="jiraHiyerarsiOlustur()">
+            <svg class="ico"><use href="#i-arrow-right"/></svg> Hiyerarşik Task Oluştur
+          </button>
+          <span class="jira-hierarchy-result" id="jira-hierarchy-result"></span>
+        </div>
+
+        <!-- Confluence yayımla satırı -->
+        <div class="conf-publish-row" id="conf-publish-row" style="display:none">
+          <svg class="ico" style="color:var(--text3)"><use href="#i-confluence"/></svg>
+          <span class="mono-meta" style="white-space:nowrap">Confluence:</span>
+          <select id="conf-space-select">
+            <option value="">Space seç...</option>
+          </select>
+          <button class="btn btn-outline btn-xs" onclick="confluenceYayimla()">
+            <svg class="ico"><use href="#i-arrow-right"/></svg> Yayımla
+          </button>
+          <span class="conf-publish-msg" id="conf-publish-msg"></span>
+        </div>
+
+        <!-- Normal görünüm aksiyonları -->
+        <div class="output-actions" id="output-actions" style="display:none">
+          <button class="btn btn-outline btn-xs" id="btn-duzelt" onclick="duzeltPaneliAc()" title="Düzeltme notu ile yeniden çalıştır">
+            <svg class="ico"><use href="#i-refresh"/></svg> Yeniden Çalıştır
+          </button>
+          <button class="btn btn-outline btn-xs" onclick="duzenlemeyeGec()" title="İçeriği doğrudan düzenle">
+            <svg class="ico"><use href="#i-edit"/></svg> Düzenle
+          </button>
+          <button class="btn btn-outline btn-xs" id="btn-indir" onclick="ciktiIndir()" title="Dosyayı indir">
+            <svg class="ico"><use href="#i-download"/></svg> İndir
+          </button>
+          <button class="btn btn-outline btn-xs" id="btn-sil" onclick="ciktiSil()" title="Bu çıktıyı sil" style="color:var(--red);border-color:var(--red)">
+            <svg class="ico"><use href="#i-trash"/></svg> Sil
+          </button>
+        </div>
+
+        <!-- Düzeltme paneli -->
+        <div class="correction-panel" id="correction-panel">
+          <h5>Düzeltme Notu ile Yeniden Çalıştır</h5>
+          <p style="font-size:11.5px;color:var(--text2);margin-bottom:8px">Agent mevcut çıktıyı koruyarak yalnızca belirttiğin kısımları günceller.</p>
+          <textarea id="correction-text" placeholder="Örn: Bölüm 3'te ödeme akışı eksik, ekle. / Aktörler bölümündeki Muhasebe rolünü kaldır. / Tüm teknik terimler Türkçe olsun."></textarea>
+          <div class="hint">Tüm çıktıyı değil yalnızca belirttiğin kısımları etkiler.</div>
+          <div class="btn-group" style="margin-top:10px">
+            <button class="btn btn-primary btn-sm" onclick="duzeltmeIleYenideCalistir()">
+              <svg class="ico"><use href="#i-play"/></svg> Yeniden Çalıştır
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="duzeltPaneliKapat()">İptal</button>
+          </div>
+          <div class="rerun-progress" id="rerun-progress">
+            <span class="status-dot status-running"></span>
+            <span>Yeniden üretiliyor...</span>
+          </div>
+        </div>
+
+        <!-- İçerik / iframe / editör -->
+        <div class="output-content empty" id="output-content"><span>Bir çıktı seçin</span></div>
+        <iframe id="mockup-iframe" height="700" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+        <div class="output-editor" id="output-editor">
+          <textarea id="editor-textarea" spellcheck="false"></textarea>
+          <div class="editor-actions">
+            <button class="btn btn-success btn-sm" onclick="editKaydet()">
+              <svg class="ico"><use href="#i-check"/></svg> Kaydet
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="editIptal()">İptal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── UI CODE ─── -->
+    <div class="page" id="page-ui-code">
+      <div class="ui-layout">
+        <!-- Sol -->
+        <div class="ui-file-list">
+          <div class="ui-file-list-header">
+            <h4>Mevcut UI Kodu</h4>
+            <span class="ui-stats" id="ui-stats">0 dosya</span>
+          </div>
+
+          <div class="ui-upload-zone">
+            <div class="ui-upload-zone-inner" id="ui-zip-zone"
+                 onclick="document.getElementById('ui-zip-input').click()"
+                 ondrop="uiZipDrop(event)"
+                 ondragover="event.preventDefault();document.getElementById('ui-zip-zone').classList.add('drag-over')"
+                 ondragleave="document.getElementById('ui-zip-zone').classList.remove('drag-over')">
+              <p><svg class="ico"><use href="#i-zip"/></svg> Proje Export (.zip) Yükle</p>
+              <small>Tüm modül tek seferde — node_modules ve build klasörleri otomatik atlanır</small>
+            </div>
+            <input type="file" id="ui-zip-input" accept=".zip" style="display:none" onchange="uiZipYukle(this)">
+
+            <div class="ui-upload-secondary">
+              <input type="file" id="ui-folder-input" webkitdirectory multiple style="display:none" onchange="uiDosyaYukle(this)">
+              <input type="file" id="ui-files-input" multiple
+                accept=".tsx,.jsx,.ts,.js,.mjs,.vue,.html,.css,.scss,.yml,.yaml,.json,.svelte"
+                style="display:none" onchange="uiDosyaYukle(this)">
+              <button class="btn btn-outline btn-xs" style="flex:1" onclick="document.getElementById('ui-folder-input').click()">
+                <svg class="ico"><use href="#i-folder"/></svg> Klasör Seç
+              </button>
+              <button class="btn btn-outline btn-xs" style="flex:1" onclick="document.getElementById('ui-files-input').click()">
+                <svg class="ico"><use href="#i-plus"/></svg> Dosya Ekle
+              </button>
+            </div>
+          </div>
+
+          <div class="ui-files-inner" id="ui-files-inner">
+            <div class="ui-empty" style="padding:30px">
+              <span>Henüz dosya yok</span>
+              <span style="font-size:11px">Zip yükleyin veya klasör seçin</span>
+            </div>
+          </div>
+
+          <div class="ui-footer">
+            <button class="btn btn-outline btn-xs" style="flex:1;color:var(--text3)" onclick="uiTumunuTemizle()">
+              <svg class="ico"><use href="#i-trash"/></svg> Tümünü Temizle
+            </button>
+          </div>
+        </div>
+
+        <!-- Sağ -->
+        <div class="ui-code-view" id="ui-code-view">
+          <div class="ui-empty">
+            <svg class="ico"><use href="#i-code"/></svg>
+            <span>Soldan bir dosya seçin</span>
+            <span style="font-size:10.5px;max-width:260px;text-align:center;color:var(--text3)">Teknik analizde ve alternatif süreç üretiminde bu kodlar otomatik bağlam olarak eklenir</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload overlay -->
+    <div class="upload-overlay" id="upload-overlay">
+      <div class="spinner"></div>
+      <p id="overlay-msg">Yükleniyor...</p>
+      <small id="overlay-sub"></small>
+    </div>
+
+    <!-- ─── REFERANSLAR ─── -->
+    <div class="page" id="page-referanslar">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Referans Dokümanlar</h1>
+          <p>Confluence, Jira ve API servisleri — teknik analizde otomatik bağlam olarak kullanılır.</p>
+        </div>
+      </div>
+
+      <!-- Veri Kaynakları -->
+      <div class="ref-section">
+        <div class="source-sync-bar">
+          <h3><svg class="ico"><use href="#i-cloud"/></svg> Veri Kaynakları</h3>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="source-last-sync" id="src-last-sync"></span>
+            <button class="ref-fetch-btn" id="src-sync-btn" onclick="startSync()">
+              <svg class="ico ico-sm"><use href="#i-refresh"/></svg>
+              Güncelle
+            </button>
+          </div>
+        </div>
+        <p>Confluence ve Jira'dan veri çekerek referans klasörüne kaydeder. OAuth bağlantısı gereklidir.</p>
+
+        <div class="source-section-label">Confluence Spaces</div>
+        <div id="conf-space-list"></div>
+        <div class="source-add-row">
+          <input type="text" id="conf-key-input" placeholder="Space Key (örn: ~ugurcangir)" autocomplete="off" style="max-width:170px">
+          <input type="text" id="conf-name-input" placeholder="Açıklama (opsiyonel)" autocomplete="off">
+          <button class="ref-fetch-btn" onclick="addConfluenceSpace()">
+            <svg class="ico ico-sm"><use href="#i-plus"/></svg>
+            Ekle
+          </button>
+        </div>
+
+        <hr class="divider" style="margin:14px 0">
+
+        <div class="source-section-label">Jira Projeleri</div>
+        <div id="jira-proj-list"></div>
+        <div class="source-add-row">
+          <input type="text" id="jira-key-input" placeholder="Proje Key (örn: MBS)" autocomplete="off" style="max-width:170px;text-transform:uppercase">
+          <input type="text" id="jira-name-input" placeholder="Açıklama (opsiyonel)" autocomplete="off">
+          <button class="ref-fetch-btn" onclick="addJiraProject()">
+            <svg class="ico ico-sm"><use href="#i-plus"/></svg>
+            Ekle
+          </button>
+        </div>
+
+        <div id="src-error" style="margin-top:8px;font-size:11.5px;color:var(--red);display:none"></div>
+        <div class="sync-log" id="sync-log"></div>
+      </div>
+
+      <!-- Confluence -->
+      <div class="ref-section">
+        <h3><svg class="ico"><use href="#i-confluence"/></svg> Confluence Dokümanları</h3>
+        <p>İlgili Confluence sayfa export'ları (.md, .txt, .html, .pdf)</p>
+        <div class="ref-file-list" id="ref-list-confluence"></div>
+        <div class="ref-upload-bar">
+          <input type="file" id="ref-input-confluence" multiple accept=".md,.txt,.html,.pdf" style="display:none" onchange="refYukle('confluence',this)">
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('ref-input-confluence').click()">
+            <svg class="ico"><use href="#i-plus"/></svg> Dosya Ekle
+          </button>
+          <span class="ref-drop-hint">MD · TXT · HTML · PDF</span>
+        </div>
+      </div>
+
+      <!-- Jira Issues -->
+      <div class="ref-section">
+        <h3><svg class="ico"><use href="#i-ticket"/></svg> Jira Issue'ları</h3>
+        <p>İlgili Jira issue'larının JSON export'u. Format: [{key, summary, description, ...}]</p>
+        <div class="ref-file-list" id="ref-list-jira"></div>
+        <div class="ref-upload-bar">
+          <input type="file" id="ref-input-jira" multiple accept=".json" style="display:none" onchange="refYukle('jira',this)">
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('ref-input-jira').click()">
+            <svg class="ico"><use href="#i-plus"/></svg> JSON Ekle
+          </button>
+          <span class="ref-drop-hint">JSON array formatında</span>
+        </div>
+      </div>
+
+      <!-- Servis Tanımları -->
+      <div class="ref-section">
+        <h3><svg class="ico"><use href="#i-server"/></svg> Servis Tanımları</h3>
+        <p>BFF ve domain servis OpenAPI/Swagger spec'leri. Büyük dosyalarda keyword filtresi uygulanır.</p>
+        <div class="ref-file-list" id="ref-list-services"></div>
+        <div class="ref-upload-bar">
+          <input type="file" id="ref-input-services" multiple accept=".json,.yaml,.yml" style="display:none" onchange="refYukle('services',this)">
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('ref-input-services').click()">
+            <svg class="ico"><use href="#i-plus"/></svg> Spec Ekle
+          </button>
+          <span class="ref-drop-hint">JSON · YAML · YML</span>
+        </div>
+
+        <hr class="divider" style="margin:16px 0">
+
+        <div class="field-label">BE Servisi Ekle / Güncelle (Swagger URL)</div>
+        <div style="margin-bottom:8px">
+          <div class="ctx-field-label">Servis Adı</div>
+          <input type="text" id="ref-be-name" placeholder="örn. payment-service, risk-api" autocomplete="off" class="ctx-input">
+        </div>
+        <div style="margin-bottom:8px">
+          <div class="ctx-field-label">Swagger URL</div>
+          <input type="text" id="ref-be-url" placeholder="https://dev-servis.example.com/v3/api-docs" autocomplete="off" class="ctx-input">
+        </div>
+        <div style="margin-bottom:12px">
+          <div class="ctx-field-label">Authorization <span style="font-weight:400;color:var(--text3);text-transform:none">(opsiyonel)</span></div>
+          <input type="text" id="ref-be-auth" placeholder="Bearer TOKEN" autocomplete="off" class="ctx-input">
+        </div>
+        <button class="btn btn-outline btn-sm" id="ref-add-btn" onclick="addBeService()">
+          <svg class="ico"><use href="#i-plus"/></svg>
+          Ekle / Güncelle
+        </button>
+        <div class="ref-fetch-output" id="ref-add-output"></div>
+      </div>
+    </div>
+
+    <!-- ─── HISTORY ─── -->
+    <div class="page" id="page-history">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Son Çalıştırmalar</h1>
+          <p>Tüm pipeline geçmişi ve oluşturulmuş çıktılar.</p>
+        </div>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="mono-meta">Geçmiş yükleniyor...</div>
+      </div>
+    </div>
+
+    <!-- ─── SETTINGS ─── -->
+    <div class="page" id="page-settings">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Ayarlar</h1>
+          <p>Anthropic API, Claude CLI ve Jira entegrasyonu.</p>
+        </div>
+      </div>
+
+      <div class="settings-form">
+
+        <!-- Claude CLI -->
+        <div class="settings-section">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+            <div style="flex:1">
+              <div class="section-title">Claude CLI Modu</div>
+              <div class="section-desc">API key yerine yüklü <code>claude</code> CLI'ı kullanır.</div>
+            </div>
+            <label class="toggle-wrap" style="margin-top:2px">
+              <input type="checkbox" id="cli-toggle" onchange="cliModDegistir(this)">
+              <span id="cli-toggle-track" class="toggle-track"></span>
+              <span id="cli-toggle-thumb" class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div id="cli-status" style="font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-family:'Geist Mono',monospace"></div>
+        </div>
+
+        <!-- API Key -->
+        <div id="api-key-section" class="settings-section">
+          <div class="section-title">Anthropic API Key</div>
+          <div class="section-desc">Doğrudan API üzerinden çağrı yapmak için.</div>
+          <div class="form-group">
+            <label>API Key</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" style="flex:1"
+                onkeydown="if(event.key==='Enter') settingsKaydet()">
+              <button class="btn btn-outline btn-sm" onclick="apiKeyGoster()" title="Göster/Gizle">
+                <svg class="ico"><use href="#i-eye"/></svg>
+              </button>
+            </div>
+            <small id="api-key-status"></small>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary btn-sm" onclick="settingsKaydet()">Kaydet</button>
+            <button class="btn btn-outline btn-sm" onclick="settingsYukle()">
+              <svg class="ico"><use href="#i-refresh"/></svg> Yenile
+            </button>
+          </div>
+        </div>
+
+        <!-- Jira -->
+        <div class="jira-section">
+          <h3><svg class="ico"><use href="#i-ticket"/></svg> Jira Entegrasyonu</h3>
+          <p>Teknik analizi doğrudan Jira'ya task olarak oluşturun. OAuth 2.0 ile güvenli bağlantı.</p>
+          <div id="jira-conn-status"></div>
+          <div class="jira-grid">
+            <div class="form-group">
+              <label>Client ID</label>
+              <input type="text" id="jira-client-id" placeholder="Atlassian OAuth app Client ID" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Client Secret</label>
+              <input type="password" id="jira-client-secret" placeholder="••••••••" autocomplete="off">
+              <small id="jira-secret-hint"></small>
+            </div>
+            <div class="form-group">
+              <label>Project Key</label>
+              <input type="text" id="jira-project-key" placeholder="PROJ" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Jira URL</label>
+              <input type="text" id="jira-url" placeholder="https://yourcompany.atlassian.net" autocomplete="off">
+            </div>
+          </div>
+          <div class="btn-group" style="margin-bottom:12px">
+            <button class="btn btn-outline btn-sm" onclick="jiraAyarlarKaydet()">Ayarları Kaydet</button>
+            <button class="btn btn-primary btn-sm" id="jira-auth-btn" onclick="jiraYetkilendir()">
+              <svg class="ico"><use href="#i-link"/></svg> Jira'ya Bağlan
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="jiraTest()">Bağlantıyı Test Et</button>
+            <button class="btn btn-outline btn-sm" onclick="confluenceDiagnose()">Confluence İzinlerini Kontrol Et</button>
+          </div>
+          <div id="conf-diagnose-result" style="display:none;margin-bottom:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11.5px;line-height:1.65"></div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.65">
+            <strong style="color:var(--text2)">Kurulum:</strong> Atlassian Developer Console'da OAuth 2.0 app oluşturun.
+            Callback URL: <code>http://localhost:5002/api/jira/callback</code><br>
+            <strong style="color:var(--text2)">Confluence için:</strong> developer.atlassian.com → Uygulamanız → Permissions → <em>Confluence API</em> ekleyin, ardından "Jira'ya Bağlan" ile yeniden yetkilendirin.
+          </div>
+        </div>
+
+        <!-- Extended Thinking -->
+        <div id="extended-thinking-section" class="settings-section">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+            <div style="flex:1">
+              <div class="section-title">Extended Thinking</div>
+              <div class="section-desc">Claude'un yanıt vermeden önce derin akıl yürütmesini sağlar. Teknik Analiz ve BRD Analizi için geçerlidir — daha kapsamlı çıktı üretir, ancak daha yavaş ve pahalıdır.</div>
+            </div>
+            <label class="toggle-wrap" style="margin-top:2px">
+              <input type="checkbox" id="thinking-toggle" onchange="thinkingModDegistir(this)">
+              <span id="thinking-toggle-track" class="toggle-track"></span>
+              <span id="thinking-toggle-thumb" class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div id="thinking-status" style="font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-family:'Geist Mono',monospace"></div>
+        </div>
+
+        <!-- Sistem Promptları -->
+        <div class="prompt-editor-section">
+          <div class="prompt-editor-head" id="prompt-editor-head" onclick="promptEditorToggle()">
+            <svg class="ico" style="color:var(--accent)"><use href="#i-file-text"/></svg>
+            <span class="pe-title">Sistem Promptları</span>
+            <span id="prompt-modified-count" style="font-size:10.5px;background:var(--yellow-soft);color:var(--yellow);padding:2px 8px;border-radius:10px;display:none"></span>
+            <svg class="ico pe-chevron" style="width:14px;height:14px"><use href="#i-chevron-down"/></svg>
+          </div>
+          <div class="prompt-editor-body" id="prompt-editor-body">
+            <div class="prompt-skill-tabs" id="prompt-skill-tabs"></div>
+            <div class="prompt-meta" id="prompt-skill-aciklama"></div>
+            <textarea class="prompt-textarea" id="prompt-textarea" spellcheck="false" placeholder="Yükleniyor..."></textarea>
+            <div class="prompt-actions">
+              <button class="btn btn-primary btn-sm" onclick="promptKaydet()">Kaydet</button>
+              <button class="btn btn-outline btn-sm" onclick="promptSifirla()">Varsayılana Dön</button>
+              <span class="prompt-modified-badge" id="prompt-modified-badge">● Özelleştirilmiş</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLI usage -->
+        <div class="settings-section">
+          <div class="section-title">CLI ile Terminal'den Çalıştırma</div>
+          <div class="section-desc">Web UI dışında script olarak da kullanabilirsiniz.</div>
+          <pre style="background:var(--surface2);padding:11px 14px;border-radius:var(--radius-sm);font-size:11px;line-height:1.75;color:var(--text2);border:1px solid var(--border);margin:0">python cli.py surec dosya.pdf
+python cli.py surec dosya.pdf --teknik
+python cli.py brd requirements.docx
+python cli.py brd requirements.docx --revize revize.docx
+python cli.py rerun surec-analizi.md "Bölüm 3 eksik"
+python cli.py ui ~/export.zip</pre>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.main -->
+</div><!-- /.layout -->
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Uyku overlay -->
+<div class="suspend-overlay" id="suspend-overlay" style="display:none" onclick="uyandır()">
+  <div class="s-icon"><svg class="ico"><use href="#i-sleep"/></svg></div>
+  <div class="s-title">Uyku Modunda</div>
+  <div class="s-sub">Devam etmek için tıklayın</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let selectedFiles = { surec: null, brd: null };
+let revizeDosya = null;
+let pollTimer = null;
+let currentOutputFile = null;
+let editModu = false;
+let rerunPollTimer = null;
+let rerunBaslangicZaman = null;
+let _activePipeline = null;
+let _stepStart = {};      // durum → başlangıç ms
+let _lastDurum = null;
+let _mockupAbortCtrl = null;
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  const navEl = document.getElementById('nav-' + tab);
+  if (navEl) navEl.classList.add('active');
+  const _crumbLabels = {surec:'Süreç Analizi',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar'};
+  const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
+  if (tab === 'history')     loadHistory();
+  if (tab === 'output')      refreshOutputTabs();
+  if (tab === 'ui-code')     loadUiFiles();
+  if (tab === 'settings')    { settingsYukle(); jiraConfigYukle(); }
+  if (tab === 'referanslar') { loadSources(); loadRefDocs(); }
+}
+
+// ─── Heartbeat & Uyku Yönetimi ───────────────────────────────────────────────
+let _uyuyorMu = false;
+let _heartbeatDebounce = null;
+
+function sendHeartbeat() {
+  fetch('/api/heartbeat', {method:'POST'}).catch(()=>{});
+}
+
+// Periyodik heartbeat — tab aktifken her 20s
+setInterval(() => { if (document.visibilityState !== 'hidden') sendHeartbeat(); }, 20000);
+
+// Herhangi bir tıklama → heartbeat + uyandır
+document.addEventListener('click', () => {
+  if (_uyuyorMu) return;  // overlay tıklaması uyandır() ile ayrı ele alınır
+  clearTimeout(_heartbeatDebounce);
+  _heartbeatDebounce = setTimeout(sendHeartbeat, 200);
+}, true);
+
+function uyandır() {
+  sendHeartbeat();
+  _uyuyorMu = false;
+  document.getElementById('suspend-overlay').style.display = 'none';
+}
+
+function _suspendKontrol(state) {
+  if (state.suspended && !_uyuyorMu) {
+    _uyuyorMu = true;
+    document.getElementById('suspend-overlay').style.display = 'flex';
+  } else if (!state.suspended && _uyuyorMu) {
+    uyandır();
+  }
+}
+
+// ─── Workflow polling ─────────────────────────────────────────────────────────
+function startPoll() {
+  if (pollTimer) return;
+  pollTimer = setInterval(pollState, 1500);
+}
+function stopPoll() { clearInterval(pollTimer); pollTimer = null; }
+
+async function pollState() {
+  try {
+    const r = await fetch('/api/workflow-state');
+    const s = await r.json();
+    _suspendKontrol(s);
+    updateUI(s);
+    const aktif = s.calisiyor || s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
+    if (!aktif) stopPoll();
+  } catch {}
+}
+
+function _setVisible(id, visible) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = visible ? '' : 'none';
+}
+
+function updateUI(s) {
+  const bar = document.getElementById('wf-bar');
+  bar.style.display = s.durum === 'idle' ? 'none' : 'flex';
+  document.getElementById('wf-label').textContent = s.etiket;
+  document.getElementById('wf-msg').textContent   = s.mesaj || '';
+
+  const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
+  const cls = s.calisiyor ? 'status-running'
+    : bekliyor ? 'status-waiting'
+    : s.tamamlandi ? 'status-done'
+    : s.durum === 'hata' ? 'status-error' : 'status-idle';
+
+  document.getElementById('wf-dot').className           = 'status-dot ' + cls;
+  document.getElementById('sidebar-dot').className      = 'status-dot ' + cls;
+  document.getElementById('sidebar-status-text').textContent = s.etiket;
+  const _tbDot = document.getElementById('topbar-dot');     if (_tbDot)  _tbDot.className = 'status-dot ' + cls;
+  const _tbStat = document.getElementById('topbar-status'); if (_tbStat) _tbStat.textContent = s.etiket;
+
+  const surecDurumlar = ['surec_analizi_calisiyor','onay_bekleniyor','teknik_analiz_calisiyor',
+    'teknik_analiz_onay_bekleniyor','jira_gonderiliyor','jira_tamamlandi'];
+  const brdDurumlar   = ['brd_analizi_calisiyor','brd_revize_bekleniyor',
+    'kapsam_analizi_calisiyor','brd_tamamlandi'];
+  const isSurec = surecDurumlar.includes(s.durum)
+    || (s.durum === 'hata' && _activePipeline === 'surec');
+  const isBrd   = brdDurumlar.includes(s.durum)
+    || (s.durum === 'hata' && _activePipeline === 'brd');
+
+  const surecCalis = isSurec && s.calisiyor && !s.onay_bekleniyor && !s.teknik_onay_bekleniyor;
+  const brdCalis   = isBrd   && s.calisiyor && !s.brd_revize_bekleniyor;
+
+  _setVisible('surec-act-idle',        !isSurec);
+  _setVisible('surec-act-running',     surecCalis);
+  _setVisible('surec-act-onay',        !!s.onay_bekleniyor);
+  _setVisible('surec-act-teknik-onay', !!s.teknik_onay_bekleniyor);
+  _setVisible('surec-act-done',        isSurec && !!s.tamamlandi);
+  _setVisible('surec-act-error',       isSurec && s.durum === 'hata');
+
+  _setVisible('brd-act-idle',    !isBrd);
+  _setVisible('brd-act-running', brdCalis);
+  _setVisible('brd-act-revize',  !!s.brd_revize_bekleniyor);
+  _setVisible('brd-act-done',    isBrd && !!s.tamamlandi);
+  _setVisible('brd-act-error',   isBrd && s.durum === 'hata');
+
+  const descEl = document.getElementById(isBrd ? 'brd-running-desc' : 'surec-running-desc');
+  if (descEl && s.calisiyor) descEl.textContent = s.etiket || 'Çalışıyor...';
+
+  if (s.tamamlandi) {
+    const doneEl = document.getElementById(isBrd ? 'brd-done-msg' : 'surec-done-msg');
+    if (doneEl) doneEl.textContent = s.etiket || 'Tamamlandı';
+  }
+  if (s.durum === 'hata') {
+    const errEl = document.getElementById(isBrd ? 'brd-error-msg' : 'surec-error-msg');
+    if (errEl) errEl.textContent = 'Hata: ' + (s.hata || 'Bilinmeyen hata');
+  }
+
+  updateSteps(s.durum);
+  _stepSureTakip(s.durum);
+
+  const busy = s.calisiyor || bekliyor;
+  document.getElementById('btn-surec').disabled = busy || !selectedFiles.surec;
+  document.getElementById('btn-brd').disabled   = busy || !selectedFiles.brd;
+
+  if (s.tamamlandi) {
+    fetch('/api/save-history', {method:'POST'});
+    refreshOutputTabs();
+    toast(s.etiket, 'success');
+    setTimeout(resetWorkflowUI, 3000);
+  }
+  if (s.durum === 'hata') {
+    toast('Hata: ' + (s.hata || 'Bilinmeyen hata'), 'error');
+    stopPoll();
+  }
+}
+
+function updateSteps(durum) {
+  const MAP = {
+    surec_analizi_calisiyor:           {s:[1], d:[]},
+    onay_bekleniyor:                   {s:[], d:[1], w:[2]},
+    teknik_analiz_calisiyor:           {s:[3], d:[1,2]},
+    teknik_analiz_onay_bekleniyor:     {s:[], d:[1,2,3], w:[4]},
+    jira_gonderiliyor:                 {s:[4], d:[1,2,3]},
+    jira_tamamlandi:                   {s:[], d:[1,2,3,4]},
+    surec_tamamlandi:                  {s:[], d:[1,2,3]},
+    brd_analizi_calisiyor:             {b:[1], db:[]},
+    brd_revize_bekleniyor:             {b:[], db:[1], wb:[2]},
+    kapsam_analizi_calisiyor:          {b:[3], db:[1,2]},
+    brd_tamamlandi:                    {b:[], db:[1,2,3]},
+  }[durum] || {};
+
+  for (let i=1;i<=4;i++) {
+    const el = document.getElementById(`step-surec-${i}`);
+    if (el) el.className = 'step';
+  }
+  for (let i=1;i<=3;i++) {
+    const el = document.getElementById(`step-brd-${i}`);
+    if (el) el.className = 'step';
+  }
+  (MAP.s||[]).forEach(n => setStep('surec',n,'active-step'));
+  (MAP.d||[]).forEach(n => setStep('surec',n,'done'));
+  (MAP.w||[]).forEach(n => setStep('surec',n,'waiting-step'));
+  (MAP.b||[]).forEach(n => setStep('brd',n,'active-step'));
+  (MAP.db||[]).forEach(n => setStep('brd',n,'done'));
+  (MAP.wb||[]).forEach(n => setStep('brd',n,'waiting-step'));
+}
+function setStep(p,n,cls) {
+  const el = document.getElementById(`step-${p}-${n}`);
+  if (el) el.className = `step ${cls}`;
+}
+
+// Durum→adım haritalama — hangi durum hangi adımın tamamlandığını söyler
+const _STEP_DONE_MAP = {
+  onay_bekleniyor:               [{p:'surec',n:1}],
+  teknik_analiz_calisiyor:       [{p:'surec',n:1}],
+  teknik_analiz_onay_bekleniyor: [{p:'surec',n:1},{p:'surec',n:3}],
+  jira_gonderiliyor:             [{p:'surec',n:1},{p:'surec',n:3}],
+  jira_tamamlandi:               [{p:'surec',n:1},{p:'surec',n:3},{p:'surec',n:4}],
+  brd_revize_bekleniyor:         [{p:'brd',n:1}],
+  kapsam_analizi_calisiyor:      [{p:'brd',n:1},{p:'brd',n:2}],
+  brd_tamamlandi:                [{p:'brd',n:1},{p:'brd',n:2},{p:'brd',n:3}],
+};
+
+function _fmtSure(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s/60)}m ${s%60}s`;
+}
+
+function _stepSureTakip(durum) {
+  const now = Date.now();
+  if (durum !== _lastDurum) {
+    if (_lastDurum) _stepStart[_lastDurum + '_end'] = now;
+    _stepStart[durum] = now;
+    _lastDurum = durum;
+  }
+
+  // Tamamlanan adımlara süre yaz
+  const SURE_MAP = {
+    // surec-1 süresi: surec_analizi_calisiyor başından onay_bekleniyor sonuna
+    'surec-1': ['surec_analizi_calisiyor', 'onay_bekleniyor'],
+    // surec-3 süresi: teknik_analiz_calisiyor başından teknik_analiz_onay_bekleniyor sonuna
+    'surec-3': ['teknik_analiz_calisiyor', 'teknik_analiz_onay_bekleniyor'],
+    // surec-4 süresi: jira_gonderiliyor başından jira_tamamlandi
+    'surec-4': ['jira_gonderiliyor', 'jira_tamamlandi'],
+    // brd-1
+    'brd-1': ['brd_analizi_calisiyor', 'brd_revize_bekleniyor'],
+    // brd-3
+    'brd-3': ['kapsam_analizi_calisiyor', 'brd_tamamlandi'],
+  };
+
+  for (const [adim, [baslangic, bitis]] of Object.entries(SURE_MAP)) {
+    const el = document.getElementById(`dur-${adim}`);
+    if (!el) continue;
+    const bas = _stepStart[baslangic];
+    const bit = _stepStart[bitis + '_end'] || (_lastDurum === bitis ? now : null);
+    if (bas && bit) el.textContent = _fmtSure(bit - bas);
+  }
+}
+
+function resetWorkflowUI() {
+  document.getElementById('wf-bar').style.display = 'none';
+  document.getElementById('sidebar-dot').className = 'status-dot status-idle';
+  document.getElementById('sidebar-status-text').textContent = 'Hazır';
+  const _tbDot2 = document.getElementById('topbar-dot');     if (_tbDot2)  _tbDot2.className = 'status-dot status-idle';
+  const _tbStat2 = document.getElementById('topbar-status'); if (_tbStat2) _tbStat2.textContent = 'Hazır';
+  _activePipeline = null;
+  _stepStart = {}; _lastDurum = null;
+  document.querySelectorAll('.step-dur').forEach(el => el.textContent = '');
+  ['surec-act-running','surec-act-onay','surec-act-teknik-onay','surec-act-done','surec-act-error']
+    .forEach(id => _setVisible(id, false));
+  ['brd-act-running','brd-act-revize','brd-act-done','brd-act-error']
+    .forEach(id => _setVisible(id, false));
+  _setVisible('surec-act-idle', true);
+  _setVisible('brd-act-idle', true);
+  for (let i=1;i<=4;i++) setStep('surec',i,'');
+  for (let i=1;i<=3;i++) setStep('brd',i,'');
+}
+
+// ─── File upload ──────────────────────────────────────────────────────────────
+function dosyaSec(input, pipeline) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedFiles[pipeline] = file;
+  document.getElementById(`upload-zone-${pipeline}`).style.display = 'none';
+  const uf = document.getElementById(`uploaded-${pipeline}`);
+  uf.style.display = 'flex';
+  document.getElementById(`uploaded-${pipeline}-name`).textContent = file.name;
+  document.getElementById(`uploaded-${pipeline}-size`).textContent = formatBytes(file.size);
+  document.getElementById(`btn-${pipeline}`).disabled = false;
+}
+
+function dosyaKaldir(pipeline) {
+  selectedFiles[pipeline] = null;
+  document.getElementById(`upload-zone-${pipeline}`).style.display = '';
+  document.getElementById(`uploaded-${pipeline}`).style.display = 'none';
+  document.getElementById(`btn-${pipeline}`).disabled = true;
+  document.getElementById(`file-${pipeline}`).value = '';
+}
+
+function handleDrop(e, pipeline) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  selectedFiles[pipeline] = file;
+  const input = document.getElementById(`file-${pipeline}`);
+  const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+  dosyaSec(input, pipeline);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ─── Pipeline ─────────────────────────────────────────────────────────────────
+// ─── Bağlam Filtresi (Run ekranı) ────────────────────────────────────────────
+function toggleCtx() {
+  document.getElementById('ctx-toggle').classList.toggle('open');
+  document.getElementById('ctx-fields').classList.toggle('open');
+}
+
+function splitCtx(val) { return val.split(',').map(s=>s.trim()).filter(Boolean); }
+
+function buildContextFilter() {
+  return {
+    keywords:         splitCtx(document.getElementById('ctx-keywords').value),
+    jira_keys:        splitCtx(document.getElementById('ctx-jira-keys').value.toUpperCase()),
+    confluence_pages: splitCtx(document.getElementById('ctx-conf-pages').value.toLowerCase()),
+  };
+}
+
+function updateCtxBadge() {
+  const ctx = buildContextFilter();
+  const hasAny = ctx.keywords.length || ctx.jira_keys.length || ctx.confluence_pages.length;
+  document.getElementById('ctx-active-badge').style.display = hasAny ? 'inline-flex' : 'none';
+}
+
+async function runPipeline(pipeline) {
+  const file = selectedFiles[pipeline];
+  if (!file) { toast('Önce bir dosya yükleyin', 'error'); return; }
+
+  // Bağlam filtresini otomatik kaydet
+  const ctx = buildContextFilter();
+  await fetch('/api/context-filter', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(ctx)
+  }).catch(() => {});
+
+  const fd = new FormData(); fd.append('file', file);
+  const upRes = await fetch('/api/upload', {method:'POST', body: fd});
+  const upData = await upRes.json();
+  if (!upRes.ok) { toast('Yükleme hatası: ' + upData.error, 'error'); return; }
+
+  const res = await fetch('/api/run', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({pipeline})
+  });
+  const data = await res.json();
+  if (!res.ok) { toast(data.error, 'error'); return; }
+
+  _activePipeline = pipeline;
+  document.getElementById('wf-bar').style.display = 'flex';
+  toast(`${pipeline === 'surec' ? 'Süreç' : 'BRD'} pipeline başlatıldı`, 'info');
+  startPoll();
+}
+
+async function surecleriSifirla() {
+  await resetWorkflow();
+}
+
+// ─── Approval ────────────────────────────────────────────────────────────────
+async function onayla() {
+  const r = await fetch('/api/approve', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Onaylandı — teknik analiz başlıyor...', 'success');
+  startPoll();
+}
+async function reddet() {
+  const r = await fetch('/api/reject', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Reddedildi.', 'info');
+  resetWorkflowUI();
+}
+
+// ─── BRD Revize ──────────────────────────────────────────────────────────────
+function revizeDosyaSecildi(input) {
+  revizeDosya = input.files[0];
+  if (revizeDosya) {
+    document.getElementById('revize-dosya-adi').textContent = revizeDosya.name;
+    document.getElementById('revize-yukle-btn').disabled = false;
+  }
+}
+async function revizeBrdYukle() {
+  if (!revizeDosya) { toast('Dosya seçin', 'error'); return; }
+  const fd = new FormData(); fd.append('file', revizeDosya);
+  const r = await fetch('/api/upload-revised-brd', {method:'POST', body: fd});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Revize BRD yüklendi — kapsam analizi başlıyor...', 'success');
+  startPoll();
+}
+async function kapsamAtla() {
+  const r = await fetch('/api/skip-kapsam', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('BRD kaydedildi.', 'success');
+  resetWorkflowUI();
+  refreshOutputTabs();
+}
+async function resetWorkflow() {
+  await fetch('/api/reset', {method:'POST'});
+  resetWorkflowUI(); stopPoll();
+  toast('Sıfırlandı', 'info');
+}
+
+// ─── Output ──────────────────────────────────────────────────────────────────
+async function refreshOutputTabs() {
+  try {
+    const r = await fetch('/api/outputs');
+    const data = await r.json();
+    document.querySelectorAll('.output-tab').forEach(tab => {
+      const info = data[tab.dataset.file];
+      tab.classList.toggle('has-content', !!(info && info.var));
+    });
+  } catch {}
+}
+
+async function outputSec(tab) {
+  document.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  currentOutputFile = tab.dataset.file;
+
+  editIptal();
+  duzeltPaneliKapat();
+
+  const content      = document.getElementById('output-content');
+  const iframe       = document.getElementById('mockup-iframe');
+  const actions      = document.getElementById('output-actions');
+  const confRow      = document.getElementById('conf-publish-row');
+  const confMsg      = document.getElementById('conf-publish-msg');
+  const jiraRow      = document.getElementById('jira-hierarchy-row');
+  const jiraRes      = document.getElementById('jira-hierarchy-result');
+  const mockupRow    = document.getElementById('mockup-gen-row');
+  const mockupMsg    = document.getElementById('mockup-gen-msg');
+
+  content.className = 'output-content';
+  content.innerHTML = '<div style="color:var(--text3);font-size:13px">Yükleniyor...</div>';
+  iframe.style.display = 'none';
+  iframe.srcdoc = '';
+  actions.style.display = 'none';
+  confRow.style.display = 'none';
+  confMsg.textContent = '';
+  jiraRow.style.display = 'none';
+  jiraRes.textContent = '';
+  mockupRow.style.display = 'none';
+  mockupMsg.textContent = '';
+
+  const r = await fetch(`/api/output/${currentOutputFile}`);
+  if (!r.ok) {
+    content.className = 'output-content empty';
+    content.innerHTML = '<span>Henüz oluşturulmadı</span>';
+    if (currentOutputFile === 'mockup.html') {
+      mockupRow.style.display = 'flex';
+      document.getElementById('mockup-gen-btn').textContent = 'Prototip Oluştur';
+      document.getElementById('btn-duzelt').style.display = 'none';
+    }
+    return;
+  }
+
+  if (currentOutputFile === 'mockup.html') {
+    const html = await r.text();
+    content.style.display = 'none';
+    iframe.srcdoc = html;
+    iframe.style.display = 'block';
+    actions.style.display = 'flex';
+    document.getElementById('btn-duzelt').style.display = 'none';
+    mockupRow.style.display = 'flex';
+    document.getElementById('mockup-gen-btn').textContent = 'Yeniden Üret';
+    document.getElementById('mockup-indir-btn').style.display = '';
+    return;
+  }
+  document.getElementById('btn-duzelt').style.display = '';
+
+  const md = await r.text();
+  content.style.display = '';
+  content.className = 'output-content';
+  content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
+  actions.style.display = 'flex';
+
+  // Jira hiyerarşi satırını göster (sadece teknik-analiz.md için)
+  jiraRow.style.display = (currentOutputFile === 'teknik-analiz.md') ? 'flex' : 'none';
+
+  // Confluence space varsa yayımla satırını göster
+  _confPublishRowGuncelle();
+}
+
+function _confPublishRowGuncelle() {
+  const confRow = document.getElementById('conf-publish-row');
+  const sel     = document.getElementById('conf-space-select');
+  if (!currentOutputFile) { confRow.style.display = 'none'; return; }
+  // sources'dan space listesi al
+  fetch('/api/sources').then(r => r.json()).then(d => {
+    const spaces = (d.sources || {}).confluence_spaces || [];
+    if (!spaces.length) { confRow.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">Space seç...</option>' +
+      spaces.map(s => `<option value="${escHtml(s.key)}">${escHtml(s.name || s.key)}</option>`).join('');
+    confRow.style.display = 'flex';
+  }).catch(() => { confRow.style.display = 'none'; });
+}
+
+async function confluenceYayimla() {
+  const space_key = document.getElementById('conf-space-select').value;
+  const msg       = document.getElementById('conf-publish-msg');
+  if (!space_key) { msg.className = 'conf-publish-msg err'; msg.textContent = 'Space seç'; return; }
+  if (!currentOutputFile) return;
+  msg.className = 'conf-publish-msg'; msg.textContent = 'Yükleniyor...';
+  try {
+    const r = await fetch('/api/confluence/publish', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ dosya: currentOutputFile, space_key })
+    });
+    const d = await r.json();
+    if (!d.ok) { msg.className = 'conf-publish-msg err'; msg.textContent = d.error; return; }
+    msg.className = 'conf-publish-msg ok';
+    msg.innerHTML = `✓ ${d.action === 'olusturuldu' ? 'Oluşturuldu' : 'Güncellendi'}` +
+      (d.url ? ` — <a href="${escHtml(d.url)}" target="_blank" style="color:var(--green)">Aç</a>` : '');
+  } catch(e) {
+    msg.className = 'conf-publish-msg err'; msg.textContent = 'Bağlantı hatası';
+  }
+}
+
+async function jiraHiyerarsiOlustur() {
+  const res = document.getElementById('jira-hierarchy-result');
+  const btn = document.getElementById('jira-hierarchy-btn');
+  res.className = 'jira-hierarchy-result';
+  res.textContent = 'AI analiz yapıyor ve Jira\'ya yüklüyor...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/jira/hierarchy', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ dosya: currentOutputFile })
+    });
+    const d = await r.json();
+    if (!d.ok) { res.className = 'jira-hierarchy-result err'; res.textContent = d.error; return; }
+    const storyKeys = (d.stories || []).map(s => s.key).join(', ');
+    const subCount  = (d.stories || []).reduce((a, s) => a + (s.subtasks || []).length, 0);
+    res.className = 'jira-hierarchy-result ok';
+    res.textContent = `✓ Epic: ${d.epic_key} | ${(d.stories||[]).length} Story (${storyKeys}) | ${subCount} Subtask — toplam ${d.toplam} issue`;
+  } catch(e) {
+    res.className = 'jira-hierarchy-result err'; res.textContent = 'Bağlantı hatası';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─── HTML Prototip ────────────────────────────────────────────────────────────
+async function mockupOlustur() {
+  const btn       = document.getElementById('mockup-gen-btn');
+  const abortBtn  = document.getElementById('mockup-abort-btn');
+  const indirBtn  = document.getElementById('mockup-indir-btn');
+  const btnOnay   = document.getElementById('btn-mockup-onay');
+  const msg       = document.getElementById('mockup-gen-msg');
+  const msgOnay   = document.getElementById('mockup-onay-msg');
+
+  _mockupAbortCtrl = new AbortController();
+
+  const setLoading = (v) => {
+    if (btn)      { btn.disabled  = v; btn.textContent = v ? 'Üretiliyor...' : 'Yeniden Üret'; }
+    if (abortBtn) abortBtn.style.display = v ? '' : 'none';
+    if (indirBtn) indirBtn.style.display = 'none';
+    if (btnOnay)  { btnOnay.disabled = v; }
+    if (msg)     { msg.className = ''; msg.textContent = v ? 'Prototip üretiliyor...' : ''; }
+    if (msgOnay) { msgOnay.className = ''; msgOnay.textContent = v ? 'Prototip üretiliyor...' : ''; }
+    // Devam Et butonunu kilitle; wf-bar alt mesajını güncelle
+    const devamBtn = document.querySelector('#surec-act-onay .btn-success');
+    if (devamBtn) devamBtn.disabled = v;
+    const wfMsg = document.getElementById('wf-msg');
+    if (wfMsg) wfMsg.textContent = v ? 'HTML Prototip oluşturuluyor...' : '';
+  };
+
+  setLoading(true);
+  try {
+    const r = await fetch('/api/mockup/generate', {method:'POST', signal: _mockupAbortCtrl.signal});
+    const d = await r.json();
+    if (!d.ok) {
+      if (msg)     { msg.className = 'mockup-gen-msg err';  msg.textContent = d.error; }
+      if (msgOnay) { msgOnay.style.color = 'var(--red)';    msgOnay.textContent = d.error; }
+      return;
+    }
+    if (msg)     { msg.className = 'mockup-gen-msg ok'; msg.textContent = '✓ Prototip hazır'; }
+    if (msgOnay) { msgOnay.style.color = 'var(--green)'; msgOnay.textContent = '✓ Prototip hazır — Çıktılar sekmesinde görüntüleyebilirsiniz'; }
+    if (indirBtn) indirBtn.style.display = '';
+    refreshOutputTabs();
+    if (currentOutputFile === 'mockup.html') {
+      const resp = await fetch('/api/output/mockup.html');
+      if (resp.ok) {
+        const html = await resp.text();
+        const iframe = document.getElementById('mockup-iframe');
+        iframe.srcdoc = html;
+        iframe.style.display = 'block';
+        document.getElementById('output-content').style.display = 'none';
+      }
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      if (msg)     { msg.className = ''; msg.textContent = 'İptal edildi'; }
+      if (msgOnay) { msgOnay.className = ''; msgOnay.textContent = ''; }
+    } else {
+      if (msg)     { msg.className = 'mockup-gen-msg err'; msg.textContent = 'Bağlantı hatası'; }
+      if (msgOnay) { msgOnay.style.color = 'var(--red)'; msgOnay.textContent = 'Bağlantı hatası'; }
+    }
+  } finally {
+    setLoading(false);
+    _mockupAbortCtrl = null;
+  }
+}
+
+function mockupIptal() {
+  if (_mockupAbortCtrl) _mockupAbortCtrl.abort();
+}
+
+// ─── Düzenleme (doğrudan edit) ────────────────────────────────────────────────
+function duzenlemeyeGec() {
+  if (!currentOutputFile) return;
+  const content  = document.getElementById('output-content');
+  const iframe   = document.getElementById('mockup-iframe');
+  const editor   = document.getElementById('output-editor');
+  const textarea = document.getElementById('editor-textarea');
+  const actions  = document.getElementById('output-actions');
+
+  fetch(`/api/output/${currentOutputFile}`)
+    .then(r => r.text())
+    .then(txt => {
+      textarea.value = txt;
+      content.style.display = 'none';
+      iframe.style.display  = 'none';
+      editor.style.display  = 'flex';
+      actions.style.display = 'none';
+      editModu = true;
+    });
+}
+
+async function editKaydet() {
+  const icerik = document.getElementById('editor-textarea').value;
+  const r = await fetch('/api/save-output', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({dosya: currentOutputFile, icerik})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Kaydedildi', 'success');
+  editIptal();
+  if (currentOutputFile === 'mockup.html') {
+    const iframe = document.getElementById('mockup-iframe');
+    iframe.srcdoc = icerik;
+    iframe.style.display = 'block';
+    document.getElementById('output-content').style.display = 'none';
+  } else {
+    const content = document.getElementById('output-content');
+    content.style.display = '';
+    content.className = 'output-content';
+    content.innerHTML = `<div class="md-body">${marked.parse(icerik)}</div>`;
+  }
+  document.getElementById('output-actions').style.display = 'flex';
+}
+
+function editIptal() {
+  const isMockup = currentOutputFile === 'mockup.html';
+  const iframe = document.getElementById('mockup-iframe');
+  document.getElementById('output-content').style.display = isMockup ? 'none' : '';
+  iframe.style.display = (isMockup && iframe.srcdoc) ? 'block' : 'none';
+  document.getElementById('output-editor').style.display  = 'none';
+  document.getElementById('output-actions').style.display = currentOutputFile ? 'flex' : 'none';
+  editModu = false;
+}
+
+// ─── Düzeltme ile yeniden çalıştırma ─────────────────────────────────────────
+function duzeltPaneliAc() {
+  document.getElementById('correction-panel').style.display = 'block';
+  document.getElementById('correction-text').focus();
+}
+function duzeltPaneliKapat() {
+  document.getElementById('correction-panel').style.display = 'none';
+  document.getElementById('correction-text').value = '';
+  document.getElementById('rerun-progress').style.display = 'none';
+  if (rerunPollTimer) { clearInterval(rerunPollTimer); rerunPollTimer = null; }
+}
+
+async function duzeltmeIleYenideCalistir() {
+  const duzeltme = document.getElementById('correction-text').value.trim();
+  if (!duzeltme) { toast('Düzeltme notu boş', 'error'); return; }
+  if (!currentOutputFile) { toast('Önce bir çıktı seçin', 'error'); return; }
+
+  const r = await fetch('/api/rerun', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({dosya: currentOutputFile, duzeltme})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+
+  document.getElementById('rerun-progress').style.display = 'flex';
+  toast('Yeniden üretiliyor...', 'info');
+
+  // Dosyanın mtime değişinceye kadar poll et
+  const mevcutMtime = await getMtime(currentOutputFile);
+  rerunBaslangicZaman = mevcutMtime;
+  if (rerunPollTimer) clearInterval(rerunPollTimer);
+  rerunPollTimer = setInterval(() => kontolEtRerun(mevcutMtime), 2000);
+}
+
+async function getMtime(dosya) {
+  try {
+    const r = await fetch(`/api/rerun-status/${dosya}`);
+    const d = await r.json();
+    return d.guncelleme || 0;
+  } catch { return 0; }
+}
+
+async function kontolEtRerun(eskiMtime) {
+  const yeniMtime = await getMtime(currentOutputFile);
+  if (yeniMtime > eskiMtime) {
+    clearInterval(rerunPollTimer); rerunPollTimer = null;
+    document.getElementById('rerun-progress').style.display = 'none';
+    toast('Yeniden üretildi ✓', 'success');
+    duzeltPaneliKapat();
+    // Çıktıyı yenile
+    const r = await fetch(`/api/output/${currentOutputFile}`);
+    if (r.ok) {
+      const md = await r.text();
+      const content = document.getElementById('output-content');
+      content.className = 'output-content';
+      content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
+    }
+    refreshOutputTabs();
+  }
+}
+
+// ─── UI Code ─────────────────────────────────────────────────────────────────
+const EXT_COLOR = {
+  '.tsx':'#61dafb','.jsx':'#61dafb','.ts':'#3178c6','.js':'#f7df1e','.mjs':'#f7df1e',
+  '.vue':'#42b883','.svelte':'#ff3e00','.html':'#e34c26',
+  '.css':'#264de4','.scss':'#cd6799','.less':'#1d365d',
+  '.yml':'#cb9820','.yaml':'#cb9820','.json':'#8bc34a','.cjs':'#f7df1e',
+};
+
+function _overlay(goster, mesaj='', alt='') {
+  const el = document.getElementById('upload-overlay');
+  el.classList.toggle('visible', goster);
+  if (goster) {
+    document.getElementById('overlay-msg').textContent  = mesaj;
+    document.getElementById('overlay-sub').textContent = alt;
+  }
+}
+
+async function uiZipYukle(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  document.getElementById('ui-zip-zone').classList.remove('drag-over');
+
+  _overlay(true, `"${file.name}" yükleniyor...`, 'node_modules ve build klasörleri atlanıyor');
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('mode', 'replace');
+    const r = await fetch('/api/upload-ui-project', {method:'POST', body: fd});
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Yükleme hatası', 'error'); return; }
+    toast(`${d.dosya_sayisi} dosya yüklendi${d.atlananlar ? ` (${d.atlananlar} atlandı)` : ''}`, 'success');
+    loadUiFiles();
+  } finally {
+    _overlay(false);
+  }
+}
+
+function uiZipDrop(e) {
+  e.preventDefault();
+  document.getElementById('ui-zip-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  if (!file.name.endsWith('.zip')) { toast('Yalnızca .zip dosyası kabul edilir', 'error'); return; }
+  const dt = new DataTransfer(); dt.items.add(file);
+  const input = document.getElementById('ui-zip-input');
+  input.files = dt.files;
+  uiZipYukle(input);
+}
+
+async function uiDosyaYukle(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  _overlay(true, `${files.length} dosya yükleniyor...`, '');
+  try {
+    const fd = new FormData();
+    // webkitdirectory: relativePath ile gönder
+    files.forEach(f => {
+      const goreceli = f.webkitRelativePath || f.name;
+      const blob = new Blob([f], {type: f.type});
+      fd.append('files', blob, goreceli);
+    });
+    const r = await fetch('/api/upload-ui-code', {method:'POST', body: fd});
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Yükleme hatası', 'error'); return; }
+    toast(`${d.yuklenenler.length} dosya yüklendi`, 'success');
+    loadUiFiles();
+  } finally {
+    _overlay(false);
+    input.value = '';
+  }
+}
+
+async function loadUiFiles() {
+  const r = await fetch('/api/ui-files');
+  const dosyalar = await r.json();
+
+  const badge = document.getElementById('ui-badge');
+  const stats = document.getElementById('ui-stats');
+  badge.style.display = dosyalar.length ? 'inline-flex' : 'none';
+  badge.textContent   = dosyalar.length;
+  const toplamBoyut   = dosyalar.reduce((s,f) => s + f.boyut, 0);
+  stats.textContent   = `${dosyalar.length} dosya · ${formatBytes(toplamBoyut)}`;
+
+  const inner = document.getElementById('ui-files-inner');
+  if (!dosyalar.length) {
+    inner.innerHTML = '<div class="ui-empty" style="padding:30px"><span>Henüz dosya yok</span><span style="font-size:11px">Zip yükleyin veya klasör seçin</span></div>';
+    return;
+  }
+
+  // Klasöre göre grupla
+  const gruplar = {};
+  dosyalar.forEach(f => {
+    const k = f.klasor || '(kök)';
+    if (!gruplar[k]) gruplar[k] = [];
+    gruplar[k].push(f);
+  });
+
+  const html = Object.keys(gruplar).sort().map(klasor => {
+    const dosyaHtml = gruplar[klasor].map(f => {
+      const renk = EXT_COLOR[f.uzanti] || '#aaa';
+      const yolEncoded = encodeURIComponent(f.yol);
+      return `
+        <div class="ui-file-item" data-yol="${f.yol}" onclick="uiDosyaGoster('${f.yol}', this)">
+          <span class="ext-badge" style="color:${renk}">${f.uzanti.slice(1)}</span>
+          <span class="fi-name" title="${f.yol}">${f.ad}</span>
+          <span class="fi-del" onclick="uiDosyaSil(event,'${f.yol}')" title="Sil">✕</span>
+        </div>`;
+    }).join('');
+
+    const klasorAdi = klasor === '(kök)' ? '<svg class="ico"><use href="#i-file-text"/></svg><span>Kök</span>' : `<svg class="ico"><use href="#i-folder"/></svg><span>${klasor}</span>`;
+    return `
+      <div class="ui-folder">
+        <div class="ui-folder-header" onclick="klasorToggle(this)">
+          <span class="fold-icon">▾</span>
+          <span>${klasorAdi}</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--text3)">${gruplar[klasor].length}</span>
+        </div>
+        <div class="ui-folder-files">${dosyaHtml}</div>
+      </div>`;
+  }).join('');
+
+  inner.innerHTML = html;
+}
+
+function klasorToggle(header) {
+  header.classList.toggle('collapsed');
+  header.nextElementSibling.classList.toggle('hidden');
+}
+
+async function uiDosyaGoster(yol, el) {
+  document.querySelectorAll('.ui-file-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+
+  const r = await fetch(`/api/ui-files/content?yol=${encodeURIComponent(yol)}`);
+  if (!r.ok) { toast('Dosya okunamadı', 'error'); return; }
+  const icerik = await r.text();
+  const uzanti = yol.split('.').pop();
+  const view   = document.getElementById('ui-code-view');
+  const escaped = icerik.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  view.innerHTML = `
+    <div class="ui-code-view-header">
+      <span class="file-path">${yol}</span>
+      <span style="font-size:10px;color:var(--text3)">${formatBytes(new Blob([icerik]).size)}</span>
+    </div>
+    <pre>${escaped}</pre>`;
+}
+
+async function uiDosyaSil(e, yol) {
+  e.stopPropagation();
+  await fetch('/api/ui-files/delete', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({yol})
+  });
+  document.getElementById('ui-code-view').innerHTML =
+    '<div class="ui-empty"><span>Dosya silindi</span></div>';
+  loadUiFiles();
+}
+
+async function uiTumunuTemizle() {
+  if (!confirm('Tüm UI dosyaları silinsin mi?')) return;
+  await fetch('/api/ui-files/clear', {method:'POST'});
+  document.getElementById('ui-code-view').innerHTML =
+    '<div class="ui-empty"><svg class="ico"><use href="#i-code"/></svg><span>Tüm dosyalar temizlendi</span></div>';
+  loadUiFiles();
+  toast('Tüm UI dosyaları silindi', 'info');
+}
+
+// ─── History ─────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const r = await fetch('/api/history');
+  const list = await r.json();
+  const el = document.getElementById('history-list');
+  if (!list.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">Geçmiş yok</div>'; return; }
+  el.innerHTML = list.map(item => `
+    <div class="history-item">
+      <span class="htime">${formatDate(item.zaman)}</span>
+      <div class="hfiles">
+        ${(item.dosyalar||[]).map(f =>`<span class="file-chip" onclick="historyDosyaGoster('${item.id}','${f}')">${f.replace('.md','')}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function historyDosyaGoster(id, dosya) {
+  switchTab('output');
+  const content = document.getElementById('output-content');
+  content.innerHTML = '<div style="color:var(--text3);font-size:13px">Yükleniyor...</div>';
+  content.className = 'output-content';
+  const r = await fetch(`/api/history/${id}/${dosya}`);
+  if (!r.ok) { toast('Dosya bulunamadı', 'error'); return; }
+  const md = await r.text();
+  content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
+}
+
+function formatDate(ts) {
+  if (!ts) return '-';
+  const y=ts.slice(0,4),m=ts.slice(4,6),d=ts.slice(6,8),h=ts.slice(9,11),mi=ts.slice(11,13);
+  return `${d}.${m}.${y} ${h}:${mi}`;
+}
+
+// ─── Çıktı İndir / Sil ───────────────────────────────────────────────────────
+function ciktiIndir() {
+  if (!currentOutputFile) return;
+  const a = document.createElement('a');
+  a.href = `/api/output/${currentOutputFile}`;
+  a.download = currentOutputFile;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function ciktiSil() {
+  if (!currentOutputFile) return;
+  if (!confirm(`"${currentOutputFile}" silinsin mi?`)) return;
+  const r = await fetch('/api/output/delete', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({dosya: currentOutputFile})
+  });
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || 'Silinemedi', 'error'); return; }
+  toast(`${currentOutputFile} silindi`, 'info');
+  currentOutputFile = null;
+  document.getElementById('output-content').className = 'output-content empty';
+  document.getElementById('output-content').innerHTML = '<span>Bir çıktı seçin</span>';
+  document.getElementById('output-content').style.display = '';
+  document.getElementById('mockup-iframe').style.display = 'none';
+  document.getElementById('output-actions').style.display = 'none';
+  document.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'));
+  refreshOutputTabs();
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const _ico = {
+    success: '<svg class="ico"><use href="#i-check"/></svg>',
+    error:   '<svg class="ico"><use href="#i-x"/></svg>',
+    info:    '<svg class="ico"><use href="#i-info"/></svg>',
+  };
+  t.innerHTML = `${_ico[type]||''}<span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+async function settingsYukle() {
+  const r = await fetch('/api/settings');
+  const d = await r.json();
+
+  // API key
+  const status = document.getElementById('api-key-status');
+  const input  = document.getElementById('api-key-input');
+  if (d.api_key_set) {
+    status.textContent = `✓ Mevcut key: ${d.api_key_masked}`;
+    status.style.color = 'var(--green)';
+    input.placeholder  = d.api_key_masked;
+  } else {
+    status.textContent = '⚠ API key ayarlanmamış';
+    status.style.color = 'var(--yellow)';
+  }
+
+  // CLI toggle
+  const toggle = document.getElementById('cli-toggle');
+  toggle.checked = d.cli_mod;
+  _cliToggleGuncelle(d.cli_mod);
+
+  // CLI durum
+  const cliStatus = document.getElementById('cli-status');
+  if (d.claude_cli_var) {
+    cliStatus.textContent = '✓ claude CLI bulundu — CLI modu kullanılabilir';
+    cliStatus.style.color = 'var(--green)';
+  } else {
+    cliStatus.textContent = '✗ claude CLI bulunamadı — Claude Code kurulu ve PATH\'te olmalı';
+    cliStatus.style.color = 'var(--red)';
+    toggle.disabled = true;
+  }
+
+  // API key bölümü CLI moduna göre göster/gizle
+  document.getElementById('api-key-section').style.display = d.cli_mod ? 'none' : 'block';
+
+  // Extended thinking toggle
+  const thinkingToggle = document.getElementById('thinking-toggle');
+  if (thinkingToggle) {
+    thinkingToggle.checked = d.extended_thinking || false;
+    _thinkingToggleGuncelle(d.extended_thinking || false);
+  }
+}
+
+function _cliToggleGuncelle(aktif) {
+  const track = document.getElementById('cli-toggle-track');
+  const thumb = document.getElementById('cli-toggle-thumb');
+  if (aktif) {
+    track.style.background = 'var(--accent)';
+    thumb.style.left = '19px';
+  } else {
+    track.style.background = 'var(--border-strong)';
+    thumb.style.left = '3px';
+  }
+}
+
+function _thinkingToggleGuncelle(aktif) {
+  const track = document.getElementById('thinking-toggle-track');
+  const thumb = document.getElementById('thinking-toggle-thumb');
+  const status = document.getElementById('thinking-status');
+  if (!track) return;
+  if (aktif) {
+    track.style.background = 'var(--accent)';
+    thumb.style.left = '19px';
+    status.textContent = '✓ Extended thinking aktif — Teknik Analiz ve BRD Analizi daha derin akıl yürütür';
+    status.style.color = 'var(--green)';
+  } else {
+    track.style.background = 'var(--border-strong)';
+    thumb.style.left = '3px';
+    status.textContent = 'Kapalı — standart mod, daha hızlı ve daha düşük maliyet';
+    status.style.color = 'var(--text3)';
+  }
+}
+
+async function cliModDegistir(input) {
+  const aktif = input.checked;
+  _cliToggleGuncelle(aktif);
+  const r = await fetch('/api/settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({cli_mod: aktif})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); input.checked = !aktif; _cliToggleGuncelle(!aktif); return; }
+  document.getElementById('api-key-section').style.display = aktif ? 'none' : 'block';
+  toast(aktif ? 'Claude CLI modu aktif' : 'API key modu aktif', 'success');
+}
+
+async function thinkingModDegistir(input) {
+  const aktif = input.checked;
+  _thinkingToggleGuncelle(aktif);
+  const r = await fetch('/api/settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({extended_thinking: aktif})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error || 'Hata', 'error'); input.checked = !aktif; _thinkingToggleGuncelle(!aktif); return; }
+  toast(aktif ? 'Extended thinking aktif' : 'Extended thinking kapatıldı', 'success');
+}
+
+async function settingsKaydet() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val) { toast('API key boş', 'error'); return; }
+  const r = await fetch('/api/settings', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({api_key: val})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  document.getElementById('api-key-input').value = '';
+  document.getElementById('api-key-status').textContent = `✓ Kaydedildi: ${d.masked}`;
+  document.getElementById('api-key-status').style.color = 'var(--green)';
+  toast('API key kaydedildi', 'success');
+}
+
+// ─── Prompt Editörü ───────────────────────────────────────────────────────────
+let _promptData = {};
+let _aktifSkill = null;
+
+function promptEditorToggle() {
+  const head = document.getElementById('prompt-editor-head');
+  const body = document.getElementById('prompt-editor-body');
+  const acik = head.classList.toggle('open');
+  body.classList.toggle('open', acik);
+  if (acik && Object.keys(_promptData).length === 0) promptlariYukle();
+}
+
+async function promptlariYukle() {
+  const r = await fetch('/api/prompts');
+  if (!r.ok) { toast('Promptlar yüklenemedi', 'error'); return; }
+  _promptData = await r.json();
+  _promptTablariniOlustur();
+  const ilk = Object.keys(_promptData)[0];
+  if (ilk) promptSkillSec(ilk);
+  _promptModifiedSayacGuncelle();
+}
+
+function _promptTablariniOlustur() {
+  const kap = document.getElementById('prompt-skill-tabs');
+  kap.innerHTML = '';
+  for (const [kid, meta] of Object.entries(_promptData)) {
+    const btn = document.createElement('button');
+    btn.className = 'prompt-skill-tab';
+    btn.dataset.kid = kid;
+    btn.onclick = () => promptSkillSec(kid);
+    btn.innerHTML = meta.ad + (meta.degistirildi ? '<span class="modified-dot"></span>' : '');
+    kap.appendChild(btn);
+  }
+}
+
+function promptSkillSec(kid) {
+  _aktifSkill = kid;
+  document.querySelectorAll('.prompt-skill-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.kid === kid);
+  });
+  const meta = _promptData[kid];
+  document.getElementById('prompt-skill-aciklama').textContent = meta.aciklama;
+  document.getElementById('prompt-textarea').value = meta.icerik;
+  const badge = document.getElementById('prompt-modified-badge');
+  badge.style.display = meta.degistirildi ? 'inline-block' : 'none';
+}
+
+async function promptKaydet() {
+  if (!_aktifSkill) return;
+  const icerik = document.getElementById('prompt-textarea').value.trim();
+  if (!icerik) { toast('Prompt boş olamaz', 'error'); return; }
+  const r = await fetch(`/api/prompts/${_aktifSkill}`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({icerik})
+  });
+  if (!r.ok) { const d = await r.json(); toast(d.error, 'error'); return; }
+  _promptData[_aktifSkill].icerik = icerik;
+  _promptData[_aktifSkill].degistirildi = true;
+  _promptData[_aktifSkill].ozel = icerik;
+  _promptTablariniOlustur();
+  promptSkillSec(_aktifSkill);
+  _promptModifiedSayacGuncelle();
+  toast(`"${_promptData[_aktifSkill].ad}" kaydedildi`, 'success');
+}
+
+async function promptSifirla() {
+  if (!_aktifSkill) return;
+  if (!confirm(`"${_promptData[_aktifSkill].ad}" varsayılana döndürülsün mü?`)) return;
+  const r = await fetch(`/api/prompts/${_aktifSkill}/reset`, {method: 'POST'});
+  if (!r.ok) { toast('Sıfırlama başarısız', 'error'); return; }
+  _promptData[_aktifSkill].icerik = _promptData[_aktifSkill].varsayilan;
+  _promptData[_aktifSkill].degistirildi = false;
+  _promptData[_aktifSkill].ozel = null;
+  _promptTablariniOlustur();
+  promptSkillSec(_aktifSkill);
+  _promptModifiedSayacGuncelle();
+  toast('Varsayılana döndürüldü', 'success');
+}
+
+function _promptModifiedSayacGuncelle() {
+  const sayac = Object.values(_promptData).filter(m => m.degistirildi).length;
+  const el = document.getElementById('prompt-modified-count');
+  if (sayac > 0) {
+    el.textContent = `${sayac} özelleştirilmiş`;
+    el.style.display = 'inline-block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function apiKeyGoster() {
+  const input = document.getElementById('api-key-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+// ─── Teknik Analiz Onay / Red ────────────────────────────────────────────────
+async function teknikOnayla() {
+  const r = await fetch('/api/approve-teknik', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Teknik analiz onaylandı — Jira task oluşturuluyor...', 'success');
+  startPoll();
+}
+async function teknikReddet() {
+  const r = await fetch('/api/reject-teknik', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Teknik analiz reddedildi — sıfırlandı.', 'info');
+  resetWorkflowUI();
+}
+
+// ─── Veri Kaynakları (Sources + Sync) ────────────────────────────────────────
+let syncPollTimer = null;
+
+async function loadSources() {
+  try {
+    const d = await (await fetch('/api/sources')).json();
+    if (!d.ok) return;
+    const s = d.sources;
+
+    const confList = document.getElementById('conf-space-list');
+    confList.innerHTML = s.confluence_spaces.length
+      ? s.confluence_spaces.map(sp => `
+          <div class="source-item">
+            <div class="source-item-info">
+              <div class="source-item-key">${escHtml(sp.key)}</div>
+              ${sp.name && sp.name !== sp.key ? `<div class="source-item-name">${escHtml(sp.name)}</div>` : ''}
+            </div>
+            <button class="ref-delete-btn" onclick="deleteConfluenceSpace('${escHtml(sp.key)}')">Sil</button>
+          </div>`).join('')
+      : '<div style="color:var(--text3);font-size:12px;padding:4px 0 6px">Henüz space eklenmemiş</div>';
+
+    const jiraList = document.getElementById('jira-proj-list');
+    jiraList.innerHTML = s.jira_projects.length
+      ? s.jira_projects.map(p => `
+          <div class="source-item">
+            <div class="source-item-info">
+              <div class="source-item-key">${escHtml(p.key)}</div>
+              ${p.name && p.name !== p.key ? `<div class="source-item-name">${escHtml(p.name)}</div>` : ''}
+            </div>
+            <button class="ref-delete-btn" onclick="deleteJiraProject('${escHtml(p.key)}')">Sil</button>
+          </div>`).join('')
+      : '<div style="color:var(--text3);font-size:12px;padding:4px 0 6px">Henüz proje eklenmemiş</div>';
+
+    const ls = document.getElementById('src-last-sync');
+    if (ls) ls.textContent = s.last_sync ? `Son güncelleme: ${s.last_sync}` : '';
+  } catch {}
+}
+
+async function addConfluenceSpace() {
+  const key  = document.getElementById('conf-key-input').value.trim();
+  const name = document.getElementById('conf-name-input').value.trim();
+  if (!key) { showSrcError('Space key zorunlu'); return; }
+  const d = await (await fetch('/api/sources/confluence', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key, name})
+  })).json();
+  if (!d.ok) { showSrcError(d.error); return; }
+  document.getElementById('conf-key-input').value  = '';
+  document.getElementById('conf-name-input').value = '';
+  hideSrcError(); loadSources();
+}
+
+async function addJiraProject() {
+  const key  = document.getElementById('jira-key-input').value.trim().toUpperCase();
+  const name = document.getElementById('jira-name-input').value.trim();
+  if (!key) { showSrcError('Proje key zorunlu'); return; }
+  const d = await (await fetch('/api/sources/jira', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key, name})
+  })).json();
+  if (!d.ok) { showSrcError(d.error); return; }
+  document.getElementById('jira-key-input').value  = '';
+  document.getElementById('jira-name-input').value = '';
+  hideSrcError(); loadSources();
+}
+
+async function deleteConfluenceSpace(key) {
+  if (!confirm(`"${key}" space'ini listeden kaldırmak istiyor musunuz?\n(Daha önce çekilen dosyalar silinmez)`)) return;
+  await fetch(`/api/sources/confluence/${encodeURIComponent(key)}`, {method:'DELETE'});
+  loadSources();
+}
+
+async function deleteJiraProject(key) {
+  if (!confirm(`"${key}" projesini listeden kaldırmak istiyor musunuz?\n(Daha önce çekilen dosyalar silinmez)`)) return;
+  await fetch(`/api/sources/jira/${encodeURIComponent(key)}`, {method:'DELETE'});
+  loadSources();
+}
+
+function showSrcError(msg) {
+  const el = document.getElementById('src-error');
+  el.textContent = '✗ ' + msg; el.style.display = 'block';
+}
+function hideSrcError() {
+  const el = document.getElementById('src-error');
+  if (el) el.style.display = 'none';
+}
+
+async function startSync() {
+  const btn   = document.getElementById('src-sync-btn');
+  const logEl = document.getElementById('sync-log');
+  btn.disabled = true; btn.textContent = 'Çekiliyor…';
+  logEl.style.display = 'block'; logEl.textContent = '';
+  hideSrcError();
+  const d = await (await fetch('/api/sources/sync', {method:'POST'})).json();
+  if (!d.ok) {
+    showSrcError(d.error || 'Başlatılamadı');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Güncelle';
+    return;
+  }
+  pollSync();
+}
+
+async function pollSync() {
+  if (syncPollTimer) clearTimeout(syncPollTimer);
+  try {
+    const d = await (await fetch('/api/sources/sync/status')).json();
+    const logEl = document.getElementById('sync-log');
+    logEl.textContent = d.log.join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+    if (d.last_sync) {
+      const ls = document.getElementById('src-last-sync');
+      if (ls) ls.textContent = `Son güncelleme: ${d.last_sync}`;
+    }
+    if (d.running) {
+      syncPollTimer = setTimeout(pollSync, 800);
+    } else {
+      const btn = document.getElementById('src-sync-btn');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Güncelle';
+      if (d.error) showSrcError(d.error);
+      loadSources(); loadRefDocs();
+    }
+  } catch { syncPollTimer = setTimeout(pollSync, 1500); }
+}
+
+// ─── Referans Dokümanlar ─────────────────────────────────────────────────────
+async function loadRefDocs() {
+  try {
+    const r = await fetch('/api/reference/list');
+    const data = await r.json();
+    ['confluence','jira','services'].forEach(k => renderRefList(k, data[k] || []));
+  } catch {}
+}
+
+function renderRefList(kategori, dosyalar) {
+  const el = document.getElementById(`ref-list-${kategori}`);
+  if (!el) return;
+  if (!dosyalar.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0">Henüz dosya yok</div>';
+    return;
+  }
+  el.innerHTML = dosyalar.map(f => `
+    <div class="ref-file-row">
+      <span class="rf-name" title="${f.yol}">${f.ad}</span>
+      <span class="rf-size">${formatBytes(f.boyut)}</span>
+      <span class="rf-del" onclick="refSil('${kategori}','${f.yol}')" title="Sil">✕</span>
+    </div>`).join('');
+}
+
+async function refYukle(kategori, input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f, f.name));
+  const r = await fetch(`/api/reference/upload/${kategori}`, {method:'POST', body: fd});
+  const d = await r.json();
+  input.value = '';
+  if (!r.ok) { toast(d.error || 'Yükleme hatası', 'error'); return; }
+  toast(`${d.yuklenenler.length} dosya yüklendi`, 'success');
+  loadRefDocs();
+}
+
+async function refSil(kategori, yol) {
+  const r = await fetch('/api/reference/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({kategori, yol})
+  });
+  if (r.ok) { toast('Dosya silindi', 'info'); loadRefDocs(); }
+  else toast('Silinemedi', 'error');
+}
+
+async function addBeService() {
+  const name = document.getElementById('ref-be-name').value.trim();
+  const url  = document.getElementById('ref-be-url').value.trim();
+  const auth = document.getElementById('ref-be-auth').value.trim();
+  if (!name || !url) { toast('Servis adı ve URL zorunlu', 'error'); return; }
+  const btn = document.getElementById('ref-add-btn');
+  const out = document.getElementById('ref-add-output');
+  btn.disabled = true; btn.textContent = 'Yükleniyor…';
+  out.style.display = 'block'; out.textContent = '';
+  const d = await (await fetch('/api/reference/fetch-be', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, url, auth})
+  })).json();
+  out.textContent = d.output || (d.error || 'Hata');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Ekle / Güncelle';
+  if (d.ok) {
+    document.getElementById('ref-be-name').value = '';
+    document.getElementById('ref-be-url').value  = '';
+    document.getElementById('ref-be-auth').value = '';
+    toast(`${name} servisi eklendi`, 'success');
+    loadRefDocs();
+  }
+}
+
+// ─── Bağlam Filtresi ─────────────────────────────────────────────────────────
+async function ctxFilterYukle() {
+  try {
+    const r = await fetch('/api/context-filter');
+    const d = await r.json();
+    document.getElementById('ctx-keywords').value    = (d.keywords||[]).join(', ');
+    document.getElementById('ctx-jira-keys').value   = (d.jira_keys||[]).join(', ');
+    document.getElementById('ctx-conf-pages').value  = (d.confluence_pages||[]).join(', ');
+    updateCtxBadge();
+  } catch {}
+}
+
+async function ctxFilterKaydet() {
+  const parse = id => document.getElementById(id).value.split(',').map(s=>s.trim()).filter(Boolean);
+  const r = await fetch('/api/context-filter', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      keywords:         parse('ctx-keywords'),
+      jira_keys:        parse('ctx-jira-keys'),
+      confluence_pages: parse('ctx-conf-pages'),
+    })
+  });
+  const d = await r.json();
+  const st = document.getElementById('ctx-save-status');
+  if (r.ok) {
+    st.textContent = '✓ Kaydedildi'; st.style.color = 'var(--green)';
+    toast('Bağlam filtresi kaydedildi', 'success');
+    setTimeout(() => { st.textContent = ''; }, 2500);
+  } else { toast(d.error, 'error'); }
+}
+
+async function ctxFilterTemizle() {
+  const r = await fetch('/api/context-filter', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({keywords:[], jira_keys:[], confluence_pages:[]})
+  });
+  if (r.ok) {
+    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages'].forEach(id => document.getElementById(id).value='');
+    toast('Filtre temizlendi', 'info');
+  }
+}
+
+// ─── Jira Ayarlar ────────────────────────────────────────────────────────────
+async function jiraConfigYukle() {
+  try {
+    const r = await fetch('/api/jira/config');
+    const d = await r.json();
+    document.getElementById('jira-client-id').value   = d.client_id || '';
+    document.getElementById('jira-project-key').value = d.project_key || '';
+    document.getElementById('jira-url').value         = d.jira_url || '';
+
+    // Secret alanı: kaydedilmişse placeholder göster, input boş bırak
+    const secEl = document.getElementById('jira-client-secret');
+    const secHint = document.getElementById('jira-secret-hint');
+    secEl.value = '';
+    if (d.client_secret === '***') {
+      secEl.placeholder = '••••••••  (kaydedildi — değiştirmek için yeniden gir)';
+      if (secHint) { secHint.textContent = '✓ Client Secret kaydedildi'; secHint.style.color = 'var(--green)'; }
+    } else {
+      secEl.placeholder = '••••••••';
+      if (secHint) { secHint.textContent = ''; }
+    }
+
+    const st = document.getElementById('jira-conn-status');
+    if (d.connected) {
+      st.className = 'jira-connected';
+      st.textContent = `✓ Jira bağlı — Cloud ID: ${d.cloud_id.slice(0,12)}...`;
+    } else if (d.client_id && d.client_secret === '***') {
+      st.className = 'jira-disconnected';
+      st.textContent = '⚠ Config tamam ama OAuth tamamlanmadı. "Jira ile Bağlan" butonuna tıklayın.';
+    } else {
+      st.className = 'jira-disconnected';
+      st.textContent = '⚠ Jira bağlı değil. Client ID, Secret, URL ve Project Key doldurup kaydedin.';
+    }
+  } catch {}
+}
+
+async function jiraAyarlarKaydet() {
+  const data = {
+    client_id:     document.getElementById('jira-client-id').value.trim(),
+    client_secret: document.getElementById('jira-client-secret').value.trim(),
+    project_key:   document.getElementById('jira-project-key').value.trim(),
+    jira_url:      document.getElementById('jira-url').value.trim(),
+  };
+  const r = await fetch('/api/jira/config', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+  });
+  const d = await r.json();
+  if (r.ok) toast('Jira ayarları kaydedildi', 'success');
+  else toast(d.error, 'error');
+}
+
+async function jiraYetkilendir() {
+  await jiraAyarlarKaydet();
+  const r = await fetch('/api/jira/auth-url', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  window.open(d.url, '_blank', 'width=600,height=700');
+  toast('Tarayıcıda yetkilendirme penceresi açıldı. Tamamlayınca sayfayı yenileyin.', 'info');
+  setTimeout(jiraConfigYukle, 5000);
+}
+
+async function jiraTest() {
+  const r = await fetch('/api/jira/test', {method:'POST'});
+  const d = await r.json();
+  if (d.ok) { toast('✓ Jira bağlantısı başarılı', 'success'); jiraConfigYukle(); }
+  else toast(d.error || 'Bağlantı başarısız', 'error');
+}
+
+async function confluenceDiagnose() {
+  const box = document.getElementById('conf-diagnose-result');
+  box.style.display = 'block';
+  box.innerHTML = '<span style="color:var(--text3)">Confluence izinleri kontrol ediliyor...</span>';
+  try {
+    const r = await fetch('/api/confluence/diagnose');
+    const d = await r.json();
+    if (!d.ok) { box.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(d.error)}</span>`; return; }
+
+    const confScopes = d.confluence_scopes || [];
+    const apiTest    = d.confluence_api_test || {};
+    const resources  = d.resources || [];
+
+    let html = '';
+
+    const granularScopes = confScopes.filter(s => s.endsWith(':confluence'));
+    const classicScopes  = confScopes.filter(s => !s.endsWith(':confluence'));
+    const granularOk = granularScopes.includes('read:space:confluence') && granularScopes.includes('read:page:confluence');
+
+    if (granularOk) {
+      html += `<div style="color:var(--green);font-weight:500">✓ Confluence granular scope'lar mevcut</div>`;
+      html += `<div style="color:var(--text2)">Granular: ${granularScopes.map(s => `<code style="background:var(--surface);padding:1px 4px;border-radius:3px">${escHtml(s)}</code>`).join(' ')}</div>`;
+    } else if (confScopes.length) {
+      html += `<div style="color:var(--orange,#f59e0b);font-weight:500">⚠ Sadece classic scope var — Modern Mode (v2 API) için granular scope gerekli</div>`;
+      html += `<div style="color:var(--text2)">Mevcut: ${classicScopes.map(s => `<code style="background:var(--surface);padding:1px 4px;border-radius:3px">${escHtml(s)}</code>`).join(' ')}</div>`;
+      html += `<div style="color:var(--text2);margin-top:6px"><strong>Eksik granular scope'lar:</strong> <code style="background:var(--surface);padding:1px 4px;border-radius:3px">read:space:confluence</code> <code style="background:var(--surface);padding:1px 4px;border-radius:3px">read:page:confluence</code> <code style="background:var(--surface);padding:1px 4px;border-radius:3px">write:page:confluence</code></div>`;
+      html += `<div style="color:var(--text2);margin-top:6px"><strong>Çözüm:</strong><ol style="margin:4px 0 0 18px;padding:0">`;
+      html += `<li><a href="https://developer.atlassian.com/console/myapps/" target="_blank" style="color:var(--accent2)">developer.atlassian.com</a> → Uygulamanızı açın</li>`;
+      html += `<li><strong>Permissions</strong> sekmesi → <strong>Confluence API</strong> satırında <strong>Edit</strong> veya <strong>Add</strong></li>`;
+      html += `<li><strong>Granular scopes</strong> bölümünden: <em>Read</em> ve <em>Write</em> içerik izinlerini aktifleştirin</li>`;
+      html += `<li>Kaydedin → Ayarlar'da <strong>"Jira'ya Bağlan"</strong> ile yeniden yetkilendirin</li>`;
+      html += `</ol></div>`;
+    } else {
+      html += `<div style="color:var(--red);font-weight:500">✗ Confluence scope'u YOK — token'da Confluence izni bulunmuyor</div>`;
+      html += `<div style="color:var(--text2);margin-top:6px"><strong>Çözüm:</strong><ol style="margin:4px 0 0 18px;padding:0">`;
+      html += `<li><a href="https://developer.atlassian.com/console/myapps/" target="_blank" style="color:var(--accent2)">developer.atlassian.com</a> → Uygulamanızı açın</li>`;
+      html += `<li><strong>Permissions</strong> → <strong>Confluence API</strong> ekleyin</li>`;
+      html += `<li>Granular scopes: <em>Read spaces</em>, <em>Read pages</em>, <em>Write pages</em> aktifleştirin</li>`;
+      html += `<li>Kaydedin → <strong>"Jira'ya Bağlan"</strong> ile yeniden yetkilendirin</li>`;
+      html += `</ol></div>`;
+    }
+
+    const testler = d.confluence_api_testler || {};
+    for (const [label, test] of Object.entries(testler)) {
+      const color = test.ok ? 'var(--green)' : (test.status === 401 ? 'var(--red)' : 'var(--orange,#f59e0b)');
+      html += `<div style="color:${color};margin-top:4px;font-size:11px">${test.ok ? '✓' : '✗'} ${escHtml(label)}: HTTP ${test.status || '?'}</div>`;
+    }
+
+    if (resources.length) {
+      const allScopes = resources.flatMap(r => r.scopes || []);
+      const jiraOk = allScopes.some(s => s.includes('jira'));
+      html += `<div style="color:var(--text3);margin-top:6px;font-size:11px">`;
+      html += `Jira: ${jiraOk ? '✓' : '✗'} | Site: ${escHtml(resources[0]?.name || '-')}`;
+      html += `</div>`;
+    }
+
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = `<span style="color:var(--red)">✗ Bağlantı hatası: ${escHtml(e.message)}</span>`;
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async () => {
+  switchTab('surec');
+  await refreshOutputTabs();
+  await loadUiFiles();
+  await ctxFilterYukle();
+  const r = await fetch('/api/workflow-state');
+  const s = await r.json();
+  // Aktif pipeline'ı duruma göre tespit et
+  const surecDur = ['surec_analizi_calisiyor','onay_bekleniyor','teknik_analiz_calisiyor',
+    'teknik_analiz_onay_bekleniyor','jira_gonderiliyor','jira_tamamlandi'];
+  const brdDur   = ['brd_analizi_calisiyor','brd_revize_bekleniyor','kapsam_analizi_calisiyor','brd_tamamlandi'];
+  if (surecDur.includes(s.durum)) _activePipeline = 'surec';
+  else if (brdDur.includes(s.durum)) _activePipeline = 'brd';
+  _suspendKontrol(s);
+  updateUI(s);
+  if (s.calisiyor || s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor) startPoll();
+})();
+</script>
+</body>
+</html>

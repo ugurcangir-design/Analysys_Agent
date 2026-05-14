@@ -1,0 +1,35 @@
+{
+  "confluence_spaces": [
+    {
+      "key": "mbs2",
+      "name": "mbs2"
+    }
+  ],
+  "jira_projects": [
+    {
+      "key": "MBSTRADE",
+      "name": "MBSTRADE"
+    },
+    {
+      "key": "TERMINAL",
+      "name": "TERMINAL"
+    },
+    {
+      "key": "MBD",
+      "name": "MBD"
+    },
+    {
+      "key": "MBSOPS",
+      "name": "MBSOPS"
+    },
+    {
+      "key": "CORE",
+      "name": "CORE"
+    },
+    {
+      "key": "AUTH",
+      "name": "AUTH"
+    }
+  ],
+  "last_sync": "12/05/2026 13:40"
+}
