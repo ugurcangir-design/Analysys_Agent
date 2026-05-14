@@ -1977,6 +1977,40 @@ function temaDegistir() {
           </div>
         </div>
 
+        <!-- Kullanıcı Yönetimi — sadece admin görür -->
+        <div class="settings-section" id="user-mgmt-section" style="display:none">
+          <div class="section-title">Kullanıcı Yönetimi</div>
+          <div class="section-desc">Uygulamaya erişebilecek kullanıcıları yönetin. Oturum açan: <strong id="current-username" style="color:var(--accent)"></strong></div>
+
+          <!-- Kullanıcı listesi -->
+          <div id="user-list" style="margin-bottom:14px;display:flex;flex-direction:column;gap:6px"></div>
+
+          <!-- Kullanıcı ekle -->
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text)">Yeni Kullanıcı Ekle</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <div class="form-group" style="margin:0">
+                <label style="font-size:11px">Kullanıcı Adı</label>
+                <input type="text" id="new-username" placeholder="adi.soyadi" autocomplete="off" style="font-size:12.5px;padding:7px 10px">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label style="font-size:11px">Şifre (min 6 karakter)</label>
+                <input type="password" id="new-password" placeholder="••••••••" autocomplete="new-password" style="font-size:12.5px;padding:7px 10px">
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="kullaniciEkle()">Kullanıcı Ekle</button>
+          </div>
+        </div>
+
+        <!-- Çıkış -->
+        <div class="settings-section" style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div class="section-title">Oturumu Kapat</div>
+            <div class="section-desc" style="margin:0">Güvenli çıkış yapar, login sayfasına yönlendirir.</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="cikisYap()" style="white-space:nowrap">Çıkış Yap</button>
+        </div>
+
         <!-- CLI usage -->
         <div class="settings-section">
           <div class="section-title">CLI ile Terminal'den Çalıştırma</div>
@@ -3590,6 +3624,99 @@ async function confluenceDiagnose() {
   updateUI(s);
   if (s.calisiyor || s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor) startPoll();
 })();
+
+// ─── Kullanıcı Yönetimi ───────────────────────────────────────────────────────
+async function kullanicilariYukle() {
+  const meRes = await fetch('/api/auth/me');
+  const me = await meRes.json();
+
+  const el = document.getElementById('current-username');
+  if (el) el.textContent = me.username || '';
+
+  const mgmtSection = document.getElementById('user-mgmt-section');
+  if (!mgmtSection) return;
+
+  if (!me.is_admin) {
+    mgmtSection.style.display = 'none';
+    return;
+  }
+  mgmtSection.style.display = 'block';
+
+  const listRes = await fetch('/api/users');
+  const list = await listRes.json();
+  const kap = document.getElementById('user-list');
+  if (!kap) return;
+  kap.innerHTML = '';
+  if (!list.users || list.users.length === 0) {
+    kap.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Henüz kullanıcı yok</div>';
+    return;
+  }
+  list.users.forEach(u => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm)';
+    const isSelf = u === me.username;
+    row.innerHTML = `
+      <svg style="width:14px;height:14px;color:var(--text3);flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span style="flex:1;font-size:13px;font-family:'Geist Mono',monospace">${u}</span>
+      ${isSelf ? '<span style="font-size:10.5px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:10px">admin</span>' : ''}
+      <button onclick="sifreDegistir('${u}')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px">Şifre</button>
+      ${!isSelf ? `<button onclick="kullaniciSil('${u}')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px;color:var(--red)">Sil</button>` : ''}
+    `;
+    kap.appendChild(row);
+  });
+}
+
+async function kullaniciEkle() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  if (!username || !password) { toast('Kullanıcı adı ve şifre gerekli', 'error'); return; }
+  const r = await fetch('/api/users', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({username, password})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  document.getElementById('new-username').value = '';
+  document.getElementById('new-password').value = '';
+  toast(`"${username}" eklendi`, 'success');
+  kullanicilariYukle();
+}
+
+async function kullaniciSil(username) {
+  if (!confirm(`"${username}" silinsin mi?`)) return;
+  const r = await fetch(`/api/users/${username}`, {method: 'DELETE'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast(`"${username}" silindi`, 'success');
+  kullanicilariYukle();
+}
+
+async function sifreDegistir(username) {
+  const yeni = prompt(`"${username}" için yeni şifre (min 6 karakter):`);
+  if (!yeni) return;
+  if (yeni.length < 6) { toast('Şifre en az 6 karakter olmalı', 'error'); return; }
+  const r = await fetch(`/api/users/${username}/password`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({password: yeni})
+  });
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast(`"${username}" şifresi güncellendi`, 'success');
+}
+
+async function cikisYap() {
+  await fetch('/api/auth/logout', {method: 'POST'});
+  window.location.href = '/login';
+}
+
+// Ayarlar sekmesi açılınca kullanıcıları yükle
+const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[onclick]');
+  if (btn && btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'settings'")) {
+    setTimeout(kullanicilariYukle, 100);
+  }
+});
 </script>
 </body>
 </html>

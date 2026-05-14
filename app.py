@@ -15,7 +15,8 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, send_file, abort
+from flask import Flask, request, jsonify, render_template, send_file, abort, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -45,6 +46,55 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+
+# SECRET_KEY: .env'den alınır, yoksa rastgele üretilir (sunucu yeniden başlayınca oturumlar sıfırlanır)
+app.secret_key = os.getenv("SECRET_KEY") or os.urandom(32)
+
+# Kullanıcı veritabanı — root dizinde, git'e gitmez
+USERS_PATH = BASE_DIR / "users.json"
+
+# Auth gerektirmeyen route'lar
+AUTH_MUAF = {"/login", "/api/auth/login"}
+
+
+def _kullanicilari_oku() -> dict:
+    if not USERS_PATH.exists():
+        return {}
+    try:
+        return json.loads(USERS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _kullanicilari_yaz(users: dict) -> None:
+    USERS_PATH.write_text(json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _giris_yapildi_mi() -> bool:
+    return bool(session.get("username"))
+
+
+def _admin_mi() -> bool:
+    admin = os.getenv("ADMIN_USER", "").strip().lower()
+    return bool(admin and session.get("username") == admin)
+
+
+def _auth_aktif_mi() -> bool:
+    return os.getenv("AUTH_ENABLED", "false").lower() in ("1", "true", "yes")
+
+
+@app.before_request
+def auth_kontrol():
+    if not _auth_aktif_mi():
+        return None
+    if request.path in AUTH_MUAF:
+        return None
+    if request.path.startswith("/static/"):
+        return None
+    if not _giris_yapildi_mi():
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Oturum açmanız gerekiyor", "auth_required": True}), 401
+        return redirect(url_for("login_sayfasi"))
 
 IZIN_VERILEN_UZANTILAR = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md", ".webp", ".docx"}
 UI_UZANTILAR = {
@@ -915,6 +965,113 @@ def _claude_cli_var_mi() -> bool:
     return bool(_shutil.which("claude"))
 
 
+# ─── Auth Route'ları ──────────────────────────────────────────────────────────
+
+@app.route("/login")
+def login_sayfasi():
+    if _giris_yapildi_mi():
+        return redirect("/")
+    return render_template("login.html")
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip().lower()
+    password = data.get("password", "")
+    if not username or not password:
+        return jsonify({"error": "Kullanıcı adı ve şifre gerekli"}), 400
+    users = _kullanicilari_oku()
+    if not users:
+        return jsonify({"error": "Henüz kullanıcı tanımlanmamış. manage_users.py ile ilk kullanıcıyı oluşturun."}), 403
+    hashed = users.get(username)
+    if not hashed or not check_password_hash(hashed, password):
+        return jsonify({"error": "Kullanıcı adı veya şifre hatalı"}), 401
+    session["username"] = username
+    session.permanent = True
+    logger.info(f"Giriş: {username}")
+    return jsonify({"ok": True, "username": username})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def auth_logout():
+    username = session.pop("username", None)
+    if username:
+        logger.info(f"Çıkış: {username}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auth/me", methods=["GET"])
+def auth_me():
+    return jsonify({"username": session.get("username"), "is_admin": _admin_mi()})
+
+
+# ─── Kullanıcı Yönetimi ───────────────────────────────────────────────────────
+
+@app.route("/api/users", methods=["GET"])
+def kullanici_listele():
+    if not _admin_mi():
+        return jsonify({"error": "Yetkisiz"}), 403
+    users = _kullanicilari_oku()
+    return jsonify({"users": list(users.keys())})
+
+
+@app.route("/api/users", methods=["POST"])
+def kullanici_ekle():
+    if not _admin_mi():
+        return jsonify({"error": "Yetkisiz"}), 403
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip().lower()
+    password = data.get("password", "")
+    if not username or not password:
+        return jsonify({"error": "Kullanıcı adı ve şifre gerekli"}), 400
+    if len(username) < 2 or not username.replace("_", "").replace("-", "").replace(".", "").isalnum():
+        return jsonify({"error": "Kullanıcı adı yalnızca harf, rakam, -, _ ve . içerebilir (min 2 karakter)"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Şifre en az 6 karakter olmalı"}), 400
+    users = _kullanicilari_oku()
+    if username in users:
+        return jsonify({"error": f"'{username}' zaten mevcut"}), 409
+    users[username] = generate_password_hash(password)
+    _kullanicilari_yaz(users)
+    logger.info(f"Kullanıcı eklendi: {username}")
+    return jsonify({"ok": True, "username": username})
+
+
+@app.route("/api/users/<username>", methods=["DELETE"])
+def kullanici_sil(username):
+    if not _admin_mi():
+        return jsonify({"error": "Yetkisiz"}), 403
+    username = username.lower()
+    if username == session.get("username"):
+        return jsonify({"error": "Kendi hesabınızı silemezsiniz"}), 400
+    users = _kullanicilari_oku()
+    if username not in users:
+        return jsonify({"error": "Kullanıcı bulunamadı"}), 404
+    del users[username]
+    _kullanicilari_yaz(users)
+    logger.info(f"Kullanıcı silindi: {username}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/users/<username>/password", methods=["POST"])
+def kullanici_sifre_degistir(username):
+    if not _admin_mi():
+        return jsonify({"error": "Yetkisiz"}), 403
+    username = username.lower()
+    data = request.get_json(silent=True) or {}
+    yeni_sifre = data.get("password", "")
+    if len(yeni_sifre) < 6:
+        return jsonify({"error": "Şifre en az 6 karakter olmalı"}), 400
+    users = _kullanicilari_oku()
+    if username not in users:
+        return jsonify({"error": "Kullanıcı bulunamadı"}), 404
+    users[username] = generate_password_hash(yeni_sifre)
+    _kullanicilari_yaz(users)
+    logger.info(f"Şifre değiştirildi: {username}")
+    return jsonify({"ok": True})
+
+
 @app.route("/api/settings", methods=["GET"])
 def settings_oku():
     env = _env_oku()
@@ -1610,5 +1767,7 @@ def guvenlik_basliklari(response):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5002))
-    logger.info(f"BRD Analyst Agent başlatılıyor → http://localhost:{port}")
-    app.run(host="127.0.0.1", port=port, debug=False)
+    import socket
+    local_ip = socket.gethostbyname(socket.gethostname())
+    logger.info(f"BRD Analyst Agent başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)

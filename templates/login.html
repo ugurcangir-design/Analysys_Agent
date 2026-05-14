@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giriş — BRD Analyst Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #080B12;
+  --surface: #0E141E;
+  --border:  #1E2735;
+  --text:    #E5EAF1;
+  --text2:   #9CA7B8;
+  --text3:   #5F6B7E;
+  --accent:  #2DD4BF;
+  --accent2: #14B8A6;
+  --accent-soft: #0E3530;
+  --on-accent: #03201D;
+  --red:     #F87171;
+  --red-soft:#3A1414;
+  --radius:  6px;
+  --focus-ring: 0 0 0 3px rgba(45,212,191,.18);
+}
+html[data-theme="light"] {
+  --bg:      #F5F7FA;
+  --surface: #FFFFFF;
+  --border:  #E1E6ED;
+  --text:    #1A2233;
+  --text2:   #586375;
+  --text3:   #8A93A2;
+  --accent:  #0F766E;
+  --accent2: #115E59;
+  --accent-soft: #D1FAE5;
+  --on-accent: #FFFFFF;
+  --red:     #DC2626;
+  --red-soft:#FEE2E2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Geist', system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; display: flex;
+  align-items: center; justify-content: center;
+  padding: 24px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 36px 40px;
+  width: 100%; max-width: 400px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.4);
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 28px;
+}
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+}
+.logo-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+.logo-sub  { font-size: 11px; color: var(--text3); margin-top: 1px; }
+h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
+.subtitle { font-size: 12.5px; color: var(--text2); margin-bottom: 28px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+input {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  font-family: inherit; font-size: 13.5px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
+input::placeholder { color: var(--text3); }
+.btn {
+  width: 100%; padding: 10px;
+  background: var(--accent); color: var(--on-accent);
+  border: none; border-radius: var(--radius);
+  font-family: inherit; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+  margin-top: 4px;
+}
+.btn:hover { background: var(--accent2); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.error-box {
+  background: var(--red-soft); border: 1px solid var(--red);
+  border-radius: var(--radius); padding: 10px 12px;
+  font-size: 12.5px; color: var(--red);
+  margin-bottom: 16px; display: none;
+}
+.theme-toggle {
+  position: fixed; top: 16px; right: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 12px;
+  font-size: 11.5px; color: var(--text2);
+  cursor: pointer; font-family: inherit;
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌙 / ☀️</button>
+
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">BRD Analyst Agent</div>
+      <div class="logo-sub">AI Destekli Analiz Platformu</div>
+    </div>
+  </div>
+
+  <h1>Giriş Yap</h1>
+  <p class="subtitle">Devam etmek için kimlik bilgilerinizi girin.</p>
+
+  <div class="error-box" id="error-box"></div>
+
+  <form onsubmit="girisYap(event)">
+    <div class="form-group">
+      <label for="username">Kullanıcı Adı</label>
+      <input type="text" id="username" placeholder="kullanıcı adı" autocomplete="username" autofocus>
+    </div>
+    <div class="form-group">
+      <label for="password">Şifre</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn" id="submit-btn">Giriş Yap</button>
+  </form>
+</div>
+
+<script>
+// Tema
+const _saved = localStorage.getItem('theme');
+if (_saved) document.documentElement.setAttribute('data-theme', _saved);
+
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+}
+
+async function girisYap(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  const errBox = document.getElementById('error-box');
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!username || !password) {
+    gosterHata('Kullanıcı adı ve şifre gerekli');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Giriş yapılıyor...';
+  errBox.style.display = 'none';
+
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      window.location.href = '/';
+    } else {
+      gosterHata(d.error || 'Giriş başarısız');
+    }
+  } catch {
+    gosterHata('Bağlantı hatası');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Giriş Yap';
+  }
+}
+
+function gosterHata(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+</script>
+</body>
+</html>
