@@ -30,6 +30,8 @@ cat > "$APP_PATH/Contents/Info.plist" << 'PLIST'
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>LSUIElement</key><true/>
+    <key>LSBackgroundOnly</key><false/>
 </dict>
 </plist>
 PLIST
@@ -169,8 +171,9 @@ LAUNCHEOF
 
 chmod +x "$LAUNCHER"
 
-# macOS'a ikonu tanıt
+# macOS'a ikonu tanıt + quarantine temizle
 touch "$APP_PATH"
+xattr -rd com.apple.quarantine "$APP_PATH" 2>/dev/null || true
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
     -f "$APP_PATH" 2>/dev/null || true
 
