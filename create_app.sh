@@ -123,39 +123,84 @@ def png_yaz(yol, w, h, piksel_fn):
         f.write(b'\x89PNG\r\n\x1a\n' + ihdr + idat + iend)
 
 def piksel(x, y, S=512):
-    cx, cy = S//2, S//2
-    dx, dy = x - cx, y - cy
-    BG  = (13, 20, 30, 255)
-    DOC = (20, 30, 48, 255)
-    AC  = (45, 212, 191, 255)
-    AC2 = (20, 184, 166, 255)
-    bw, bh = int(S*.66), int(S*.70)
-    rx, ry = bw//2, bh//2
-    rk = int(S*.09)
-    qx = abs(dx) - (rx - rk)
-    qy = abs(dy) - (ry - rk)
+    BG   = (13,  20,  30,  255)   # koyu lacivert zemin
+    AC   = (45,  212, 191, 255)   # ana teal
+    AC2  = (20,  184, 166, 255)   # koyu teal (çubuk alt)
+    AC3  = (167, 243, 232, 255)   # açık teal (veri noktası / trend)
+    GRID = (22,  33,  48,  255)   # ızgara çizgisi rengi
+
+    # ── Yuvarlak köşeli kare arka plan ────────────────────────────
+    pad = int(S * .08)
+    rk  = int(S * .18)
+    cx, cy = S // 2, S // 2
+    ax, ay = abs(x - cx), abs(y - cy)
+    lim = S // 2 - pad
+    qx, qy = ax - (lim - rk), ay - (lim - rk)
     if qx > 0 and qy > 0:
-        in_box = qx*qx + qy*qy < rk*rk
-    else:
-        in_box = abs(dx) < rx and abs(dy) < ry
-    if not in_box:
+        if qx * qx + qy * qy > rk * rk:
+            return BG
+    elif ax > lim or ay > lim:
         return BG
-    fold = int(S * .13)
-    fx, fy = rx - fold, -ry + fold
-    if dx > fx and dy < fy + fold:
-        if (dx - fx) + (-dy + fy) > fold:
-            return DOC
-        return AC2
-    sw = int(bw * .54)
-    sh = int(S * .024)
-    gap = int(S * .063)
-    y0 = int(-bh * .09)
-    for i in range(4):
-        ly = y0 + i * gap
-        gw = sw if i < 3 else int(sw * .58)
-        if abs(dy - ly) < sh and abs(dx) < gw:
-            return AC
-    return DOC
+
+    # ── Yatay ızgara çizgileri (3 adet, soluk) ────────────────────
+    base_y = int(S * .75)
+    for gi in range(1, 4):
+        gy = base_y - int(S * .18 * gi)
+        if abs(y - gy) <= 1:
+            return GRID
+
+    # ── Çubuklar (4 adet, yükselen) ───────────────────────────────
+    n      = 4
+    bw     = int(S * .105)
+    bgap   = int(S * .048)
+    total  = n * bw + (n - 1) * bgap
+    ox     = (S - total) // 2
+    heights = [int(S * h) for h in (.20, .34, .50, .62)]
+    br     = int(bw * .35)   # üst köşe yarıçapı
+
+    for i in range(n):
+        x0, x1 = ox + i * (bw + bgap), ox + i * (bw + bgap) + bw
+        y0, y1 = base_y - heights[i], base_y
+        if x0 <= x < x1 and y0 <= y <= y1:
+            in_bar = True
+            if x - x0 < br and y - y0 < br:
+                ddx, ddy = x - (x0 + br), y - (y0 + br)
+                if ddx * ddx + ddy * ddy > br * br:
+                    in_bar = False
+            elif x1 - x <= br and y - y0 < br:
+                ddx, ddy = x - (x1 - br), y - (y0 + br)
+                if ddx * ddx + ddy * ddy > br * br:
+                    in_bar = False
+            if in_bar:
+                t  = (y - y0) / max(heights[i], 1)
+                r  = int(AC[0] + t * (AC2[0] - AC[0]))
+                g  = int(AC[1] + t * (AC2[1] - AC[1]))
+                b  = int(AC[2] + t * (AC2[2] - AC[2]))
+                return (r, g, b, 255)
+
+    # ── Veri noktaları (çubuk tepeleri) ───────────────────────────
+    pts = [(ox + i * (bw + bgap) + bw // 2, base_y - heights[i]) for i in range(n)]
+    dr  = int(S * .030)
+    for px, py in pts:
+        if (x - px) ** 2 + (y - py) ** 2 <= dr * dr:
+            return AC3
+
+    # ── Trend çizgisi ─────────────────────────────────────────────
+    lw2 = 2.8 ** 2   # çizgi yarı genişliği²
+    for i in range(len(pts) - 1):
+        x1p, y1p = pts[i];  x2p, y2p = pts[i + 1]
+        ddx, ddy = x2p - x1p, y2p - y1p
+        L2 = ddx * ddx + ddy * ddy
+        if L2 == 0:
+            continue
+        t = ((x - x1p) * ddx + (y - y1p) * ddy) / L2
+        t = max(0.0, min(1.0, t))
+        cx2 = x1p + t * ddx;  cy2 = y1p + t * ddy
+        dist2 = (x - cx2) ** 2 + (y - cy2) ** 2
+        if dist2 <= lw2:
+            return AC3
+
+    return (13, 20, 30, 255)
 
 SIZE = 512
 tmp = tempfile.mkdtemp()
