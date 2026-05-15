@@ -1,10 +1,10 @@
 #!/bin/bash
-# BRD Analyst Agent — macOS masaüstü ikonu oluşturucu
+# Analyst Studio — macOS masaüstü ikonu oluşturucu
 # Swift binary tabanlı — macOS 26+ Finder ile uyumlu
 
 set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="BRD Analyst Agent"
+APP_NAME="Analyst Studio"
 APP_PATH="$HOME/Desktop/$APP_NAME.app"
 
 echo "=== Masaüstü ikonu oluşturuluyor ==="
@@ -74,11 +74,11 @@ cat > "$APP_PATH/Contents/Info.plist" << PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>BRD Analyst Agent</string>
+    <string>Analyst Studio</string>
     <key>CFBundleDisplayName</key>
-    <string>BRD Analyst Agent</string>
+    <string>Analyst Studio</string>
     <key>CFBundleIdentifier</key>
-    <string>com.brd-analyst-agent</string>
+    <string>com.analyst-studio</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>

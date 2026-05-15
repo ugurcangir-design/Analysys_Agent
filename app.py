@@ -1,5 +1,5 @@
 """
-Flask web sunucusu — BRD Analyst Agent (port 5002)
+Flask web sunucusu — Analyst Studio (port 5002)
 """
 
 import os
@@ -1882,5 +1882,5 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 5002))
     import socket
     local_ip = socket.gethostbyname(socket.gethostname())
-    logger.info(f"BRD Analyst Agent başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
+    logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)
