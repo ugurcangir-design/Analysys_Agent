@@ -21,6 +21,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_file, abort, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
+from skills.atlassian import (
+    env_oku as _env_oku,
+    atlassian_get as _atlassian_get,
+    atlassian_post as _atlassian_post,
+)
 
 load_dotenv()
 
@@ -207,77 +212,6 @@ def _adf_to_text(node) -> str:
     for child in node.get("content", []):
         parts.append(_adf_to_text(child))
     return " ".join(p for p in parts if p)
-
-
-def _atlassian_refresh() -> str:
-    """Access token'ı yenile, yeni token döndür."""
-    import requests as _req
-    env = _env_oku()
-    refresh = env.get("JIRA_REFRESH_TOKEN", "")
-    if not refresh:
-        raise Exception("Refresh token yok. Jira ile yeniden bağlanın.")
-    r = _req.post("https://auth.atlassian.com/oauth/token", json={
-        "grant_type": "refresh_token",
-        "client_id": env.get("JIRA_CLIENT_ID", ""),
-        "client_secret": env.get("JIRA_CLIENT_SECRET", ""),
-        "refresh_token": refresh,
-    }, timeout=15)
-    tokens = r.json()
-    if "access_token" not in tokens:
-        raise Exception(tokens.get("error_description", "Token yenilenemedi"))
-    _env_yaz({"JIRA_ACCESS_TOKEN": tokens["access_token"]})
-    if "refresh_token" in tokens:
-        _env_yaz({"JIRA_REFRESH_TOKEN": tokens["refresh_token"]})
-    os.environ["JIRA_ACCESS_TOKEN"] = tokens["access_token"]
-    return tokens["access_token"]
-
-
-def _atlassian_get(path: str, cloud_id: str, service: str = "jira") -> dict:
-    import requests as _req
-    env = _env_oku()
-    token = env.get("JIRA_ACCESS_TOKEN", "")
-    base = f"https://api.atlassian.com/ex/{service}/{cloud_id}"
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    r = _req.get(base + path, headers=headers, timeout=30)
-    if r.status_code == 401:
-        try:
-            token = _atlassian_refresh()
-        except Exception as refresh_err:
-            raise Exception(f"Yetkilendirme başarısız. Ayarlar → Jira ile yeniden bağlanın. ({refresh_err})")
-        headers["Authorization"] = f"Bearer {token}"
-        r = _req.get(base + path, headers=headers, timeout=30)
-    if r.status_code == 401:
-        detail = ""
-        try:
-            detail = r.json().get("message", r.text[:200])
-        except Exception:
-            detail = r.text[:200]
-        logger.warning(f"Atlassian 401 [{service}] path={path} → {detail}")
-        if service == "confluence":
-            raise Exception(
-                "Confluence erişimi reddedildi (401). "
-                "Ayarlar → 'Confluence Bağlantısını Test Et' butonuyla hangi izinlerin eksik olduğunu görebilirsiniz. "
-                f"Atlassian yanıtı: {detail}"
-            )
-        raise Exception(f"Atlassian API 401: {detail}")
-    r.raise_for_status()
-    return r.json()
-
-
-def _atlassian_post(path: str, body: dict, cloud_id: str, service: str = "jira") -> dict:
-    import requests as _req
-    env = _env_oku()
-    token = env.get("JIRA_ACCESS_TOKEN", "")
-    base = f"https://api.atlassian.com/ex/{service}/{cloud_id}"
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json",
-               "Content-Type": "application/json"}
-    r = _req.post(base + path, json=body, headers=headers, timeout=30)
-    if r.status_code == 401:
-        token = _atlassian_refresh()
-        headers["Authorization"] = f"Bearer {token}"
-        r = _req.post(base + path, json=body, headers=headers, timeout=30)
-    r.raise_for_status()
-    return r.json()
 
 
 def _fetch_confluence_space(space_key: str, cloud_id: str) -> int:
@@ -1052,17 +986,6 @@ def rerun_status(dosya_adi: str):
     return jsonify({"var": True, "guncelleme": yol.stat().st_mtime})
 
 
-def _env_oku() -> dict:
-    """Mevcut .env dosyasını key→value dict olarak oku."""
-    env_yol = BASE_DIR / ".env"
-    sonuc = {}
-    if env_yol.exists():
-        for satir in env_yol.read_text(encoding="utf-8").splitlines():
-            satir = satir.strip()
-            if satir and not satir.startswith("#") and "=" in satir:
-                k, _, v = satir.partition("=")
-                sonuc[k.strip()] = v.strip().strip("'\"")
-    return sonuc
 
 
 def _env_yaz(degiskenler: dict) -> None:

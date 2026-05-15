@@ -3,12 +3,15 @@ Atlassian API yardımcıları — token yenileme, HTTP get/post, Confluence CRUD
 skills/ içindeki tüm Atlassian işlemleri buradan yapılır.
 """
 
+import logging
 import os
 import re
 import urllib.parse
 import requests as _req
 from pathlib import Path
 from dotenv import load_dotenv, set_key
+
+logger = logging.getLogger(__name__)
 
 _ENV_PATH = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=_ENV_PATH)
@@ -71,8 +74,25 @@ def atlassian_get(path: str, cloud_id: str, service: str = "jira") -> dict:
     base = f"https://api.atlassian.com/ex/{service}/{cloud_id}"
     r = _req.get(base + path, headers=_auth_headers(token), timeout=30)
     if r.status_code == 401:
-        token = atlassian_refresh(env)
+        try:
+            token = atlassian_refresh(env)
+        except Exception as refresh_err:
+            raise Exception(f"Yetkilendirme başarısız. Ayarlar → Jira ile yeniden bağlanın. ({refresh_err})")
         r = _req.get(base + path, headers=_auth_headers(token), timeout=30)
+    if r.status_code == 401:
+        detail = ""
+        try:
+            detail = r.json().get("message", r.text[:200])
+        except Exception:
+            detail = r.text[:200]
+        logger.warning("Atlassian 401 [%s] path=%s → %s", service, path, detail)
+        if service == "confluence":
+            raise Exception(
+                "Confluence erişimi reddedildi (401). "
+                "Ayarlar → 'Confluence Bağlantısını Test Et' butonuyla hangi izinlerin eksik olduğunu görebilirsiniz. "
+                f"Atlassian yanıtı: {detail}"
+            )
+        raise Exception(f"Atlassian API 401: {detail}")
     r.raise_for_status()
     return r.json()
 
