@@ -2882,10 +2882,20 @@ async function uiZipYukle(input) {
     fd.append('file', file);
     fd.append('mode', 'replace');
     const r = await fetch('/api/upload-ui-project', {method:'POST', body: fd});
-    const d = await r.json();
-    if (!r.ok) { toast(d.error || 'Yükleme hatası', 'error'); return; }
-    toast(`${d.dosya_sayisi} dosya yüklendi${d.atlananlar ? ` (${d.atlananlar} atlandı)` : ''}`, 'success');
+    let d;
+    try { d = await r.json(); } catch { d = {}; }
+    if (!r.ok) {
+      toast(d.error || `Sunucu hatası (${r.status})`, 'error');
+      return;
+    }
+    if (d.dosya_sayisi === 0) {
+      toast(`Dosya yüklenmedi — zip içinde desteklenen kaynak dosyası bulunamadı (${d.atlananlar || 0} atlandı)`, 'warning');
+    } else {
+      toast(`${d.dosya_sayisi} dosya yüklendi${d.atlananlar ? ` · ${d.atlananlar} atlandı` : ''}`, 'success');
+    }
     loadUiFiles();
+  } catch (e) {
+    toast('Yükleme hatası: ' + e.message, 'error');
   } finally {
     _overlay(false);
   }
@@ -2910,17 +2920,26 @@ async function uiDosyaYukle(input) {
   _overlay(true, `${files.length} dosya yükleniyor...`, '');
   try {
     const fd = new FormData();
-    // webkitdirectory: relativePath ile gönder
     files.forEach(f => {
       const goreceli = f.webkitRelativePath || f.name;
-      const blob = new Blob([f], {type: f.type});
-      fd.append('files', blob, goreceli);
+      fd.append('files', new Blob([f], {type: f.type}), goreceli);
     });
     const r = await fetch('/api/upload-ui-code', {method:'POST', body: fd});
-    const d = await r.json();
-    if (!r.ok) { toast(d.error || 'Yükleme hatası', 'error'); return; }
-    toast(`${d.yuklenenler.length} dosya yüklendi`, 'success');
+    let d;
+    try { d = await r.json(); } catch { d = {}; }
+    if (!r.ok) {
+      toast(d.error || `Sunucu hatası (${r.status})`, 'error');
+      return;
+    }
+    const n = (d.yuklenenler || []).length;
+    if (n === 0) {
+      toast('Desteklenen dosya bulunamadı — .tsx .ts .js .vue .css .json vb. seçin', 'warning');
+    } else {
+      toast(`${n} dosya yüklendi`, 'success');
+    }
     loadUiFiles();
+  } catch (e) {
+    toast('Yükleme hatası: ' + e.message, 'error');
   } finally {
     _overlay(false);
     input.value = '';

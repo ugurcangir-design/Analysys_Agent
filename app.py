@@ -1833,6 +1833,11 @@ def guvenlik_basliklari(response):
     return response
 
 
+@app.errorhandler(413)
+def request_too_large(e):
+    return jsonify({"error": f"Dosya çok büyük — maksimum {app.config['MAX_CONTENT_LENGTH'] // 1024 // 1024} MB kabul edilir"}), 413
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5002))
     import socket
