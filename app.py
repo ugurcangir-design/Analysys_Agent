@@ -3,18 +3,21 @@ Flask web sunucusu — Analyst Studio (port 5002)
 """
 
 import os
+import re
 import sys
 import json
 import time
 import signal
 import shutil
 import logging
+import secrets
 import zipfile
 import subprocess
 import threading
 import tempfile
+from collections import defaultdict
+from datetime import datetime, timedelta
 from pathlib import Path
-from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_file, abort, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -47,15 +50,41 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
-# SECRET_KEY: .env'den alınır, yoksa rastgele üretilir (sunucu yeniden başlayınca oturumlar sıfırlanır)
-app.secret_key = os.getenv("SECRET_KEY") or os.urandom(32)
+# SECRET_KEY: .env'den alınır, yoksa kalıcı olarak üretilip .env'e kaydedilir
+_sk = os.getenv("SECRET_KEY")
+if not _sk:
+    _sk = secrets.token_hex(32)
+    _env_yolu_sk = Path(__file__).parent / ".env"
+    with open(_env_yolu_sk, "a", encoding="utf-8") as _f:
+        _f.write(f"\nSECRET_KEY={_sk}\n")
+app.secret_key = _sk
 
 # Kullanıcı veritabanı — root dizinde, git'e gitmez
 USERS_PATH = BASE_DIR / "users.json"
 
 # Auth gerektirmeyen route'lar
 AUTH_MUAF = {"/login", "/api/auth/login"}
+
+
+# ─── Brute-force Koruması ────────────────────────────────────────────────────
+
+_login_denemeler: dict[str, list[float]] = defaultdict(list)
+_LOGIN_LIMIT   = 5   # maksimum başarısız deneme
+_LOGIN_PENCERE = 60  # saniye içinde
+
+
+def _brute_force_kontrol(ip: str) -> bool:
+    """True dönerse o IP'yi engelle."""
+    simdi = time.time()
+    denemeler = [t for t in _login_denemeler[ip] if simdi - t < _LOGIN_PENCERE]
+    _login_denemeler[ip] = denemeler
+    return len(denemeler) >= _LOGIN_LIMIT
+
+
+def _basarisiz_giris_kaydet(ip: str) -> None:
+    _login_denemeler[ip].append(time.time())
 
 
 def _kullanicilari_oku() -> dict:
@@ -332,6 +361,9 @@ def _fetch_jira_project(project_key: str, cloud_id: str) -> int:
     return len(issues)
 
 
+# Rerun (yeniden çalıştırma) lock — eş zamanlı rerun isteğini engeller
+_rerun_lock = threading.Lock()
+
 # Heartbeat takibi
 _son_heartbeat = time.time()
 _heartbeat_lock = threading.Lock()
@@ -454,6 +486,8 @@ def version_bilgi():
 
 @app.route("/api/update", methods=["POST"])
 def guncelle():
+    if _auth_aktif_mi() and not _giris_yapildi_mi():
+        return jsonify({"error": "Yetkisiz"}), 403
     try:
         # git pull
         pull = subprocess.run(
@@ -574,7 +608,6 @@ def run_teknik():
     input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
     md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
     if md_dosya:
-        import shutil
         shutil.copy2(md_dosya, surec_cikti)
         logger.info(f"Yüklenen dosya surec-analizi.md olarak kopyalandı: {md_dosya.name}")
     elif not surec_cikti.exists():
@@ -882,6 +915,9 @@ def upload_ui_code():
         if ".." in goreceli:
             continue
         hedef = UI_CODE_DIR / goreceli
+        # Path traversal koruması
+        if not str(hedef.resolve()).startswith(str(UI_CODE_DIR.resolve())):
+            continue
         hedef.parent.mkdir(parents=True, exist_ok=True)
         f.save(str(hedef))
         yuklenenler.append(goreceli)
@@ -975,8 +1011,10 @@ def rerun():
     if not duzeltme:
         return jsonify({"error": "Düzeltme notu boş"}), 400
 
+    if not _rerun_lock.acquire(blocking=False):
+        return jsonify({"error": "Başka bir revize işlemi devam ediyor"}), 409
+
     # Düzeltme notunu geçici dosyaya yaz
-    import tempfile
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as tmp:
         tmp.write(duzeltme)
         tmp_yol = tmp.name
@@ -992,11 +1030,11 @@ def rerun():
         except Exception as e:
             logger.error(f"rerun exception: {e}")
         finally:
-            import os as _os
             try:
-                _os.unlink(tmp_yol)
+                os.unlink(tmp_yol)
             except Exception:
                 pass
+            _rerun_lock.release()
 
     threading.Thread(target=_calistir, daemon=True).start()
     logger.info(f"Yeniden çalıştırma başlatıldı: {dosya_adi}")
@@ -1058,8 +1096,7 @@ def _maskele(deger: str) -> str:
 
 
 def _claude_cli_var_mi() -> bool:
-    import shutil as _shutil
-    return bool(_shutil.which("claude"))
+    return bool(shutil.which("claude"))
 
 
 # ─── Auth Route'ları ──────────────────────────────────────────────────────────
@@ -1073,6 +1110,10 @@ def login_sayfasi():
 
 @app.route("/api/auth/login", methods=["POST"])
 def auth_login():
+    ip = request.remote_addr or "unknown"
+    if _brute_force_kontrol(ip):
+        return jsonify({"error": "Çok fazla başarısız giriş denemesi. Lütfen bekleyin."}), 429
+
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip().lower()
     password = data.get("password", "")
@@ -1083,6 +1124,7 @@ def auth_login():
         return jsonify({"error": "Henüz kullanıcı tanımlanmamış. manage_users.py ile ilk kullanıcıyı oluşturun."}), 403
     hashed = users.get(username)
     if not hashed or not check_password_hash(hashed, password):
+        _basarisiz_giris_kaydet(ip)
         return jsonify({"error": "Kullanıcı adı veya şifre hatalı"}), 401
     session["username"] = username
     session.permanent = True
@@ -1526,7 +1568,6 @@ def sources_sync_baslat():
 
 @app.route("/api/reference/fetch-be", methods=["POST"])
 def reference_fetch_be():
-    import re as _re
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     url  = (data.get("url")  or "").strip()
@@ -1534,7 +1575,7 @@ def reference_fetch_be():
 
     if not name or not url:
         return jsonify({"ok": False, "error": "name ve url zorunlu"}), 400
-    if not _re.match(r'^[a-zA-Z0-9_-]+$', name):
+    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
         return jsonify({"ok": False, "error": "Geçersiz servis adı (harf/rakam/-/_ kullanın)"}), 400
 
     headers = {}

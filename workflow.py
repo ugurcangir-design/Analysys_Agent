@@ -12,10 +12,13 @@ BRD Pipeline:
 
 import json
 import time
+import threading
 from pathlib import Path
 from enum import Enum
 
 WORKFLOW_FILE = Path(__file__).parent / "output" / "workflow-state.json"
+
+_wf_lock = threading.RLock()  # Reentrant — aynı thread içinde tekrar alınabilir
 
 
 class Durum(str, Enum):
@@ -91,18 +94,22 @@ def _bos_durum() -> dict:
 
 
 def oku() -> dict:
-    try:
-        if WORKFLOW_FILE.exists():
-            return json.loads(WORKFLOW_FILE.read_text())
-    except Exception:
-        pass
-    return _bos_durum()
+    with _wf_lock:
+        try:
+            if WORKFLOW_FILE.exists():
+                return json.loads(WORKFLOW_FILE.read_text())
+        except Exception:
+            pass
+        return _bos_durum()
 
 
 def _kaydet(state: dict) -> None:
-    WORKFLOW_FILE.parent.mkdir(parents=True, exist_ok=True)
-    state["guncelleme"] = time.time()
-    WORKFLOW_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+    with _wf_lock:
+        WORKFLOW_FILE.parent.mkdir(parents=True, exist_ok=True)
+        state["guncelleme"] = time.time()
+        tmp = WORKFLOW_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+        tmp.replace(WORKFLOW_FILE)  # POSIX'te atomik
 
 
 def guncelle(yeni_durum: str, mesaj: str = "", hata: str | None = None) -> dict:

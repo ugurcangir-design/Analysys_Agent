@@ -2286,6 +2286,7 @@ let editModu = false;
 let rerunPollTimer = null;
 let rerunBaslangicZaman = null;
 let _activePipeline = null;
+let _lastState = null;
 let _stepStart = {};      // durum → başlangıç ms
 let _lastDurum = null;
 let _mockupAbortCtrl = null;
@@ -2359,9 +2360,12 @@ function _suspendKontrol(state) {
 }
 
 // ─── Workflow polling ─────────────────────────────────────────────────────────
+let _pollHataSayaci = 0;
+
 function startPoll() {
-  if (pollTimer) return;
-  pollTimer = setInterval(pollState, 1500);
+  stopPoll();
+  const interval = (_activePipeline && _lastState?.calisiyor) ? 1500 : 3000;
+  pollTimer = setInterval(pollState, interval);
 }
 function stopPoll() { clearInterval(pollTimer); pollTimer = null; }
 
@@ -2369,11 +2373,22 @@ async function pollState() {
   try {
     const r = await fetch('/api/workflow-state');
     const s = await r.json();
+    _lastState = s;
+    _pollHataSayaci = 0;
     _suspendKontrol(s);
     updateUI(s);
     const aktif = s.calisiyor || s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
     if (!aktif) stopPoll();
-  } catch {}
+  } catch {
+    _pollHataSayaci++;
+    if (_pollHataSayaci >= 3) {
+      const sd = document.getElementById('sidebar-status-text');
+      if (sd) sd.textContent = 'Sunucuya bağlanılamıyor';
+      const td = document.getElementById('topbar-status');
+      if (td) td.textContent = 'Bağlantı yok';
+      stopPoll();
+    }
+  }
 }
 
 function _setVisible(id, visible) {
@@ -2440,8 +2455,11 @@ function updateUI(s) {
     if (doneEl) doneEl.textContent = s.etiket || 'Tamamlandı';
   }
   if (s.durum === 'hata') {
-    const errEl = document.getElementById(isBrd ? 'brd-error-msg' : 'surec-error-msg');
-    if (errEl) errEl.textContent = 'Hata: ' + (s.hata || 'Bilinmeyen hata');
+    const errMsg = s.hata || s.mesaj || 'Bilinmeyen hata';
+    const surErr = document.getElementById('surec-error-msg');
+    if (surErr && isSurec) surErr.textContent = errMsg;
+    const brdErr = document.getElementById('brd-error-msg');
+    if (brdErr && isBrd) brdErr.textContent = errMsg;
   }
 
   updateSteps(s.durum);
@@ -2850,9 +2868,12 @@ async function confluenceYayimla() {
   if (!space_key) { msg.className = 'conf-publish-msg err'; msg.textContent = 'Space seç'; return; }
   if (!currentOutputFile) return;
   msg.className = 'conf-publish-msg'; msg.textContent = 'Yükleniyor...';
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 120000);
   try {
     const r = await fetch('/api/confluence/publish', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', signal: ctrl.signal,
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ dosya: currentOutputFile, space_key })
     });
     const d = await r.json();
@@ -2861,7 +2882,10 @@ async function confluenceYayimla() {
     msg.innerHTML = `✓ ${d.action === 'olusturuldu' ? 'Oluşturuldu' : 'Güncellendi'}` +
       (d.url ? ` — <a href="${escHtml(d.url)}" target="_blank" style="color:var(--green)">Aç</a>` : '');
   } catch(e) {
-    msg.className = 'conf-publish-msg err'; msg.textContent = 'Bağlantı hatası';
+    msg.className = 'conf-publish-msg err';
+    msg.textContent = e.name === 'AbortError' ? 'Zaman aşımı (120s)' : 'Bağlantı hatası';
+  } finally {
+    clearTimeout(tid);
   }
 }
 
@@ -2871,9 +2895,12 @@ async function jiraHiyerarsiOlustur() {
   res.className = 'jira-hierarchy-result';
   res.textContent = 'AI analiz yapıyor ve Jira\'ya yüklüyor...';
   btn.disabled = true;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 120000);
   try {
     const r = await fetch('/api/jira/hierarchy', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method: 'POST', signal: ctrl.signal,
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ dosya: currentOutputFile })
     });
     const d = await r.json();
@@ -2883,8 +2910,10 @@ async function jiraHiyerarsiOlustur() {
     res.className = 'jira-hierarchy-result ok';
     res.textContent = `✓ Epic: ${d.epic_key} | ${(d.stories||[]).length} Story (${storyKeys}) | ${subCount} Subtask — toplam ${d.toplam} issue`;
   } catch(e) {
-    res.className = 'jira-hierarchy-result err'; res.textContent = 'Bağlantı hatası';
+    res.className = 'jira-hierarchy-result err';
+    res.textContent = e.name === 'AbortError' ? 'Zaman aşımı (120s)' : 'Bağlantı hatası';
   } finally {
+    clearTimeout(tid);
     btn.disabled = false;
   }
 }

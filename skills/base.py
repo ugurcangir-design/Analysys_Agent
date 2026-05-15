@@ -70,6 +70,61 @@ MAX_TOKENS_KAPSAM   =  8_000
 
 PROMPTS_PATH = REF_DIR / "prompts.json"
 
+# Ortak EK KURALLAR sabiti — tekrarlayan bloğu tek yerde tut.
+# prompt_yukle() bu sabitler içeriklerini belirli skill_id'lere otomatik ekler.
+_ORTAK_EK_KURALLAR = (
+    "\n\n## EK KURALLAR — v3.1.1 PATCH: Kaynak Önceliği ve Çakışma Yönetimi\n\n"
+    "Birden fazla referans aynı bilgi için farklı değerler içerdiğinde, aşağıdaki ÖNCELİK SIRASINI uygula:\n\n"
+    "**Öncelik Sırası (yüksek → düşük):**\n"
+    "1. **Swagger / API Dokümantasyonu** — Endpoint isimleri, request/response şeması, HTTP status'lar\n"
+    "2. **Mevcut Teknik Dokümantasyon (Confluence)** — Mimari kararlar, sistem dokümantasyonu\n"
+    "3. **BRD** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
+    "4. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
+    "5. **UI Index / UI Kodu (Metadata)** — Mevcut frontend yapısı\n\n"
+    "**Çakışma Tespit Kuralı:**\n"
+    "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
+    "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
+    "2. Çakışmayı \"Karar Bekleyen Konular\" bölümüne MUTLAKA taşı:\n\n"
+    "| # | Konu | Durum | Notlar |\n"
+    "|---|------|-------|--------|\n"
+    "| N | [Entity] — kaynak çakışması | ⚠️ Çelişki | [Kaynak A]: [değer A] / [Kaynak B]: [değer B] — [Yüksek öncelikli] tercih edildi |\n\n"
+    "**Sessiz Birleştirme YASAK:** Çakışan değerleri gizlice birleştirmek yasak. Çakışma her zaman raporlanmalı.\n\n"
+    "## EK KURALLAR — v3.1.1 PATCH: Kaynak İzleme Kuralı\n\n"
+    "Çıktıdaki HER somut iddia (alan, kural, hata mesajı, endpoint, validasyon) en az BİR kaynağa dayanmalı.\n\n"
+    "**Görünür Çıktı Etkisi (minimal):**\n"
+    "- Tablolardaki ana içerik DEĞİŞMEZ\n"
+    "- Her tablonun ÜSTÜNE 1 satır eklenir: `> Kaynak: [BRD §X.Y / Swagger / Confluence / Jira / UI]`\n\n"
+    "**Bilinmeyen / Türetilen Bilgi:** Sentez ile üretilen bölümler için:\n"
+    "`> Kaynak: 🔍 Türetilmiş (BRD §X.Y bağlamından çıkarıldı)`\n\n"
+    "**Tamamen Kaynaksız İddialar YASAK:** Hiçbir kaynakta olmayan ve türetilemeyen alan/kural "
+    "ana çıktıya eklenmez — \"Karar Bekleyen Konular\" bölümüne taşınır.\n\n"
+    "## EK KURALLAR — v3.1.1 PATCH: Halüsinasyon Koruması (Entity Whitelist)\n\n"
+    "**Whitelist Kuralı:** Aşağıdaki entity tipleri için yalnızca referanslarda GERÇEKTEN GEÇEN değerleri kullan:\n\n"
+    "| Entity Tipi | İzin Verilen Kaynak | Yasak |\n"
+    "|-------------|--------------------|-------|\n"
+    "| **API Endpoint** (path) | Swagger, Confluence, Jira | Uydurmak |\n"
+    "| **DB Tablo / Kolon Adı** | Confluence DB şeması, mevcut DDL, Swagger response | Uydurmak |\n"
+    "| **Rol Adı / Yetki Adı** | BRD veya UI Index `roles` listesi | Varsayım yapmak |\n"
+    "| **Route Path** | UI Index `routes` listesi | Uydurmak |\n"
+    "| **Bileşen Adı** | UI Index `component` / `shared_components` | Uydurmak |\n"
+    "| **Yetki Resource:Action** | BRD veya mevcut RBAC dokümantasyonu | \"MODULE_X:WRITE\" şeklinde uydurmak |\n\n"
+    "**Doğrulama Akışı:** Entity referanslarda geçiyor mu? → Evet: kullan. "
+    "Hayır, türetilebilir mi? → Evet: `🔍 Türetilmiş` etiketiyle + Karar Bekleyen'e ekle. "
+    "Hayır: kullanma, soru olarak Karar Bekleyen'e taşı.\n\n"
+    "**Sentez İzni:** Standart RESTful isimlendirme (GET/POST/PUT/DELETE /api/v1/[kaynak]) için sentez izinli — "
+    "ancak `[kaynak]` adı yalnızca referanslarda geçen domain isminden türetilebilir.\n\n"
+    "**Doğrulama Listesi:** Türetilmiş entity'leri Kadar Bekleyen Konular sonuna ekle:\n"
+    "`> **Türetilmiş Entity'ler (Doğrulanması Gerekenler):** [entity] — 🔍 Türetilmiş ([kaynak bağlamı])`"
+)
+
+# Bu skill_id'lere prompt_yukle() otomatik olarak _ORTAK_EK_KURALLAR ekler
+_EK_KURAL_SKILL_IDS = frozenset({
+    "surec_analizi",
+    "teknik_analiz_bolumler",
+    "kapsam_analizi_bolumler",
+    "jira_tasks",
+})
+
 # Varsayılan sistem prompt içerikleri (skill başına düzenlenebilir bölüm)
 VARSAYILAN_PROMPTLAR: dict[str, dict] = {
     "surec_analizi": {
@@ -84,32 +139,7 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "## 4. Sistemler ve Entegrasyonlar\n"
             "## 5. İş Kuralları\n"
             "## 6. Riskler ve Belirsizlikler\n"
-            "## 7. Analist Notları\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Kaynak Önceliği ve Çakışma Yönetimi\n\n"
-            "Birden fazla referans aynı bilgi için farklı değerler içerdiğinde, aşağıdaki ÖNCELİK SIRASINI uygula:\n\n"
-            "**Öncelik Sırası (yüksek → düşük):**\n"
-            "1. **Swagger / API Dokümantasyonu** — Endpoint isimleri, request/response şeması, HTTP status'lar\n"
-            "2. **Mevcut Teknik Dokümantasyon (Confluence)** — Mimari kararlar, sistem dokümantasyonu\n"
-            "3. **BRD** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
-            "4. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
-            "5. **UI Index / UI Kodu (Metadata)** — Mevcut frontend yapısı\n\n"
-            "**Çakışma Tespit Kuralı:**\n"
-            "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
-            "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
-            "2. Çakışmayı \"Karar Bekleyen Konular\" bölümüne MUTLAKA taşı:\n\n"
-            "| # | Konu | Durum | Notlar |\n"
-            "|---|------|-------|--------|\n"
-            "| N | [Entity] — kaynak çakışması | ⚠️ Çelişki | [Kaynak A]: [değer A] / [Kaynak B]: [değer B] — [Yüksek öncelikli] tercih edildi |\n\n"
-            "**Sessiz Birleştirme YASAK:** Çakışan değerleri gizlice birleştirmek yasak. Çakışma her zaman raporlanmalı.\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Kaynak İzleme Kuralı\n\n"
-            "Çıktıdaki HER somut iddia (alan, kural, hata mesajı, endpoint, validasyon) en az BİR kaynağa dayanmalı.\n\n"
-            "**Görünür Çıktı Etkisi (minimal):**\n"
-            "- Tablolardaki ana içerik DEĞİŞMEZ\n"
-            "- Her tablonun ÜSTÜNE 1 satır eklenir: `> Kaynak: [BRD §X.Y / Swagger / Confluence / Jira / UI]`\n\n"
-            "**Bilinmeyen / Türetilen Bilgi:** Sentez ile üretilen bölümler için:\n"
-            "`> Kaynak: 🔍 Türetilmiş (BRD §X.Y bağlamından çıkarıldı)`\n\n"
-            "**Tamamen Kaynaksız İddialar YASAK:** Hiçbir kaynakta olmayan ve türetilemeyen alan/kural "
-            "ana çıktıya eklenmez — \"Karar Bekleyen Konular\" bölümüne taşınır."
+            "## 7. Analist Notları"
         ),
     },
     "teknik_analiz_bolumler": {
@@ -189,49 +219,7 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "## 11. Uygulama Yol Haritası\n"
             "Öncelik sırasına göre aşamalar (Sprint/Milestone bazlı):\n"
             "- **Aşama 1:** ...\n"
-            "- **Aşama 2:** ...\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Kaynak Önceliği ve Çakışma Yönetimi\n\n"
-            "Birden fazla referans aynı bilgi için farklı değerler içerdiğinde, aşağıdaki ÖNCELİK SIRASINI uygula:\n\n"
-            "**Öncelik Sırası (yüksek → düşük):**\n"
-            "1. **Swagger / API Dokümantasyonu** — Endpoint isimleri, request/response şeması, HTTP status'lar\n"
-            "2. **Mevcut Teknik Dokümantasyon (Confluence)** — Mimari kararlar, sistem dokümantasyonu\n"
-            "3. **BRD** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
-            "4. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
-            "5. **UI Index / UI Kodu (Metadata)** — Mevcut frontend yapısı\n\n"
-            "**Çakışma Tespit Kuralı:**\n"
-            "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
-            "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
-            "2. Çakışmayı \"Karar Bekleyen Konular\" bölümüne MUTLAKA taşı:\n\n"
-            "| # | Konu | Durum | Notlar |\n"
-            "|---|------|-------|--------|\n"
-            "| N | [Entity] — kaynak çakışması | ⚠️ Çelişki | [Kaynak A]: [değer A] / [Kaynak B]: [değer B] — [Yüksek öncelikli] tercih edildi |\n\n"
-            "**Sessiz Birleştirme YASAK:** Çakışan değerleri gizlice birleştirmek yasak. Çakışma her zaman raporlanmalı.\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Kaynak İzleme Kuralı\n\n"
-            "Çıktıdaki HER somut iddia (alan, kural, hata mesajı, endpoint, validasyon) en az BİR kaynağa dayanmalı.\n\n"
-            "**Görünür Çıktı Etkisi (minimal):**\n"
-            "- Tablolardaki ana içerik DEĞİŞMEZ\n"
-            "- Her tablonun ÜSTÜNE 1 satır eklenir: `> Kaynak: [BRD §X.Y / Swagger / Confluence / Jira / UI]`\n\n"
-            "**Bilinmeyen / Türetilen Bilgi:** Sentez ile üretilen bölümler için:\n"
-            "`> Kaynak: 🔍 Türetilmiş (BRD §X.Y bağlamından çıkarıldı)`\n\n"
-            "**Tamamen Kaynaksız İddialar YASAK:** Hiçbir kaynakta olmayan ve türetilemeyen alan/kural "
-            "ana çıktıya eklenmez — \"Karar Bekleyen Konular\" bölümüne taşınır.\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Halüsinasyon Koruması (Entity Whitelist)\n\n"
-            "**Whitelist Kuralı:** Aşağıdaki entity tipleri için yalnızca referanslarda GERÇEKTEN GEÇEN değerleri kullan:\n\n"
-            "| Entity Tipi | İzin Verilen Kaynak | Yasak |\n"
-            "|-------------|--------------------|-------|\n"
-            "| **API Endpoint** (path) | Swagger, Confluence, Jira | Uydurmak |\n"
-            "| **DB Tablo / Kolon Adı** | Confluence DB şeması, mevcut DDL, Swagger response | Uydurmak |\n"
-            "| **Rol Adı / Yetki Adı** | BRD veya UI Index `roles` listesi | Varsayım yapmak |\n"
-            "| **Route Path** | UI Index `routes` listesi | Uydurmak |\n"
-            "| **Bileşen Adı** | UI Index `component` / `shared_components` | Uydurmak |\n"
-            "| **Yetki Resource:Action** | BRD veya mevcut RBAC dokümantasyonu | \"MODULE_X:WRITE\" şeklinde uydurmak |\n\n"
-            "**Doğrulama Akışı:** Entity referanslarda geçiyor mu? → Evet: kullan. "
-            "Hayır, türetilebilir mi? → Evet: `🔍 Türetilmiş` etiketiyle + Karar Bekleyen'e ekle. "
-            "Hayır: kullanma, soru olarak Karar Bekleyen'e taşı.\n\n"
-            "**Sentez İzni:** Standart RESTful isimlendirme (GET/POST/PUT/DELETE /api/v1/[kaynak]) için sentez izinli — "
-            "ancak `[kaynak]` adı yalnızca referanslarda geçen domain isminden türetilebilir.\n\n"
-            "**Doğrulama Listesi:** Türetilmiş entity'leri Karar Bekleyen Konular sonuna ekle:\n"
-            "`> **Türetilmiş Entity'ler (Doğrulanması Gerekenler):** [entity] — 🔍 Türetilmiş ([kaynak bağlamı])`"
+            "- **Aşama 2:** ..."
         ),
     },
     "teknik_analiz_rol": {
@@ -342,23 +330,7 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "## 3. Kaldırılan Gereksinimler\n"
             "## 4. Değiştirilen Gereksinimler\n"
             "## 5. Kapsam Etkisi\n"
-            "## 6. Risk Analizi\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Kaynak Önceliği ve Çakışma Yönetimi\n\n"
-            "Birden fazla referans aynı bilgi için farklı değerler içerdiğinde, aşağıdaki ÖNCELİK SIRASINI uygula:\n\n"
-            "**Öncelik Sırası (yüksek → düşük):**\n"
-            "1. **Swagger / API Dokümantasyonu** — Endpoint isimleri, request/response şeması, HTTP status'lar\n"
-            "2. **Mevcut Teknik Dokümantasyon (Confluence)** — Mimari kararlar, sistem dokümantasyonu\n"
-            "3. **BRD** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
-            "4. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
-            "5. **UI Index / UI Kodu (Metadata)** — Mevcut frontend yapısı\n\n"
-            "**Çakışma Tespit Kuralı:**\n"
-            "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
-            "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
-            "2. Çakışmayı \"Karar Bekleyen Konular\" bölümüne MUTLAKA taşı:\n\n"
-            "| # | Konu | Durum | Notlar |\n"
-            "|---|------|-------|--------|\n"
-            "| N | [Entity] — kaynak çakışması | ⚠️ Çelişki | [Kaynak A]: [değer A] / [Kaynak B]: [değer B] — [Yüksek öncelikli] tercih edildi |\n\n"
-            "**Sessiz Birleştirme YASAK:** Çakışan değerleri gizlice birleştirmek yasak. Çakışma her zaman raporlanmalı."
+            "## 6. Risk Analizi"
         ),
     },
     "html_mockup_base": {
@@ -403,22 +375,7 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "    }\n"
             "  ]\n"
             "}\n"
-            "</jira_hierarchy>\n\n"
-            "## EK KURALLAR — v3.1.1 PATCH: Halüsinasyon Koruması (Entity Whitelist)\n\n"
-            "**Whitelist Kuralı:** Aşağıdaki entity tipleri için yalnızca referanslarda GERÇEKTEN GEÇEN değerleri kullan:\n\n"
-            "| Entity Tipi | İzin Verilen Kaynak | Yasak |\n"
-            "|-------------|--------------------|-------|\n"
-            "| **API Endpoint** (path) | Swagger, Confluence, Jira | Uydurmak |\n"
-            "| **DB Tablo / Kolon Adı** | Confluence DB şeması, mevcut DDL, Swagger response | Uydurmak |\n"
-            "| **Rol Adı / Yetki Adı** | BRD veya UI Index `roles` listesi | Varsayım yapmak |\n"
-            "| **Route Path** | UI Index `routes` listesi | Uydurmak |\n"
-            "| **Bileşen Adı** | UI Index `component` / `shared_components` | Uydurmak |\n"
-            "| **Yetki Resource:Action** | BRD veya mevcut RBAC dokümantasyonu | \"MODULE_X:WRITE\" şeklinde uydurmak |\n\n"
-            "**Doğrulama Akışı:** Entity referanslarda geçiyor mu? → Evet: kullan. "
-            "Hayır, türetilebilir mi? → Evet: `🔍 Türetilmiş` etiketiyle + description'a not düş. "
-            "Hayır: kullanma, summary'de \"[Doğrulama gerekli]\" ile işaretle.\n\n"
-            "**Sentez İzni:** Standart RESTful isimlendirme için sentez izinli — "
-            "ancak `[kaynak]` adı yalnızca referanslarda geçen domain isminden türetilebilir."
+            "</jira_hierarchy>"
         ),
     },
     "refine": {
@@ -514,15 +471,26 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
 
 
 def prompt_yukle(skill_id: str) -> str:
-    """Özelleştirilmiş prompt varsa onu, yoksa varsayılanı döndür."""
+    """Özelleştirilmiş prompt varsa onu, yoksa varsayılanı döndür.
+
+    Belirli skill_id'ler için (_EK_KURAL_SKILL_IDS) içeriğin sonuna otomatik
+    olarak _ORTAK_EK_KURALLAR eklenir. Bu sayede kullanıcı editöründe yalnızca
+    asıl içerik görünür; tekrarlayan bloklar gizlenir.
+    """
     try:
         if PROMPTS_PATH.exists():
             data = json.loads(PROMPTS_PATH.read_text(encoding="utf-8"))
             if skill_id in data:
-                return data[skill_id]
+                icerik = data[skill_id]
+                if skill_id in _EK_KURAL_SKILL_IDS:
+                    icerik = icerik + _ORTAK_EK_KURALLAR
+                return icerik
     except Exception:
         pass
-    return VARSAYILAN_PROMPTLAR[skill_id]["icerik"]
+    icerik = VARSAYILAN_PROMPTLAR[skill_id]["icerik"]
+    if skill_id in _EK_KURAL_SKILL_IDS:
+        icerik = icerik + _ORTAK_EK_KURALLAR
+    return icerik
 
 
 def prompt_kaydet(skill_id: str, icerik: str) -> None:
@@ -1032,31 +1000,6 @@ def _kaydet(dosya_adi: str, icerik: str) -> Path:
 
 
 # ─── Yeniden Çalıştır ────────────────────────────────────────────────────────
-
-YENIDEN_CALISTIR_PROMPT = """Mevcut analiz çıktısını düzeltme notlarına göre güncelle. Belirtilmeyen bölümleri değiştirme.
-
-### Düzeltme Notları
-{duzeltme_notu}
-
-### Mevcut Çıktı
-{mevcut_cikti}
-
-Önce güncellenmiş Markdown içeriğini ver. Ardından, Markdown içeriğinin hemen sonuna (boş satır ile ayrılmış) aşağıdaki bloğu MUTLAKA ekle:
-
-<changed_sections>
-{{
-  "changedSections": [
-    {{
-      "section": "[Bölüm adı veya başlık + satır referansı]",
-      "changeType": "added|updated|removed",
-      "reason": "[Düzeltme notunun hangi maddesinden geldiği — özet 1 cümle]"
-    }}
-  ]
-}}
-</changed_sections>
-
-Hiç değişiklik yapılmadıysa `"changedSections": []`. `changeType` yalnızca `added` / `updated` / `removed` olabilir."""
-
 
 def yeniden_calistir(hedef_dosya: str, duzeltme_notu: str) -> Path:
     print(f"Yeniden çalıştırılıyor: {hedef_dosya}")
