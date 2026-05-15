@@ -561,6 +561,35 @@ def run():
     return jsonify({"ok": True, "pipeline": pipeline})
 
 
+@app.route("/api/run-teknik", methods=["POST"])
+def run_teknik():
+    import workflow as wf
+    ozet = wf.ozet()
+    if ozet["calisiyor"]:
+        return jsonify({"error": "Bir işlem zaten çalışıyor."}), 409
+
+    surec_cikti = OUTPUT_DIR / "surec-analizi.md"
+
+    # INPUT_DIR'de .md veya .txt varsa → surec-analizi.md olarak kullan
+    input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+    md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
+    if md_dosya:
+        import shutil
+        shutil.copy2(md_dosya, surec_cikti)
+        logger.info(f"Yüklenen dosya surec-analizi.md olarak kopyalandı: {md_dosya.name}")
+    elif not surec_cikti.exists():
+        return jsonify({"error": "Süreç analizi bulunamadı. Bir süreç analizi dokümanı (.md / .txt) yükleyin ya da önce tam pipeline çalıştırın."}), 400
+
+    try:
+        wf.baslat_teknik()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+
+    _surec_calistir("teknik_analiz")
+    logger.info("Sadece teknik analiz başlatıldı.")
+    return jsonify({"ok": True})
+
+
 @app.route("/api/approve", methods=["POST"])
 def approve():
     import workflow as wf
@@ -1251,6 +1280,17 @@ def approve_teknik():
         return jsonify({"error": str(e)}), 409
     _surec_calistir("jira_gonder")
     logger.info("Teknik analiz onaylandı — Jira task oluşturuluyor.")
+    return jsonify({"ok": True, "durum": state["durum"]})
+
+
+@app.route("/api/approve-teknik-no-jira", methods=["POST"])
+def approve_teknik_no_jira():
+    import workflow as wf
+    try:
+        state = wf.teknik_bitir()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+    logger.info("Teknik analiz onaylandı — Jira atlandı.")
     return jsonify({"ok": True, "durum": state["durum"]})
 
 

@@ -38,11 +38,11 @@ class Durum(str, Enum):
 
 
 GECERLI_GECISLER: dict[str, list[str]] = {
-    Durum.IDLE:                            [Durum.SUREC_ANALIZI_CALISIYOR, Durum.BRD_ANALIZI_CALISIYOR],
+    Durum.IDLE:                            [Durum.SUREC_ANALIZI_CALISIYOR, Durum.BRD_ANALIZI_CALISIYOR, Durum.TEKNIK_ANALIZ_CALISIYOR],
     Durum.SUREC_ANALIZI_CALISIYOR:         [Durum.ONAY_BEKLENIYOR, Durum.HATA],
     Durum.ONAY_BEKLENIYOR:                 [Durum.TEKNIK_ANALIZ_CALISIYOR, Durum.IDLE],
     Durum.TEKNIK_ANALIZ_CALISIYOR:         [Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR, Durum.HATA],
-    Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:   [Durum.JIRA_GONDERILIYOR, Durum.IDLE],
+    Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:   [Durum.JIRA_GONDERILIYOR, Durum.SUREC_TAMAMLANDI, Durum.IDLE],
     Durum.JIRA_GONDERILIYOR:               [Durum.JIRA_TAMAMLANDI, Durum.HATA],
     Durum.JIRA_TAMAMLANDI:                 [Durum.IDLE],
     Durum.SUREC_TAMAMLANDI:                [Durum.IDLE],
@@ -148,6 +148,21 @@ def baslat(pipeline: str) -> dict:
     return state
 
 
+def baslat_teknik() -> dict:
+    """Mevcut süreç analizi üzerinden doğrudan teknik analiz başlatır. IDLE → TEKNIK_ANALIZ_CALISIYOR"""
+    state = oku()
+    if state["durum"] != Durum.IDLE:
+        raise ValueError(f"Aktif workflow var: {state['durum']}")
+
+    state = _bos_durum()
+    state["pipeline"] = "surec"
+    state["durum"] = Durum.TEKNIK_ANALIZ_CALISIYOR
+    state["mesaj"] = DURUM_ETIKET[Durum.TEKNIK_ANALIZ_CALISIYOR]
+    state["adimlar"].append({"durum": Durum.TEKNIK_ANALIZ_CALISIYOR, "zaman": time.time(), "mesaj": state["mesaj"]})
+    _kaydet(state)
+    return state
+
+
 def onayla() -> dict:
     """Süreç analizi onayı — ONAY_BEKLENIYOR → TEKNIK_ANALIZ_CALISIYOR"""
     state = oku()
@@ -174,6 +189,14 @@ def teknik_onayla() -> dict:
     if state["durum"] != Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:
         raise ValueError(f"Teknik analiz onayı beklenmiyor, mevcut durum: {state['durum']}")
     return guncelle(Durum.JIRA_GONDERILIYOR, "Jira task oluşturuluyor...")
+
+
+def teknik_bitir() -> dict:
+    """Jira olmadan tamamla — TEKNIK_ANALIZ_ONAY_BEKLENIYOR → SUREC_TAMAMLANDI"""
+    state = oku()
+    if state["durum"] != Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:
+        raise ValueError(f"Teknik analiz onayı beklenmiyor, mevcut durum: {state['durum']}")
+    return guncelle(Durum.SUREC_TAMAMLANDI, "Teknik analiz tamamlandı.")
 
 
 def teknik_reddet() -> dict:

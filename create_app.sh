@@ -1,6 +1,6 @@
 #!/bin/bash
 # BRD Analyst Agent — macOS masaüstü ikonu oluşturucu
-# AppleScript tabanlı — macOS'ta güvenilir çalışır
+# Swift binary tabanlı — macOS 26+ Finder ile uyumlu
 
 set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -10,7 +10,6 @@ APP_PATH="$HOME/Desktop/$APP_NAME.app"
 echo "=== Masaüstü ikonu oluşturuluyor ==="
 
 # ── Yardımcı başlatıcı ────────────────────────────────────────────────────────
-# (AppleScript içinden çağrılır; do shell script bloke etmez çünkü & ile background)
 HELPER="$PROJECT_DIR/_start.sh"
 cat > "$HELPER" << SHEOF
 #!/bin/bash
@@ -35,30 +34,70 @@ open "\$URL"
 SHEOF
 chmod +x "$HELPER"
 
-# ── AppleScript app oluştur ───────────────────────────────────────────────────
+# ── Swift launcher binary oluştur ─────────────────────────────────────────────
+SWIFT_SRC=$(mktemp /tmp/brd_launcher_XXXX.swift)
+
+cat > "$SWIFT_SRC" << SWIFTEOF
+import Foundation
+
+let task = Process()
+task.executableURL = URL(fileURLWithPath: "/bin/bash")
+task.arguments = ["$HELPER"]
+task.standardInput = FileHandle.nullDevice
+task.standardOutput = FileHandle.nullDevice
+task.standardError = FileHandle.nullDevice
+try? task.run()
+
+Thread.sleep(forTimeInterval: 0.5)
+exit(0)
+SWIFTEOF
+
+BINARY_PATH="$PROJECT_DIR/_launcher_bin"
+echo "  Swift derleniyor..."
+swiftc "$SWIFT_SRC" -o "$BINARY_PATH" 2>/dev/null
+rm "$SWIFT_SRC"
+echo "  ✓ Launcher derlendi"
+
+# ── App bundle oluştur ────────────────────────────────────────────────────────
 rm -rf "$APP_PATH"
+mkdir -p "$APP_PATH/Contents/MacOS"
+mkdir -p "$APP_PATH/Contents/Resources"
 
-osacompile -o "$APP_PATH" -e "
-on run
-    try
-        do shell script \"$HELPER\"
-    on error
-    end try
-end run
-"
+# Binary'yi bundle'a kopyala
+cp "$BINARY_PATH" "$APP_PATH/Contents/MacOS/BRDAnalystAgent"
+chmod +x "$APP_PATH/Contents/MacOS/BRDAnalystAgent"
 
-# ── plist güncelle ────────────────────────────────────────────────────────────
-PLIST="$APP_PATH/Contents/Info.plist"
-
-/usr/libexec/PlistBuddy -c "Set :CFBundleName 'BRD Analyst Agent'"         "$PLIST" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'BRD Analyst Agent'"  "$PLIST" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier 'com.brd-analyst-agent'" "$PLIST" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :LSUIElement bool true"                     "$PLIST" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :LSUIElement true"                          "$PLIST" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :NSHighResolutionCapable bool true"         "$PLIST" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :NSHighResolutionCapable true"              "$PLIST" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon"                  "$PLIST" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon"           "$PLIST" 2>/dev/null || true
+# ── Info.plist ────────────────────────────────────────────────────────────────
+cat > "$APP_PATH/Contents/Info.plist" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>BRD Analyst Agent</string>
+    <key>CFBundleDisplayName</key>
+    <string>BRD Analyst Agent</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.brd-analyst-agent</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleExecutable</key>
+    <string>BRDAnalystAgent</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+</dict>
+</plist>
+PLIST
 
 # ── İkon oluştur ──────────────────────────────────────────────────────────────
 ICON_PY=$(mktemp /tmp/make_icon_XXXX.py)
@@ -151,14 +190,27 @@ PYEOF
 python3 "$ICON_PY" "$APP_PATH/Contents/Resources"
 rm "$ICON_PY"
 
-# osacompile'ın eklediği default ikonları kaldır, bizimkini bırak
-rm -f "$APP_PATH/Contents/Resources/applet.icns" 2>/dev/null || true
+# ── Ad-hoc codesign ───────────────────────────────────────────────────────────
+echo "  Codesign uygulanıyor..."
+# Önce extended attributes temizle
+find "$APP_PATH" -name "._*" -delete 2>/dev/null || true
+xattr -rc "$APP_PATH" 2>/dev/null || true
 
-# ── macOS kayıt + quarantine ──────────────────────────────────────────────────
-touch "$APP_PATH"
+# Binary'yi imzala
+codesign --force --sign - \
+    --entitlements /dev/null \
+    "$APP_PATH/Contents/MacOS/BRDAnalystAgent" 2>/dev/null || true
+
+# Bundle'ı imzala
+codesign --force --deep --sign - "$APP_PATH" 2>/dev/null || true
+echo "  ✓ Codesign tamamlandı"
+
+# ── macOS kayıt ───────────────────────────────────────────────────────────────
 xattr -rd com.apple.quarantine "$APP_PATH" 2>/dev/null || true
+touch "$APP_PATH"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
     -f "$APP_PATH" 2>/dev/null || true
 
+echo ""
 echo "✓ Masaüstü ikonu hazır: $APP_PATH"
 echo "  Çift tıklayarak uygulamayı başlatabilirsiniz."

@@ -234,6 +234,63 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "`> **Türetilmiş Entity'ler (Doğrulanması Gerekenler):** [entity] — 🔍 Türetilmiş ([kaynak bağlamı])`"
         ),
     },
+    "teknik_analiz_rol": {
+        "ad": "Teknik Analiz — Rol ve Kurallar",
+        "aciklama": "Claude'un teknik analistik rolü, bağlam kullanım kuralları ve dikkat edilecek noktalar.",
+        "icerik": (
+            "Kıdemli yazılım mimarı olarak süreç analizini teknik perspektiften değerlendir.\n\n"
+            "**Bağlam Kullanımı:**\n"
+            "- Referans dosyalar (Confluence, Swagger, Jira): Gerçek endpoint ve tablo adlarını buradan al — uydurma\n"
+            "- Mevcut UI kodu: Bölüm 12 için mevcut ekranları ve gerekli değişiklikleri çıkar\n"
+            "- HTML prototip: Bölüm 12'de prototipdeki bileşenleri ve UX kararlarını teknik analize yansıt\n\n"
+            "**Dikkat Edilecekler:**\n"
+            "- Bölüm 3 ve 4 için çalışan kod örnekleri (SQL DDL ve OpenAPI YAML) üret — "
+            "soyut açıklama değil, doğrudan kullanılabilir çıktı bekleniyor\n"
+            "- Referans dosyalarda gerçek endpoint veya tablo bilgisi varsa onları kullan\n"
+            "- Tüm metinler Türkçe; teknik terimler (API, DDL, endpoint) İngilizce kalabilir"
+        ),
+    },
+    "teknik_analiz_sorular": {
+        "ad": "Teknik Analiz — Soru Formatı",
+        "aciklama": "Açık sorular bölümündeki her sorunun yapısı ve doldurulacak alanlar.",
+        "icerik": (
+            "### S[N]: [Başlık]\n"
+            "- **Kategori:** Teknik/İş Kuralı/Entegrasyon/Güvenlik/Veri/UX\n"
+            "- **Öncelik:** Kritik/Yüksek/Orta/Düşük\n"
+            "- **Soru:** ...\n"
+            "- **Bağlam:** Hangi bölüm/kararı etkiliyor\n"
+            "- **Etki:** Yanıt alınmadan ilerlenemeyecek kısım"
+        ),
+    },
+    "brd_analizi_rol": {
+        "ad": "BRD Analizi — Rol ve Kurallar",
+        "aciklama": "Claude'un BRD analistlik rolü ve dikkat edilecek noktalar.",
+        "icerik": (
+            "Kıdemli ürün ve iş analisti olarak BRD dokümanını TAMAMIYLA analiz et "
+            "(çok sayfalı olsa bile tüm bölümleri oku).\n\n"
+            "**Bağlam Kullanımı:**\n"
+            "- BRD dokümanındaki her bölümü, gereksinimi ve kısıtı kaydet\n"
+            "- Referans materyallerle çapraz kontrol yap, çelişkileri raporla\n"
+            "- Eksik ya da belirsiz gereksinimleri sorular bölümünde detaylandır\n\n"
+            "**Dikkat Edilecekler:**\n"
+            "- Product Owner bakış açısından değerlendir\n"
+            "- Fonksiyonel ve fonksiyonel olmayan gereksinimleri ayrı listele\n"
+            "- Kabul kriterlerinin test edilebilir olduğunu kontrol et\n"
+            "- Tüm metinler Türkçe"
+        ),
+    },
+    "brd_analizi_sorular": {
+        "ad": "BRD Analizi — Soru Formatı",
+        "aciklama": "PO sorular bölümündeki her sorunun yapısı.",
+        "icerik": (
+            "### S[N]: [Başlık]\n"
+            "- **Bölüm:** BRD bölüm adı\n"
+            "- **Öncelik:** Kritik/Yüksek/Orta\n"
+            "- **Soru:** ...\n"
+            "- **Mevcut Durum:** ...\n"
+            "- **Beklenen Yanıt:** ..."
+        ),
+    },
     "brd_analizi_bolumler": {
         "ad": "BRD Analizi — Bölümler",
         "aciklama": "BRD analiz raporu bölümleri ve PO soru formatı.",
@@ -246,6 +303,34 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "## 6. Bağımlılıklar ve Kısıtlar\n"
             "## 7. Kapsam Dışı\n"
             "## 8. Eksiklikler ve Tutarsızlıklar"
+        ),
+    },
+    "kapsam_analizi_rol": {
+        "ad": "Kapsam Analizi — Rol ve Kurallar",
+        "aciklama": "Claude'un iki BRD versiyonunu karşılaştırırken üstlendiği rol ve dikkat noktaları.",
+        "icerik": (
+            "Kıdemli ürün ve iş analisti olarak iki BRD versiyonunu karşılaştır.\n\n"
+            "**Bağlam Kullanımı:**\n"
+            "- Mevcut BRD (referans): Temel alınan orijinal doküman\n"
+            "- Revize BRD (yüklenen): Değerlendirilen yeni versiyon\n"
+            "- Mevcut UI kodu (varsa): Her alternatif için UI etkisini değerlendir\n\n"
+            "**Dikkat Edilecekler:**\n"
+            "- Kapsam genişlemesi ile daralmayı açıkça ayırt et\n"
+            "- Risk analizinde tahmini geliştirme etkisini belirt\n"
+            "- Alternatifler gerçekçi ve uygulanabilir olmalı\n"
+            "- Tüm metinler Türkçe"
+        ),
+    },
+    "kapsam_analizi_alternatifler": {
+        "ad": "Kapsam Analizi — Alternatif Formatı",
+        "aciklama": "Her alternatif sürecin bölüm yapısı.",
+        "icerik": (
+            "## Alternatif [N]: [İsim]\n"
+            "### Yaklaşım\n"
+            "### Avantajlar\n"
+            "### Dezavantajlar\n"
+            "### Uygun Olduğu Durumlar\n"
+            "### Uygulama Karmaşıklığı"
         ),
     },
     "kapsam_analizi_bolumler": {

@@ -25,22 +25,19 @@ _BRD_SORULAR_FORMAT = """### S[N]: [Başlık]
 - **Mevcut Durum:** ...
 - **Beklenen Yanıt:** ..."""
 
-_BRD_ANALIZ_COMBINED_SISTEM = (
-    "Kıdemli ürün ve iş analisti olarak BRD dokümanını TAMAMIYLA analiz et (çok sayfalı olsa bile tüm bölümleri oku).\n\n"
-    "Yanıtını iki XML bloğu halinde ver:\n\n"
-    "<brd_analizi>\n{bolumler}\n</brd_analizi>\n\n"
-    "<brd_sorular>\nProduct Owner için en önemli 12 soru:\n{soru_format}\n</brd_sorular>"
-)
-
-
 def brd_analizi_yap() -> tuple[Path, Path]:
     print("BRD analizi başlatılıyor...")
     icerik, dosya_adi = input_hazirla(is_brd=True)
     print(f"  Dosya: {dosya_adi}")
 
-    sistem = _BRD_ANALIZ_COMBINED_SISTEM.format(
-        bolumler=prompt_yukle("brd_analizi_bolumler"),
-        soru_format=_BRD_SORULAR_FORMAT,
+    rol = prompt_yukle("brd_analizi_rol")
+    bolumler = prompt_yukle("brd_analizi_bolumler")
+    sorular = prompt_yukle("brd_analizi_sorular")
+    sistem = (
+        rol + "\n\n"
+        "Yanıtını iki XML bloğu halinde ver:\n\n"
+        f"<brd_analizi>\n{bolumler}\n</brd_analizi>\n\n"
+        f"<brd_sorular>\nProduct Owner için en önemli 12 soru:\n{sorular}\n</brd_sorular>"
     )
     mesajlar = [{"role": "user", "content": icerik + [
         {"type": "text", "text": "BRD dokümanını analiz et ve soruları üret."}

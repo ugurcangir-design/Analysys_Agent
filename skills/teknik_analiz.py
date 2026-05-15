@@ -111,32 +111,21 @@ _SORULAR_FORMAT = """### S[N]: [Başlık]
 - **Bağlam:** Hangi bölüm/kararı etkiliyor
 - **Etki:** Yanıt alınmadan ilerlenemeyecek kısım"""
 
-_TEKNIK_ANALIZ_COMBINED_SISTEM = (
-    "Kıdemli yazılım mimarı olarak süreç analizini teknik perspektiften değerlendir.{ui_hint}{mockup_hint}\n\n"
-    "Önemli: Bölüm 3 ve 4 için çalışan kod örnekleri (SQL DDL ve OpenAPI YAML) üret — "
-    "soyut açıklama değil, doğrudan kullanılabilir çıktı bekleniyor. "
-    "Referans dosyalarda gerçek endpoint veya tablo bilgisi varsa onları kullan.\n\n"
-    "Yanıtını iki XML bloğu halinde ver:\n\n"
-    "<teknik_analiz>\n{bolumler}\n</teknik_analiz>\n\n"
-    "<acik_sorular>\n{soru_format}\n</acik_sorular>"
-)
-
-
 def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str:
+    rol = prompt_yukle("teknik_analiz_rol")
     bolumler = prompt_yukle("teknik_analiz_bolumler") + (_TEKNIK_UI_BOLUM if ui_kodu else "")
-    ui_hint = (
-        "\nMevcut UI kaynak kodu da sağlanmıştır. Bölüm 12'de mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt."
-        if ui_kodu else ""
-    )
-    mockup_hint = (
-        "\nHTML prototip de sağlanmıştır. Bölüm 12'de prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt."
-        if mockup_var else ""
-    )
-    return _TEKNIK_ANALIZ_COMBINED_SISTEM.format(
-        ui_hint=ui_hint,
-        mockup_hint=mockup_hint,
-        bolumler=bolumler,
-        soru_format=_SORULAR_FORMAT,
+    sorular = prompt_yukle("teknik_analiz_sorular")
+    ekler = []
+    if ui_kodu:
+        ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 12'de mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
+    if mockup_var:
+        ekler.append("HTML prototip de sağlanmıştır. Bölüm 12'de prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt.")
+    ek_metin = ("\n\n" + "\n".join(ekler)) if ekler else ""
+    return (
+        rol + ek_metin + "\n\n"
+        "Yanıtını iki XML bloğu halinde ver:\n\n"
+        f"<teknik_analiz>\n{bolumler}\n</teknik_analiz>\n\n"
+        f"<acik_sorular>\n{sorular}\n</acik_sorular>"
     )
 
 

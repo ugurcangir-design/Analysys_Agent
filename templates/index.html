@@ -955,33 +955,156 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
 .prompt-editor-head.open .pe-chevron { transform: rotate(180deg); }
 .prompt-editor-body { padding: 16px; display: none; }
 .prompt-editor-body.open { display: block; }
-.prompt-skill-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-.prompt-skill-tab {
-  padding: 5px 11px; border-radius: var(--radius-sm);
-  background: var(--surface2); border: 1px solid var(--border);
-  font-size: 11.5px; cursor: pointer; color: var(--text2);
-  transition: all .15s;
+/* ── Prompt editor – two-column layout ───────────────────────── */
+.prompt-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  height: calc(100vh - 148px);
+  min-height: 520px;
 }
-.prompt-skill-tab:hover { border-color: var(--border-strong); color: var(--text); }
-.prompt-skill-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 500; }
-.prompt-skill-tab .modified-dot {
-  display: inline-block; width: 6px; height: 6px;
-  background: var(--yellow); border-radius: 50%; margin-left: 5px; vertical-align: middle;
+.prompt-nav {
+  border-right: 1px solid var(--border);
+  background: var(--surface2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.prompt-meta { font-size: 11px; color: var(--text3); margin-bottom: 10px; line-height: 1.5; }
+.prompt-nav-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.prompt-nav-scroll {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+.prompt-group-label {
+  padding: 10px 16px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.prompt-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 7px 16px 7px 22px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text2);
+  border-left: 3px solid transparent;
+  transition: all .12s;
+  line-height: 1.35;
+  position: relative;
+}
+.prompt-nav-item:hover { background: var(--surface3, rgba(255,255,255,.04)); color: var(--text); }
+.prompt-nav-item.active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+.prompt-nav-dot {
+  width: 6px; height: 6px;
+  background: var(--yellow);
+  border-radius: 50%;
+  margin-left: auto;
+  flex-shrink: 0;
+  display: none;
+}
+.prompt-nav-item.modified .prompt-nav-dot { display: block; }
+.prompt-editor {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+}
+.prompt-editor-head {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.prompt-editor-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prompt-editor-desc {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.5;
+}
+.prompt-modified-badge {
+  font-size: 10.5px; color: var(--yellow);
+  background: var(--yellow-soft); padding: 2px 8px; border-radius: 10px;
+  display: none;
+}
+.prompt-editor-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 0;
+}
 .prompt-textarea {
-  width: 100%; min-height: 280px; resize: vertical;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 10px 12px;
-  font-family: 'Geist Mono', monospace; font-size: 11.5px;
-  color: var(--text); line-height: 1.65; outline: none;
+  flex: 1;
+  width: 100%;
+  resize: none;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.7;
+  outline: none;
   transition: border-color .15s;
+  box-sizing: border-box;
 }
 .prompt-textarea:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
-.prompt-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
-.prompt-modified-badge {
-  font-size: 10.5px; color: var(--yellow); display: none;
-  background: var(--yellow-soft); padding: 2px 8px; border-radius: 10px;
+.prompt-editor-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.prompt-char-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'Geist Mono', monospace;
+}
+.prompt-nav-modified-total {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 /* ── Suspend overlay ───────────────────────────────────────────── */
@@ -1201,7 +1324,7 @@ function temaDegistir() {
       <div class="nav-section">Pipeline</div>
       <div class="nav-item active" id="nav-surec" onclick="switchTab('surec')">
         <svg class="ico"><use href="#i-workflow"/></svg>
-        <span class="nav-label">Süreç Analizi</span>
+        <span class="nav-label">Süreç/Teknik Analiz</span>
       </div>
       <div class="nav-item" id="nav-brd" onclick="switchTab('brd')">
         <svg class="ico"><use href="#i-clipboard"/></svg>
@@ -1307,7 +1430,7 @@ function temaDegistir() {
     <div class="page active" id="page-surec">
       <div class="ph">
         <div class="ph-text">
-          <h1>Süreç Pipeline</h1>
+          <h1>Süreç/Teknik Analiz</h1>
           <p>Süreç dokümanını analiz et, analist onayı sonrası teknik analiz ve Jira hiyerarşisi üret.</p>
         </div>
       </div>
@@ -1375,6 +1498,9 @@ function temaDegistir() {
               <button class="btn btn-primary" id="btn-surec" onclick="runPipeline('surec')" disabled>
                 <svg class="ico"><use href="#i-play"/></svg> Başlat
               </button>
+              <button class="btn btn-outline btn-sm" id="btn-sadece-teknik" onclick="sadeceTeknikBaslat()" style="display:none" title="Mevcut süreç analizini kullanarak sadece teknik analiz oluştur">
+                <svg class="ico"><use href="#i-zap"/></svg> Sadece Teknik Analiz
+              </button>
             </div>
           </div>
 
@@ -1411,15 +1537,39 @@ function temaDegistir() {
 
           <!-- TEKNIK_ANALIZ_ONAY_BEKLENIYOR -->
           <div id="surec-act-teknik-onay" style="display:none">
-            <div class="action-desc">Teknik analiz ve açık sorular oluşturuldu. İnceleyip Jira task oluşturmak için devam edin.</div>
-            <div class="btn-group">
-              <button class="btn btn-success" onclick="teknikOnayla()">
-                <svg class="ico"><use href="#i-check"/></svg> Devam Et — Jira Task Oluştur
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="teknikReddet()">
-                <svg class="ico"><use href="#i-stop"/></svg> Durdur
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Teknik Analizi İncele</button>
+            <!-- İnceleme ekranı -->
+            <div id="teknik-onay-review">
+              <div class="action-desc">Teknik analiz oluşturuldu. İnceleyip onaylayın veya revize isteyin.</div>
+              <div style="margin:10px 0 6px">
+                <textarea id="teknik-revize-not" rows="3" style="width:100%;box-sizing:border-box;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;resize:vertical" placeholder="Düzeltilmesi gereken bölümleri açıklayın..."></textarea>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                  <button class="btn btn-outline btn-sm" id="btn-teknik-revize" onclick="teknikRevizeEt()">
+                    <svg class="ico"><use href="#i-refresh"/></svg> Revize Et
+                  </button>
+                  <span id="teknik-revize-msg" class="mono-meta" style="font-size:12px"></span>
+                </div>
+              </div>
+              <div class="btn-group" style="margin-top:8px">
+                <button class="btn btn-success" onclick="teknikOnaylaBasla()">
+                  <svg class="ico"><use href="#i-check"/></svg> Onayla
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="teknikReddet()">
+                  <svg class="ico"><use href="#i-stop"/></svg> Durdur
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Teknik Analizi İncele</button>
+              </div>
+            </div>
+            <!-- Jira sorusu (Onayla sonrası) -->
+            <div id="teknik-jira-soru" style="display:none">
+              <div class="action-desc">Teknik analiz onaylandı. Jira'da task oluşturmak istiyor musunuz?</div>
+              <div class="btn-group">
+                <button class="btn btn-success" onclick="teknikOnaylaJiraIle()">
+                  <svg class="ico"><use href="#i-check"/></svg> Evet, Task Oluştur
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="teknikOnaylaSizJira()">
+                  Hayır, Atla
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2040,25 +2190,43 @@ python cli.py ui ~/export.zip</pre>
       <div class="ph">
         <div class="ph-text">
           <h1>Sistem Promptları</h1>
-          <p>Her analiz adımı için kullanılan AI talimatlarını özelleştirin veya varsayılana döndürün.</p>
+          <p>Her analiz adımı için Claude'a gönderilen talimatları görüntüleyin ve özelleştirin.</p>
         </div>
       </div>
-      <div class="settings-form" style="max-width:800px">
-        <div class="settings-section" style="padding:0;overflow:hidden">
-          <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+
+      <div class="prompt-layout">
+        <!-- Sol: Navigasyon -->
+        <div class="prompt-nav">
+          <div class="prompt-nav-header">
             <svg class="ico" style="color:var(--accent)"><use href="#i-file-text"/></svg>
-            <span style="font-size:13px;font-weight:600;flex:1">Prompt Düzenleyici</span>
-            <span id="prompt-modified-count" style="font-size:10.5px;background:var(--yellow-soft);color:var(--yellow);padding:2px 8px;border-radius:10px;display:none"></span>
+            <span style="flex:1">Promptlar</span>
+            <span class="prompt-nav-modified-total" id="prompt-modified-count" style="display:none"></span>
           </div>
-          <div style="padding:16px">
-            <div class="prompt-skill-tabs" id="prompt-skill-tabs"></div>
-            <div class="prompt-meta" id="prompt-skill-aciklama"></div>
-            <textarea class="prompt-textarea" id="prompt-textarea" spellcheck="false" placeholder="Yükleniyor..."></textarea>
-            <div class="prompt-actions">
-              <button class="btn btn-primary btn-sm" onclick="promptKaydet()">Kaydet</button>
-              <button class="btn btn-outline btn-sm" onclick="promptSifirla()">Varsayılana Dön</button>
+          <div class="prompt-nav-scroll" id="prompt-skill-tabs"></div>
+        </div>
+
+        <!-- Sağ: Editör -->
+        <div class="prompt-editor">
+          <div class="prompt-editor-head">
+            <div class="prompt-editor-title">
+              <span id="prompt-editor-title-text">—</span>
               <span class="prompt-modified-badge" id="prompt-modified-badge">● Özelleştirilmiş</span>
             </div>
+            <div class="prompt-editor-desc" id="prompt-skill-aciklama"></div>
+          </div>
+          <div class="prompt-editor-body">
+            <textarea class="prompt-textarea" id="prompt-textarea" spellcheck="false"
+              placeholder="Bir prompt seçin..."
+              oninput="_promptCharSay()"></textarea>
+          </div>
+          <div class="prompt-editor-foot">
+            <button class="btn btn-primary btn-sm" onclick="promptKaydet()">
+              <svg class="ico"><use href="#i-check"/></svg> Kaydet
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="promptSifirla()">
+              <svg class="ico"><use href="#i-refresh"/></svg> Varsayılana Dön
+            </button>
+            <span class="prompt-char-count" id="prompt-char-count"></span>
           </div>
         </div>
       </div>
@@ -2120,6 +2288,7 @@ let _activePipeline = null;
 let _stepStart = {};      // durum → başlangıç ms
 let _lastDurum = null;
 let _mockupAbortCtrl = null;
+let _mockupCalisiyor = false;
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -2128,7 +2297,7 @@ function switchTab(tab) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç Analizi',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   if (tab === 'history')       loadHistory();
   if (tab === 'output')        refreshOutputTabs();
@@ -2138,6 +2307,7 @@ function switchTab(tab) {
   if (tab === 'prompts')       promptlariYukle();
   if (tab === 'update')        versiyonYukle();
   if (tab === 'referanslar')   { loadSources(); loadRefDocs(); }
+  if (tab === 'surec')         _teknikButonGuncelle();
 }
 
 // ─── Heartbeat & Uyku Yönetimi ───────────────────────────────────────────────
@@ -2224,9 +2394,11 @@ function updateUI(s) {
 
   document.getElementById('wf-dot').className           = 'status-dot ' + cls;
   document.getElementById('sidebar-dot').className      = 'status-dot ' + cls;
-  document.getElementById('sidebar-status-text').textContent = s.etiket;
-  const _tbDot = document.getElementById('topbar-dot');     if (_tbDot)  _tbDot.className = 'status-dot ' + cls;
-  const _tbStat = document.getElementById('topbar-status'); if (_tbStat) _tbStat.textContent = s.etiket;
+  if (!_mockupCalisiyor) {
+    document.getElementById('sidebar-status-text').textContent = s.etiket;
+    const _tbStat = document.getElementById('topbar-status'); if (_tbStat) _tbStat.textContent = s.etiket;
+  }
+  const _tbDot = document.getElementById('topbar-dot'); if (_tbDot) _tbDot.className = 'status-dot ' + cls;
 
   const surecDurumlar = ['surec_analizi_calisiyor','onay_bekleniyor','teknik_analiz_calisiyor',
     'teknik_analiz_onay_bekleniyor','jira_gonderiliyor','jira_tamamlandi'];
@@ -2244,6 +2416,12 @@ function updateUI(s) {
   _setVisible('surec-act-running',     surecCalis);
   _setVisible('surec-act-onay',        !!s.onay_bekleniyor);
   _setVisible('surec-act-teknik-onay', !!s.teknik_onay_bekleniyor);
+  if (s.teknik_onay_bekleniyor) {
+    const rev = document.getElementById('teknik-onay-review');
+    const jira = document.getElementById('teknik-jira-soru');
+    if (rev) rev.style.display = '';
+    if (jira) jira.style.display = 'none';
+  }
   _setVisible('surec-act-done',        isSurec && !!s.tamamlandi);
   _setVisible('surec-act-error',       isSurec && s.durum === 'hata');
 
@@ -2398,6 +2576,17 @@ function dosyaSec(input, pipeline) {
   document.getElementById(`uploaded-${pipeline}-name`).textContent = file.name;
   document.getElementById(`uploaded-${pipeline}-size`).textContent = formatBytes(file.size);
   document.getElementById(`btn-${pipeline}`).disabled = false;
+  if (pipeline === 'surec') {
+    const btnTeknik = document.getElementById('btn-sadece-teknik');
+    if (btnTeknik) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      btnTeknik.style.display = '';
+      btnTeknik.disabled = !['md','txt'].includes(ext);
+      btnTeknik.title = ['md','txt'].includes(ext)
+        ? 'Yüklenen süreç analizi dokümanını kullanarak teknik analiz oluştur'
+        : 'Sadece .md veya .txt dosyası desteklenir';
+    }
+  }
 }
 
 function dosyaKaldir(pipeline) {
@@ -2406,6 +2595,7 @@ function dosyaKaldir(pipeline) {
   document.getElementById(`uploaded-${pipeline}`).style.display = 'none';
   document.getElementById(`btn-${pipeline}`).disabled = true;
   document.getElementById(`file-${pipeline}`).value = '';
+  if (pipeline === 'surec') _teknikButonGuncelle();
 }
 
 function handleDrop(e, pipeline) {
@@ -2478,6 +2668,33 @@ async function runPipeline(pipeline) {
   document.getElementById('wf-bar').style.display = 'flex';
   toast(`${pipeline === 'surec' ? 'Süreç' : 'BRD'} pipeline başlatıldı`, 'info');
   startPoll();
+}
+
+async function sadeceTeknikBaslat() {
+  const file = selectedFiles['surec'];
+  if (file) {
+    const fd = new FormData(); fd.append('file', file);
+    const upRes = await fetch('/api/upload', {method:'POST', body: fd});
+    const upData = await upRes.json();
+    if (!upRes.ok) { toast('Yükleme hatası: ' + upData.error, 'error'); return; }
+  }
+  const res = await fetch('/api/run-teknik', {method:'POST'});
+  const data = await res.json();
+  if (!res.ok) { toast(data.error, 'error'); return; }
+  _activePipeline = 'surec';
+  document.getElementById('wf-bar').style.display = 'flex';
+  toast('Teknik analiz başlatıldı', 'info');
+  startPoll();
+}
+
+async function _teknikButonGuncelle() {
+  try {
+    const r = await fetch('/api/outputs');
+    const d = await r.json();
+    const mevcut = d['surec-analizi.md']?.var === true;
+    const btn = document.getElementById('btn-sadece-teknik');
+    if (btn) btn.style.display = mevcut ? '' : 'none';
+  } catch {}
 }
 
 async function surecleriSifirla() {
@@ -2683,17 +2900,22 @@ async function mockupOlustur() {
   _mockupAbortCtrl = new AbortController();
 
   const setLoading = (v) => {
+    _mockupCalisiyor = v;
     if (btn)      { btn.disabled  = v; btn.textContent = v ? 'Üretiliyor...' : 'Yeniden Üret'; }
     if (abortBtn) abortBtn.style.display = v ? '' : 'none';
     if (indirBtn) indirBtn.style.display = 'none';
     if (btnOnay)  { btnOnay.disabled = v; }
     if (msg)     { msg.className = ''; msg.textContent = v ? 'Prototip üretiliyor...' : ''; }
     if (msgOnay) { msgOnay.className = ''; msgOnay.textContent = v ? 'Prototip üretiliyor...' : ''; }
-    // Devam Et butonunu kilitle; wf-bar alt mesajını güncelle
     const devamBtn = document.querySelector('#surec-act-onay .btn-success');
     if (devamBtn) devamBtn.disabled = v;
     const wfMsg = document.getElementById('wf-msg');
     if (wfMsg) wfMsg.textContent = v ? 'HTML Prototip oluşturuluyor...' : '';
+    const statusText = 'HTML Prototip oluşturuluyor...';
+    if (v) {
+      const sd = document.getElementById('sidebar-status-text'); if (sd) sd.textContent = statusText;
+      const td = document.getElementById('topbar-status');       if (td) td.textContent = statusText;
+    }
   };
 
   setLoading(true);
@@ -3320,29 +3542,75 @@ async function promptlariYukle() {
   _promptModifiedSayacGuncelle();
 }
 
+const _PROMPT_GRUPLARI = [
+  {
+    baslik: 'Süreç / Teknik Analiz',
+    anahtarlar: ['surec_analizi', 'teknik_analiz_rol', 'teknik_analiz_bolumler', 'teknik_analiz_sorular'],
+  },
+  {
+    baslik: 'BRD Analizi',
+    anahtarlar: ['brd_analizi_rol', 'brd_analizi_bolumler', 'brd_analizi_sorular'],
+  },
+  {
+    baslik: 'Kapsam Analizi',
+    anahtarlar: ['kapsam_analizi_rol', 'kapsam_analizi_bolumler', 'kapsam_analizi_alternatifler'],
+  },
+  {
+    baslik: 'Diğer',
+    anahtarlar: ['html_mockup_base', 'jira_tasks', 'refine', 'confluence_publisher'],
+  },
+];
+
 function _promptTablariniOlustur() {
   const kap = document.getElementById('prompt-skill-tabs');
   kap.innerHTML = '';
-  for (const [kid, meta] of Object.entries(_promptData)) {
-    const btn = document.createElement('button');
-    btn.className = 'prompt-skill-tab';
-    btn.dataset.kid = kid;
-    btn.onclick = () => promptSkillSec(kid);
-    btn.innerHTML = meta.ad + (meta.degistirildi ? '<span class="modified-dot"></span>' : '');
-    kap.appendChild(btn);
+
+  for (const grup of _PROMPT_GRUPLARI) {
+    const label = document.createElement('div');
+    label.className = 'prompt-group-label';
+    label.textContent = grup.baslik;
+    kap.appendChild(label);
+
+    for (const kid of grup.anahtarlar) {
+      const meta = _promptData[kid];
+      if (!meta) continue;
+
+      const kisa = meta.ad
+        .replace(/^(Teknik Analiz|BRD Analizi|Kapsam Analizi|Süreç Analizi)\s*—\s*/i, '')
+        .replace(/^(Teknik Analiz|BRD Analizi|Kapsam Analizi)$/i, m => m);
+
+      const item = document.createElement('div');
+      item.className = 'prompt-nav-item' + (meta.degistirildi ? ' modified' : '');
+      item.dataset.kid = kid;
+      item.onclick = () => promptSkillSec(kid);
+      item.innerHTML = `<span style="flex:1">${kisa}</span><span class="prompt-nav-dot"></span>`;
+      kap.appendChild(item);
+    }
   }
 }
 
 function promptSkillSec(kid) {
   _aktifSkill = kid;
-  document.querySelectorAll('.prompt-skill-tab').forEach(b => {
+  document.querySelectorAll('.prompt-nav-item').forEach(b => {
     b.classList.toggle('active', b.dataset.kid === kid);
   });
   const meta = _promptData[kid];
-  document.getElementById('prompt-skill-aciklama').textContent = meta.aciklama;
-  document.getElementById('prompt-textarea').value = meta.icerik;
+  document.getElementById('prompt-editor-title-text').textContent = meta.ad;
+  document.getElementById('prompt-skill-aciklama').textContent   = meta.aciklama;
+  const ta = document.getElementById('prompt-textarea');
+  ta.value = meta.icerik;
   const badge = document.getElementById('prompt-modified-badge');
   badge.style.display = meta.degistirildi ? 'inline-block' : 'none';
+  _promptCharSay();
+}
+
+function _promptCharSay() {
+  const ta  = document.getElementById('prompt-textarea');
+  const el  = document.getElementById('prompt-char-count');
+  if (!ta || !el) return;
+  const n   = ta.value.length;
+  const sat = ta.value.split('\n').length;
+  el.textContent = `${n.toLocaleString('tr')} karakter · ${sat} satır`;
 }
 
 async function promptKaydet() {
@@ -3354,10 +3622,10 @@ async function promptKaydet() {
     body: JSON.stringify({icerik})
   });
   if (!r.ok) { const d = await r.json(); toast(d.error, 'error'); return; }
-  _promptData[_aktifSkill].icerik = icerik;
+  _promptData[_aktifSkill].icerik      = icerik;
   _promptData[_aktifSkill].degistirildi = true;
-  _promptData[_aktifSkill].ozel = icerik;
-  _promptTablariniOlustur();
+  _promptData[_aktifSkill].ozel        = icerik;
+  _promptNavItemGuncelle(_aktifSkill);
   promptSkillSec(_aktifSkill);
   _promptModifiedSayacGuncelle();
   toast(`"${_promptData[_aktifSkill].ad}" kaydedildi`, 'success');
@@ -3368,20 +3636,26 @@ async function promptSifirla() {
   if (!confirm(`"${_promptData[_aktifSkill].ad}" varsayılana döndürülsün mü?`)) return;
   const r = await fetch(`/api/prompts/${_aktifSkill}/reset`, {method: 'POST'});
   if (!r.ok) { toast('Sıfırlama başarısız', 'error'); return; }
-  _promptData[_aktifSkill].icerik = _promptData[_aktifSkill].varsayilan;
-  _promptData[_aktifSkill].degistirildi = false;
-  _promptData[_aktifSkill].ozel = null;
-  _promptTablariniOlustur();
+  _promptData[_aktifSkill].icerik       = _promptData[_aktifSkill].varsayilan;
+  _promptData[_aktifSkill].degistirildi  = false;
+  _promptData[_aktifSkill].ozel         = null;
+  _promptNavItemGuncelle(_aktifSkill);
   promptSkillSec(_aktifSkill);
   _promptModifiedSayacGuncelle();
   toast('Varsayılana döndürüldü', 'success');
+}
+
+function _promptNavItemGuncelle(kid) {
+  const el = document.querySelector(`.prompt-nav-item[data-kid="${kid}"]`);
+  if (!el) return;
+  el.classList.toggle('modified', !!_promptData[kid]?.degistirildi);
 }
 
 function _promptModifiedSayacGuncelle() {
   const sayac = Object.values(_promptData).filter(m => m.degistirildi).length;
   const el = document.getElementById('prompt-modified-count');
   if (sayac > 0) {
-    el.textContent = `${sayac} özelleştirilmiş`;
+    el.textContent = `${sayac} değiştirildi`;
     el.style.display = 'inline-block';
   } else {
     el.style.display = 'none';
@@ -3394,13 +3668,50 @@ function apiKeyGoster() {
 }
 
 // ─── Teknik Analiz Onay / Red ────────────────────────────────────────────────
-async function teknikOnayla() {
+function teknikOnaylaBasla() {
+  document.getElementById('teknik-onay-review').style.display = 'none';
+  document.getElementById('teknik-jira-soru').style.display = '';
+}
+
+async function teknikOnaylaJiraIle() {
   const r = await fetch('/api/approve-teknik', {method:'POST'});
   const d = await r.json();
   if (!r.ok) { toast(d.error, 'error'); return; }
-  toast('Teknik analiz onaylandı — Jira task oluşturuluyor...', 'success');
+  toast('Jira task oluşturuluyor...', 'info');
   startPoll();
 }
+
+async function teknikOnaylaSizJira() {
+  const r = await fetch('/api/approve-teknik-no-jira', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error, 'error'); return; }
+  toast('Teknik analiz tamamlandı', 'success');
+  startPoll();
+}
+
+async function teknikRevizeEt() {
+  const not = document.getElementById('teknik-revize-not').value.trim();
+  if (!not) { toast('Düzeltme notu girin', 'error'); return; }
+  const btn = document.getElementById('btn-teknik-revize');
+  const msg = document.getElementById('teknik-revize-msg');
+  btn.disabled = true;
+  msg.textContent = 'Revize ediliyor...';
+  const r = await fetch('/api/rerun', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({dosya:'teknik-analiz.md', duzeltme: not})
+  });
+  const d = await r.json();
+  btn.disabled = false;
+  if (!r.ok) {
+    msg.textContent = 'Hata: ' + d.error;
+    toast(d.error, 'error');
+  } else {
+    msg.textContent = 'Revize başlatıldı';
+    document.getElementById('teknik-revize-not').value = '';
+    toast('Teknik analiz revize ediliyor...', 'info');
+  }
+}
+
 async function teknikReddet() {
   const r = await fetch('/api/reject-teknik', {method:'POST'});
   const d = await r.json();
@@ -3792,6 +4103,7 @@ async function confluenceDiagnose() {
   _suspendKontrol(s);
   updateUI(s);
   if (s.calisiyor || s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor) startPoll();
+  _teknikButonGuncelle();
 })();
 
 // ─── Kullanıcı Yönetimi ───────────────────────────────────────────────────────

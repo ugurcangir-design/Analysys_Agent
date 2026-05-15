@@ -16,19 +16,6 @@ _KAPSAM_BOLUMLER = """## 1. Özet Değişiklikler
 ## 5. Kapsam Etkisi
 ## 6. Risk Analizi"""
 
-_ALTERNATIF_FORMAT = """## Alternatif [N]: [İsim]
-### Yaklaşım / Avantajlar / Dezavantajlar / Uygun Olduğu Durumlar / Uygulama Karmaşıklığı{ui_alt}"""
-
-_ALTERNATIF_UI_EKI = "\n### Mevcut UI'ya Etkisi"
-
-_KAPSAM_COMBINED_SISTEM = (
-    "Kıdemli ürün ve iş analisti olarak iki BRD'yi karşılaştır.{ui_hint}\n\n"
-    "Yanıtını iki XML bloğu halinde ver:\n\n"
-    "<kapsam_analizi>\n{bolumler}\n</kapsam_analizi>\n\n"
-    "<alternatif_surecler>\n3-5 alternatif:\n{alt_format}\n</alternatif_surecler>"
-)
-
-
 def kapsam_analizi_yap() -> tuple[Path, Path]:
     print("Kapsam analizi başlatılıyor...")
 
@@ -45,18 +32,22 @@ def kapsam_analizi_yap() -> tuple[Path, Path]:
     brd_analiz_dosya = OUTPUT_DIR / "brd-analizi.md"
     ek_baglam = dosya_oku(brd_analiz_dosya, MAX_CHARS_GENEL) if brd_analiz_dosya.exists() else ""
 
+    rol = prompt_yukle("kapsam_analizi_rol")
+    bolumler = prompt_yukle("kapsam_analizi_bolumler")
+    alt_format = prompt_yukle("kapsam_analizi_alternatifler")
+
     if ui_kodu:
-        hint = "\nMevcut UI kaynak kodu da sağlanmıştır. Her alternatif için 'Mevcut UI'ya Etkisi' bölümünü doldur."
-        alt_format = _ALTERNATIF_FORMAT.format(ui_alt=_ALTERNATIF_UI_EKI)
+        ui_hint = "\nMevcut UI kaynak kodu da sağlanmıştır. Her alternatif için 'Mevcut UI'ya Etkisi' bölümü ekle."
+        alt_format += "\n### Mevcut UI'ya Etkisi"
         print(f"  UI kodu dahil ediliyor ({len(ui_kodu):,} karakter)...")
     else:
-        hint = ""
-        alt_format = _ALTERNATIF_FORMAT.format(ui_alt="")
+        ui_hint = ""
 
-    sistem = _KAPSAM_COMBINED_SISTEM.format(
-        ui_hint=hint,
-        bolumler=prompt_yukle("kapsam_analizi_bolumler"),
-        alt_format=alt_format,
+    sistem = (
+        rol + ui_hint + "\n\n"
+        "Yanıtını iki XML bloğu halinde ver:\n\n"
+        f"<kapsam_analizi>\n{bolumler}\n</kapsam_analizi>\n\n"
+        f"<alternatif_surecler>\n3-5 alternatif:\n{alt_format}\n</alternatif_surecler>"
     )
 
     parcalar = [
