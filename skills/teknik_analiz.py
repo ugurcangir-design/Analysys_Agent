@@ -12,8 +12,15 @@ from .base import (
 from .html_mockup import mockup_oku_kontekst
 
 _TEKNIK_UI_BOLUM = """
-## 12. Yeni/Değişen Ekranlar
-Her ekran için: dosya/route adı, değişiklik türü (yeni/güncelleme/silme), etkilenen bileşenler."""
+
+## 16. Yeni/Değişen Ekranlar (UI)
+| Ekran / Route | Dosya | Tip | Bağlı PA-ID | Bileşenler | Yeni API'ler | Kaynak |
+|---------------|-------|-----|-------------|------------|--------------|--------|
+| /ornek | components/Ornek.tsx | Yeni/Güncelleme/Silme | PA-001 | OrnekForm, OrnekListe | POST /api/v1/ornek | [UI:routes] |
+
+- UX kararları (mockup'tan): ...
+- Form validation kuralları (Bölüm 5 ile aynı BR-ID'leri kullan)
+- Hata mesajlarının ekranda nereye gösterileceği"""
 
 def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str:
     rol = prompt_yukle("teknik_analiz_rol")
@@ -45,22 +52,30 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     mockup_icerik = mockup_oku_kontekst()
 
     icerik_parcalari = []
+    kullanilan_referanslar: list[str] = []
 
     if ref_dosyalar:
         print(f"  {len(ref_dosyalar)} referans dosya dahil ediliyor...")
         ref_metinler = []
         toplam_ref = 0
+        atlamayan_dosyalar = []
         for f in ref_dosyalar:
+            try:
+                rel = str(f.relative_to(REF_DIR))
+            except ValueError:
+                rel = f.name
             if toplam_ref >= MAX_CHARS_REF_TOT:
-                print(f"  Referans toplam limit ({MAX_CHARS_REF_TOT:,}) aşıldı, {f.name} atlandı")
-                break
+                try:
+                    ozet = dosya_oku(f, 800)
+                except Exception:
+                    continue
+                ref_metinler.append(f"#### {rel} (özet, tam içerik için kaynak dosyaya bak)\n{ozet}")
+                kullanilan_referanslar.append(f"{rel} [özet]")
+                continue
             try:
                 metin = dosya_oku(f, MAX_CHARS_REF)
-                try:
-                    rel = str(f.relative_to(REF_DIR))
-                except ValueError:
-                    rel = f.name
                 ref_metinler.append(f"#### {rel}\n{metin}")
+                kullanilan_referanslar.append(rel)
                 toplam_ref += len(metin)
             except Exception:
                 pass
@@ -69,12 +84,22 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
                 "type": "text",
                 "text": (
                     "### REFERANS DOKÜMANLAR\n"
-                    "Mevcut endpoint'leri kullan, uydurma.\n\n"
+                    "Mevcut endpoint'leri, tablo adlarını, RBAC rollerini buradan al — uydurma. "
+                    "Her teknik karara `[K: <kaynak>]` ekle.\n\n"
                     + "\n\n---\n\n".join(ref_metinler)
                 ),
             })
 
-    icerik_parcalari.append({"type": "text", "text": f"### Süreç Analizi\n\n{surec_metni}"})
+    icerik_parcalari.append({
+        "type": "text",
+        "text": (
+            "### Süreç Analizi\n"
+            "Aşağıdaki süreç analizindeki BR-XXX, AC-XXX, PA-XXX, EF-XXX, AF-XXX ID'lerini "
+            "teknik analizdeki ilgili bölümlerde MUTLAKA referans al ve "
+            "İzlenebilirlik Matrisi'nde göster.\n\n"
+            f"{surec_metni}"
+        ),
+    })
 
     if mockup_icerik:
         print(f"  HTML prototip dahil ediliyor ({len(mockup_icerik):,} karakter)...")
@@ -93,6 +118,10 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
 
     teknik  = _xml_ayir(yanit, "teknik_analiz")
     sorular = _xml_ayir(yanit, "acik_sorular")
+
+    if kullanilan_referanslar:
+        meta = "<!--\nKULLANILAN REFERANSLAR:\n- " + "\n- ".join(kullanilan_referanslar) + "\n-->\n\n"
+        teknik = meta + teknik
 
     teknik_yol  = _kaydet("teknik-analiz.md", teknik)
     sorular_yol = _kaydet("acik-sorular.md", sorular)
