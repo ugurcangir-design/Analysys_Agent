@@ -57,6 +57,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _eski_loglari_temizle(gun: int = 30) -> None:
+    """Tarih bazlı eski app-YYYYMMDD.log dosyalarını sil (rotation öncesinden kalanlar)."""
+    import re as _re
+    esik = time.time() - gun * 86400
+    desen = _re.compile(r"^app-\d{8}\.log$")
+    silinen = 0
+    for f in LOG_DIR.iterdir():
+        if not f.is_file() or not desen.match(f.name):
+            continue
+        try:
+            if f.stat().st_mtime < esik:
+                f.unlink()
+                silinen += 1
+        except OSError:
+            pass
+    if silinen:
+        logger.info(f"{silinen} eski log dosyası temizlendi (>{gun} gün).")
+
+
+_eski_loglari_temizle()
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
