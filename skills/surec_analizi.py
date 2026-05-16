@@ -23,6 +23,7 @@ def surec_analizi_yap() -> Path:
 
     icerik_parcalari = []
     kullanilan_referanslar: list[str] = []
+    cacheable_son_index: int | None = None
 
     ref_dosyalar = referans_dosyalari_hazirla()
     if ref_dosyalar:
@@ -59,12 +60,17 @@ def surec_analizi_yap() -> Path:
                     + "\n\n---\n\n".join(ref_metinler)
                 ),
             })
+            cacheable_son_index = len(icerik_parcalari) - 1
 
     icerik_parcalari.extend(icerik)
     icerik_parcalari.append({
         "type": "text",
         "text": "Yukarıdaki ana dokümanı (varsa referanslarla birlikte) analiz et ve süreç analizi raporunu üret.",
     })
+
+    # Referanslar varsa cache breakpoint ekle — rerun ve takip eden analizlerde cache hit
+    if cacheable_son_index is not None:
+        icerik_parcalari[cacheable_son_index]["cache_control"] = {"type": "ephemeral"}
 
     sistem = _surec_prompt_olustur()
     mesajlar = [{"role": "user", "content": icerik_parcalari}]

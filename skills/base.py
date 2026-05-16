@@ -1117,6 +1117,42 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     return yanit
 
 
+_RETRY_DENEMELER = 3
+_RETRY_TABAN_GECIKME = 4  # saniye — 4, 8, 16
+
+
+def _api_yeniden_dene(fn):
+    """429 ve 5xx için exponential backoff retry decorator'ı."""
+    import time as _t
+    def _sarici(*a, **kw):
+        son_hata = None
+        for deneme in range(_RETRY_DENEMELER):
+            try:
+                return fn(*a, **kw)
+            except anthropic.RateLimitError as e:
+                son_hata = e
+                bekleme = _RETRY_TABAN_GECIKME * (2 ** deneme)
+                print(f"  ⚠ Rate limit (429). {bekleme}s sonra tekrar denenecek ({deneme+1}/{_RETRY_DENEMELER})")
+                _t.sleep(bekleme)
+            except anthropic.APIStatusError as e:
+                status = getattr(e, "status_code", None)
+                if status and 500 <= status < 600:
+                    son_hata = e
+                    bekleme = _RETRY_TABAN_GECIKME * (2 ** deneme)
+                    print(f"  ⚠ Sunucu hatası ({status}). {bekleme}s sonra tekrar denenecek ({deneme+1}/{_RETRY_DENEMELER})")
+                    _t.sleep(bekleme)
+                else:
+                    raise
+            except anthropic.APIConnectionError as e:
+                son_hata = e
+                bekleme = _RETRY_TABAN_GECIKME * (2 ** deneme)
+                print(f"  ⚠ Bağlantı hatası. {bekleme}s sonra tekrar denenecek ({deneme+1}/{_RETRY_DENEMELER})")
+                _t.sleep(bekleme)
+        raise son_hata if son_hata else RuntimeError("API çağrısı bilinmeyen sebepten başarısız.")
+    return _sarici
+
+
+@_api_yeniden_dene
 def _api_cagri_direct(
     sistem: str,
     mesajlar: list,

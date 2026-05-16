@@ -53,12 +53,12 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
 
     icerik_parcalari = []
     kullanilan_referanslar: list[str] = []
+    stable_bloklar = []  # cache'lenecek bloklar (references + mockup + UI kodu)
 
     if ref_dosyalar:
         print(f"  {len(ref_dosyalar)} referans dosya dahil ediliyor...")
         ref_metinler = []
         toplam_ref = 0
-        atlamayan_dosyalar = []
         for f in ref_dosyalar:
             try:
                 rel = str(f.relative_to(REF_DIR))
@@ -80,7 +80,7 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
             except Exception:
                 pass
         if ref_metinler:
-            icerik_parcalari.append({
+            stable_bloklar.append({
                 "type": "text",
                 "text": (
                     "### REFERANS DOKÜMANLAR\n"
@@ -89,6 +89,19 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
                     + "\n\n---\n\n".join(ref_metinler)
                 ),
             })
+
+    if mockup_icerik:
+        print(f"  HTML prototip dahil ediliyor ({len(mockup_icerik):,} karakter)...")
+        stable_bloklar.append({"type": "text", "text": f"### HTML Prototip\n\n{mockup_icerik}"})
+
+    if ui_kodu:
+        print(f"  UI kodu dahil ediliyor ({len(ui_kodu):,} karakter)...")
+        stable_bloklar.append({"type": "text", "text": f"### Mevcut UI Kodu\n\n{ui_kodu}"})
+
+    # Stable blokların sonuna cache breakpoint koy — sonraki run'larda cache hit
+    if stable_bloklar:
+        stable_bloklar[-1]["cache_control"] = {"type": "ephemeral"}
+        icerik_parcalari.extend(stable_bloklar)
 
     icerik_parcalari.append({
         "type": "text",
@@ -100,15 +113,6 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
             f"{surec_metni}"
         ),
     })
-
-    if mockup_icerik:
-        print(f"  HTML prototip dahil ediliyor ({len(mockup_icerik):,} karakter)...")
-        icerik_parcalari.append({"type": "text", "text": f"### HTML Prototip\n\n{mockup_icerik}"})
-
-    if ui_kodu:
-        print(f"  UI kodu dahil ediliyor ({len(ui_kodu):,} karakter)...")
-        icerik_parcalari.append({"type": "text", "text": f"### Mevcut UI Kodu\n\n{ui_kodu}"})
-
     icerik_parcalari.append({"type": "text", "text": "Teknik analiz raporunu ve açık soruları üret."})
 
     sistem = _teknik_prompt_olustur(ui_kodu, mockup_var=bool(mockup_icerik))

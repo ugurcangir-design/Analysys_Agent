@@ -1,7 +1,9 @@
-anthropic>=0.40.0
-flask>=3.0.0
-python-dotenv>=1.0.0
-PyMuPDF>=1.23.0
-Pillow>=10.0.0
-python-docx>=1.1.0
-requests>=2.31.0
+# Pinned versions for reproducible builds.
+# Update via: pip install -U <pkg> && pip freeze | grep -i <pkg>
+anthropic==0.101.0
+Flask==3.1.3
+python-dotenv==1.2.2
+PyMuPDF==1.27.2.3
+Pillow==12.2.0
+python-docx==1.2.0
+requests==2.33.1

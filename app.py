@@ -10,6 +10,7 @@ import time
 import signal
 import shutil
 import logging
+import logging.handlers
 import secrets
 import zipfile
 import subprocess
@@ -45,17 +46,24 @@ for d in [INPUT_DIR, OUTPUT_DIR, REF_DIR / "current-brd", UI_CODE_DIR,
           CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, HISTORY_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
-LOG_FILE = LOG_DIR / f"app-{datetime.now().strftime('%Y%m%d')}.log"
+LOG_FILE = LOG_DIR / "app.log"
+_log_handler = logging.handlers.RotatingFileHandler(
+    LOG_FILE, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
+    handlers=[_log_handler, logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Yerel HTTP'de Secure=True cookie'yi gönderilmez yapar; HTTPS gerektiğinde env ile aç
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 
 # SECRET_KEY: .env'den alınır, yoksa kalıcı olarak üretilip .env'e kaydedilir
 _sk = os.getenv("SECRET_KEY")
@@ -64,6 +72,10 @@ if not _sk:
     _env_yolu_sk = Path(__file__).parent / ".env"
     with open(_env_yolu_sk, "a", encoding="utf-8") as _f:
         _f.write(f"\nSECRET_KEY={_sk}\n")
+    try:
+        os.chmod(_env_yolu_sk, 0o600)
+    except OSError:
+        pass
 app.secret_key = _sk
 
 # Kullanıcı veritabanı — root dizinde, git'e gitmez
@@ -371,18 +383,54 @@ def _surec_calistir(mod: str) -> None:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            start_new_session=True,
         )
 
     def _bekle():
         global _process
+        hata_mesaji: str | None = None
         try:
             out, _ = _process.communicate(timeout=600)
-            logger.info(f"[{mod}] çıktı:\n{out}")
+            if out:
+                logger.info(f"[{mod}] çıktı:\n{out}")
+            if _process.returncode != 0:
+                hata_mesaji = f"Alt süreç hata kodu {_process.returncode} ile sonlandı."
+                logger.error(f"[{mod}] {hata_mesaji}")
         except subprocess.TimeoutExpired:
-            _process.kill()
-            logger.error(f"[{mod}] zaman aşımı.")
+            try:
+                _process.kill()
+                _process.wait(timeout=5)
+            except Exception:
+                pass
+            hata_mesaji = "Zaman aşımı (10 dakika). Alt süreç sonlandırıldı."
+            logger.error(f"[{mod}] {hata_mesaji}")
         except Exception as e:
-            logger.error(f"[{mod}] beklenmeyen hata: {e}")
+            hata_mesaji = f"Beklenmeyen hata: {e}"
+            logger.error(f"[{mod}] {hata_mesaji}", exc_info=True)
+
+        # Eğer alt süreç workflow state'i temizleyemediyse HATA'ya çek.
+        if hata_mesaji:
+            try:
+                from workflow import oku as _wf_oku, guncelle as _wf_guncelle, Durum as _WfDurum
+                mevcut = _wf_oku().get("durum")
+                if mevcut and mevcut not in (_WfDurum.IDLE, _WfDurum.HATA,
+                                              _WfDurum.JIRA_TAMAMLANDI,
+                                              _WfDurum.SUREC_TAMAMLANDI,
+                                              _WfDurum.BRD_TAMAMLANDI,
+                                              _WfDurum.ONAY_BEKLENIYOR,
+                                              _WfDurum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR,
+                                              _WfDurum.BRD_REVIZE_BEKLENIYOR):
+                    try:
+                        _wf_guncelle(_WfDurum.HATA, hata_mesaji, hata=hata_mesaji)
+                    except ValueError:
+                        # Geçiş izinli değilse zorla sıfırla
+                        from workflow import sifirla as _wf_sifirla
+                        _wf_sifirla()
+                        logger.warning(f"[{mod}] Workflow zorla sıfırlandı.")
+            except Exception:
+                logger.exception(f"[{mod}] Workflow temizleme başarısız.")
 
     threading.Thread(target=_bekle, daemon=True).start()
 
@@ -768,6 +816,11 @@ def _zip_cikart(zip_yolu: str, hedef_dizin: Path, temizle: bool = True) -> dict:
             if toplam_boyut + uye.file_size > ZIP_MAX_TOPLAM_BOYUT:
                 atlanan += 1
                 continue
+            # Zip bomb koruması: sıkıştırma oranı > 100 ise reddet
+            if uye.compress_size > 0 and uye.file_size / uye.compress_size > 100:
+                logger.warning(f"Zip bomb adayı atlandı: {uye.filename} (oran: {uye.file_size // max(uye.compress_size,1)}x)")
+                atlanan += 1
+                continue
 
             # Hedef yolu hesapla — zip içindeki ilk ortak ön eki kır
             hedef_yol = (hedef_dizin / uye.filename).resolve()
@@ -989,7 +1042,7 @@ def rerun_status(dosya_adi: str):
 
 
 def _env_yaz(degiskenler: dict) -> None:
-    """Mevcut .env'i koru, sadece belirtilen anahtarları güncelle/ekle."""
+    """Mevcut .env'i koru, sadece belirtilen anahtarları güncelle/ekle. Atomik yazım + 0o600."""
     env_yol = BASE_DIR / ".env"
     satirlar = []
     guncellenenler = set()
@@ -1009,7 +1062,13 @@ def _env_yaz(degiskenler: dict) -> None:
         if k not in guncellenenler:
             satirlar.append(f"{k}={v}")
 
-    env_yol.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+    tmp = env_yol.with_suffix(".env.tmp")
+    tmp.write_text("\n".join(satirlar) + "\n", encoding="utf-8")
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
+    tmp.replace(env_yol)
 
 
 def _maskele(deger: str) -> str:
