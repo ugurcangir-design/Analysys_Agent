@@ -40,3 +40,6 @@ sistem_promptlari.pdf
 *.swp
 *.swo
 _launcher_bin
+
+# ── Claude Code (kullanıcıya özel) ───────────────────────────────
+.claude/settings.local.json
