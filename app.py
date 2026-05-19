@@ -1904,6 +1904,141 @@ def mockup_generate():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# ─── Git Güncellemeleri ──────────────────────────────────────────────────────
+
+_git_lock = threading.Lock()
+
+
+def _git_calistir(args: list[str], timeout: int = 30) -> dict:
+    """Git komutu çalıştır. Return: {ok, stdout, stderr, returncode}."""
+    try:
+        sonuc = subprocess.run(
+            ["git"] + args,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+        )
+        return {
+            "ok": sonuc.returncode == 0,
+            "stdout": sonuc.stdout.strip(),
+            "stderr": sonuc.stderr.strip(),
+            "returncode": sonuc.returncode,
+        }
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "stdout": "", "stderr": f"Zaman aşımı ({timeout}s)", "returncode": -1}
+    except FileNotFoundError:
+        return {"ok": False, "stdout": "", "stderr": "git komutu bulunamadı (Xcode Command Line Tools yüklü mü?)", "returncode": -1}
+    except Exception as e:
+        return {"ok": False, "stdout": "", "stderr": str(e), "returncode": -1}
+
+
+@app.route("/api/git/status", methods=["GET"])
+def git_status():
+    """Mevcut commit, branch ve uzak depo ile fark bilgisini döndür."""
+    if not (BASE_DIR / ".git").exists():
+        return jsonify({"ok": False, "error": "Bu dizin bir git deposu değil."}), 400
+
+    branch = _git_calistir(["rev-parse", "--abbrev-ref", "HEAD"])
+    mevcut = _git_calistir(["log", "-1", "--pretty=format:%h|%s|%ci|%an"])
+    yerel_degisiklik = _git_calistir(["status", "--porcelain"])
+
+    # Uzak ile karşılaştırmak için fetch
+    fetch_yap = request.args.get("fetch", "false").lower() in ("1", "true", "yes")
+    fetch_sonuc = None
+    if fetch_yap:
+        fetch_sonuc = _git_calistir(["fetch", "origin"], timeout=60)
+
+    # ahead/behind hesabı
+    branch_adi = branch["stdout"] if branch["ok"] else "main"
+    sayim = _git_calistir(["rev-list", "--left-right", "--count", f"HEAD...origin/{branch_adi}"])
+    ahead, behind = 0, 0
+    if sayim["ok"] and "\t" in sayim["stdout"]:
+        try:
+            a, b = sayim["stdout"].split("\t")
+            ahead, behind = int(a), int(b)
+        except ValueError:
+            pass
+
+    # Uzak son commit
+    uzak = _git_calistir(["log", "-1", f"origin/{branch_adi}", "--pretty=format:%h|%s|%ci|%an"])
+
+    mevcut_parsed = {}
+    if mevcut["ok"] and "|" in mevcut["stdout"]:
+        h, s, c, a = mevcut["stdout"].split("|", 3)
+        mevcut_parsed = {"hash": h, "mesaj": s, "tarih": c, "yazar": a}
+
+    uzak_parsed = {}
+    if uzak["ok"] and "|" in uzak["stdout"]:
+        h, s, c, a = uzak["stdout"].split("|", 3)
+        uzak_parsed = {"hash": h, "mesaj": s, "tarih": c, "yazar": a}
+
+    return jsonify({
+        "ok": True,
+        "branch": branch_adi,
+        "mevcut": mevcut_parsed,
+        "uzak": uzak_parsed,
+        "ahead": ahead,
+        "behind": behind,
+        "kirli": bool(yerel_degisiklik["stdout"]),
+        "fetch": fetch_sonuc,
+        "guncelleme_var": behind > 0,
+    })
+
+
+@app.route("/api/git/pull", methods=["POST"])
+def git_pull():
+    """git fetch + git pull origin <branch>."""
+    if not _git_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Güncelleme zaten çalışıyor."}), 409
+
+    try:
+        if not (BASE_DIR / ".git").exists():
+            return jsonify({"ok": False, "error": "Bu dizin bir git deposu değil."}), 400
+
+        # Yerel değişiklik varsa güvenli olmak için reddet
+        kirli = _git_calistir(["status", "--porcelain"])
+        if kirli["stdout"]:
+            return jsonify({
+                "ok": False,
+                "error": "Yerel değişiklikler var. Önce kaydedin veya geri alın.",
+                "detay": kirli["stdout"][:1000],
+            }), 400
+
+        branch = _git_calistir(["rev-parse", "--abbrev-ref", "HEAD"])
+        branch_adi = branch["stdout"] if branch["ok"] else "main"
+
+        # Fetch + pull
+        fetch_r = _git_calistir(["fetch", "origin"], timeout=60)
+        if not fetch_r["ok"]:
+            return jsonify({"ok": False, "error": "Fetch başarısız", "detay": fetch_r["stderr"]}), 500
+
+        # ff-only: merge yapılmasını engelle, conflict riski olursa kullanıcıya bildir
+        pull_r = _git_calistir(["pull", "--ff-only", "origin", branch_adi], timeout=60)
+        if not pull_r["ok"]:
+            return jsonify({
+                "ok": False,
+                "error": "Pull başarısız (fast-forward yapılamıyor — manuel müdahale gerekli olabilir)",
+                "detay": pull_r["stderr"] or pull_r["stdout"],
+            }), 500
+
+        # requirements.txt değişti mi kontrol
+        son = _git_calistir(["log", "-1", "--pretty=format:%h|%s"])
+        deps_degisti = "requirements.txt" in _git_calistir(["diff", "--name-only", "HEAD@{1}", "HEAD"])["stdout"]
+
+        return jsonify({
+            "ok": True,
+            "mesaj": "Güncelleme tamamlandı. Değişikliklerin etkili olması için uygulamayı yeniden başlatın.",
+            "son_commit": son["stdout"],
+            "deps_degisti": deps_degisti,
+            "pull_ciktisi": pull_r["stdout"],
+        })
+    finally:
+        _git_lock.release()
+
+
 @app.after_request
 def guvenlik_basliklari(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
