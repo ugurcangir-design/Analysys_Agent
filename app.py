@@ -339,7 +339,8 @@ _suspended = False          # True → tarayıcı 2+ dakikadır bağlı değil
 _process: subprocess.Popen | None = None
 _process_lock = threading.Lock()
 
-SUSPEND_SURE = 60           # saniye — bu kadar heartbeat gelmezse uyku
+SUSPEND_SURE = 30           # saniye — bu kadar heartbeat gelmezse uyku (overlay)
+KAPAT_SURE   = 45           # saniye — heartbeat kesilirse desktop modunda kapat
 DESKTOP_MODE = os.getenv("DESKTOP_MODE", "false").lower() in ("1", "true", "yes")
 
 
@@ -350,9 +351,11 @@ def _heartbeat_izle():
         with _heartbeat_lock:
             gecen = time.time() - _son_heartbeat
         _suspended = gecen > SUSPEND_SURE
-        # Desktop modunda: uyku sonrası 30 saniye daha beklenir, ardından kapat
-        if DESKTOP_MODE and gecen > SUSPEND_SURE + 30:
-            logger.info("Desktop modu: tarayıcı bağlantısı kesildi, uygulama kapatılıyor.")
+        # Desktop modunda: KAPAT_SURE saniye heartbeat gelmezse kapat.
+        # Sayfa yenilemede (Cmd+Shift+R) heartbeat ~2-5s içinde geri döner,
+        # bu eşiğe ulaşmaz. Sekme kapatıldığında heartbeat hiç gelmez → kapanır.
+        if DESKTOP_MODE and gecen > KAPAT_SURE:
+            logger.info("Desktop modu: tarayıcı bağlantısı kesildi (%.0fs), uygulama kapatılıyor.", gecen)
             os.kill(os.getpid(), signal.SIGINT)
 
 
