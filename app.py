@@ -1756,26 +1756,58 @@ def jira_test():
 
 # ─── Jira Task Hiyerarşisi ────────────────────────────────────────────────────
 
-@app.route("/api/jira/hierarchy", methods=["POST"])
-def jira_hierarchy_olustur():
+def _jira_baglanti_eksik() -> str | None:
+    """Jira bağlantı env değişkenlerini kontrol eder; eksikse hata metni döndürür."""
+    env = _env_oku()
+    eksik = [k for k in ("JIRA_ACCESS_TOKEN", "JIRA_CLOUD_ID", "JIRA_PROJECT_KEY") if not env.get(k)]
+    return f"Jira bağlantısı eksik: {', '.join(eksik)}" if eksik else None
+
+
+@app.route("/api/jira/hierarchy/preview", methods=["POST"])
+def jira_hierarchy_onizleme():
+    """1. Adım — AI hiyerarşi önerisi üretir; Jira'ya YAZMAZ.
+
+    Analist dönen öneriyi ekranda görüp seçim yapar, sonra /create çağrılır.
+    """
     data = request.get_json(silent=True) or {}
-    confluence_url = (data.get("confluence_url") or "").strip() or None
     dosya = (data.get("dosya") or "teknik-analiz.md").strip()
 
     if ".." in dosya or "/" in dosya or "\\" in dosya:
         return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
 
-    env = _env_oku()
-    eksik = [k for k in ("JIRA_ACCESS_TOKEN", "JIRA_CLOUD_ID", "JIRA_PROJECT_KEY") if not env.get(k)]
-    if eksik:
-        return jsonify({"ok": False, "error": f"Jira bağlantısı eksik: {', '.join(eksik)}"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
 
     try:
-        from skills.jira_tasks import jira_tasks_olustur
-        sonuc = jira_tasks_olustur(teknik_analiz_dosya=dosya, confluence_url=confluence_url)
+        from skills.jira_tasks import jira_hiyerarsi_uret
+        sonuc = jira_hiyerarsi_uret(teknik_analiz_dosya=dosya)
         return jsonify({"ok": True, **sonuc})
     except Exception as e:
-        logger.error(f"Jira hiyerarşi hatası: {e}")
+        logger.error(f"Jira hiyerarşi önizleme hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/hierarchy/create", methods=["POST"])
+def jira_hierarchy_olustur():
+    """2. Adım — Analistin seçtiği/düzenlediği hiyerarşiyi Jira'da oluşturur."""
+    data = request.get_json(silent=True) or {}
+    hierarchy = data.get("hierarchy")
+    confluence_url = (data.get("confluence_url") or "").strip() or None
+
+    if not isinstance(hierarchy, dict):
+        return jsonify({"ok": False, "error": "Geçersiz hiyerarşi verisi"}), 400
+
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+
+    try:
+        from skills.jira_tasks import jira_hiyerarsi_olustur
+        sonuc = jira_hiyerarsi_olustur(hierarchy, confluence_url=confluence_url)
+        return jsonify({"ok": True, **sonuc})
+    except Exception as e:
+        logger.error(f"Jira hiyerarşi oluşturma hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 

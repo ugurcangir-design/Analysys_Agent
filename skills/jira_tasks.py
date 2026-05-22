@@ -163,27 +163,45 @@ def _hierarchy_uret(teknik_analiz: str) -> dict:
             raise ValueError(f"AI yanıtı JSON parse edilemedi: {e}\n---\n{json_str[:500]}")
 
 
-# ─── Ana Fonksiyon ────────────────────────────────────────────────────────────
+# ─── Issue Type ID Belirleme ──────────────────────────────────────────────────
 
-def jira_tasks_olustur(
-    teknik_analiz_dosya: str = "teknik-analiz.md",
-    confluence_url: str | None = None,
-) -> dict:
+def _issue_type_idleri(proje: dict, project_key: str) -> tuple[str, str, str]:
+    """Proje bilgisinden (epic, story, subtask) issue type id'lerini belirler.
+
+    Epic+Story tipleri varsa onları, yoksa Task+Subtask fallback'i kullanır.
     """
-    teknik-analiz.md → Jira Epic + Story + Subtask hiyerarşisi oluştur.
+    if proje["has_epic"] and proje["has_story"]:
+        epic_type_id  = proje["epic_id"]
+        story_type_id = proje["story_id"]
+        sub_type_id   = proje["subtask_id"] or proje["task_id"]
+    else:
+        epic_type_id  = proje["task_id"]
+        story_type_id = proje["task_id"]
+        sub_type_id   = proje["subtask_id"] or proje["task_id"]
 
-    Döndürür:
+    if not epic_type_id or not story_type_id:
+        raise ValueError(
+            f"Proje '{project_key}' için uygun issue type bulunamadı. "
+            f"Mevcut tipler: {list(proje['issue_types'].keys())}"
+        )
+    return epic_type_id, story_type_id, sub_type_id
+
+
+# ─── Önizleme: AI Hiyerarşisi Üret (Jira'ya yazmaz) ──────────────────────────
+
+def jira_hiyerarsi_uret(teknik_analiz_dosya: str = "teknik-analiz.md") -> dict:
+    """teknik-analiz.md → AI task hiyerarşisi önerir. Jira'ya HİÇBİR ŞEY YAZMAZ.
+
+    Analistin ekrandan seçim yapabilmesi için önizleme verisi döndürür:
     {
-        "epic_key": "PROJ-1",
-        "stories": [{"key": "PROJ-2", "summary": "...", "subtasks": ["PROJ-3", "PROJ-4"]}],
-        "toplam": int,
-        "proje": str,
+        "hierarchy": {epic_summary, epic_description, stories: [...]},
+        "proje": {key, has_epic, has_story, subtask_name},
+        "ozet": {epic: 1, story: N, subtask: M}
     }
     """
     env = env_oku()
-    cloud_id   = env.get("JIRA_CLOUD_ID", "")
+    cloud_id    = env.get("JIRA_CLOUD_ID", "")
     project_key = env.get("JIRA_PROJECT_KEY", "")
-
     if not cloud_id or not project_key:
         raise EnvironmentError("JIRA_CLOUD_ID veya JIRA_PROJECT_KEY tanımlı değil.")
 
@@ -194,63 +212,106 @@ def jira_tasks_olustur(
     teknik_analiz = dosya_oku(dosya_yolu, MAX_CHARS_GENEL)
     print(f"  Teknik analiz okundu ({len(teknik_analiz):,} karakter)")
 
-    # 2. Proje tipi ve issue type'larını öğren
+    # 2. Proje issue type'larını öğren (oluşturma değil, sadece tip tespiti)
     print("  Proje issue type'ları alınıyor...")
     proje = _proje_bilgi(project_key, cloud_id)
     print(f"  Epic: {'var' if proje['has_epic'] else 'yok'} | "
           f"Story: {'var' if proje['has_story'] else 'yok'} | "
           f"Subtask: {proje.get('subtask_name', 'yok')}")
-
-    # Issue type ID'leri belirle
-    if proje["has_epic"] and proje["has_story"]:
-        epic_type_id   = proje["epic_id"]
-        story_type_id  = proje["story_id"]
-        sub_type_id    = proje["subtask_id"] or proje["task_id"]
-    else:
-        # Task + Subtask fallback
-        epic_type_id  = proje["task_id"]
-        story_type_id = proje["task_id"]
-        sub_type_id   = proje["subtask_id"] or proje["task_id"]
-
-    if not epic_type_id or not story_type_id:
-        raise ValueError(
-            f"Proje '{project_key}' için uygun issue type bulunamadı. "
-            f"Mevcut tipler: {list(proje['issue_types'].keys())}"
-        )
+    # İssue type'ların geçerli olduğunu önizleme aşamasında doğrula
+    _issue_type_idleri(proje, project_key)
 
     # 3. AI'dan hiyerarşi üret
     print("  AI'dan task hiyerarşisi üretiliyor...")
     hierarchy = _hierarchy_uret(teknik_analiz)
 
-    stories_data = hierarchy.get("stories", [])
-    toplam = 1 + len(stories_data) + sum(len(s.get("subtasks", [])) for s in stories_data)
-    print(f"  Plan: 1 Epic + {len(stories_data)} Story + "
-          f"{toplam - 1 - len(stories_data)} Subtask = {toplam} issue")
+    stories = hierarchy.get("stories", []) or []
+    return {
+        "hierarchy": hierarchy,
+        "proje": {
+            "key": project_key,
+            "has_epic": proje["has_epic"],
+            "has_story": proje["has_story"],
+            "subtask_name": proje.get("subtask_name"),
+        },
+        "ozet": {
+            "epic": 1,
+            "story": len(stories),
+            "subtask": sum(len(s.get("subtasks", []) or []) for s in stories),
+        },
+    }
 
-    # 4. Epic oluştur
-    epic_desc_lines = []
-    if hierarchy.get("epic_description"):
-        epic_desc_lines.append(_p(hierarchy["epic_description"]))
-    if confluence_url:
-        epic_desc_lines.append(_p(f"Analiz dokümanı: {confluence_url}"))
-    epic_adf = _adf_doc(epic_desc_lines or [_p("Proje ana görevi")])
 
-    print(f"  Epic oluşturuluyor: {hierarchy['epic_summary'][:60]}...")
-    epic_key = _issue_olustur(
-        summary=hierarchy["epic_summary"],
-        description_adf=epic_adf,
-        issue_type_id=epic_type_id,
-        project_key=project_key,
-        cloud_id=cloud_id,
-    )
-    print(f"  ✓ Epic: {epic_key}")
+# ─── Oluşturma: Seçilen Hiyerarşiyi Jira'da Aç ───────────────────────────────
 
-    # 5. Story + Subtask'ları oluştur
+def jira_hiyerarsi_olustur(hierarchy: dict, confluence_url: str | None = None) -> dict:
+    """Analist tarafından seçilmiş/düzenlenmiş hiyerarşiyi Jira'da oluşturur.
+
+    hierarchy yalnızca analistin seçtiği öğeleri içermelidir:
+    {
+        "epic_dahil": bool,                # Epic oluşturulsun mu
+        "epic_summary": str,
+        "epic_description": str,
+        "stories": [                        # SADECE seçilen story'ler
+            {summary, description, acceptance_criteria, subtasks: [...]}  # SADECE seçilen subtask'lar
+        ]
+    }
+
+    Döndürür:
+    {"epic_key": str|None, "stories": [...], "toplam": int, "proje": str}
+    """
+    env = env_oku()
+    cloud_id    = env.get("JIRA_CLOUD_ID", "")
+    project_key = env.get("JIRA_PROJECT_KEY", "")
+    if not cloud_id or not project_key:
+        raise EnvironmentError("JIRA_CLOUD_ID veya JIRA_PROJECT_KEY tanımlı değil.")
+
+    epic_dahil   = bool(hierarchy.get("epic_dahil", True))
+    stories_data = hierarchy.get("stories", []) or []
+
+    if not epic_dahil and not stories_data:
+        raise ValueError("Oluşturulacak öğe seçilmedi. En az bir öğe seçin.")
+
+    epic_summary = (hierarchy.get("epic_summary") or "").strip()
+    if epic_dahil and not epic_summary:
+        raise ValueError("Epic başlığı boş olamaz.")
+
+    # Proje tipini öğren ve issue type id'lerini belirle
+    print("  Proje issue type'ları alınıyor...")
+    proje = _proje_bilgi(project_key, cloud_id)
+    epic_type_id, story_type_id, sub_type_id = _issue_type_idleri(proje, project_key)
+
+    sub_toplam = sum(len(s.get("subtasks", []) or []) for s in stories_data)
+    toplam = (1 if epic_dahil else 0) + len(stories_data) + sub_toplam
+    print(f"  Plan: {1 if epic_dahil else 0} Epic + {len(stories_data)} Story + "
+          f"{sub_toplam} Subtask = {toplam} issue")
+
+    # 1. Epic (seçildiyse)
+    epic_key: str | None = None
+    if epic_dahil:
+        epic_desc_lines = []
+        if hierarchy.get("epic_description"):
+            epic_desc_lines.append(_p(hierarchy["epic_description"]))
+        if confluence_url:
+            epic_desc_lines.append(_p(f"Analiz dokümanı: {confluence_url}"))
+        epic_adf = _adf_doc(epic_desc_lines or [_p("Proje ana görevi")])
+
+        print(f"  Epic oluşturuluyor: {epic_summary[:60]}...")
+        epic_key = _issue_olustur(
+            summary=epic_summary,
+            description_adf=epic_adf,
+            issue_type_id=epic_type_id,
+            project_key=project_key,
+            cloud_id=cloud_id,
+        )
+        print(f"  ✓ Epic: {epic_key}")
+
+    # 2. Story + Subtask'lar
     sonuclar = []
     for i, story in enumerate(stories_data, 1):
-        story_summary = story.get("summary", f"Story {i}")
+        story_summary = (story.get("summary") or f"Story {i}").strip()
         story_desc    = story.get("description", "")
-        story_ac      = story.get("acceptance_criteria", [])
+        story_ac      = story.get("acceptance_criteria", []) or []
         story_adf     = _hikaye_adf(story_desc, story_ac)
 
         print(f"  Story {i}/{len(stories_data)}: {story_summary[:60]}...")
@@ -260,27 +321,21 @@ def jira_tasks_olustur(
             issue_type_id=story_type_id,
             project_key=project_key,
             cloud_id=cloud_id,
-            parent_key=epic_key,
+            parent_key=epic_key,   # None ise standalone oluşturulur
         )
         print(f"    ✓ {story_key}")
 
         subtask_keys = []
-        for sub in story.get("subtasks", []):
-            sub_summary = sub.get("summary", "Subtask")
-            sub_desc    = sub.get("description", "")
-            sub_adf     = _gorev_adf(sub_desc)
-
-            # sub_type_id yoksa story altına task olarak ekle
-            parent = story_key
-            type_id = sub_type_id or story_type_id
-
+        for sub in story.get("subtasks", []) or []:
+            sub_summary = (sub.get("summary") or "Subtask").strip()
+            sub_adf     = _gorev_adf(sub.get("description", ""))
             sub_key = _issue_olustur(
                 summary=sub_summary,
                 description_adf=sub_adf,
-                issue_type_id=type_id,
+                issue_type_id=sub_type_id or story_type_id,
                 project_key=project_key,
                 cloud_id=cloud_id,
-                parent_key=parent,
+                parent_key=story_key,
             )
             subtask_keys.append(sub_key)
             print(f"      ✓ {sub_key}: {sub_summary[:50]}")
@@ -291,10 +346,23 @@ def jira_tasks_olustur(
             "subtasks": subtask_keys,
         })
 
-    print(f"✓ Toplam {toplam} issue oluşturuldu. Epic: {epic_key}")
+    print(f"✓ Toplam {toplam} issue oluşturuldu." + (f" Epic: {epic_key}" if epic_key else ""))
     return {
         "epic_key": epic_key,
         "stories": sonuclar,
         "toplam": toplam,
         "proje": project_key,
     }
+
+
+# ─── Geriye Dönük Uyumluluk ───────────────────────────────────────────────────
+
+def jira_tasks_olustur(
+    teknik_analiz_dosya: str = "teknik-analiz.md",
+    confluence_url: str | None = None,
+) -> dict:
+    """Eski tek-adımlı API: önizleme üretir + tüm öğeleri seçimsiz oluşturur."""
+    onizleme = jira_hiyerarsi_uret(teknik_analiz_dosya)
+    hierarchy = onizleme["hierarchy"]
+    hierarchy["epic_dahil"] = True
+    return jira_hiyerarsi_olustur(hierarchy, confluence_url=confluence_url)

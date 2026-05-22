@@ -601,6 +601,71 @@ input[type="email"].field-input,
 .conf-publish-msg.ok, .jira-hierarchy-result.ok, .mockup-gen-msg.ok { color: var(--green); }
 .conf-publish-msg.err, .jira-hierarchy-result.err, .mockup-gen-msg.err { color: var(--red); }
 
+/* ── Jira hiyerarşi önizleme modalı ─────────────────────────────── */
+.jira-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(8,11,18,.78); backdrop-filter: blur(6px);
+  z-index: 9000; align-items: center; justify-content: center; padding: 28px;
+}
+html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
+.jira-modal.visible { display: flex; }
+.jira-modal-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); width: 100%; max-width: 740px; max-height: 86vh;
+  display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+}
+.jira-modal-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.jira-modal-title { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+.jira-modal-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 22px; line-height: 1; padding: 0 4px;
+}
+.jira-modal-close:hover { color: var(--text); }
+.jira-modal-sub {
+  padding: 11px 18px; font-size: 11.5px; color: var(--text2);
+  border-bottom: 1px solid var(--border); line-height: 1.6;
+}
+.jira-modal-body { padding: 10px 18px; overflow-y: auto; flex: 1; }
+.jira-modal-result-wrap {
+  padding: 11px 18px; border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.jira-modal-result {
+  font-size: 11.5px; line-height: 1.7; white-space: pre-wrap;
+  font-family: 'Geist Mono', monospace; color: var(--text2);
+}
+.jira-modal-result.ok  { color: var(--green); }
+.jira-modal-result.err { color: var(--red); }
+.jira-modal-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--border);
+}
+.jira-modal-secim {
+  font-size: 11.5px; color: var(--text3); font-family: 'Geist Mono', monospace;
+}
+.jira-node { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; }
+.jira-node.story    { padding-left: 22px; }
+.jira-node.subtask  { padding-left: 44px; }
+.jira-node.disabled { opacity: .45; }
+.jira-node input[type="checkbox"] { margin-top: 6px; flex: 0 0 auto; cursor: pointer; }
+.jira-node-tip {
+  font-size: 9px; font-weight: 700; letter-spacing: .5px;
+  padding: 3px 6px; border-radius: 3px; flex: 0 0 auto; margin-top: 2px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.jira-node-tip.epic    { background: rgba(147,112,219,.18); color: #b89cf0; }
+.jira-node-tip.story   { background: rgba(45,212,191,.16); color: var(--accent); }
+.jira-node-tip.subtask { background: var(--surface2); color: var(--text3); }
+.jira-node-input {
+  flex: 1; font-family: inherit; font-size: 12px; padding: 5px 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text);
+}
+.jira-node-input:disabled { opacity: .5; }
+
 #mockup-iframe {
   width: 100%; border: 1px solid var(--border);
   border-radius: var(--radius); background: #fff; display: none;
@@ -1919,6 +1984,30 @@ function temaDegistir() {
       <small id="overlay-sub"></small>
     </div>
 
+    <!-- Jira hiyerarşi önizleme modalı -->
+    <div class="jira-modal" id="jira-modal" onclick="if(event.target===this)jiraModalKapat()">
+      <div class="jira-modal-box">
+        <div class="jira-modal-head">
+          <svg class="ico" style="color:var(--text3)"><use href="#i-ticket"/></svg>
+          <span class="jira-modal-title">Jira Task Önizleme</span>
+          <button class="jira-modal-close" onclick="jiraModalKapat()" title="Kapat">&times;</button>
+        </div>
+        <div class="jira-modal-sub" id="jira-modal-sub"></div>
+        <div class="jira-modal-body" id="jira-modal-body"></div>
+        <div class="jira-modal-result-wrap" id="jira-modal-result-wrap" style="display:none">
+          <div class="jira-modal-result" id="jira-modal-result"></div>
+        </div>
+        <div class="jira-modal-foot">
+          <span class="jira-modal-secim" id="jira-modal-secim"></span>
+          <span style="flex:1"></span>
+          <button class="btn btn-outline btn-sm" id="jira-modal-iptal" onclick="jiraModalKapat()">İptal</button>
+          <button class="btn btn-primary btn-sm" id="jira-modal-onay" onclick="jiraHiyerarsiOnayla()">
+            Devam Et — Jira'da Oluştur
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── REFERANSLAR ─── -->
     <div class="page" id="page-referanslar">
       <div class="ph">
@@ -2885,26 +2974,29 @@ async function confluenceYayimla() {
   }
 }
 
+// ─── Jira Hiyerarşi: önizleme → seçim → oluştur ───────────────────────────────
+let _jiraOnizleme = null;  // /preview yanıtı
+
+// 1. Adım — AI'dan hiyerarşi önerisi al, modal'ı aç
 async function jiraHiyerarsiOlustur() {
   const res = document.getElementById('jira-hierarchy-result');
   const btn = document.getElementById('jira-hierarchy-btn');
   res.className = 'jira-hierarchy-result';
-  res.textContent = 'AI analiz yapıyor ve Jira\'ya yüklüyor...';
+  res.textContent = 'AI task hiyerarşisi öneriyor...';
   btn.disabled = true;
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), 120000);
   try {
-    const r = await fetch('/api/jira/hierarchy', {
+    const r = await fetch('/api/jira/hierarchy/preview', {
       method: 'POST', signal: ctrl.signal,
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ dosya: currentOutputFile })
     });
     const d = await r.json();
     if (!d.ok) { res.className = 'jira-hierarchy-result err'; res.textContent = d.error; return; }
-    const storyKeys = (d.stories || []).map(s => s.key).join(', ');
-    const subCount  = (d.stories || []).reduce((a, s) => a + (s.subtasks || []).length, 0);
-    res.className = 'jira-hierarchy-result ok';
-    res.textContent = `✓ Epic: ${d.epic_key} | ${(d.stories||[]).length} Story (${storyKeys}) | ${subCount} Subtask — toplam ${d.toplam} issue`;
+    _jiraOnizleme = d;
+    res.textContent = '';
+    jiraModalAc(d);
   } catch(e) {
     res.className = 'jira-hierarchy-result err';
     res.textContent = e.name === 'AbortError' ? 'Zaman aşımı (120s)' : 'Bağlantı hatası';
@@ -2912,6 +3004,235 @@ async function jiraHiyerarsiOlustur() {
     clearTimeout(tid);
     btn.disabled = false;
   }
+}
+
+function _jiraTipEtiket(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+function _jiraNodeHTML(tip, id, tipEtiket, deger) {
+  const safe = (deger || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return `<div class="jira-node ${tip}" data-node="${id}">
+    <input type="checkbox" checked data-jira-cb="${id}" data-tip="${tip}"
+           onchange="jiraSecimDegisti('${id}','${tip}')">
+    <span class="jira-node-tip ${tip}">${tipEtiket}</span>
+    <input type="text" class="jira-node-input" data-jira-txt="${id}" value="${safe}"
+           placeholder="${tipEtiket} başlığı">
+  </div>`;
+}
+
+// Modal'ı önizleme verisiyle doldur ve aç
+function jiraModalAc(d) {
+  const modal = document.getElementById('jira-modal');
+  const body  = document.getElementById('jira-modal-body');
+  const sub   = document.getElementById('jira-modal-sub');
+  const h     = d.hierarchy || {};
+  const proje = d.proje || {};
+  const ozet  = d.ozet || {};
+  const stories = h.stories || [];
+
+  const epicTip  = proje.has_epic  ? 'Epic'  : 'Task';
+  const storyTip = proje.has_story ? 'Story' : 'Task';
+  const subTip   = _jiraTipEtiket(proje.subtask_name) || 'Subtask';
+
+  let tipNot = '';
+  if (!proje.has_epic || !proje.has_story) {
+    tipNot = ' <span style="color:var(--yellow)">(Bu projede Epic/Story tipi yok — Task olarak açılır.)</span>';
+  }
+  sub.innerHTML = `Proje <strong>${proje.key || '?'}</strong> — AI ${ozet.epic||0} ${epicTip}, `
+    + `${ozet.story||0} ${storyTip}, ${ozet.subtask||0} ${subTip} önerdi.${tipNot}<br>`
+    + `Oluşturmak istediklerinizi <strong>seçin</strong>, başlıkları düzenleyebilirsiniz. `
+    + `Tek bir task için yalnızca ${epicTip}'i bırakıp diğerlerinin işaretini kaldırın.`;
+
+  let html = _jiraNodeHTML('epic', 'e', epicTip, h.epic_summary || '');
+  stories.forEach((s, si) => {
+    html += _jiraNodeHTML('story', 's' + si, storyTip, s.summary || '');
+    (s.subtasks || []).forEach((sub, bi) => {
+      html += _jiraNodeHTML('subtask', 's' + si + '-b' + bi, subTip, sub.summary || '');
+    });
+  });
+  body.innerHTML = html;
+  body.style.pointerEvents = '';
+  body.style.opacity = '';
+
+  // foot/result'ı normal moda al
+  document.getElementById('jira-modal-result-wrap').style.display = 'none';
+  document.getElementById('jira-modal-result').className = 'jira-modal-result';
+  document.getElementById('jira-modal-result').textContent = '';
+  const onayBtn = document.getElementById('jira-modal-onay');
+  onayBtn.textContent = 'Devam Et — Jira\'da Oluştur';
+  onayBtn.onclick = jiraHiyerarsiOnayla;
+  onayBtn.disabled = false;
+  document.getElementById('jira-modal-iptal').disabled = false;
+
+  jiraModalRefresh();
+  modal.classList.add('visible');
+}
+
+// Bir checkbox değişince ebeveyn/çocuk seçim kaskadını uygula
+function jiraSecimDegisti(id, tip) {
+  const cb = document.querySelector(`[data-jira-cb="${id}"]`);
+  if (!cb) return;
+  const checked = cb.checked;
+
+  if (tip === 'epic' && !checked) {
+    // Epic kapandı → tüm Story ve Subtask'lar kapanır
+    document.querySelectorAll('[data-jira-cb]').forEach(el => {
+      if (el.dataset.tip !== 'epic') el.checked = false;
+    });
+  } else if (tip === 'story') {
+    if (!checked) {
+      // Story kapandı → altındaki Subtask'lar kapanır
+      document.querySelectorAll(`[data-jira-cb^="${id}-b"]`).forEach(el => { el.checked = false; });
+    } else {
+      // Story açıldı → Epic'in de açık olması gerekir
+      document.querySelector('[data-jira-cb="e"]').checked = true;
+    }
+  } else if (tip === 'subtask' && checked) {
+    // Subtask açıldı → parent Story ve Epic açık olmalı
+    const storyId = id.split('-b')[0];
+    document.querySelector(`[data-jira-cb="${storyId}"]`).checked = true;
+    document.querySelector('[data-jira-cb="e"]').checked = true;
+  }
+  jiraModalRefresh();
+}
+
+// Tüm disable durumlarını ve seçim sayacını güncelle
+function jiraModalRefresh() {
+  const epicCb = document.querySelector('[data-jira-cb="e"]');
+  if (!epicCb) return;
+  const epicOn = epicCb.checked;
+  let sayim = epicOn ? 1 : 0;
+
+  document.querySelectorAll('[data-jira-cb]').forEach(el => {
+    const tip = el.dataset.tip;
+    if (tip === 'epic') return;
+    const id = el.dataset.jiraCb;
+
+    let parentOn = epicOn;
+    if (tip === 'subtask') {
+      const storyCb = document.querySelector(`[data-jira-cb="${id.split('-b')[0]}"]`);
+      parentOn = epicOn && !!storyCb && storyCb.checked;
+    }
+    el.disabled = !parentOn;
+    if (el.checked && parentOn) sayim++;
+
+    const txt = document.querySelector(`[data-jira-txt="${id}"]`);
+    if (txt) txt.disabled = !el.checked || !parentOn;
+    el.closest('.jira-node').classList.toggle('disabled', !el.checked || !parentOn);
+  });
+
+  const epicTxt = document.querySelector('[data-jira-txt="e"]');
+  if (epicTxt) epicTxt.disabled = !epicOn;
+  document.querySelector('.jira-node.epic').classList.toggle('disabled', !epicOn);
+
+  document.getElementById('jira-modal-secim').textContent = sayim + ' öğe seçili';
+  document.getElementById('jira-modal-onay').disabled = sayim === 0;
+}
+
+// 2. Adım — seçilenleri topla, Jira'da oluştur
+async function jiraHiyerarsiOnayla() {
+  if (!_jiraOnizleme) return;
+  const orig = _jiraOnizleme.hierarchy || {};
+  const epicDahil = document.querySelector('[data-jira-cb="e"]').checked;
+
+  const stories = [];
+  (orig.stories || []).forEach((s, si) => {
+    const sCb = document.querySelector(`[data-jira-cb="s${si}"]`);
+    if (!sCb || !sCb.checked) return;
+    const sTxt = document.querySelector(`[data-jira-txt="s${si}"]`);
+    const subtasks = [];
+    (s.subtasks || []).forEach((sub, bi) => {
+      const bCb = document.querySelector(`[data-jira-cb="s${si}-b${bi}"]`);
+      if (!bCb || !bCb.checked) return;
+      const bTxt = document.querySelector(`[data-jira-txt="s${si}-b${bi}"]`);
+      subtasks.push({
+        summary: (bTxt ? bTxt.value : sub.summary || '').trim(),
+        description: sub.description || ''
+      });
+    });
+    stories.push({
+      summary: (sTxt ? sTxt.value : s.summary || '').trim(),
+      description: s.description || '',
+      acceptance_criteria: s.acceptance_criteria || [],
+      subtasks: subtasks
+    });
+  });
+
+  const epicTxt = document.querySelector('[data-jira-txt="e"]');
+  const hierarchy = {
+    epic_dahil: epicDahil,
+    epic_summary: (epicTxt ? epicTxt.value : orig.epic_summary || '').trim(),
+    epic_description: orig.epic_description || '',
+    stories: stories
+  };
+
+  if (epicDahil && !hierarchy.epic_summary) {
+    alert('Epic başlığı boş olamaz.');
+    return;
+  }
+
+  const onayBtn  = document.getElementById('jira-modal-onay');
+  const iptalBtn = document.getElementById('jira-modal-iptal');
+  const wrap     = document.getElementById('jira-modal-result-wrap');
+  const sonuc    = document.getElementById('jira-modal-result');
+  onayBtn.disabled = true;
+  iptalBtn.disabled = true;
+  wrap.style.display = 'block';
+  sonuc.className = 'jira-modal-result';
+  sonuc.textContent = 'Jira\'da oluşturuluyor, lütfen bekleyin...';
+
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 180000);
+  try {
+    const r = await fetch('/api/jira/hierarchy/create', {
+      method: 'POST', signal: ctrl.signal,
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ hierarchy })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      sonuc.className = 'jira-modal-result err';
+      sonuc.textContent = '✗ ' + (d.error || 'Oluşturma başarısız');
+      onayBtn.disabled = false;
+      iptalBtn.disabled = false;
+      return;
+    }
+    const storyKeys = (d.stories || []).map(s => s.key).join(', ');
+    const subCount  = (d.stories || []).reduce((a, s) => a + (s.subtasks || []).length, 0);
+    sonuc.className = 'jira-modal-result ok';
+    sonuc.textContent = `✓ ${d.toplam} issue oluşturuldu.\n`
+      + (d.epic_key ? `Epic: ${d.epic_key}\n` : '')
+      + (storyKeys ? `Story: ${storyKeys}\n` : '')
+      + (subCount ? `${subCount} Subtask oluşturuldu` : '');
+
+    // Modal gövdesini kilitle, onay → Kapat
+    const body = document.getElementById('jira-modal-body');
+    body.style.pointerEvents = 'none';
+    body.style.opacity = '.5';
+    onayBtn.textContent = 'Kapat';
+    onayBtn.onclick = jiraModalKapat;
+    onayBtn.disabled = false;
+
+    // Alttaki özet satırını güncelle
+    const res = document.getElementById('jira-hierarchy-result');
+    res.className = 'jira-hierarchy-result ok';
+    res.textContent = `✓ ${d.toplam} issue oluşturuldu`
+      + (d.epic_key ? ` (Epic: ${d.epic_key})` : '');
+  } catch(e) {
+    sonuc.className = 'jira-modal-result err';
+    sonuc.textContent = e.name === 'AbortError'
+      ? '✗ Zaman aşımı (180s) — çok sayıda issue seçili olabilir'
+      : '✗ Bağlantı hatası';
+    onayBtn.disabled = false;
+    iptalBtn.disabled = false;
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
+function jiraModalKapat() {
+  document.getElementById('jira-modal').classList.remove('visible');
 }
 
 // ─── HTML Prototip ────────────────────────────────────────────────────────────
