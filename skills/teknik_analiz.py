@@ -3,10 +3,10 @@
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
-    dosya_oku, referans_dosyalari_hazirla, ui_kodu_hazirla,
+    dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur, ui_kodu_hazirla,
     prompt_yukle, extended_thinking_acik,
-    OUTPUT_DIR, REF_DIR,
-    MODEL_ANALIZ, MAX_CHARS_GENEL, MAX_CHARS_REF, MAX_CHARS_REF_TOT,
+    OUTPUT_DIR,
+    MODEL_ANALIZ, MAX_CHARS_GENEL,
     MAX_TOKENS_COMBINED,
 )
 from .html_mockup import mockup_oku_kontekst
@@ -51,44 +51,16 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     ref_dosyalar = referans_dosyalari_hazirla()
     mockup_icerik = mockup_oku_kontekst()
 
-    icerik_parcalari = []
+    icerik_parcalari: list[dict] = []
     kullanilan_referanslar: list[str] = []
-    stable_bloklar = []  # cache'lenecek bloklar (references + mockup + UI kodu)
+    # Stable bloklar = değişmeyen içerik (referanslar + mockup + UI kodu)
+    # Bunların sonuncusuna cache breakpoint eklenir → sonraki run'larda cache hit
+    stable_bloklar: list[dict] = []
 
     if ref_dosyalar:
         print(f"  {len(ref_dosyalar)} referans dosya dahil ediliyor...")
-        ref_metinler = []
-        toplam_ref = 0
-        for f in ref_dosyalar:
-            try:
-                rel = str(f.relative_to(REF_DIR))
-            except ValueError:
-                rel = f.name
-            if toplam_ref >= MAX_CHARS_REF_TOT:
-                try:
-                    ozet = dosya_oku(f, 800)
-                except Exception:
-                    continue
-                ref_metinler.append(f"#### {rel} (özet, tam içerik için kaynak dosyaya bak)\n{ozet}")
-                kullanilan_referanslar.append(f"{rel} [özet]")
-                continue
-            try:
-                metin = dosya_oku(f, MAX_CHARS_REF)
-                ref_metinler.append(f"#### {rel}\n{metin}")
-                kullanilan_referanslar.append(rel)
-                toplam_ref += len(metin)
-            except Exception:
-                pass
-        if ref_metinler:
-            stable_bloklar.append({
-                "type": "text",
-                "text": (
-                    "### REFERANS DOKÜMANLAR\n"
-                    "Mevcut endpoint'leri, tablo adlarını, RBAC rollerini buradan al — uydurma. "
-                    "Her teknik karara `[K: <kaynak>]` ekle.\n\n"
-                    + "\n\n---\n\n".join(ref_metinler)
-                ),
-            })
+        ref_bloklari, kullanilan_referanslar = _ref_bloklari_olustur(ref_dosyalar)
+        stable_bloklar.extend(ref_bloklari)
 
     if mockup_icerik:
         print(f"  HTML prototip dahil ediliyor ({len(mockup_icerik):,} karakter)...")

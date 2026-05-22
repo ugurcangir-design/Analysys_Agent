@@ -57,8 +57,15 @@ MAX_CHARS_BRD     = 100_000
 MAX_CHARS_GENEL   =  30_000
 MAX_CHARS_UI      =  10_000
 MAX_CHARS_UI_TOT  =  60_000
-MAX_CHARS_REF     =  15_000
-MAX_CHARS_REF_TOT =  50_000
+MAX_CHARS_REF     =  15_000   # dosya başına limit
+MAX_CHARS_REF_TOT =  50_000   # geriye dönük uyumluluk — yeni kod per-tip limitleri kullanır
+
+# Kaynak tipine göre karakter limitleri — prompt cache ile ilk çağrıda maliyet çıkar,
+# sonraki 5dk içindeki çağrılarda ~%90 tasarruf.
+MAX_CHARS_CONF_TOT   =  80_000   # Confluence sayfaları toplamı
+MAX_CHARS_JIRA_TOT   =  60_000   # Jira issue'ları toplamı (markdown formatında)
+MAX_CHARS_SERVIS_TOT =  60_000   # Swagger/OpenAPI toplamı
+MAX_CHARS_DIGER_TOT  =  20_000   # Diğer referanslar toplamı
 
 MAX_TOKENS_UZUN     =  8_000
 MAX_TOKENS_KISA     =  3_000
@@ -152,9 +159,12 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
             "🎯 **Hedef:** Bu süreç analizi doğrudan teknik analiz için TEK KAYNAK olarak kullanılacak. "
             "Geliştirici ve mimar bu dokümanı okuyarak DDL, API, iş mantığı ve test senaryolarını "
             "üretebilmeli. Bu yüzden eksiklik, belirsizlik ve varsayım yasaktır — her şey AÇIK olmalı.\n\n"
-            "**Bağlam Kullanımı:**\n"
+            "**Bağlam Kullanımı (öncelik sırası):**\n"
             "- **Birincil kaynak:** Input dokümanı (BRD / süreç tarifi) — atlama yok, her satır okunmalı\n"
-            "- **Destekleyici referanslar:** Confluence/Jira (varsa) — mevcut süreç mimarisi ve karar geçmişi\n"
+            "- **Swagger/OpenAPI (YÜKSEK ÖNCELİK):** Mevcut endpoint adları, path'ler, şemalar — "
+            "burada geçen servisler süreç adımlarında ve Bölüm 8 entegrasyon tablosunda kullanılmalı\n"
+            "- **Confluence:** Mimari kararlar, DB şeması, RBAC, mevcut süreç dokümantasyonu\n"
+            "- **Jira task geçmişi:** Geçmiş geliştirme kararları; çelişen karar Açık Sorular'a\n"
             "- **Mevcut UI kodu (varsa):** Hangi ekranlar/akışlar zaten var, hangileri yeni\n"
             "- **Çakışma varsa:** Yüksek öncelikli kaynağı kullan + Açık Sorular'a not düş\n\n"
             "**Dikkat Edilecekler:**\n"
@@ -427,14 +437,19 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
         "icerik": (
             "Kıdemli ürün ve iş analisti olarak BRD dokümanını TAMAMIYLA analiz et "
             "(çok sayfalı olsa bile tüm bölümleri oku).\n\n"
-            "**Bağlam Kullanımı:**\n"
-            "- BRD dokümanındaki her bölümü, gereksinimi ve kısıtı kaydet\n"
-            "- Referans materyallerle çapraz kontrol yap, çelişkileri raporla\n"
-            "- Eksik ya da belirsiz gereksinimleri sorular bölümünde detaylandır\n\n"
+            "**Bağlam Kullanımı (öncelik sırası):**\n"
+            "- **BRD (birincil):** Her gereksinim, kısıt ve kabul kriteri kaydedilmeli\n"
+            "- **Swagger/OpenAPI (varsa):** Mevcut API kapsamını anlayarak teknik uygulanabilirliği değerlendir; "
+            "BRD'deki entegrasyon gereksinimlerinin mevcut servislere uygunluğunu kontrol et\n"
+            "- **Confluence (varsa):** Mevcut mimari kararlar ve dokümantasyonla çapraz kontrol yap; "
+            "BRD ile çelişen sistem kısıtlarını raporla\n"
+            "- **Jira task geçmişi (varsa):** İlgili geçmiş görevler ve kararlar var mı? "
+            "BRD'deki gereksinimler daha önce analiz edildi mi?\n\n"
             "**Dikkat Edilecekler:**\n"
             "- Product Owner bakış açısından değerlendir\n"
             "- Fonksiyonel ve fonksiyonel olmayan gereksinimleri ayrı listele\n"
             "- Kabul kriterlerinin test edilebilir olduğunu kontrol et\n"
+            "- Referanslarla çelişen gereksinimler → Eksiklikler ve Tutarsızlıklar bölümüne\n"
             "- Tüm metinler Türkçe"
         ),
     },
@@ -469,13 +484,18 @@ VARSAYILAN_PROMPTLAR: dict[str, dict] = {
         "aciklama": "Claude'un iki BRD versiyonunu karşılaştırırken üstlendiği rol ve dikkat noktaları.",
         "icerik": (
             "Kıdemli ürün ve iş analisti olarak iki BRD versiyonunu karşılaştır.\n\n"
-            "**Bağlam Kullanımı:**\n"
-            "- Mevcut BRD (referans): Temel alınan orijinal doküman\n"
-            "- Revize BRD (yüklenen): Değerlendirilen yeni versiyon\n"
-            "- Mevcut UI kodu (varsa): Her alternatif için UI etkisini değerlendir\n\n"
+            "**Bağlam Kullanımı (öncelik sırası):**\n"
+            "- **Mevcut BRD (referans):** Temel alınan orijinal doküman\n"
+            "- **Revize BRD (yüklenen):** Değerlendirilen yeni versiyon\n"
+            "- **Swagger/OpenAPI (varsa):** Kapsam değişikliklerinin mevcut API'ye etkisini değerlendir; "
+            "yeni gereksinimler mevcut servislere uyuyor mu, yeni endpoint gerekiyor mu?\n"
+            "- **Confluence (varsa):** Mevcut mimari ve sistem kısıtları kapsam değişikliklerini etkiliyor mu?\n"
+            "- **Jira task geçmişi (varsa):** Benzer kapsam değişiklikleri daha önce analiz edildi mi? "
+            "Geçmiş kararlardan ders çıkar.\n"
+            "- **Mevcut UI kodu (varsa):** Her alternatif için UI etkisini değerlendir\n\n"
             "**Dikkat Edilecekler:**\n"
             "- Kapsam genişlemesi ile daralmayı açıkça ayırt et\n"
-            "- Risk analizinde tahmini geliştirme etkisini belirt\n"
+            "- Risk analizinde tahmini geliştirme etkisini referanslara dayandır\n"
             "- Alternatifler gerçekçi ve uygulanabilir olmalı\n"
             "- Tüm metinler Türkçe"
         ),
@@ -726,6 +746,175 @@ def _metin_kes(metin: str, limit: int, dosya_adi: str) -> str:
     if kesilen:
         cikti += f"\n\n[... {dosya_adi} kısaltıldı: orijinal {len(metin):,} karakter, gönderilen {len(cikti):,} karakter ...]"
     return cikti
+
+
+# ─── Referans Yardımcıları ───────────────────────────────────────────────────
+
+def _jira_json_to_md(dosya: Path, limit: int) -> str:
+    """Jira issue JSON dosyasını kompakt, okunabilir Markdown formatına dönüştürür.
+
+    Ham JSON yerine Markdown kullanmak:
+    - Model için daha okunabilir (key, tip, durum, özet ayrık satırlarda)
+    - Token olarak daha verimli (~%40 daha az karakter)
+    - `[K: Jira:KEY-123]` atıflarını kolaylaştırır
+    """
+    try:
+        issues = json.loads(dosya.read_text(encoding="utf-8", errors="ignore"))
+        if not isinstance(issues, list) or not issues:
+            return dosya_oku(dosya, limit)
+    except Exception:
+        return dosya_oku(dosya, limit)
+
+    satirlar: list[str] = []
+    toplam = 0
+    for idx, issue in enumerate(issues):
+        key      = issue.get("key") or (dosya.stem + "-?")
+        tip      = issue.get("type", "")
+        durum    = issue.get("status", "")
+        oncelik  = issue.get("priority", "")
+        atanan   = issue.get("assignee", "")
+        ozet     = (issue.get("summary") or "").strip()
+        aciklama = (issue.get("description") or "").strip()
+
+        meta = " | ".join(p for p in [tip, durum, oncelik] if p)
+        satir = f"**{key}**"
+        if meta:
+            satir += f" [{meta}]"
+        if atanan:
+            satir += f" — {atanan}"
+        satir += f"\n{ozet}"
+        if aciklama:
+            satir += f"\n{aciklama[:250]}"
+        satir += "\n"
+
+        if toplam + len(satir) > limit:
+            kalan = len(issues) - idx
+            satirlar.append(f"[... +{kalan} issue karakter limiti nedeniyle dahil edilmedi ...]")
+            break
+        satirlar.append(satir)
+        toplam += len(satir)
+
+    return "\n".join(satirlar)
+
+
+def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[str]]:
+    """Referans dosyalarını kaynak tipine göre gruplar, formatlar ve içerik bloklarına dönüştürür.
+
+    Kaynak tipleri ve davranışları:
+    - confluence/*.md  → Markdown sayfa metni; MAX_CHARS_CONF_TOT toplam limit
+    - jira/*.json      → _jira_json_to_md() ile okunabilir Markdown; MAX_CHARS_JIRA_TOT
+    - services/*.json/yaml → OpenAPI/Swagger (bağlam filtresiyle önceden kırpılmış olabilir)
+    - diğer            → Ham metin; MAX_CHARS_DIGER_TOT
+
+    Her tip ayrı bir içerik bloğu ve ayrı limit alır.
+    cache_control eklenmez — çağıran son stabil bloğa ekler.
+
+    Returns:
+        (icerik_bloklari, kullanilan_referanslar):
+            icerik_bloklari  — API mesajına eklenecek {"type": "text", ...} blokları
+            kullanilan_referanslar — dahil edilen dosyaların göreceli yolları
+    """
+    if not ref_dosyalar:
+        return [], []
+
+    # Dosyaları kaynak tipine göre grupla, tekrarları temizle
+    gruplari: dict[str, list[Path]] = {
+        "confluence": [], "jira": [], "servisler": [], "diger": []
+    }
+    gorulmus: set[Path] = set()
+    for f in ref_dosyalar:
+        if f in gorulmus:
+            continue
+        gorulmus.add(f)
+        try:
+            rel = str(f.relative_to(REF_DIR)).replace("\\", "/")
+        except ValueError:
+            gruplari["diger"].append(f)
+            continue
+        if rel.startswith("confluence/"):
+            gruplari["confluence"].append(f)
+        elif rel.startswith("jira/"):
+            gruplari["jira"].append(f)
+        elif rel.startswith("services/"):
+            gruplari["servisler"].append(f)
+        else:
+            gruplari["diger"].append(f)
+
+    # (baslik, aciklama_icin_model, dosya_listesi, tip_toplam_limit, jira_modu)
+    TIP_KONFIG = [
+        (
+            "CONFLUENCE DOKÜMANTASYONU",
+            "Mevcut sistem dokümantasyonu, mimari kararlar, DB şeması, RBAC ve teknik detaylar. "
+            "İlgili sayfalardaki bilgileri `[K: Confluence:<sayfa-adı>]` ile işaretle. "
+            "Burada geçen tablo/kolon/servis adlarını teknik analizde aynen kullan.",
+            gruplari["confluence"], MAX_CHARS_CONF_TOT, False,
+        ),
+        (
+            "JİRA TASK GEÇMİŞİ",
+            "Geçmiş geliştirme kararları, tamamlanan işler ve mevcut devam eden task'lar. "
+            "İlgili task'ları `[K: Jira:KEY-123]` ile işaretle. "
+            "Geçmiş kararlara atıfta bulun; çelişen karar varsa Açık Sorular'a taşı.",
+            gruplari["jira"], MAX_CHARS_JIRA_TOT, True,
+        ),
+        (
+            "API / SWAGGER TANIMLARI",
+            "Mevcut servis endpoint'leri, HTTP metotları, request/response şemaları ve entegrasyon detayları. "
+            "SADECE burada geçen endpoint'leri teknik analizde kullan — uydurma yasak. "
+            "`[K: Swagger:<dosya>#/<path>]` ile işaretle.",
+            gruplari["servisler"], MAX_CHARS_SERVIS_TOT, False,
+        ),
+        (
+            "DİĞER REFERANSLAR",
+            "Ek referans belgeler.",
+            gruplari["diger"], MAX_CHARS_DIGER_TOT, False,
+        ),
+    ]
+
+    bloklari: list[dict] = []
+    kullanilan: list[str] = []
+
+    for baslik, aciklama, dosya_listesi, tip_limit, jira_modu in TIP_KONFIG:
+        if not dosya_listesi:
+            continue
+
+        metinler: list[str] = []
+        toplam = 0
+
+        for f in dosya_listesi:
+            kalan = tip_limit - toplam
+            if kalan <= 0:
+                break
+            try:
+                rel = str(f.relative_to(REF_DIR)).replace("\\", "/")
+            except ValueError:
+                rel = f.name
+
+            per_file = min(MAX_CHARS_REF, kalan)
+            try:
+                if jira_modu and f.suffix.lower() == ".json":
+                    metin = _jira_json_to_md(f, per_file)
+                else:
+                    metin = dosya_oku(f, per_file)
+            except Exception:
+                continue
+
+            if not metin.strip():
+                continue
+
+            metinler.append(f"#### {rel}\n{metin}")
+            kullanilan.append(rel)
+            toplam += len(metin)
+
+        if metinler:
+            bloklari.append({
+                "type": "text",
+                "text": (
+                    f"### {baslik}\n{aciklama}\n\n"
+                    + "\n\n---\n\n".join(metinler)
+                ),
+            })
+
+    return bloklari, kullanilan
 
 
 # ─── Dosya Okuma ──────────────────────────────────────────────────────────────

@@ -3,9 +3,9 @@
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, input_hazirla, prompt_yukle,
-    dosya_oku, referans_dosyalari_hazirla,
-    OUTPUT_DIR, REF_DIR,
-    MAX_TOKENS_UZUN, MAX_CHARS_REF, MAX_CHARS_REF_TOT,
+    referans_dosyalari_hazirla, _ref_bloklari_olustur,
+    OUTPUT_DIR,
+    MAX_TOKENS_UZUN,
     extended_thinking_acik,
 )
 
@@ -21,56 +21,24 @@ def surec_analizi_yap() -> Path:
     icerik, dosya_adi = input_hazirla(is_brd=False)
     print(f"  Dosya: {dosya_adi}")
 
-    icerik_parcalari = []
+    icerik_parcalari: list[dict] = []
     kullanilan_referanslar: list[str] = []
-    cacheable_son_index: int | None = None
 
+    # Tüm referans kaynaklarını (Confluence, Jira, Swagger, diğer) tipine göre gruplandır
     ref_dosyalar = referans_dosyalari_hazirla()
     if ref_dosyalar:
         print(f"  {len(ref_dosyalar)} referans dosya dahil ediliyor...")
-        ref_metinler = []
-        toplam_ref = 0
-        for f in ref_dosyalar:
-            try:
-                rel = str(f.relative_to(REF_DIR))
-            except ValueError:
-                rel = f.name
-            if toplam_ref >= MAX_CHARS_REF_TOT:
-                try:
-                    metin = dosya_oku(f, 800)
-                except Exception:
-                    continue
-                ref_metinler.append(f"#### {rel} (özet)\n{metin}")
-                kullanilan_referanslar.append(f"{rel} [özet]")
-                continue
-            try:
-                metin = dosya_oku(f, MAX_CHARS_REF)
-            except Exception:
-                continue
-            ref_metinler.append(f"#### {rel}\n{metin}")
-            kullanilan_referanslar.append(rel)
-            toplam_ref += len(metin)
-        if ref_metinler:
-            icerik_parcalari.append({
-                "type": "text",
-                "text": (
-                    "### REFERANS DOKÜMANLAR\n"
-                    "Bu süreç ile ilgili mevcut sistem dokümantasyonu, API tanımları ve önceki kararlar. "
-                    "Süreç adımlarında bu kaynakları KULLAN ve `[K: <kaynak>]` ile işaretle.\n\n"
-                    + "\n\n---\n\n".join(ref_metinler)
-                ),
-            })
-            cacheable_son_index = len(icerik_parcalari) - 1
+        ref_bloklari, kullanilan_referanslar = _ref_bloklari_olustur(ref_dosyalar)
+        if ref_bloklari:
+            icerik_parcalari.extend(ref_bloklari)
+            # Son referans bloğuna cache breakpoint — rerun ve takip eden analizlerde cache hit
+            icerik_parcalari[-1]["cache_control"] = {"type": "ephemeral"}
 
     icerik_parcalari.extend(icerik)
     icerik_parcalari.append({
         "type": "text",
         "text": "Yukarıdaki ana dokümanı (varsa referanslarla birlikte) analiz et ve süreç analizi raporunu üret.",
     })
-
-    # Referanslar varsa cache breakpoint ekle — rerun ve takip eden analizlerde cache hit
-    if cacheable_son_index is not None:
-        icerik_parcalari[cacheable_son_index]["cache_control"] = {"type": "ephemeral"}
 
     sistem = _surec_prompt_olustur()
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
