@@ -11,26 +11,15 @@ from .base import (
 )
 from .html_mockup import mockup_oku_kontekst
 
-_TEKNIK_UI_BOLUM = """
-
-## 16. Yeni/Değişen Ekranlar (UI)
-| Ekran / Route | Dosya | Tip | Bağlı PA-ID | Bileşenler | Yeni API'ler | Kaynak |
-|---------------|-------|-----|-------------|------------|--------------|--------|
-| /ornek | components/Ornek.tsx | Yeni/Güncelleme/Silme | PA-001 | OrnekForm, OrnekListe | POST /api/v1/ornek | [UI:routes] |
-
-- UX kararları (mockup'tan): ...
-- Form validation kuralları (Bölüm 5 ile aynı BR-ID'leri kullan)
-- Hata mesajlarının ekranda nereye gösterileceği"""
-
 def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str:
     rol = prompt_yukle("teknik_analiz_rol")
-    bolumler = prompt_yukle("teknik_analiz_bolumler") + (_TEKNIK_UI_BOLUM if ui_kodu else "")
+    bolumler = prompt_yukle("teknik_analiz_bolumler")
     sorular = prompt_yukle("teknik_analiz_sorular")
     ekler = []
     if ui_kodu:
-        ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 12'de mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
+        ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 16'da mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
     if mockup_var:
-        ekler.append("HTML prototip de sağlanmıştır. Bölüm 12'de prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt.")
+        ekler.append("HTML prototip de sağlanmıştır. Bölüm 16'da prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt.")
     ek_metin = ("\n\n" + "\n".join(ekler)) if ekler else ""
     return (
         rol + ek_metin + "\n\n"

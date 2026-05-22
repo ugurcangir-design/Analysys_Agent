@@ -659,6 +659,15 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 .jira-node-tip.epic    { background: rgba(147,112,219,.18); color: #b89cf0; }
 .jira-node-tip.story   { background: rgba(45,212,191,.16); color: var(--accent); }
 .jira-node-tip.subtask { background: var(--surface2); color: var(--text3); }
+.jira-node-katman {
+  font-size: 9px; font-weight: 700; letter-spacing: .3px;
+  padding: 3px 6px; border-radius: 3px; flex: 0 0 auto; margin-top: 2px;
+  white-space: nowrap;
+}
+.jira-node-katman.fe    { background: rgba(59,130,246,.18); color: #7eb3ff; }
+.jira-node-katman.be    { background: rgba(168,85,247,.18); color: #c89bf5; }
+.jira-node-katman.febe  { background: rgba(234,179,8,.16); color: #e3c04e; }
+.jira-node-katman.genel { background: var(--surface2); color: var(--text3); }
 .jira-node-input {
   flex: 1; font-family: inherit; font-size: 12px; padding: 5px 8px;
   background: var(--bg); border: 1px solid var(--border);
@@ -3010,12 +3019,25 @@ function _jiraTipEtiket(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
 
-function _jiraNodeHTML(tip, id, tipEtiket, deger) {
+// Katman (FE/BE) rozeti — AI'ın atadığı katmanı analiste gösterir
+function _jiraKatmanRozet(katman) {
+  if (!katman) return '';
+  const k = String(katman).trim().toUpperCase();
+  let cls = 'genel', label = String(katman).trim();
+  if (k === 'FE') { cls = 'fe'; label = 'FE'; }
+  else if (k === 'BE') { cls = 'be'; label = 'BE'; }
+  else if (k === 'FE+BE' || k === 'FEBE') { cls = 'febe'; label = 'FE+BE'; }
+  else { cls = 'genel'; }
+  return `<span class="jira-node-katman ${cls}">${label}</span>`;
+}
+
+function _jiraNodeHTML(tip, id, tipEtiket, deger, katman) {
   const safe = (deger || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   return `<div class="jira-node ${tip}" data-node="${id}">
     <input type="checkbox" checked data-jira-cb="${id}" data-tip="${tip}"
            onchange="jiraSecimDegisti('${id}','${tip}')">
     <span class="jira-node-tip ${tip}">${tipEtiket}</span>
+    ${_jiraKatmanRozet(katman)}
     <input type="text" class="jira-node-input" data-jira-txt="${id}" value="${safe}"
            placeholder="${tipEtiket} başlığı">
   </div>`;
@@ -3044,11 +3066,11 @@ function jiraModalAc(d) {
     + `Oluşturmak istediklerinizi <strong>seçin</strong>, başlıkları düzenleyebilirsiniz. `
     + `Tek bir task için yalnızca ${epicTip}'i bırakıp diğerlerinin işaretini kaldırın.`;
 
-  let html = _jiraNodeHTML('epic', 'e', epicTip, h.epic_summary || '');
+  let html = _jiraNodeHTML('epic', 'e', epicTip, h.epic_summary || '', null);
   stories.forEach((s, si) => {
-    html += _jiraNodeHTML('story', 's' + si, storyTip, s.summary || '');
+    html += _jiraNodeHTML('story', 's' + si, storyTip, s.summary || '', s.katman);
     (s.subtasks || []).forEach((sub, bi) => {
-      html += _jiraNodeHTML('subtask', 's' + si + '-b' + bi, subTip, sub.summary || '');
+      html += _jiraNodeHTML('subtask', 's' + si + '-b' + bi, subTip, sub.summary || '', sub.katman);
     });
   });
   body.innerHTML = html;
