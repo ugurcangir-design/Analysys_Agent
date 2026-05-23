@@ -1,35 +1,70 @@
 # brd-analyst-agent — Claude Code Context
 
 ## Proje Özeti
-Flask + Python, port **5002**. BRD/süreç dokümanı → analiz → Jira task.
-Tarayıcı SPA: `http://localhost:5002` | Başlat: `source venv/bin/activate && python app.py`
+**Analyst Studio** — macOS masaüstü uygulaması. BRD / süreç dokümanı →
+RAG destekli analiz → Jira Epic/Story/Subtask. Flask + Python, port **5002**.
+Tarayıcı SPA: `http://localhost:5002`
+Başlatma: `source venv/bin/activate && python app.py` (veya Analyst Studio.app)
+
+İki ana akış:
+- **Süreç → Teknik → Jira:** ana akış (FE/BE katman ayrımıyla görev üretir)
+- **BRD → Kapsam:** BRD analizi + kapsam karşılaştırması
 
 ---
 
-## Dosya Yapısı & Anahtar Fonksiyonlar
+## Dosya Yapısı
 
 ```
-app.py          Flask sunucusu (1376 satır)
-agent.py        Anthropic API çağrıları (907 satır)
-jira_agent.py   Jira OAuth + task oluştur/güncelle + markdown→ADF
-jira_auth.py    OAuth 3LO flow, OAUTH_SCOPE (Jira + Confluence)
-run.py          Orchestrator — subprocess ile çağrılır
-workflow.py     Durum makinesi
-templates/
-  index.html    SPA (1851 satır) — 4 sekme: Çalıştır/Output/Geçmiş/Ayarlar
-input/          Yüklenen dosya (tek)
-output/         Üretilen çıktılar
+app.py                  Flask sunucusu (~2100 satır, 71 endpoint)
+agent.py                13 satırlık import bridge — skills/ modüllerine yönlendirir
+jira_agent.py           Jira OAuth + ADF (Atlassian Document Format) yardımcıları
+jira_auth.py            OAuth 3LO flow (Jira + Confluence scope'ları)
+run.py                  Orchestrator — subprocess ile çağrılır
+workflow.py             Durum makinesi (RLock + atomik dosya yazımı)
+
+skills/                 Asıl iş mantığı; agent.py buradan import eder
+  __init__.py
+  base.py               Sabitler, dosya okuma, API çağrısı, RAG, 15 sistem promptu
+  atlassian.py          OAuth helper'ları (env_oku, atlassian_refresh/get/post/put) — CANONICAL
+  surec_analizi.py      Süreç analizi
+  teknik_analiz.py      Teknik analiz + açık sorular
+  brd_analizi.py        BRD analizi + PO soruları + brd_final_kaydet
+  kapsam_analizi.py     Kapsam karşılaştırması + alternatif süreçler
+  html_mockup.py        HTML prototip üretimi + mockup_oku_kontekst
+  jira_tasks.py         jira_hiyerarsi_uret (preview) + jira_hiyerarsi_olustur (create)
+  confluence_yaz.py     md → Confluence Storage Format dönüşümü + yayımlama
+
+templates/index.html    SPA (~4580 satır) — 4 sekme: Çalıştır / Çıktılar / Referanslar / Ayarlar
+
 reference/
-  confluence/   Atlassian sync → .md dosyalar
-  jira/         Atlassian sync → .json dosyalar
-  services/     Swagger/OpenAPI .json dosyalar
-  ui-code/      Frontend kaynak kod referansı
-  current-brd/  Aktif BRD (kapsam karşılaştırması için)
-  sources.json  Confluence spaces + Jira projects listesi
-  context_filter.json  Bağlam filtresi
-history/        Son 5 çalıştırma arşivi
-logs/           Günlük log dosyaları
+  confluence/<space>/   Atlassian sync — .md dosyalar
+  jira/<project>.json   Atlassian sync — JSON issue listeleri
+  services/             Swagger/OpenAPI .json/.yaml
+  ui-code/              Frontend kaynak kod referansı (zip upload ile)
+  current-brd/          Aktif baseline BRD (kapsam karşılaştırması için)
+  sources.json          Confluence spaces + Jira projects listesi
+  context_filter.json   Bağlam filtresi (keyword / jira_keys / confluence_pages)
+  prompts.json          Kullanıcı prompt override'ları
+
+input/                  Yüklenen tek dosya (PDF/DOCX/MD/TXT/PNG/JPG)
+output/                 Üretilen çıktılar (aşağıdaki IZIN_VERILEN_CIKTILAR)
+history/                Son 5 çalıştırma arşivi
+logs/                   RotatingFileHandler — app.log; eski app-YYYYMMDD.log >30g otomatik silinir
+
+PROJE-OZETI.md          AI portföy değerlendirmesi için özet
+KILAVUZ.html            Ekip için kurulum + kullanım kılavuzu (self-contained HTML)
 ```
+
+---
+
+## Çıktı Dosyaları (output/, IZIN_VERILEN_CIKTILAR)
+```
+surec-analizi.md           teknik-analiz.md           acik-sorular.md
+brd-analizi.md             brd-sorular.md
+kapsam-analizi.md          alternatif-surecler.md
+mockup.html                workflow-state.json
+```
+Yeni output dosyası eklenince `app.py`'deki `IZIN_VERILEN_CIKTILAR` set'ine de ekle.
 
 ---
 
@@ -44,193 +79,235 @@ IDLE → SUREC_ANALIZI_CALISIYOR → ONAY_BEKLENIYOR
 
 ---
 
-## app.py — Kritik Bölümler
-
-### Sabitler / Dizinler (satır 22-36)
-```python
-BASE_DIR, INPUT_DIR, OUTPUT_DIR, REF_DIR, HISTORY_DIR, LOG_DIR
-UI_CODE_DIR, CONF_DIR, JIRA_REF_DIR, SERVIS_DIR
-ALLOWED_OUTPUTS  # yeni output dosyası eklenince buraya da ekle
-```
-
-### Suspend / Heartbeat (satır ~260-285)
-```python
-_suspended = False          # UI overlay için
-SUSPEND_SURE = 120          # saniye
-_son_heartbeat              # timestamp
-_heartbeat_izle()           # thread — 120s sessizlikte _suspended=True
-```
-
-### Atlassian API Helpers (satır 131-270)
-```python
-_env_oku() → dict           # .env'i okur, quote'ları striple
-_atlassian_refresh()        # access token yeniler
-_atlassian_get(path, cloud_id, service="jira"|"confluence")
-_atlassian_post(path, body, cloud_id, service=...)
-_fetch_confluence_space(space_key, cloud_id) → int  # sayfa sayısı
-_fetch_jira_project(project_key, cloud_id) → int    # issue sayısı
-```
-
-### Veri Kaynakları Sync (satır ~1100-1163)
-```python
-SOURCES_PATH = REF_DIR / "sources.json"
-_sync_state = {"running", "log", "last_sync", "error"}
-_sync_lock   # threading.Lock
-# Routes: GET/POST/DELETE /api/sources/confluence|jira, POST /api/sources/sync
-```
-
-### Jira Config / Test (satır ~1240)
-```python
-# /api/jira/test: önce statik (CLIENT_ID/SECRET/URL/PROJECT_KEY)
-# sonra OAuth (ACCESS_TOKEN/CLOUD_ID) ayrı kontrol
-```
-
----
-
-## agent.py — Kritik Bölümler
-
-### İçerik Limitleri (satır 63-75)
-```python
-MAX_CHARS_BRD=100_000, MAX_CHARS_GENEL=30_000
-MAX_CHARS_UI=10_000, MAX_CHARS_UI_TOT=60_000
-MAX_CHARS_REF=15_000, MAX_CHARS_REF_TOT=50_000
-MAX_TOKENS_COMBINED=12_000, MAX_TOKENS_BRD_CMB=9_000, MAX_TOKENS_KAPSAM=8_000
-```
-
-### Modeller
+## Sabitler / Limitler (skills/base.py)
 ```python
 MODEL_ANALIZ = "claude-sonnet-4-6"   # tüm analizler
-# jira_agent.py: başlık için claude-haiku-4-5-20251001
+# jira_agent.py: claude-haiku-4-5    # Jira görev başlığı için (hafif iş)
+
+# Karakter limitleri
+MAX_CHARS_BRD     = 100_000
+MAX_CHARS_GENEL   =  30_000
+MAX_CHARS_UI      =  10_000
+MAX_CHARS_UI_TOT  =  60_000
+MAX_CHARS_REF     =  15_000   # dosya başına
+# RAG için per-tip limitler (eski MAX_CHARS_REF_TOT=50_000 deprecated)
+MAX_CHARS_CONF_TOT   = 80_000   # Confluence
+MAX_CHARS_JIRA_TOT   = 60_000   # Jira (markdown formatında)
+MAX_CHARS_SERVIS_TOT = 60_000   # Swagger/OpenAPI
+MAX_CHARS_DIGER_TOT  = 20_000
+
+# Token limitleri
+MAX_TOKENS_UZUN     =  8_000
+MAX_TOKENS_KISA     =  3_000
+MAX_TOKENS_COMBINED = 16_000   # teknik analiz (DDL + OpenAPI YAML için)
+MAX_TOKENS_BRD_CMB  =  9_000
+MAX_TOKENS_KAPSAM   =  8_000
 ```
 
-### Analiz Fonksiyonları
+### Heartbeat / Suspend (app.py)
 ```python
-surec_analizi_yap() → Path                    # surec-analizi.md
-teknik_analiz_yap() → (Path, Path)            # teknik-analiz.md, acik-sorular.md
-brd_analizi_yap()   → (Path, Path)            # brd-analizi.md, brd-sorular.md
-kapsam_analizi_yap() → (Path, Path)           # kapsam-analizi.md, alternatif-surecler.md
-yeniden_calistir(hedef, not) → Path           # mevcut çıktıyı güncelle
-brd_final_kaydet() → Path                     # input → reference/current-brd/
+SUSPEND_SURE = 30   # saniye — bu kadar heartbeat yoksa overlay göster
+KAPAT_SURE   = 45   # saniye — DESKTOP_MODE'da SIGINT (refresh ile karışmasın)
 ```
 
-### Combined XML Pattern (token tasarrufu ~%40)
-```python
-# Tek API çağrısında iki çıktı:
-# <teknik_analiz>...</teknik_analiz><acik_sorular>...</acik_sorular>
-_xml_ayir(text, tag) → str    # XML tag'den içerik çıkar
-_metin_sikistir(metin) → str  # ardışık boş satırları temizle
-```
-
-### Bağlam Filtresi
-```python
-load_context_filter() → dict | None     # reference/context_filter.json
-filtrele_referanslar(files, ctx) → list # keyword/jira_key/confluence_page filtresi
-_filtrele_openapi_json(path, kws) → Path|None|False  # büyük Swagger'ları filtrele
-```
-
-### Prompt Caching
-```python
-# system prompt → cache_control: ephemeral (5dk önbellek)
-# extra_headers: {"anthropic-beta": "prompt-caching-2024-07-31"}
-# İlk çalıştırma yavaş (cache ısınıyor), sonrakiler ~%90 token tasarrufu
-```
+### Retry (skills/base.py)
+`_api_yeniden_dene` — 429/5xx/connection için exponential backoff (4s, 8s, 16s; 3 deneme).
 
 ---
 
-## jira_agent.py — Kritik Bölümler
-```python
-baslangic_kontrol()         # env değişkenlerini doğrular
-jira_task_olustur()         # yeni task — ADF description
-jira_task_guncelle(key)     # mevcut task'ı güncelle
-markdown_to_adf(md) → dict  # markdown → Atlassian Document Format
-main() → (task_key, basligi)
-# Model: claude-haiku-4-5-20251001 (başlık üretimi için)
-# Desteklenen: heading, paragraph, bulletList, orderedList, codeBlock, table, rule
-# Inline: bold, italic, code, link
-```
+## RAG Mimarisi (skills/base.py)
+
+### Bağlam blokları
+`_ref_bloklari_olustur(ref_dosyalar)` referansları **tipine göre gruplandırır**:
+- `### CONFLUENCE DOKÜMANTASYONU` (md dosyalar)
+- `### JİRA TASK GEÇMİŞİ` (`_jira_json_to_md` ile kompakt markdown'a çevrilir)
+- `### API / SWAGGER TANIMLARI` (filtrelenmiş openapi)
+- `### DİĞER REFERANSLAR`
+
+Her tip ayrı limitle, başına bir context blok başlığı ile gönderilir.
+
+### Bağlam filtresi
+`load_context_filter()` → keyword / jira_keys / confluence_pages ile ön filtreleme.
+`filtrele_referanslar(files, ctx)` — büyük Swagger için `_filtrele_openapi_json()` keyword bazlı kırpma yapar.
+
+### Prompt caching
+- System prompt → `cache_control: ephemeral`
+- Stable user blocks (ref + UI + mockup) → cache breakpoint son bloğa eklenir
+- `extra_headers: {"anthropic-beta": "prompt-caching-2024-07-31"}`
+- İlk çağrı yavaş (cache ısınıyor); 5 dk içindeki tekrar çağrılar ~%90 token tasarrufu.
+
+### Tüm analiz skillleri RAG kullanır
+`surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi` — hepsi
+`referans_dosyalari_hazirla()` + `_ref_bloklari_olustur()` çağırır.
 
 ---
 
-## jira_auth.py
-```python
-REDIRECT_URI = "http://localhost:5002/api/jira/callback"
-OAUTH_SCOPE  = "read:jira-work write:jira-work read:jira-user offline_access
-                read:confluence-space.summary read:confluence-content.all
-                read:confluence-content.summary"
-auth_url_olustur() → str    # Atlassian OAuth URL
-auth_tamamla(code) → dict   # token al, cloud_id kaydet
+## 15 Sistem Promptu (skills/base.py → VARSAYILAN_PROMPTLAR)
+
+Tutarlı yapı: `# ROL → GÖREV → ÇIKTININ AMACI → ÇALIŞMA YÖNTEMİ → RAG İLKESİ → BAĞLAM KULLANIMI → KALİTE ÖLÇÜTÜ`.
+
+```
+surec_analizi_rol            brd_analizi_rol            kapsam_analizi_rol
+surec_analizi                brd_analizi_bolumler       kapsam_analizi_bolumler
+teknik_analiz_rol            brd_analizi_sorular        kapsam_analizi_alternatifler
+teknik_analiz_bolumler       html_mockup_base           refine
+teknik_analiz_sorular        jira_tasks                 confluence_publisher
+```
+
+### EK KURALLAR (otomatik append)
+`prompt_yukle()` şu 5 prompta `_ORTAK_EK_KURALLAR` ekler:
+`surec_analizi`, `teknik_analiz_bolumler`, `kapsam_analizi_bolumler`,
+`brd_analizi_bolumler`, `jira_tasks` (bkz. `_EK_KURAL_SKILL_IDS`).
+
+`_ORTAK_EK_KURALLAR` 4 bölüm: Kaynak Önceliği, Kaynak İzleme `[K: ...]`,
+Halüsinasyon Koruması (Entity Whitelist), İzlenebilirlik (aşama bazlı ID tablosu).
+
+### Prompt override sistemi
+`reference/prompts.json` — kullanıcı arayüzden düzenlerse buraya kaydedilir;
+`prompt_yukle()` önce override'a bakar, yoksa VARSAYILAN_PROMPTLAR'dan döner.
+
+---
+
+## ID Şeması (aşamalar arası izlenebilirlik)
+```
+BRD Analizi    : FR-XXX  NFR-XXX  US-XXX  AC-XXX  I-XXX
+Süreç Analizi  : A-XXX   PA-XXX   BR-XXX  AF-XXX  EF-XXX  AC-XXX  EK-XXX (ekran)
+Teknik Analiz  : T-FE-XX  T-BE-XX (Bölüm 17 İş Kırılımı)
+Kapsam Analizi : YE-XXX (yeni eklenen) KL-XXX (kaldırılan) DG-XXX (değiştirilen)
+```
+
+## FE / BE Katman Ayrımı
+Süreç adımları, iş kuralları, ekranlar ve teknik iş öğeleri **katman etiketi**
+taşır: `FE / BE / FE+BE / Tek tip`. Bu, FE ve BE Jira görevlerinin ayrı ama
+ilişkili olarak açılmasını sağlar.
+
+**Teknik analizde:**
+- Bölüm 16 → Frontend (FE) Teknik Tasarımı (her zaman, koşulsuz)
+- Bölüm 17 → İş Kırılımı (T-FE / T-BE tablosu — Jira temeli)
+
+**Jira önizleme modalı** her Story/Subtask satırında `FE` / `BE` rozeti gösterir.
+
+---
+
+## Önemli Endpoint'ler (app.py — 71 toplam)
+
+### Çalıştırma / Workflow
+```
+POST /api/run                  Analiz başlat
+GET  /api/status               Workflow durumu (polling 1.5s)
+POST /api/approve              Süreç analizi onayı
+POST /api/approve-teknik       Teknik analiz onayı (jira ile)
+POST /api/approve-teknik-no-jira
+POST /api/reject(-teknik)      Reddet
+POST /api/rerun                Düzeltme notu ile yeniden çalıştır
+POST /api/reset                Workflow'u IDLE'a sıfırla
+POST /api/heartbeat            UI canlı sinyali (every 20s)
+POST /api/shutdown             DESKTOP_MODE'da sunucuyu kapat
+```
+
+### Çıktı / Referans
+```
+GET  /api/outputs              Mevcut çıktıları listele
+GET  /api/output/<ad>          İçerik oku
+POST /api/output/delete        Çıktıyı sil
+GET  /api/reference/list       Referans dosya ağacı
+POST /api/reference/upload/<kategori>
+POST /api/reference/delete
+GET  /api/reference/content
+POST /api/reference/fetch-be   Backend'den içerik çek
+```
+
+### Jira
+```
+GET  /api/jira/auth-url        OAuth başlat
+GET  /api/jira/callback        OAuth dönüş
+POST /api/jira/test            Bağlantı testi
+POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
+POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
+```
+
+### Confluence + diğer
+```
+POST /api/confluence/publish   Markdown → Confluence sayfası
+POST /api/confluence/diagnose  Scope/erişim teşhisi
+POST /api/mockup/generate      HTML prototip üret
+POST /api/sources/sync         Confluence/Jira veri çek
+GET  /api/git/status           GitHub güncelleme kontrolü
+POST /api/git/pull             git pull --ff-only
+GET  /api/prompts              15 prompt + override durumu
+POST /api/prompts/<id>         Prompt özelleştirme kaydet
+POST /api/prompts/<id>/reset   Varsayılana dön
+GET  /api/context-filter
+POST /api/context-filter
+GET  /api/history              Son 5 çalıştırma arşivi
 ```
 
 ---
 
 ## Mimari: subprocess + sys.stdin.isatty()
 ```
-Tarayıcı → fetch /api/run → app.py → subprocess run.py {mod} → agent/jira
-app.py /api/status ← polling 1.5s
-not sys.stdin.isatty() → otomatik onay (GUI modunda input() çağrılmaz)
+Tarayıcı → fetch /api/run → app.py → subprocess.Popen(run.py {mod})
+                                  ↓
+                          run.py → skills/* modülleri → Claude API
+app.py /api/status ← polling 1.5s, workflow.py durum okur
+not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 ```
+
+### Subprocess kararlılığı
+- `encoding="utf-8", errors="replace", start_new_session=True`
+- `_bekle()` thread'i timeout/crash'i yakalar, workflow'u HATA'ya çeker
+- Zip yükleme: zip-bomb koruması (compression ratio > 100 atla)
 
 ---
 
 ## Geliştirme Kuralları
 1. **Türkçe** — print, yorum, hata metni; teknik terimler İngilizce
-2. Yeni output dosyası → `ALLOWED_OUTPUTS` setine ekle (app.py)
-3. Yeni Jira field → hem `jira_task_olustur()` hem `jira_task_guncelle()` güncelle
+2. Yeni output dosyası → `IZIN_VERILEN_CIKTILAR` set'ine ekle (app.py)
+3. Yeni Jira field → `jira_agent.py` ve `skills/jira_tasks.py` güncelle
 4. `sys.executable` kullan, Python yolunu hard-code etme
-5. `_env_oku()` quote'ları strip eder — `.env`'deki `'value'` → `value`
-6. Token tasarrufu: combined XML pattern kullan, referans limitlerini koru
-7. `.env` asla commit edilmez
-
----
-
-## Planlanan Geliştirmeler (Faz 2)
-
-### Adım 0 — Skill Ayrıştırma ✅ TAMAMLANDI
-```
-skills/base.py           # dosya okuma, API çağrısı, XML parse, ortak yardımcılar
-skills/surec_analizi.py
-skills/teknik_analiz.py
-skills/brd_analizi.py
-skills/kapsam_analizi.py
-skills/api_schema.py     # Adım 5 — OpenAPI YAML + DDL üretimi (YAPILACAK)
-skills/confluence_yaz.py # Adım 6 — Confluence write (YAPILACAK)
-skills/jira_tasks.py     # Adım 7 — Epic/Story/Subtask hiyerarşisi (YAPILACAK)
-skills/html_mockup.py    # Adım 8 — HTML prototip üretimi (YAPILACAK)
-```
-`agent.py` = 12 satır import bridge. `run.py` değişmedi.
-
-### Adım 1 — Confluence Yazma ✅ TAMAMLANDI
-- `skills/atlassian.py` — env_oku, atlassian_refresh/get/post/put, confluence CRUD
-- `skills/confluence_yaz.py` — md_to_storage(), confluence_yayimla()
-- `POST /api/confluence/publish` — dosya + space_key alır, sayfa oluşturur/günceller
-- UI: Output sekmesinde space dropdown + "Yayımla" butonu (space varsa görünür)
-
-### Adım 2 — Jira Task Hiyerarşisi ✅ TAMAMLANDI
-- `skills/jira_tasks.py` — teknik-analiz.md → AI JSON hiyerarşi → Epic+Story+Subtask
-- `skills/atlassian.py` — atlassian_put + confluence CRUD (Adım 1'de oluşturuldu)
-- `POST /api/jira/hierarchy` — dosya + opsiyonel confluence_url alır
-- UI: teknik-analiz.md seçilince "⬆ Hiyerarşik Task Oluştur" butonu görünür
-- Proje issue type'larını otomatik tespit eder (Epic/Story/Subtask veya Task/Subtask fallback)
-
-### Adım 3 — API Şema & DDL ✅ TAMAMLANDI (prompt kalite iyileştirmesi)
-- Ayrı dosya yok — teknik-analiz.md içinde Bölüm 3 ve 4 iyileştirildi
-- Bölüm 3: gerçek CREATE TABLE DDL blokları (```sql) + index + FK kısıtları
-- Bölüm 4: gerçek OpenAPI 3.0 YAML endpoint blokları (```yaml) + request/response şemaları
-- MAX_TOKENS_COMBINED: 12_000 → 16_000 (daha uzun kod çıktısı için)
-- Her bölüme format rehberi eklendi (risk tablosu, state machine, güvenlik checklist vb.)
-
-### Adım 4 — HTML Prototip ✅ TAMAMLANDI
-- `skills/html_mockup.py` — surec-analizi.md → output/mockup.html; ui-code/ varsa tasarım diline uyar
-- `mockup_oku_kontekst()` — teknik_analiz.py'ye mockup özeti sağlar (style+body, max 20k)
-- `POST /api/mockup/generate` — browser'dan tetikleyici
-- `mockup.html` → `IZIN_VERILEN_CIKTILAR`'a eklendi; `/api/output/mockup.html` text/html döner
-- UI: onay kutusunda "HTML Prototip Oluştur" butonu; Çıktılar sekmesinde "Prototip" tab + iframe görüntüleme + HTML editörü
+5. `env_oku()` quote'ları strip eder — `.env`'deki `'value'` → `value`
+6. Token tasarrufu: combined XML pattern + prompt caching + referans limitleri
+7. **`.env` asla commit edilmez** (chmod 600, .gitignore'da)
+8. Atlassian helper'ları **`skills/atlassian.py`'den import et** — app.py'de duplicate tanım yok
+9. Prompt değiştirmek için: `VARSAYILAN_PROMPTLAR` (base.py) veya
+   `reference/prompts.json` (override) — her ikisi geçerli, override öncelikli
+10. Yeni prompt EK KURALLAR almasını istiyorsan `_EK_KURAL_SKILL_IDS`'e ekle
 
 ---
 
 ## Bilinen Kısıtlamalar
 - `markdown_to_adf` nested list'leri düzleştirir
-- History limiti 5 (sabit, app.py `save_to_history()`)
+- History limiti **5** (sabit, app.py `save_to_history()`)
 - Tek input dosyası (birden fazla yüklenirse ilk kullanılır)
-- Jira task tipi sabit `Task` (Story/Bug/Epic yok — Adım 2'de değişecek)
-- Confluence sync: Confluence scopes OAuth'ta yeni eklendi → bir kez yeniden bağlan gerekebilir
+- Atlassian-only — Azure DevOps, GitHub Issues entegrasyonu yok
+- macOS-only dağıtım (Windows/Linux için manual setup gerekir)
+- Çıktı kalitesi için otomatik değerlendirme/puanlama mekanizması yok
+
+---
+
+## Tamamlanan İşler (referans için)
+
+### Faz 1 — Skill ayrıştırma ✅
+`agent.py` → 13 satırlık import bridge; tüm iş mantığı `skills/` altında.
+
+### Faz 2 ✅
+- **Confluence yazma:** `skills/confluence_yaz.py` + Markdown→Storage Format
+- **Jira hiyerarşi:** `skills/jira_tasks.py` — preview/create iki adımlı, FE/BE katman, modal seçim
+- **API Şema & DDL:** teknik analiz Bölüm 3 (CREATE TABLE) ve Bölüm 4 (OpenAPI YAML)
+- **HTML Prototip:** `skills/html_mockup.py` + mockup.html çıktısı
+
+### Faz 3 (bu session) ✅
+- **Deduplication:** atlassian helper'ları tek noktaya (skills/atlassian.py)
+- **RAG tüm analizlerde:** `brd_analizi` ve `kapsam_analizi`'ne referans entegrasyonu
+- **Jira JSON → kompakt markdown:** `_jira_json_to_md` ile ~%40 token tasarrufu
+- **Tip bazlı ref bölümleri:** Confluence/Jira/Swagger ayrı bloklar, ayrı limitler
+- **FE/BE katman ayrımı:** süreç → teknik → Jira boyunca; modal FE/BE rozeti
+- **15 promptun yeniden yazımı:** ROL/GÖREV/ÇALIŞMA YÖNTEMİ/RAG İLKESİ yapısı
+- **EK-XXX, T-FE/T-BE, FR/NFR/US/I, YE/KL/DG** yeni ID tipleri
+- **`_ORTAK_EK_KURALLAR` güncellemesi:** aşama bazlı ID tablosu, FE/BE katman
+- **Stabilite:** log rotation + eski log temizliği, atomik .env yazımı (chmod 600),
+  subprocess crash recovery, API retry (exponential backoff), session cookie flags,
+  zip-bomb koruması
+- **GitHub self-update:** /api/git/status + /api/git/pull (sadece güncelleme sayfasında)
+- **Heartbeat fix:** Cmd+Shift+R refresh'te uygulama kapanmıyor; SUSPEND_SURE=30s, KAPAT_SURE=45s
+- **Belgeleme:** `PROJE-OZETI.md` (AI portföy) + `KILAVUZ.html` (ekip kılavuzu)

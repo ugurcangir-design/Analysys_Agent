@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Analyst Studio — Kurulum ve Kullanım Kılavuzu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #f6f8fb; --surface: #fff; --surface2: #eef2f7;
+    --text: #16202b; --text2: #4a5765; --text3: #7a8694;
+    --border: #dde3eb; --accent: #2da89a; --accent2: #16877a;
+    --warn-bg: #fff4e0; --warn-bd: #d48a1a; --warn-tx: #7a4a00;
+    --info-bg: #e6f1fa; --info-bd: #2b7fb6; --info-tx: #0f4a78;
+    --tip-bg: #eafaf3; --tip-bd: #1d9c70; --tip-tx: #0f6b48;
+    --err-bg: #fde6e6; --err-bd: #c63838; --err-tx: #8a1a1a;
+    --mono: 'SF Mono','Menlo','Consolas',monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 14.5px; line-height: 1.6;
+  }
+  .wrap { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  /* Sidebar */
+  aside {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: var(--surface); border-right: 1px solid var(--border);
+    padding: 22px 18px;
+  }
+  aside h1 { font-size: 16px; margin: 0 0 4px; color: var(--accent2); }
+  aside .sub { font-size: 11.5px; color: var(--text3); margin-bottom: 16px; }
+  aside nav a {
+    display: block; padding: 4px 8px; margin: 1px 0;
+    text-decoration: none; color: var(--text2); font-size: 12.5px;
+    border-radius: 4px;
+  }
+  aside nav a:hover { background: var(--surface2); color: var(--text); }
+  aside nav a.h1 { font-weight: 600; color: var(--text); margin-top: 10px; }
+  aside nav a.h2 { padding-left: 18px; font-size: 12px; }
+  /* Main */
+  main { padding: 36px 48px 80px; max-width: 980px; }
+  h1.title { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lede { font-size: 14.5px; color: var(--text2); margin-bottom: 32px; }
+  h2 {
+    font-size: 22px; margin: 44px 0 12px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent); letter-spacing: -0.01em;
+  }
+  h3 { font-size: 17px; margin: 28px 0 10px; color: var(--accent2); }
+  h4 { font-size: 14.5px; margin: 18px 0 8px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 14px; padding-left: 24px; }
+  li { margin: 4px 0; }
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: var(--surface2); padding: 2px 6px; border-radius: 3px;
+    color: var(--accent2);
+  }
+  pre {
+    background: #0e1620; color: #d4e3f2;
+    padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    margin: 8px 0 14px;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  /* Step */
+  .step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 18px 12px; margin: 14px 0;
+    position: relative; padding-left: 56px;
+  }
+  .step .num {
+    position: absolute; left: 16px; top: 16px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step h4 { margin-top: 0; }
+  /* Callouts */
+  .box {
+    border-left: 4px solid; padding: 10px 14px; margin: 12px 0;
+    border-radius: 4px; font-size: 13.5px;
+  }
+  .box.info { background: var(--info-bg); border-color: var(--info-bd); color: var(--info-tx); }
+  .box.warn { background: var(--warn-bg); border-color: var(--warn-bd); color: var(--warn-tx); }
+  .box.tip  { background: var(--tip-bg);  border-color: var(--tip-bd);  color: var(--tip-tx); }
+  .box.err  { background: var(--err-bg);  border-color: var(--err-bd);  color: var(--err-tx); }
+  .box strong { display: block; margin-bottom: 3px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  /* Table */
+  table {
+    width: 100%; border-collapse: collapse; margin: 8px 0 14px;
+    background: var(--surface); font-size: 13px;
+  }
+  th, td {
+    text-align: left; padding: 9px 12px;
+    border-bottom: 1px solid var(--border); vertical-align: top;
+  }
+  th { background: var(--surface2); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  /* Etiketler */
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+  .pill.fe { background: rgba(59,130,246,.18); color: #1d4ed8; }
+  .pill.be { background: rgba(168,85,247,.18); color: #6b21a8; }
+  .pill.opt { background: var(--surface2); color: var(--text3); }
+  /* Print */
+  @media print {
+    aside { display: none; }
+    .wrap { grid-template-columns: 1fr; }
+    main { padding: 20px; }
+    .step { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <h1>Analyst Studio</h1>
+    <div class="sub">Kurulum &amp; Kullanım Kılavuzu</div>
+    <nav>
+      <a href="#bakis" class="h1">1. Genel Bakış</a>
+      <a href="#kurulum" class="h1">2. Kurulum</a>
+      <a href="#k-gereksinim" class="h2">2.1 Sistem gereksinimleri</a>
+      <a href="#k-klonla" class="h2">2.2 Depoyu klonla</a>
+      <a href="#k-venv" class="h2">2.3 Sanal ortam</a>
+      <a href="#k-dep" class="h2">2.4 Bağımlılıklar</a>
+      <a href="#k-env" class="h2">2.5 .env — API anahtarı</a>
+      <a href="#k-app" class="h2">2.6 Masaüstü ikonu</a>
+      <a href="#yapilandirma" class="h1">3. İlk Yapılandırma</a>
+      <a href="#y-baslat" class="h2">3.1 Başlatma</a>
+      <a href="#y-oauth" class="h2">3.2 Jira/Confluence OAuth</a>
+      <a href="#y-kaynak" class="h2">3.3 Veri kaynakları</a>
+      <a href="#y-sync" class="h2">3.4 Senkronizasyon</a>
+      <a href="#y-uicode" class="h2">3.5 UI kodu</a>
+      <a href="#kullanim" class="h1">4. Kullanım</a>
+      <a href="#u-arayuz" class="h2">4.1 Arayüz</a>
+      <a href="#u-akis1" class="h2">4.2 Süreç → Jira</a>
+      <a href="#u-akis2" class="h2">4.3 BRD → Kapsam</a>
+      <a href="#u-cikti" class="h2">4.4 Çıktıları düzenleme</a>
+      <a href="#u-conf" class="h2">4.5 Confluence yayımlama</a>
+      <a href="#ileri" class="h1">5. İleri Düzey</a>
+      <a href="#i-filtre" class="h2">5.1 Bağlam filtresi</a>
+      <a href="#i-prompt" class="h2">5.2 Prompt özelleştirme</a>
+      <a href="#i-gecmis" class="h2">5.3 Geçmiş</a>
+      <a href="#i-update" class="h2">5.4 Güncelleme</a>
+      <a href="#sorun" class="h1">6. Sorun Giderme</a>
+      <a href="#sss" class="h1">7. SSS</a>
+    </nav>
+  </aside>
+
+  <main>
+    <h1 class="title">Analyst Studio — Kurulum ve Kullanım Kılavuzu</h1>
+    <p class="lede">
+      Bu kılavuz, ekibin Analyst Studio'yu kurmasını ve günlük analiz işlerinde
+      verimli kullanmasını sağlar. Adımlar <strong>sırasıyla</strong> uygulanmalı —
+      bir önceki adım tamamlanmadan sonraki çalışmaz.
+    </p>
+
+    <!-- ============== 1 ============== -->
+    <h2 id="bakis">1. Genel Bakış</h2>
+    <p>
+      Analyst Studio, iş analistinin BRD / süreç dokümanını alıp; kurumsal
+      bilgi kaynaklarınızla (Confluence, Jira, Swagger, UI kodu) zenginleştirerek
+      şu çıktıları üreten bir masaüstü uygulamasıdır:
+    </p>
+    <ul>
+      <li>📄 <strong>Süreç analizi</strong> — aktörler, adımlar, kurallar, ekranlar (FE)</li>
+      <li>⚙️ <strong>Teknik analiz</strong> — DDL, API (OpenAPI YAML), validasyon, FE/BE iş kırılımı</li>
+      <li>❓ <strong>Açık sorular</strong> — netleşmesi gereken konular</li>
+      <li>📋 <strong>BRD analizi</strong> ve PO soruları</li>
+      <li>🔄 <strong>Kapsam analizi</strong> ve alternatif süreçler</li>
+      <li>🎨 <strong>HTML prototip</strong> — tıklanabilir maket</li>
+      <li>🎫 <strong>Jira Epic / Story / Subtask</strong> — FE/BE etiketli, seçmeli oluşturma</li>
+      <li>📘 <strong>Confluence yayımlama</strong> — analizleri kurumsal wiki'ye</li>
+    </ul>
+    <div class="box info">
+      <strong>İki ana akış</strong>
+      A) Süreç dokümanı → Süreç analizi → Teknik analiz → Jira görevleri.<br>
+      B) BRD → BRD analizi → (revize BRD ile) Kapsam analizi.
+    </div>
+
+    <!-- ============== 2 ============== -->
+    <h2 id="kurulum">2. Kurulum</h2>
+
+    <h3 id="k-gereksinim">2.1 Sistem gereksinimleri</h3>
+    <table>
+      <tr><th>Bileşen</th><th>Sürüm / Notlar</th></tr>
+      <tr><td>İşletim sistemi</td><td>macOS 13+ (Apple Silicon veya Intel)</td></tr>
+      <tr><td>Python</td><td>3.12 önerilir (3.11 çalışır)</td></tr>
+      <tr><td>Git</td><td>Herhangi bir güncel sürüm</td></tr>
+      <tr><td>Anthropic API anahtarı</td><td>Zorunlu — kişisel veya kurumsal</td></tr>
+      <tr><td>Atlassian hesabı</td><td>Opsiyonel — Jira/Confluence kullanımı için</td></tr>
+      <tr><td>İnternet</td><td>Claude API + Atlassian için sürekli</td></tr>
+    </table>
+
+    <h3 id="k-klonla">2.2 Depoyu klonla</h3>
+    <div class="step">
+      <div class="num">1</div>
+      <h4>GitHub'dan depo klonlanır</h4>
+      <p>Terminal aç:</p>
+<pre><code>cd ~
+mkdir -p projects &amp;&amp; cd projects
+git clone https://github.com/ugurcangir-design/Analysys_Agent.git brd-analyst-agent
+cd brd-analyst-agent</code></pre>
+      <div class="box tip">
+        <strong>İpucu</strong>
+        Bundan sonra tüm komutlar <code>~/projects/brd-analyst-agent</code> klasöründe çalıştırılacak.
+      </div>
+    </div>
+
+    <h3 id="k-venv">2.3 Sanal ortam oluştur</h3>
+    <div class="step">
+      <div class="num">2</div>
+      <h4>Python sanal ortamını oluştur ve aktif et</h4>
+<pre><code>python3 -m venv venv
+source venv/bin/activate</code></pre>
+      <p>Terminal başında <code>(venv)</code> göründüğünde ortam aktiftir.</p>
+      <div class="box warn">
+        <strong>Önemli</strong>
+        Her yeni terminal oturumunda <code>source venv/bin/activate</code> komutu tekrar çalıştırılmalı. Masaüstü uygulaması (adım 2.6) bunu otomatik yapar.
+      </div>
+    </div>
+
+    <h3 id="k-dep">2.4 Bağımlılıkları yükle</h3>
+    <div class="step">
+      <div class="num">3</div>
+      <h4>Pip ile paketler kurulur</h4>
+<pre><code>pip install --upgrade pip
+pip install -r requirements.txt</code></pre>
+      <p>Yaklaşık 1-2 dakika sürer. <code>anthropic</code>, <code>Flask</code>, <code>PyMuPDF</code>, <code>python-docx</code> gibi paketler kurulur.</p>
+    </div>
+
+    <h3 id="k-env">2.5 .env dosyası — API anahtarı</h3>
+    <div class="step">
+      <div class="num">4</div>
+      <h4>Anthropic API anahtarını .env dosyasına ekle</h4>
+      <p>Proje kökünde <code>.env</code> dosyası oluştur:</p>
+<pre><code>cat &gt; .env &lt;&lt;'EOF'
+ANTHROPIC_API_KEY=sk-ant-api03-XXXX...    # kendi anahtarınız
+EOF
+chmod 600 .env</code></pre>
+      <div class="box warn">
+        <strong>Güvenlik</strong>
+        <code>.env</code> dosyası <strong>asla</strong> git'e commit edilmez. <code>.gitignore</code> tarafından zaten dışlanmıştır.
+      </div>
+      <div class="box info">
+        <strong>API anahtarı nasıl alınır?</strong>
+        <a href="https://console.anthropic.com">console.anthropic.com</a> → Settings → API Keys → Create Key.
+      </div>
+      <p><em>Jira ve Confluence ayarları arayüzden yapılacak (Bölüm 3.2). Şimdilik sadece <code>ANTHROPIC_API_KEY</code> yeterli.</em></p>
+    </div>
+
+    <h3 id="k-app">2.6 Masaüstü ikonu oluştur <span class="pill opt">opsiyonel</span></h3>
+    <div class="step">
+      <div class="num">5</div>
+      <h4>Çift tıklanabilir Analyst Studio.app üret</h4>
+      <p>Her seferinde terminal açmak yerine masaüstünden başlatmak için:</p>
+<pre><code>bash create_app.sh</code></pre>
+      <p>Bu komut Masaüstü'nde <strong>Analyst Studio.app</strong> oluşturur. İlk açılışta macOS güvenlik uyarısı verirse:</p>
+      <ol>
+        <li>Sistem Tercihleri → Güvenlik &amp; Gizlilik</li>
+        <li>"Yine de aç" butonuna tıkla</li>
+      </ol>
+    </div>
+
+    <!-- ============== 3 ============== -->
+    <h2 id="yapilandirma">3. İlk Yapılandırma</h2>
+
+    <h3 id="y-baslat">3.1 Uygulamayı başlat</h3>
+    <p>İki seçenek:</p>
+    <ul>
+      <li><strong>Masaüstü:</strong> <em>Analyst Studio.app</em>'i çift tıkla.</li>
+      <li><strong>Terminal:</strong>
+<pre><code>cd ~/projects/brd-analyst-agent
+source venv/bin/activate
+python app.py</code></pre>
+      </li>
+    </ul>
+    <p>Tarayıcı otomatik olarak <code>http://localhost:5002</code> adresinde açılır.</p>
+
+    <h3 id="y-oauth">3.2 Jira / Confluence bağlantısı <span class="pill opt">opsiyonel</span></h3>
+    <p>
+      Jira'ya görev oluşturmak veya Confluence'ı RAG bağlamı olarak kullanmak
+      istiyorsanız OAuth bağlantısı gerekir.
+    </p>
+    <div class="step">
+      <div class="num">1</div>
+      <h4>Atlassian OAuth uygulamasını oluştur (bir kez, yönetici)</h4>
+      <p>
+        <a href="https://developer.atlassian.com/console/myapps/">developer.atlassian.com/console/myapps</a>
+        → <em>Create</em> → <em>OAuth 2.0 integration</em> → callback URL:
+        <code>http://localhost:5002/api/jira/callback</code>.
+      </p>
+      <p>Aldığınız <code>Client ID</code> ve <code>Client Secret</code>'i <code>.env</code> dosyasına ekleyin:</p>
+<pre><code>JIRA_CLIENT_ID=...
+JIRA_CLIENT_SECRET=...
+JIRA_PROJECT_KEY=PROJ            # task açılacak proje
+JIRA_DEFAULT_SITE=&lt;sitename&gt;.atlassian.net</code></pre>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <h4>Uygulamadan OAuth ile bağlan</h4>
+      <p>Ayarlar sekmesi → <em>Jira / Confluence Bağlantısı</em> → <strong>Bağlan</strong> butonu.
+      Tarayıcı Atlassian'a yönlendirir; izinleri onayladıktan sonra geri döner ve token kaydedilir.</p>
+      <div class="box info">
+        <strong>OAuth kapsamı (scope)</strong>
+        Jira okuma/yazma + Confluence okuma/yazma. Token <code>.env</code>'e şifreli yazılmaz — dosya 0600 izinli tutulur.
+      </div>
+    </div>
+
+    <h3 id="y-kaynak">3.3 Veri kaynaklarını tanımla</h3>
+    <p>RAG için Confluence space ve Jira projelerini kaydet:</p>
+    <ol>
+      <li><strong>Referanslar</strong> sekmesine git</li>
+      <li><em>Confluence Spaces</em> bölümüne ilgili space key'lerini ekle (ör. <code>ARCH</code>)</li>
+      <li><em>Jira Projects</em> bölümüne proje key'lerini ekle (ör. <code>PROJ</code>)</li>
+    </ol>
+    <p><em>Bunlar analizlerde otomatik bağlam olarak kullanılır.</em></p>
+
+    <h3 id="y-sync">3.4 İlk senkronizasyon</h3>
+    <div class="step">
+      <div class="num">1</div>
+      <h4>Veri Kaynakları → Güncelle</h4>
+      <p>Referanslar sekmesi → <strong>Güncelle</strong> butonu. Confluence sayfaları
+      ve Jira issue'ları yerel <code>reference/</code> klasörüne çekilir.</p>
+      <div class="box tip">
+        <strong>İpucu</strong>
+        Senkronizasyon dakikalar sürebilir. Tek seferlik yapılır, sonra haftada bir / değişiklik olunca güncellenir.
+      </div>
+    </div>
+
+    <h3 id="y-uicode">3.5 UI kodu referansı <span class="pill opt">opsiyonel</span></h3>
+    <p>
+      Mevcut frontend kodunu RAG bağlamına eklemek isterseniz (yeni ekranların
+      mevcut tasarım diline uyması için):
+    </p>
+    <ol>
+      <li><strong>UI Kodu</strong> sekmesi → <em>Zip Yükle</em></li>
+      <li>Frontend kaynak klasörünün zip'ini yükle (<code>.tsx, .vue, .css</code> vb.)</li>
+      <li>Yükleme sonrası teknik analiz Bölüm 16'da mevcut yapıya referans verir</li>
+    </ol>
+
+    <!-- ============== 4 ============== -->
+    <h2 id="kullanim">4. Kullanım</h2>
+
+    <h3 id="u-arayuz">4.1 Arayüz</h3>
+    <p>Uygulama 4 ana sekmeden oluşur:</p>
+    <table>
+      <tr><th>Sekme</th><th>İçerik</th></tr>
+      <tr><td><strong>Çalıştır</strong></td><td>Doküman yükle, analizleri başlat, onayları ver</td></tr>
+      <tr><td><strong>Çıktılar</strong></td><td>Üretilen analizleri görüntüle, düzenle, indir, yayımla</td></tr>
+      <tr><td><strong>Referanslar</strong></td><td>Confluence / Jira kaynakları, UI kodu, mevcut BRD</td></tr>
+      <tr><td><strong>Ayarlar</strong></td><td>OAuth, promptlar, kullanıcılar, bağlam filtresi</td></tr>
+    </table>
+
+    <h3 id="u-akis1">4.2 Akış 1: Süreç → Teknik → Jira</h3>
+    <p>Bu en sık kullanılan akıştır.</p>
+
+    <div class="step">
+      <div class="num">1</div>
+      <h4>Dokümanı yükle</h4>
+      <p><em>Çalıştır</em> sekmesi → <em>Girdi Dokümanı</em> alanına süreç tarifini sürükle-bırak
+      (PDF, DOCX, MD, TXT — tek dosya).</p>
+    </div>
+
+    <div class="step">
+      <div class="num">2</div>
+      <h4>Süreç Analizi'ni başlat</h4>
+      <p><strong>Süreç Analizi Çalıştır</strong> butonuna bas. AI:</p>
+      <ul>
+        <li>Dokümanı okur</li>
+        <li>Senkronize Confluence/Jira/Swagger ile çapraz kontrol yapar</li>
+        <li><code>output/surec-analizi.md</code> üretir</li>
+      </ul>
+      <p>Süre: ~30-90 sn. İlk çağrıda yavaş, sonraki çağrılar prompt cache ile hızlı.</p>
+    </div>
+
+    <div class="step">
+      <div class="num">3</div>
+      <h4>Süreç analizini incele ve onayla</h4>
+      <p>Otomatik olarak <em>Çıktılar</em> sekmesine geçer ve süreç analizini gösterir.
+      Aktörler, adımlar (PA-XXX), iş kuralları (BR-XXX), ekranlar (EK-XXX), açık soruları kontrol et.</p>
+      <ul>
+        <li>Eksik/yanlış bir kısım varsa → <strong>Yeniden Çalıştır</strong> butonu + düzeltme notu yaz</li>
+        <li>Sorun yoksa → <strong>Onayla &amp; Teknik Analize Geç</strong></li>
+      </ul>
+      <div class="box tip">
+        <strong>İpucu — Yeniden Çalıştır</strong>
+        Tüm dokümanı baştan üretmez; yalnızca belirttiğin bölümü cerrahi olarak günceller. ID'leri ve format korunur.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">4</div>
+      <h4>Teknik Analiz</h4>
+      <p>AI süreç analizinden + referanslardan + (varsa) UI kodundan + (varsa) HTML prototipten:</p>
+      <ul>
+        <li>DDL (SQL CREATE TABLE)</li>
+        <li>OpenAPI YAML endpoint'leri</li>
+        <li>Validasyon matrisi (FE+BE)</li>
+        <li>Bölüm 16: FE teknik tasarımı (ekran/bileşen/route)</li>
+        <li>Bölüm 17: <strong>İş Kırılımı — FE/BE geliştirme görevleri</strong> (Jira temeli)</li>
+      </ul>
+      <p>İncele, gerekirse yeniden çalıştır, onayla.</p>
+    </div>
+
+    <div class="step">
+      <div class="num">5</div>
+      <h4>HTML Prototip <span class="pill opt">opsiyonel</span></h4>
+      <p>Onay ekranında <strong>HTML Prototip Oluştur</strong> butonu. Süreç analizindeki
+      ekranlardan tıklanabilir tek dosyalık <code>mockup.html</code> üretir.
+      Paydaşlarla tasarımı görsel doğrulamak için ideal.</p>
+    </div>
+
+    <div class="step">
+      <div class="num">6</div>
+      <h4>Jira görev hiyerarşisi — önizleme + seçim</h4>
+      <p>Çıktılar sekmesinde <code>teknik-analiz.md</code> seçili iken
+      <strong>Hiyerarşik Task Oluştur</strong> butonuna bas.</p>
+      <p>Açılan modalda AI'nın önerdiği yapıyı görürsün:</p>
+      <ul>
+        <li>1 Epic + Story'ler + Subtask'lar</li>
+        <li>Her satırda <span class="pill fe">FE</span> veya <span class="pill be">BE</span> rozeti</li>
+        <li>Checkbox ile <strong>hangi öğeleri açacağını seç</strong></li>
+        <li>Başlıkları inline düzenleyebilirsin</li>
+      </ul>
+      <p>Senaryolar:</p>
+      <ul>
+        <li><strong>Tek task:</strong> sadece Epic'i bırak, diğerlerinin işaretini kaldır → "Devam Et" → 1 issue açılır</li>
+        <li><strong>Tam hiyerarşi:</strong> hepsini bırak → bütün ağaç açılır</li>
+        <li><strong>Kısmi:</strong> sadece istediklerini seç → seçilenler açılır</li>
+      </ul>
+      <div class="box info">
+        <strong>Kaskad mantığı</strong>
+        Epic'i kapatırsan tüm alt öğeler kapanır. Bir Subtask seçersen parent Story ve Epic otomatik seçilir.
+      </div>
+      <p>Devam Et'e bastığında modal sana her açılan issue'nun key'ini gösterir (örn. <code>PROJ-123</code>).</p>
+    </div>
+
+    <h3 id="u-akis2">4.3 Akış 2: BRD → Kapsam Analizi</h3>
+    <p>Mevcut bir BRD'yi inceletmek veya iki BRD versiyonunu karşılaştırmak için.</p>
+
+    <div class="step">
+      <div class="num">1</div>
+      <h4>BRD'yi yükle</h4>
+      <p><em>Çalıştır</em> sekmesi → BRD dokümanını yükle. Bu akışta üst kısımdaki
+      <strong>BRD Analizi</strong> butonunu kullan.</p>
+    </div>
+
+    <div class="step">
+      <div class="num">2</div>
+      <h4>BRD Analizi sonucu</h4>
+      <p>Üretilenler:</p>
+      <ul>
+        <li><code>brd-analizi.md</code> — fonksiyonel (FR), fonksiyonel olmayan (NFR), user story'ler, kabul kriterleri, tutarsızlıklar</li>
+        <li><code>brd-sorular.md</code> — Product Owner'a sorulacak en kritik sorular (PO-XXX)</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="num">3</div>
+      <h4>BRD'yi referans olarak kaydet</h4>
+      <p>BRD onaylandığında <strong>Mevcut BRD olarak kaydet</strong> butonu ile dokümanı
+      <code>reference/current-brd/</code> klasörüne taşı. Bu, ileride kapsam karşılaştırması için baseline olur.</p>
+    </div>
+
+    <div class="step">
+      <div class="num">4</div>
+      <h4>Revize BRD ile kapsam karşılaştırması</h4>
+      <p>Zaman içinde BRD'nin yeni versiyonu geldiğinde:</p>
+      <ol>
+        <li>Yeni versiyonu yükle</li>
+        <li><strong>Kapsam Analizi</strong> butonuna bas</li>
+        <li>Sistem iki versiyonu karşılaştırıp şunları üretir:
+          <ul>
+            <li><code>kapsam-analizi.md</code> — eklenen (YE-XXX), çıkarılan (KL-XXX), değişen (DG-XXX) gereksinimler</li>
+            <li><code>alternatif-surecler.md</code> — yeni kapsamı karşılayan 3-5 uygulama alternatifi</li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <h3 id="u-cikti">4.4 Çıktıları düzenleme</h3>
+    <p>Çıktılar sekmesinde her dosya için:</p>
+    <table>
+      <tr><th>Buton</th><th>Yaptığı</th></tr>
+      <tr><td><strong>Yeniden Çalıştır</strong></td><td>Düzeltme notu ile cerrahi güncelleme (önerilen)</td></tr>
+      <tr><td><strong>Düzenle</strong></td><td>Markdown'ı doğrudan edit et, manuel kaydet</td></tr>
+      <tr><td><strong>İndir</strong></td><td>.md dosyasını yerel'e indir</td></tr>
+      <tr><td><strong>Sil</strong></td><td>Çıktıyı sil (geri alınamaz)</td></tr>
+    </table>
+    <div class="box tip">
+      <strong>Hangisini seçmeli?</strong>
+      Yeniden Çalıştır → AI bağlamı koruyarak düzeltir, ID'leri ve formatı bozmaz.<br>
+      Düzenle → Küçük metin düzeltmeleri için hızlı.
+    </div>
+
+    <h3 id="u-conf">4.5 Confluence'a yayımlama</h3>
+    <p>Onaylı bir analizi kurumsal wiki'ye yayımlamak için:</p>
+    <ol>
+      <li>Çıktılar sekmesinde yayımlanacak dosyayı seç</li>
+      <li><em>Confluence:</em> satırında space seç</li>
+      <li><strong>Yayımla</strong> butonu</li>
+      <li>Markdown otomatik olarak Confluence Storage Format'a çevrilir, sayfa oluşturulur veya güncellenir</li>
+    </ol>
+
+    <!-- ============== 5 ============== -->
+    <h2 id="ileri">5. İleri Düzey</h2>
+
+    <h3 id="i-filtre">5.1 Bağlam filtresi</h3>
+    <p>
+      Referans klasörü çok büyüdüyse (yüzlerce Confluence sayfası, binlerce Jira issue),
+      her analizde hepsini AI'a göndermek hem yavaş hem maliyetli olur.
+      <strong>Bağlam filtresi</strong> ile sadece ilgili olanları dahil edersin.
+    </p>
+    <p>Ayarlar → <em>Bağlam Filtresi</em>:</p>
+    <ul>
+      <li><strong>Anahtar kelimeler:</strong> "sipariş, ödeme" → bu kelimeleri içeren dokümanlar gelir</li>
+      <li><strong>Jira Keys:</strong> <code>PROJ-123, PROJ-145</code> → spesifik issue'lar</li>
+      <li><strong>Confluence Pages:</strong> sayfa adının bir kısmı → sadece o sayfalar</li>
+    </ul>
+
+    <h3 id="i-prompt">5.2 Prompt özelleştirme</h3>
+    <p>
+      AI davranışını değiştirmek için 15 sistem promptu arayüzden düzenlenebilir.
+      Ayarlar → <em>Promptlar</em> → ilgili prompt → düzenle → kaydet.
+    </p>
+    <div class="box warn">
+      <strong>Dikkat</strong>
+      Promptlar AI'nın tüm çalışma mantığını belirler. Bozulursa <em>Varsayılana Dön</em>
+      butonu ile sıfırlayabilirsiniz. Önemli değişiklikleri yedekleyin.
+    </div>
+
+    <h3 id="i-gecmis">5.3 Geçmiş</h3>
+    <p>
+      Her tamamlanmış çalıştırma <em>Geçmiş</em> sekmesinde son <strong>5</strong>
+      kayıtlı tutulur. Eski bir çalıştırmanın çıktılarını görüntüleyebilir,
+      o noktaya geri dönebilirsiniz.
+    </p>
+
+    <h3 id="i-update">5.4 Uygulamayı güncelle</h3>
+    <p>GitHub'dan son sürümü almak için iki yol vardır:</p>
+    <ul>
+      <li><strong>Güncelleme sayfası</strong> — uygulamadan tek tıkla <code>git pull --ff-only</code> yapar</li>
+      <li><strong>Terminal:</strong>
+<pre><code>cd ~/projects/brd-analyst-agent
+git pull
+pip install -r requirements.txt   # gerekirse</code></pre>
+      </li>
+    </ul>
+    <div class="box info">
+      <strong>Yeniden başlatma</strong>
+      Güncelleme sonrası uygulamayı kapatıp açın (Analyst Studio.app'i çık, tekrar aç). Tarayıcı sekmesini yenilemek yeterli değildir; sunucu kodu yenilenmeli.
+    </div>
+
+    <!-- ============== 6 ============== -->
+    <h2 id="sorun">6. Sorun Giderme</h2>
+    <table>
+      <tr><th>Belirti</th><th>Olası neden ve çözüm</th></tr>
+      <tr>
+        <td>Uygulama açılmıyor</td>
+        <td>Terminalden manuel çalıştır: <code>source venv/bin/activate &amp;&amp; python app.py</code>. Hata mesajı görünür.</td>
+      </tr>
+      <tr>
+        <td>Port 5002 dolu</td>
+        <td>Başka bir terminalden: <code>lsof -i :5002</code> → eski süreç var → <code>kill PID</code>.</td>
+      </tr>
+      <tr>
+        <td>"ANTHROPIC_API_KEY yok" hatası</td>
+        <td><code>.env</code> dosyasını kontrol et; <code>chmod 600 .env</code> izinli olmalı.</td>
+      </tr>
+      <tr>
+        <td>Rate limit (429) hatası</td>
+        <td>Uygulama otomatik tekrar dener; sürekli alırsanız Anthropic plan limitinizi kontrol edin.</td>
+      </tr>
+      <tr>
+        <td>Jira "401 Unauthorized"</td>
+        <td>OAuth token süresi dolmuş — Ayarlar → Jira → <em>Yeniden Bağlan</em>.</td>
+      </tr>
+      <tr>
+        <td>Confluence "403" hatası</td>
+        <td>OAuth scope eksik. Yeniden bağlanmak gerekir (Confluence scope'ları güncellendiyse).</td>
+      </tr>
+      <tr>
+        <td>Cmd+Shift+R sonrası uygulama kapandı</td>
+        <td>Düzeltildi; eski sürüm kullanıyorsanız güncelleyin.</td>
+      </tr>
+      <tr>
+        <td>Tarayıcı sekmesini kapattım, uygulama hâlâ açık</td>
+        <td>Heartbeat 45 sn sonra sunucuyu otomatik kapatır.</td>
+      </tr>
+      <tr>
+        <td>Çıktı eksik / yanlış</td>
+        <td>Yeniden Çalıştır → düzeltme notu yaz. Sürekli aynı hatayı yapıyorsa promptu (Ayarlar) inceleyin.</td>
+      </tr>
+      <tr>
+        <td>Loglar nerede?</td>
+        <td><code>logs/app.log</code> (rotasyonlu, son 5 dosya, &gt;30 gün eski olanlar otomatik silinir).</td>
+      </tr>
+    </table>
+
+    <!-- ============== 7 ============== -->
+    <h2 id="sss">7. Sıkça Sorulanlar</h2>
+
+    <h4>Veriler bulutta mı saklanıyor?</h4>
+    <p>Hayır. Tüm dokümanlar ve çıktılar yerel makinanızda kalır. Yalnızca Claude API çağrıları için içerik Anthropic'e gönderilir (Anthropic veri saklama politikası geçerlidir).</p>
+
+    <h4>Aynı dokümanı tekrar tekrar çalıştırırsam maliyet ne olur?</h4>
+    <p>Prompt caching sayesinde referans bağlam ve sistem promptu önbelleğe alınır; 5 dakika içindeki tekrar çağrılarda token maliyeti ~%90 düşer. Yine de gereksiz tekrar çalıştırmayın.</p>
+
+    <h4>Birden fazla doküman aynı anda işlenebilir mi?</h4>
+    <p>Şu an her çalıştırma tek doküman üzerinde. Çoklu doküman desteği yol haritasındadır.</p>
+
+    <h4>Promptu bozdum, nasıl geri alırım?</h4>
+    <p>Ayarlar → Promptlar → ilgili prompt → <strong>Varsayılana Dön</strong>.</p>
+
+    <h4>Hangi modelleri kullanıyor?</h4>
+    <p><code>claude-sonnet-4-6</code> (analizler), <code>claude-haiku-4-5</code> (Jira görev başlığı).</p>
+
+    <h4>Çıktı kalitesi düşükse ne yapayım?</h4>
+    <p>Sırasıyla deneyin:</p>
+    <ol>
+      <li>Girdi dokümanın daha net olduğundan emin olun</li>
+      <li>İlgili Confluence/Jira/Swagger referanslarının yerel kaynağa senkronlandığından emin olun</li>
+      <li>Bağlam filtresi ile gürültüyü azaltın</li>
+      <li>Yeniden Çalıştır + düzeltme notu yazın</li>
+      <li>Hâlâ yetersizse promptu özelleştirin (Ayarlar)</li>
+    </ol>
+
+    <div style="margin-top:60px; padding-top:20px; border-top:1px solid var(--border); font-size:12px; color:var(--text3); text-align:center;">
+      Analyst Studio — sorularınız için ekibe danışın · <em>Bu kılavuz <strong>KILAVUZ.html</strong> dosyasıdır</em>
+    </div>
+  </main>
+</div>
+</body>
+</html>
