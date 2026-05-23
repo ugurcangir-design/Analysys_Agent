@@ -260,6 +260,25 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 
 ---
 
+## CLAUDE.md Bakım Kuralı (zorunlu)
+**Her commit sonrası CLAUDE.md güncel kalmalı.** Eğer commit şu konulardan
+birini etkiliyorsa, aynı commit'te (veya hemen takip eden commit'te)
+CLAUDE.md'yi de güncelle ve push et:
+- Dosya yapısı / yeni veya kaldırılan modül
+- Skill modüllerinin sorumlulukları
+- Endpoint'ler (yeni / kaldırılan / yol değişikliği)
+- Sabitler / limitler / model adı / heartbeat değerleri
+- Sistem promptları / EK KURALLAR / ID şeması
+- FE/BE katman akışı veya workflow durumları
+- Geliştirme kuralları / bilinen kısıtlamalar
+
+Sadece görsel/CSS/typo değişiklikleri için atlanabilir.
+
+`.claude/hooks/post-commit-reminder.py` her `git commit`'ten sonra
+otomatik hatırlatma üretir; ancak nihai sorumluluk Claude'dadır.
+
+---
+
 ## Geliştirme Kuralları
 1. **Türkçe** — print, yorum, hata metni; teknik terimler İngilizce
 2. Yeni output dosyası → `IZIN_VERILEN_CIKTILAR` set'ine ekle (app.py)

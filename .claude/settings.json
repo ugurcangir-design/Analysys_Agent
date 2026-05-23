@@ -21,6 +21,15 @@
             "command": "python3 -c \"import sys, json, subprocess, os; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path',''); ruff=os.path.join(os.getcwd(),'venv','bin','ruff'); subprocess.run([ruff,'check','--fix',f]) if f.endswith('.py') and os.path.exists(ruff) else None\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/post-commit-reminder.py"
+          }
+        ]
       }
     ]
   }
