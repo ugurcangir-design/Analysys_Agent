@@ -148,6 +148,26 @@ def _admin_mi() -> bool:
     return bool(admin and session.get("username") == admin)
 
 
+def admin_gerekli(fn):
+    """Hassas admin endpoint'leri için decorator.
+
+    Mantık:
+    - AUTH kapalıysa (kişisel masaüstü kullanımı): geç — tek kullanıcı
+      herkes admindir
+    - AUTH açıksa: _admin_mi() true olmalı, yoksa 403
+    """
+    from functools import wraps
+
+    @wraps(fn)
+    def _sarici(*args, **kwargs):
+        if _auth_aktif_mi() and not _admin_mi():
+            logger.warning("Admin yetkisi yok: path=%s user=%s", request.path, session.get("username"))
+            return jsonify({"error": "Admin yetkisi gerekli"}), 403
+        return fn(*args, **kwargs)
+
+    return _sarici
+
+
 def _auth_aktif_mi() -> bool:
     return os.getenv("AUTH_ENABLED", "false").lower() in ("1", "true", "yes")
 
@@ -759,6 +779,7 @@ def skip_kapsam():
 
 
 @app.route("/api/reset", methods=["POST"])
+@admin_gerekli
 def reset():
     import workflow as wf
     wf.sifirla()
@@ -1341,6 +1362,7 @@ def prompts_listele():
 
 
 @app.route("/api/prompts/<skill_id>", methods=["POST"])
+@admin_gerekli
 def prompt_guncelle(skill_id):
     from skills.base import VARSAYILAN_PROMPTLAR, prompt_kaydet
     if skill_id not in VARSAYILAN_PROMPTLAR:
@@ -1355,6 +1377,7 @@ def prompt_guncelle(skill_id):
 
 
 @app.route("/api/prompts/<skill_id>/reset", methods=["POST"])
+@admin_gerekli
 def prompt_sifirla_route(skill_id):
     from skills.base import VARSAYILAN_PROMPTLAR, prompt_sifirla
     if skill_id not in VARSAYILAN_PROMPTLAR:
@@ -2070,6 +2093,7 @@ def git_status():
 
 
 @app.route("/api/git/pull", methods=["POST"])
+@admin_gerekli
 def git_pull():
     """git fetch + git pull origin <branch>."""
     if not _git_lock.acquire(blocking=False):
