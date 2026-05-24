@@ -2139,9 +2139,50 @@ def request_too_large(e):
     return jsonify({"error": f"Dosya çok büyük — maksimum {app.config['MAX_CONTENT_LENGTH'] // 1024 // 1024} MB kabul edilir"}), 413
 
 
+def _baslangic_guvenlik_kontrol(host: str, auth_aktif: bool) -> bool:
+    """Güvenli olmayan kurulum senaryolarını engeller.
+
+    - LAN'a açık + auth kapalı = ağdaki herkes anonim erişebilir
+    - Override: ALLOW_LAN_NO_AUTH=true (kullanıcı bilerek istiyorsa)
+    """
+    lan_acik = host not in ("127.0.0.1", "localhost", "::1")
+    override = os.getenv("ALLOW_LAN_NO_AUTH", "false").lower() in ("1", "true", "yes")
+
+    if lan_acik and not auth_aktif:
+        if override:
+            logger.warning("=" * 72)
+            logger.warning("⚠ GÜVENLİK UYARISI: LAN'a açık + AUTH kapalı")
+            logger.warning("  HOST=%s, AUTH_ENABLED=false → ağdaki herkes erişebilir.", host)
+            logger.warning("  ALLOW_LAN_NO_AUTH=true ile override edildi — kendi sorumluluğunuzda.")
+            logger.warning("=" * 72)
+            return True
+        print()
+        print("=" * 72)
+        print("  ⛔ BAŞLANGIÇ ENGELLENDİ — Güvensiz kurulum")
+        print("=" * 72)
+        print(f"  HOST={host} (LAN'a açık) + AUTH_ENABLED=false")
+        print("  Bu kombinasyon ağdaki herkesin uygulamaya anonim erişimine izin verir.")
+        print()
+        print("  Çözüm seçenekleri (.env dosyasında):")
+        print("    1) Sadece kendi makinanız için: HOST=127.0.0.1 (önerilir)")
+        print("    2) Ekip kullanımı için:        AUTH_ENABLED=true")
+        print("    3) Bilerek riski kabul:        ALLOW_LAN_NO_AUTH=true")
+        print("=" * 72)
+        return False
+    return True
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5002))
+    host = os.getenv("HOST", "127.0.0.1")  # Default: yalnız yerel; LAN için .env'de HOST=0.0.0.0
+
+    if not _baslangic_guvenlik_kontrol(host, _auth_aktif_mi()):
+        sys.exit(1)
+
     import socket
     local_ip = socket.gethostbyname(socket.gethostname())
-    logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    if host == "0.0.0.0":
+        logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
+    else:
+        logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  (sadece yerel; LAN için .env'de HOST=0.0.0.0)")
+    app.run(host=host, port=port, debug=False)
