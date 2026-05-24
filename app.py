@@ -165,6 +165,52 @@ def auth_kontrol():
             return jsonify({"error": "Oturum açmanız gerekiyor", "auth_required": True}), 401
         return redirect(url_for("login_sayfasi"))
 
+
+# ─── CSRF Koruması — Origin/Referer Kontrolü ────────────────────────────────
+# SameSite=Lax cookie zaten cross-site POST'larda çerez göndermez (modern
+# tarayıcılarda). Bu kontrol sunucu tarafında ek koruma — belt and suspenders.
+# Yalnız state-değiştiren metotlarda (POST/PUT/PATCH/DELETE) çalışır.
+
+# Tarayıcı dışı entegrasyonlardan gelen güvenli istisnalar.
+# (örn. OAuth callback Atlassian'dan POST geri dönmez — GET'tir; ama yine de muaf)
+CSRF_MUAF = {
+    "/api/auth/login",   # login sırasında henüz session yok, Origin doğru zaten
+    "/api/heartbeat",    # navigator.sendBeacon kullanılmıyor ama hızlı çağrı, gereksiz yere zorlama
+}
+
+
+@app.before_request
+def csrf_kontrol():
+    """State-değiştiren isteklerin same-origin'den geldiğini doğrular.
+
+    Cross-site bir sayfa, kullanıcı login iken POST atmaya çalışırsa
+    Origin/Referer header'ı kendi domain'i olur — engelleriz.
+    """
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return None
+    if request.path in CSRF_MUAF:
+        return None
+    if request.path.startswith("/static/"):
+        return None
+
+    origin = request.headers.get("Origin", "")
+    referer = request.headers.get("Referer", "")
+    host_url = request.host_url.rstrip("/")  # örn. http://localhost:5002
+
+    # Origin varsa öncelik onda; yoksa Referer'a bak
+    kaynak = origin or referer
+    if not kaynak:
+        # Origin/Referer yoksa cross-site fetch olabilir — reddet
+        return jsonify({"error": "Cross-origin isteği reddedildi (Origin/Referer yok)"}), 403
+
+    # Kaynak host_url ile başlamalı (same-origin)
+    if not kaynak.startswith(host_url):
+        logger.warning(
+            "CSRF reddi: path=%s origin=%s referer=%s host=%s",
+            request.path, origin, referer, host_url
+        )
+        return jsonify({"error": "Cross-origin isteği reddedildi"}), 403
+
 IZIN_VERILEN_UZANTILAR = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md", ".webp", ".docx"}
 UI_UZANTILAR = {
     ".tsx", ".jsx", ".ts", ".js", ".mjs", ".cjs",
