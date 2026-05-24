@@ -257,6 +257,7 @@ IZIN_VERILEN_CIKTILAR = {
     "alternatif-surecler.md",
     "jira-sonuc.txt",
     "mockup.html",
+    "sorular.json",
 }
 
 # Referans kategorileri ve izin verilen uzantılar
@@ -1336,6 +1337,89 @@ def settings_kaydet():
         "cli_mod": env.get("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "yes"),
         "extended_thinking": env.get("EXTENDED_THINKING", "false").lower() in ("1", "true", "yes"),
     })
+
+
+# ─── Soru Defteri ─────────────────────────────────────────────────────────────
+
+@app.route("/api/sorular", methods=["GET"])
+def sorular_getir():
+    """Soru defterini döndürür. ?parse=true ile çıktıları yeniden tarar."""
+    from skills.sorular import sorular_yukle, parse_ve_birlestir
+    if request.args.get("parse") in ("1", "true", "yes"):
+        try:
+            data = parse_ve_birlestir()
+        except Exception as e:
+            logger.error("Soru parse hatası: %s", e)
+            return jsonify({"ok": False, "error": str(e)}), 500
+    else:
+        data = sorular_yukle()
+    return jsonify({"ok": True, **data})
+
+
+@app.route("/api/sorular/parse", methods=["POST"])
+def sorular_parse():
+    """Çıktıları yeniden tarar ve soru defterini günceller."""
+    from skills.sorular import parse_ve_birlestir
+    try:
+        data = parse_ve_birlestir()
+        return jsonify({"ok": True, **data})
+    except Exception as e:
+        logger.error("Soru parse hatası: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/sorular/<soru_id>", methods=["POST"])
+def soru_guncelle_endpoint(soru_id):
+    """Bir sorunun durumunu/cevabını günceller.
+
+    Body: {kaynak_dosya, durum, cevap?, varsayim?}
+    """
+    from skills.sorular import soru_guncelle
+    payload = request.get_json(silent=True) or {}
+    kaynak = (payload.get("kaynak_dosya") or "").strip()
+    durum = (payload.get("durum") or "").strip()
+    cevap = payload.get("cevap")
+    varsayim = payload.get("varsayim")
+
+    if not kaynak or not durum:
+        return jsonify({"ok": False, "error": "kaynak_dosya ve durum zorunlu"}), 400
+    try:
+        sonuc = soru_guncelle(soru_id, kaynak, durum, cevap=cevap, varsayim=varsayim)
+        logger.info("Soru güncellendi: %s/%s → %s", kaynak, soru_id, durum)
+        return jsonify({"ok": True, "soru": sonuc})
+    except ValueError as e:
+        msg = str(e)
+        # "Geçersiz durum" → 400, "Soru bulunamadı" → 404
+        http = 400 if msg.startswith("Geçersiz") else 404
+        return jsonify({"ok": False, "error": msg}), http
+    except Exception as e:
+        logger.error("Soru güncelleme hatası: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/sorular/<soru_id>", methods=["DELETE"])
+def soru_sil_endpoint(soru_id):
+    """Bir soruyu defterden tamamen kaldırır.
+    Query: ?kaynak_dosya=teknik-analiz.md
+    """
+    from skills.sorular import soru_sil
+    kaynak = (request.args.get("kaynak_dosya") or "").strip()
+    if not kaynak:
+        return jsonify({"ok": False, "error": "kaynak_dosya query parametresi zorunlu"}), 400
+    silindi = soru_sil(soru_id, kaynak)
+    if not silindi:
+        return jsonify({"ok": False, "error": "Soru bulunamadı"}), 404
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sorular/paylasim", methods=["GET"])
+def sorular_paylasim():
+    """Bekleyen/açık soruları kopyala-yapıştır için düz metin döndürür."""
+    from skills.sorular import paylasim_metni
+    durum_param = request.args.get("durumlar", "acik,bekleniyor")
+    durumlar = tuple(d.strip() for d in durum_param.split(",") if d.strip())
+    metin = paylasim_metni(durumlar=durumlar)
+    return jsonify({"ok": True, "metin": metin})
 
 
 # ─── Prompt Yönetimi ──────────────────────────────────────────────────────────
