@@ -1913,7 +1913,10 @@ function temaDegistir() {
 
         <!-- İçerik / iframe / editör -->
         <div class="output-content empty" id="output-content"><span>Bir çıktı seçin</span></div>
-        <iframe id="mockup-iframe" height="700" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+        <!-- Sandbox: allow-same-origin BİLEREK kaldırıldı — AI'nın ürettiği mockup
+             parent DOM'a erişememeli (prompt-injection / zehirli bağlam koruması).
+             Mockup form/script çalıştırabilir ama opaque-origin'de izole. -->
+        <iframe id="mockup-iframe" height="700" sandbox="allow-scripts allow-forms"></iframe>
         <div class="output-editor" id="output-editor">
           <textarea id="editor-textarea" spellcheck="false"></textarea>
           <div class="editor-actions">
