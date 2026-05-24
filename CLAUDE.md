@@ -244,6 +244,47 @@ GET  /api/history              Son 5 çalıştırma arşivi
 
 ---
 
+## Güvenlik Mimarisi
+
+### Auth (opsiyonel — AUTH_ENABLED env ile aç/kapa)
+- Varsayılan **kapalı** (kişisel masaüstü kullanımı için)
+- Açıkken `session["username"]` üzerinden cookie-based auth
+- Şifre hash: `werkzeug.security.generate_password_hash` (scrypt)
+- `users.json` dosyasında saklanır; `manage_users.py` CLI ile eklenir
+- Brute-force koruması: IP başına 5 deneme/60s (RAM'de)
+- `_admin_mi()`: env `ADMIN_USER` ile eşleşen username admindir
+
+### CSRF — Origin/Referer kontrolü
+- `csrf_kontrol()` before_request: POST/PUT/PATCH/DELETE'te kaynak host_url ile eşleşmeli
+- Eşleşmezse 403 + WARN log
+- `CSRF_MUAF`: `/api/auth/login`, `/api/heartbeat`
+- Belt-and-suspenders: `SESSION_COOKIE_SAMESITE=Lax` zaten cross-site POST'a cookie göndermez
+
+### Admin Yetkisi (@admin_gerekli decorator)
+Sadece yapılandırma/yönetim endpoint'lerinde:
+- `POST /api/prompts/<id>` (AI davranışı)
+- `POST /api/prompts/<id>/reset`
+- `POST /api/git/pull` (uygulama güncelleme)
+- `POST /api/reset` (workflow zorla sıfırla)
+- AUTH kapalıyken decorator otomatik geçer (kişisel mod = herkes admin)
+
+### Başlangıç Güvenlik Kontrolü
+`_baslangic_guvenlik_kontrol()`:
+- **Default `HOST=127.0.0.1`** (yalnız yerel)
+- LAN'a açmak için `.env`'de `HOST=0.0.0.0`
+- LAN açık + AUTH kapalı → uygulama BAŞLATILMAZ (3 çözüm önerisi gösterir)
+- Override: `ALLOW_LAN_NO_AUTH=true` (bilinçli risk kabulü)
+
+### Diğer
+- `SESSION_COOKIE_HTTPONLY=True`, `SAMESITE=Lax`
+- `SESSION_COOKIE_SECURE` env ile açılır (HTTPS deploy için)
+- CSP, X-Frame-Options, X-Content-Type-Options başlıkları (`guvenlik_basliklari`)
+- iframe sandbox: `allow-scripts allow-forms` (NO `allow-same-origin` → AI mockup parent DOM'a erişemez)
+- `.env` chmod 0600, atomik yazım (tmp.replace)
+- Path traversal: `_guvenli_yol()` helper'ı tüm dosya yolu girdilerinde kullanılır
+
+---
+
 ## Mimari: subprocess + sys.stdin.isatty()
 ```
 Tarayıcı → fetch /api/run → app.py → subprocess.Popen(run.py {mod})

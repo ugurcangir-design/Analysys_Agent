@@ -343,6 +343,15 @@ chmod 600 .env</code></pre>
         Anahtar <code>sk-ant-...</code> ile başlar.
       </div>
       <p><em>Jira / Confluence anahtarları arayüzden eklenecek (Adım 4.2). Şimdilik bu kadarı yeterli.</em></p>
+      <div class="box info">
+        <strong>Ekip (LAN) kurulumu için ek ayar</strong>
+        Uygulama varsayılan olarak yalnız kendi makinanızdan erişilir (<code>HOST=127.0.0.1</code>).
+        Ekip arkadaşlarının LAN üzerinden erişmesi gerekiyorsa <code>.env</code>'e şunları ekleyin:
+<pre style="margin-top:8px"><code>HOST=0.0.0.0
+AUTH_ENABLED=true
+ADMIN_USER=&lt;kendi kullanici adınız&gt;</code></pre>
+        AUTH_ENABLED=true olmadan LAN'a açmak <strong>engellenir</strong> — herkesin anonim erişimini önler.
+      </div>
     </div>
 
     <h3 id="k-app">3.6 Masaüstü ikonu oluştur <span class="meta">⏱ 30 sn</span> <span class="pill opt">opsiyonel</span></h3>
