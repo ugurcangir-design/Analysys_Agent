@@ -74,14 +74,66 @@ def _alan_oku(blok: str, anahtar: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+# Tablo satırı deseni (süreç analizi Bölüm 12 tablosu için)
+# | Q-001 | Konu | Tip | Önem | Bağlı | Mevcut | Beklenen Yanıt |
+_TABLO_SORU_SATIR = re.compile(
+    r"^\|\s*(Q-T?-?\d+|Q-K-\d+|PO-\d+)\s*\|", re.MULTILINE
+)
+
+
+def _parse_tablo_sorulari(metin: str, dosya_adi: str) -> list[dict]:
+    """Markdown tablo formatındaki soruları yakalar (süreç analizi Bölüm 12).
+
+    Format: | Q-001 | Konu | Tip | Önem | Bağlı Bölüm | Mevcut Durum | Beklenen Yanıt |
+    Sütun sırası analiz tipine göre değişebilir — esnek davranır.
+    """
+    sonuc = []
+    for m in _TABLO_SORU_SATIR.finditer(metin):
+        satir_baslangic = metin.rfind("\n", 0, m.start()) + 1
+        satir_bitis = metin.find("\n", m.start())
+        if satir_bitis == -1:
+            satir_bitis = len(metin)
+        satir = metin[satir_baslangic:satir_bitis]
+        # Pipe'lara böl, baş/son boş elemanları at
+        hucreler = [h.strip() for h in satir.split("|")]
+        # İlk eleman boş (satır başında |), sondan da
+        if hucreler and not hucreler[0]:
+            hucreler = hucreler[1:]
+        if hucreler and not hucreler[-1]:
+            hucreler = hucreler[:-1]
+        if len(hucreler) < 2:
+            continue
+        # Ayraç satırı atla: |---|---|...
+        if all(set(h.strip()) <= set("-: ") for h in hucreler):
+            continue
+
+        soru_id = hucreler[0]
+        # Süreç analizi tablo sırası: # / Konu / Tip / Önem / Bağlı / Mevcut / Beklenen Yanıt
+        sonuc.append({
+            "id": soru_id,
+            "kaynak_dosya": dosya_adi,
+            "baslik": hucreler[1] if len(hucreler) > 1 else soru_id,
+            "kategori": hucreler[2] if len(hucreler) > 2 else "",
+            "oncelik": hucreler[3] if len(hucreler) > 3 else "",
+            "bagli_id": hucreler[4] if len(hucreler) > 4 else "",
+            "mevcut_durum": hucreler[5] if len(hucreler) > 5 else "",
+            "soru": hucreler[6] if len(hucreler) > 6 else (hucreler[1] if len(hucreler) > 1 else ""),
+            "beklenen_yanit": hucreler[6] if len(hucreler) > 6 else "",
+            "sorumlu": "",
+            "etki": "",
+            "katman": "",
+        })
+    return sonuc
+
+
 def parse_md_sorular(md_yol: Path) -> list[dict]:
     """Bir .md dosyasından yapılandırılmış soru bloklarını çıkarır.
 
-    Şu formatları destekler:
-    - Q-T-XXX (teknik analiz)
-    - Q-XXX (süreç analizi)
-    - PO-XXX (BRD soruları)
-    - Q-K-XXX (kapsam analizi — gelecekteki kullanım)
+    İki format destekler:
+    1. Yapılandırılmış blok: `### Q-T-001: Başlık` (teknik analiz, BRD soruları)
+    2. Tablo satırı: `| Q-001 | ...` (süreç analizi Bölüm 12)
+
+    Aynı id iki formatta varsa blok formatı kazanır (daha zengin veri).
     """
     if not md_yol.exists():
         return []
@@ -91,14 +143,15 @@ def parse_md_sorular(md_yol: Path) -> list[dict]:
         return []
 
     sonuc: list[dict] = []
-    # Tüm soru başlangıçlarını bul, blokları çıkar
+    gorulen_idler: set[str] = set()
+
+    # 1) Yapılandırılmış blok formatı (### Q-T-XXX:)
     eslesmeler = list(_SORU_BAS.finditer(metin))
     for i, m in enumerate(eslesmeler):
         soru_id = m.group(1)
         baslik = m.group(2).strip()
         baslangic = m.end()
         bitis = eslesmeler[i + 1].start() if i + 1 < len(eslesmeler) else len(metin)
-        # Bir sonraki ## (üst başlık) öncesinde dur
         ust_baslik = re.search(r"\n##\s", metin[baslangic:bitis])
         if ust_baslik:
             bitis = baslangic + ust_baslik.start()
@@ -119,6 +172,13 @@ def parse_md_sorular(md_yol: Path) -> list[dict]:
             "sorumlu": _alan_oku(blok, "Sorumlu"),
             "etki": _alan_oku(blok, "Etki"),
         })
+        gorulen_idler.add(soru_id)
+
+    # 2) Tablo formatı (yalnız blok'ta görülmemiş id'ler için)
+    for tablo_soru in _parse_tablo_sorulari(metin, md_yol.name):
+        if tablo_soru["id"] not in gorulen_idler:
+            sonuc.append(tablo_soru)
+
     return sonuc
 
 

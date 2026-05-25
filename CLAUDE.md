@@ -15,7 +15,7 @@ Başlatma: `source venv/bin/activate && python app.py` (veya Analyst Studio.app)
 ## Dosya Yapısı
 
 ```
-app.py                  Flask sunucusu (~2100 satır, 71 endpoint)
+app.py                  Flask sunucusu (~2200 satır, 77 endpoint)
 agent.py                13 satırlık import bridge — skills/ modüllerine yönlendirir
 jira_agent.py           Jira OAuth + ADF (Atlassian Document Format) yardımcıları
 jira_auth.py            OAuth 3LO flow (Jira + Confluence scope'ları)
@@ -190,7 +190,7 @@ ilişkili olarak açılmasını sağlar.
 
 ---
 
-## Önemli Endpoint'ler (app.py — 71 toplam)
+## Önemli Endpoint'ler (app.py — 77 toplam)
 
 ### Çalıştırma / Workflow
 ```
