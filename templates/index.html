@@ -668,6 +668,107 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 .jira-node-katman.be    { background: rgba(168,85,247,.18); color: #c89bf5; }
 .jira-node-katman.febe  { background: rgba(234,179,8,.16); color: #e3c04e; }
 .jira-node-katman.genel { background: var(--surface2); color: var(--text3); }
+
+/* ── Soru Defteri ─────────────────────────────────────────────── */
+.sorular-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; margin: 0 0 10px;
+  background: linear-gradient(90deg, rgba(234,179,8,.12), rgba(234,179,8,.06));
+  border: 1px solid rgba(234,179,8,.45);
+  border-radius: var(--radius);
+  cursor: pointer; font-size: 12.5px; color: var(--text);
+}
+.sorular-banner:hover { background: linear-gradient(90deg, rgba(234,179,8,.18), rgba(234,179,8,.10)); }
+.sorular-banner.kritik { border-color: var(--red); background: linear-gradient(90deg, rgba(239,68,68,.14), rgba(239,68,68,.06)); }
+.sorular-banner .b-emoji { font-size: 16px; }
+.sorular-banner .b-go    { margin-left: auto; color: var(--accent); font-weight: 600; font-size: 11.5px; }
+
+.sorular-panel { padding: 4px 2px 12px; }
+.sorular-toolbar {
+  display: flex; gap: 8px; align-items: center;
+  padding: 8px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+}
+.sorular-toolbar select { font-family: inherit; font-size: 12px; padding: 4px 8px; }
+.sorular-toolbar .sayac  { margin-left: auto; font-size: 11.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
+
+.soru-kart {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 14px; margin-bottom: 10px;
+}
+.soru-kart.cevaplandi { border-left: 3px solid var(--green); }
+.soru-kart.bekleniyor { border-left: 3px solid var(--yellow); }
+.soru-kart.varsayim   { border-left: 3px solid #b89cf0; }
+.soru-kart.atlandi    { opacity: .55; border-left: 3px solid var(--text3); }
+.soru-kart.acik       { border-left: 3px solid var(--red); }
+
+.soru-kart-baslik { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.soru-id { font-family: 'Geist Mono', monospace; font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.soru-baslik-txt { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); min-width: 200px; }
+.soru-durum {
+  font-size: 10.5px; padding: 2px 7px; border-radius: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .03em;
+}
+.soru-durum.acik       { background: rgba(239,68,68,.15); color: var(--red); }
+.soru-durum.bekleniyor { background: rgba(234,179,8,.18); color: #854d0e; }
+.soru-durum.cevaplandi { background: rgba(34,197,94,.16); color: var(--green); }
+.soru-durum.varsayim   { background: rgba(147,112,219,.18); color: #6b21a8; }
+.soru-durum.atlandi    { background: var(--surface2); color: var(--text3); }
+.soru-pill {
+  font-size: 9.5px; padding: 2px 6px; border-radius: 3px; font-weight: 700; text-transform: uppercase;
+}
+.soru-pill.fe   { background: rgba(59,130,246,.18); color: #1d4ed8; }
+.soru-pill.be   { background: rgba(168,85,247,.18); color: #6b21a8; }
+.soru-pill.febe { background: rgba(234,179,8,.18); color: #854d0e; }
+.soru-pill.kritik { background: rgba(239,68,68,.18); color: var(--red); }
+.soru-pill.yuksek { background: rgba(234,179,8,.18); color: #854d0e; }
+
+.soru-kart-soru { font-size: 12.5px; color: var(--text2); margin-bottom: 8px; line-height: 1.55; }
+.soru-kart-detay { font-size: 11.5px; color: var(--text3); margin: 6px 0 10px; }
+.soru-kart-detay summary { cursor: pointer; user-select: none; padding: 2px 0; }
+.soru-kart-detay div { padding: 3px 0 3px 16px; }
+.soru-kart-detay div strong { color: var(--text2); }
+
+.soru-kart-aksiyon { display: flex; gap: 6px; flex-wrap: wrap; }
+.soru-kart-aksiyon button {
+  font-family: inherit; font-size: 11.5px; padding: 5px 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; color: var(--text2);
+}
+.soru-kart-aksiyon button:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
+.soru-kart-aksiyon button.aktif { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.soru-cevap-form { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.soru-cevap-form textarea {
+  width: 100%; min-height: 60px; padding: 8px 10px; font-family: inherit;
+  font-size: 12.5px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); resize: vertical;
+}
+.soru-cevap-form .ai-not { font-size: 11px; color: var(--text3); margin: 4px 0 6px; }
+.soru-cevap-form .form-aksiyon { display: flex; gap: 6px; margin-top: 6px; }
+
+.soru-mevcut-cevap {
+  margin-top: 10px; padding: 8px 10px; background: rgba(34,197,94,.08);
+  border-left: 3px solid var(--green); border-radius: 4px; font-size: 12px;
+}
+.soru-mevcut-cevap.varsayim { background: rgba(147,112,219,.08); border-color: #b89cf0; }
+.soru-mevcut-cevap strong { color: var(--text); }
+
+.soru-paylasim-modal {
+  display: none; position: fixed; inset: 0; background: rgba(8,11,18,.78);
+  backdrop-filter: blur(6px); z-index: 9000; align-items: center; justify-content: center; padding: 28px;
+}
+.soru-paylasim-modal.visible { display: flex; }
+.soru-paylasim-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  width: 100%; max-width: 640px; max-height: 80vh; display: flex; flex-direction: column;
+}
+.soru-paylasim-box .head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.soru-paylasim-box .head .title { font-weight: 600; flex: 1; }
+.soru-paylasim-box textarea {
+  flex: 1; padding: 14px 18px; font-family: 'Geist Mono', monospace; font-size: 12px;
+  border: none; outline: none; background: var(--bg); color: var(--text); resize: none;
+}
+.soru-paylasim-box .foot { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); }
 .jira-node-input {
   flex: 1; font-family: inherit; font-size: 12px; padding: 5px 8px;
   background: var(--bg); border: 1px solid var(--border);
@@ -1838,7 +1939,15 @@ function temaDegistir() {
           <button class="output-tab" data-file="kapsam-analizi.md"      onclick="outputSec(this)">Kapsam Analizi</button>
           <button class="output-tab" data-file="alternatif-surecler.md" onclick="outputSec(this)">Alternatif Süreçler</button>
           <button class="output-tab" data-file="mockup.html"            onclick="outputSec(this)">Prototip</button>
+          <button class="output-tab" data-file="__sorular__"            onclick="outputSec(this)">📋 Sorular <span id="soru-tab-rozet" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px"></span></button>
         </div>
+      </div>
+
+      <!-- Soru defteri banner — tüm çıktıların üstünde -->
+      <div class="sorular-banner" id="sorular-banner" style="display:none" onclick="sorularSekmesineGec()">
+        <span class="b-emoji">📋</span>
+        <span id="sorular-banner-metin">—</span>
+        <span class="b-go">Soruları aç →</span>
       </div>
 
       <div class="output-wrapper" id="output-wrapper">
@@ -1917,6 +2026,29 @@ function temaDegistir() {
              parent DOM'a erişememeli (prompt-injection / zehirli bağlam koruması).
              Mockup form/script çalıştırabilir ama opaque-origin'de izole. -->
         <iframe id="mockup-iframe" height="700" sandbox="allow-scripts allow-forms"></iframe>
+
+        <!-- Sorular paneli -->
+        <div class="sorular-panel" id="sorular-panel" style="display:none">
+          <div class="sorular-toolbar">
+            <button class="btn btn-outline btn-sm" onclick="sorularTara()" title="Çıktıları yeniden tara">
+              <svg class="ico"><use href="#i-refresh"/></svg> Tara
+            </button>
+            <select id="sorular-filtre-durum" onchange="sorularListele()">
+              <option value="aktif">Aktif (açık + bekleyen)</option>
+              <option value="">Tüm durumlar</option>
+              <option value="acik">Açık</option>
+              <option value="bekleniyor">Bekleyen</option>
+              <option value="cevaplandi">Cevaplanmış</option>
+              <option value="varsayim">Varsayım</option>
+              <option value="atlandi">Atlanmış</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="sorularPaylasimAc()" title="Bekleyen soruları metin olarak dışa aktar">
+              <svg class="ico"><use href="#i-download"/></svg> Paylaş
+            </button>
+            <span class="sayac" id="sorular-sayac"></span>
+          </div>
+          <div id="sorular-liste"></div>
+        </div>
         <div class="output-editor" id="output-editor">
           <textarea id="editor-textarea" spellcheck="false"></textarea>
           <div class="editor-actions">
@@ -2016,6 +2148,23 @@ function temaDegistir() {
           <button class="btn btn-primary btn-sm" id="jira-modal-onay" onclick="jiraHiyerarsiOnayla()">
             Devam Et — Jira'da Oluştur
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Soru paylaşım modalı -->
+    <div class="soru-paylasim-modal" id="soru-paylasim-modal" onclick="if(event.target===this)sorularPaylasimKapat()">
+      <div class="soru-paylasim-box">
+        <div class="head">
+          <svg class="ico" style="color:var(--text3)"><use href="#i-download"/></svg>
+          <span class="title">Bekleyen Soruları Paylaş</span>
+          <button class="jira-modal-close" onclick="sorularPaylasimKapat()" title="Kapat">&times;</button>
+        </div>
+        <textarea id="sorular-paylasim-metin" readonly></textarea>
+        <div class="foot">
+          <span style="flex:1;font-size:11.5px;color:var(--text3)">Slack / e-posta / Jira yorumuna yapıştırılmaya hazır.</span>
+          <button class="btn btn-outline btn-sm" onclick="sorularPaylasimKapat()">Kapat</button>
+          <button class="btn btn-primary btn-sm" onclick="sorularPaylasimKopyala(this)">📋 Kopyala</button>
         </div>
       </div>
     </div>
@@ -2403,7 +2552,7 @@ function switchTab(tab) {
   const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   if (tab === 'history')       loadHistory();
-  if (tab === 'output')        refreshOutputTabs();
+  if (tab === 'output')        { refreshOutputTabs(); sorularDefteriYenile(); }
   if (tab === 'ui-code')       loadUiFiles();
   if (tab === 'settings')      settingsYukle();
   if (tab === 'jira-settings') jiraConfigYukle();
@@ -2893,6 +3042,7 @@ async function outputSec(tab) {
   const jiraRes      = document.getElementById('jira-hierarchy-result');
   const mockupRow    = document.getElementById('mockup-gen-row');
   const mockupMsg    = document.getElementById('mockup-gen-msg');
+  const sorularPanel = document.getElementById('sorular-panel');
 
   content.className = 'output-content';
   content.innerHTML = '<div style="color:var(--text3);font-size:13px">Yükleniyor...</div>';
@@ -2905,6 +3055,16 @@ async function outputSec(tab) {
   jiraRes.textContent = '';
   mockupRow.style.display = 'none';
   mockupMsg.textContent = '';
+  sorularPanel.style.display = 'none';
+
+  // ── Özel: Sorular sekmesi (dosya yerine soru defteri paneli) ──
+  if (currentOutputFile === '__sorular__') {
+    content.style.display = 'none';
+    sorularPanel.style.display = 'block';
+    document.getElementById('btn-duzelt').style.display = 'none';
+    await sorularYukleVeListele();
+    return;
+  }
 
   const r = await fetch(`/api/output/${currentOutputFile}`);
   if (!r.ok) {
@@ -3258,6 +3418,280 @@ async function jiraHiyerarsiOnayla() {
 
 function jiraModalKapat() {
   document.getElementById('jira-modal').classList.remove('visible');
+}
+
+// ─── Soru Defteri ─────────────────────────────────────────────────────────────
+let _sorularCache = { sorular: [], istatistik: {} };
+
+function sorularSekmesineGec() {
+  const tab = document.querySelector('.output-tab[data-file="__sorular__"]');
+  if (tab) outputSec(tab);
+}
+
+async function sorularYukleVeListele(parse) {
+  try {
+    const url = '/api/sorular' + (parse ? '?parse=true' : '');
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || 'Sorular yüklenemedi', 'error'); return; }
+    _sorularCache = d;
+    sorularBannerGuncelle();
+    sorularListele();
+  } catch (e) {
+    toast('Sorular yüklenemedi: ' + e.message, 'error');
+  }
+}
+
+async function sorularTara() {
+  await sorularYukleVeListele(true);
+  toast('Sorular yeniden tarandı', 'info');
+}
+
+function sorularBannerGuncelle() {
+  const banner = document.getElementById('sorular-banner');
+  const metin  = document.getElementById('sorular-banner-metin');
+  const rozet  = document.getElementById('soru-tab-rozet');
+  const ist    = _sorularCache.istatistik || {};
+
+  const aktif = (ist.acik || 0) + (ist.bekleniyor || 0);
+  if (aktif === 0 && (ist.varsayim || 0) === 0) {
+    banner.style.display = 'none';
+    rozet.style.display = 'none';
+    return;
+  }
+  const parcalar = [];
+  if (ist.acik)       parcalar.push(`${ist.acik} açık`);
+  if (ist.bekleniyor) parcalar.push(`${ist.bekleniyor} bekleyen`);
+  if (ist.varsayim)   parcalar.push(`${ist.varsayim} varsayım`);
+  metin.textContent = parcalar.join(' · ');
+
+  banner.classList.toggle('kritik', (ist.kritik_acik || 0) > 0);
+  if (ist.kritik_acik) metin.textContent = `⚠ ${ist.kritik_acik} KRİTİK soru cevap bekliyor — ` + metin.textContent;
+  banner.style.display = 'flex';
+
+  rozet.textContent = aktif;
+  rozet.style.display = aktif > 0 ? 'inline-block' : 'none';
+}
+
+function _katmanRozet(k) {
+  if (!k) return '';
+  const K = String(k).trim().toUpperCase();
+  let cls = '', lbl = k;
+  if (K === 'FE') { cls = 'fe'; lbl = 'FE'; }
+  else if (K === 'BE') { cls = 'be'; lbl = 'BE'; }
+  else if (K === 'FE+BE' || K === 'FEBE') { cls = 'febe'; lbl = 'FE+BE'; }
+  else return '';
+  return `<span class="soru-pill ${cls}">${lbl}</span>`;
+}
+
+function _oncelikRozet(o) {
+  if (!o) return '';
+  const O = String(o).toLowerCase();
+  if (O.startsWith('kritik')) return `<span class="soru-pill kritik">Kritik</span>`;
+  if (O.startsWith('yüks') || O.startsWith('yuks')) return `<span class="soru-pill yuksek">Yüksek</span>`;
+  return '';
+}
+
+const _DURUM_LBL = {
+  acik: '⏳ Açık',
+  bekleniyor: '⏸ Bekliyor',
+  cevaplandi: '✓ Cevaplandı',
+  varsayim: '🤖 Varsayım',
+  atlandi: '🗑 Atlandı',
+};
+
+function sorularListele() {
+  const liste  = document.getElementById('sorular-liste');
+  const sayac  = document.getElementById('sorular-sayac');
+  const filtre = document.getElementById('sorular-filtre-durum').value;
+  const tum    = _sorularCache.sorular || [];
+
+  let gosterilen = tum;
+  if (filtre === 'aktif') gosterilen = tum.filter(s => s.durum === 'acik' || s.durum === 'bekleniyor');
+  else if (filtre)        gosterilen = tum.filter(s => s.durum === filtre);
+
+  sayac.textContent = `${gosterilen.length} / ${tum.length} soru`;
+
+  if (gosterilen.length === 0) {
+    liste.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text3);font-size:13px">
+      ${tum.length === 0 ? 'Henüz soru yok. Bir analiz çalıştırdıktan sonra "Tara" butonuna basın.' : 'Bu filtreyle eşleşen soru yok.'}
+    </div>`;
+    return;
+  }
+
+  // Önceliğe göre sırala: kritik → yüksek → diğer
+  const oncelikSira = (o) => {
+    const O = String(o || '').toLowerCase();
+    if (O.startsWith('kritik')) return 0;
+    if (O.startsWith('yüks') || O.startsWith('yuks')) return 1;
+    if (O.startsWith('orta')) return 2;
+    return 3;
+  };
+  gosterilen.sort((a, b) => oncelikSira(a.oncelik) - oncelikSira(b.oncelik));
+
+  liste.innerHTML = gosterilen.map(s => _soruKart(s)).join('');
+}
+
+function _soruKart(s) {
+  const dur = s.durum || 'acik';
+  const cevapBlok = (dur === 'cevaplandi' && s.cevap)
+    ? `<div class="soru-mevcut-cevap"><strong>Cevap:</strong> ${escHtml(s.cevap)}</div>`
+    : (dur === 'varsayim' && s.varsayim)
+      ? `<div class="soru-mevcut-cevap varsayim"><strong>Varsayım:</strong> ${escHtml(s.varsayim)}</div>`
+      : '';
+
+  const detayParca = [];
+  if (s.bagli_id)       detayParca.push(`<div><strong>Bağlı ID:</strong> ${escHtml(s.bagli_id)}</div>`);
+  if (s.mevcut_durum)   detayParca.push(`<div><strong>Mevcut:</strong> ${escHtml(s.mevcut_durum)}</div>`);
+  if (s.beklenen_yanit) detayParca.push(`<div><strong>Beklenen:</strong> ${escHtml(s.beklenen_yanit)}</div>`);
+  if (s.sorumlu)        detayParca.push(`<div><strong>Sorumlu:</strong> ${escHtml(s.sorumlu)}</div>`);
+  if (s.etki)           detayParca.push(`<div><strong>Etki:</strong> ${escHtml(s.etki)}</div>`);
+  if (s.kaynak_dosya)   detayParca.push(`<div><strong>Kaynak:</strong> ${escHtml(s.kaynak_dosya)}</div>`);
+
+  return `<div class="soru-kart ${dur}" data-id="${escHtml(s.id)}" data-kaynak="${escHtml(s.kaynak_dosya)}">
+    <div class="soru-kart-baslik">
+      <span class="soru-id">${escHtml(s.id)}</span>
+      ${_oncelikRozet(s.oncelik)}
+      ${_katmanRozet(s.katman)}
+      <span class="soru-baslik-txt">${escHtml(s.baslik || s.soru || '')}</span>
+      <span class="soru-durum ${dur}">${_DURUM_LBL[dur] || dur}</span>
+    </div>
+    ${s.soru ? `<div class="soru-kart-soru">${escHtml(s.soru)}</div>` : ''}
+    ${detayParca.length ? `<details class="soru-kart-detay"><summary>Detay</summary>${detayParca.join('')}</details>` : ''}
+    ${cevapBlok}
+    <div class="soru-kart-aksiyon">
+      <button onclick="soruCevapla(this)" class="${dur==='cevaplandi'?'aktif':''}">✏ Cevapla</button>
+      <button onclick="soruVarsayim(this)" class="${dur==='varsayim'?'aktif':''}">🤖 Varsayım</button>
+      <button onclick="soruDurumDegistir(this,'bekleniyor')" class="${dur==='bekleniyor'?'aktif':''}">⏸ Beklet</button>
+      <button onclick="soruDurumDegistir(this,'atlandi')" class="${dur==='atlandi'?'aktif':''}">🗑 Atla</button>
+      <button onclick="soruDurumDegistir(this,'acik')" class="${dur==='acik'?'aktif':''}">↻ Aç</button>
+    </div>
+    <div class="soru-cevap-form" style="display:none">
+      <textarea placeholder="Cevabınızı yazın..."></textarea>
+      <div class="ai-not"></div>
+      <div class="form-aksiyon">
+        <button class="btn btn-primary btn-sm" onclick="soruCevapKaydet(this)">Kaydet</button>
+        <button class="btn btn-outline btn-sm" onclick="soruCevapIptal(this)">İptal</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _soruKartBilgi(buton) {
+  const kart = buton.closest('.soru-kart');
+  return {
+    kart,
+    id: kart.dataset.id,
+    kaynak: kart.dataset.kaynak,
+    form: kart.querySelector('.soru-cevap-form'),
+    textarea: kart.querySelector('.soru-cevap-form textarea'),
+    aiNot: kart.querySelector('.soru-cevap-form .ai-not'),
+  };
+}
+
+function soruCevapla(buton) {
+  const {kart, form, textarea, aiNot} = _soruKartBilgi(buton);
+  form.style.display = 'block';
+  aiNot.textContent = 'Cevap yazıldıktan sonra "Cevapları uygula" butonu ile etkilenen bölümleri yeniden ürettirebilirsiniz (Adım 3 — refine).';
+  // Mevcut cevap varsa textarea'ya doldur
+  const sorular = _sorularCache.sorular || [];
+  const s = sorular.find(x => x.id === kart.dataset.id && x.kaynak_dosya === kart.dataset.kaynak);
+  if (s && s.cevap) textarea.value = s.cevap;
+  textarea.focus();
+  // Diğer kartların formlarını kapat
+  document.querySelectorAll('.soru-cevap-form').forEach(f => { if (f !== form) f.style.display = 'none'; });
+}
+
+function soruVarsayim(buton) {
+  const {form, textarea, aiNot} = _soruKartBilgi(buton);
+  form.style.display = 'block';
+  textarea.placeholder = 'AI varsayımı buraya yazın veya boş bırakın (otomatik üretim için Adım 3 gelecek)...';
+  aiNot.innerHTML = '<strong>Varsayım modu:</strong> Bu soruya yazılan değer "VARSAYIM" olarak işaretlenir; ana metinde <code>⚠ VARSAYIM</code> etiketiyle gösterilir.';
+  textarea.focus();
+  textarea.dataset.mod = 'varsayim';
+}
+
+async function soruCevapKaydet(buton) {
+  const {kart, textarea} = _soruKartBilgi(buton);
+  const mod = textarea.dataset.mod || 'cevap';
+  const metin = textarea.value.trim();
+  if (!metin) { toast('Lütfen bir metin girin', 'error'); return; }
+
+  const body = {
+    kaynak_dosya: kart.dataset.kaynak,
+    durum: mod === 'varsayim' ? 'varsayim' : 'cevaplandi',
+  };
+  if (mod === 'varsayim') body.varsayim = metin;
+  else body.cevap = metin;
+
+  buton.disabled = true;
+  try {
+    const r = await fetch(`/api/sorular/${encodeURIComponent(kart.dataset.id)}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error, 'error'); return; }
+    toast(mod === 'varsayim' ? 'Varsayım kaydedildi' : 'Cevap kaydedildi', 'success');
+    await sorularYukleVeListele();
+  } finally { buton.disabled = false; }
+}
+
+function soruCevapIptal(buton) {
+  const {form, textarea} = _soruKartBilgi(buton);
+  form.style.display = 'none';
+  textarea.value = '';
+  delete textarea.dataset.mod;
+}
+
+async function soruDurumDegistir(buton, yeniDurum) {
+  const {kart} = _soruKartBilgi(buton);
+  buton.disabled = true;
+  try {
+    const r = await fetch(`/api/sorular/${encodeURIComponent(kart.dataset.id)}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ kaynak_dosya: kart.dataset.kaynak, durum: yeniDurum })
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error, 'error'); return; }
+    await sorularYukleVeListele();
+  } finally { buton.disabled = false; }
+}
+
+async function sorularPaylasimAc() {
+  const r = await fetch('/api/sorular/paylasim');
+  const d = await r.json();
+  document.getElementById('sorular-paylasim-metin').value = d.metin || '';
+  document.getElementById('soru-paylasim-modal').classList.add('visible');
+}
+
+function sorularPaylasimKapat() {
+  document.getElementById('soru-paylasim-modal').classList.remove('visible');
+}
+
+async function sorularPaylasimKopyala(buton) {
+  const t = document.getElementById('sorular-paylasim-metin').value;
+  try {
+    await navigator.clipboard.writeText(t);
+    const eski = buton.textContent;
+    buton.textContent = '✓ Kopyalandı';
+    setTimeout(() => { buton.textContent = eski; }, 1500);
+  } catch {
+    document.getElementById('sorular-paylasim-metin').select();
+    toast('Cmd+C ile kopyalayın', 'info');
+  }
+}
+
+// Çıktılar sekmesi açıldığında soruları otomatik tara (sayfa yüklendiğinde de)
+async function sorularDefteriYenile() {
+  try {
+    const r = await fetch('/api/sorular?parse=true');
+    const d = await r.json();
+    if (d.ok) {
+      _sorularCache = d;
+      sorularBannerGuncelle();
+    }
+  } catch {}
 }
 
 // ─── HTML Prototip ────────────────────────────────────────────────────────────
