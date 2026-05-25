@@ -753,6 +753,45 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 .soru-mevcut-cevap.varsayim { background: rgba(147,112,219,.08); border-color: #b89cf0; }
 .soru-mevcut-cevap strong { color: var(--text); }
 
+/* ── Kalite Skoru ──────────────────────────────────────────────── */
+.skor-rozet {
+  display: inline-block; padding: 1px 7px; border-radius: 10px;
+  font-size: 10.5px; font-weight: 700; margin-left: 6px; line-height: 1.4;
+  cursor: pointer; vertical-align: middle;
+}
+.skor-rozet.yesil    { background: rgba(34,197,94,.18);  color: var(--green); }
+.skor-rozet.sari     { background: rgba(234,179,8,.20);  color: #854d0e; }
+.skor-rozet.turuncu  { background: rgba(249,115,22,.20); color: #9a3412; }
+.skor-rozet.kirmizi  { background: rgba(239,68,68,.18);  color: var(--red); }
+.skor-rozet.loading  { background: var(--surface2); color: var(--text3); }
+
+.skor-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 16px; margin: 8px 0 14px;
+  display: none;
+}
+.skor-panel.visible { display: block; }
+.skor-panel-baslik {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.skor-panel-baslik .buyuk-skor { font-size: 26px; font-weight: 700; line-height: 1; }
+.skor-panel-baslik .yesil   { color: var(--green); }
+.skor-panel-baslik .sari    { color: #b45309; }
+.skor-panel-baslik .turuncu { color: #c2410c; }
+.skor-panel-baslik .kirmizi { color: var(--red); }
+.skor-panel-baslik .aciklama { flex: 1; font-size: 12px; color: var(--text2); }
+.skor-sorun-listesi { list-style: none; padding: 0; margin: 0; }
+.skor-sorun-listesi li {
+  padding: 7px 10px; margin: 5px 0; background: var(--surface2);
+  border-left: 3px solid var(--text3); border-radius: 3px;
+  font-size: 12px; color: var(--text2);
+}
+.skor-sorun-listesi li.cezahigh { border-left-color: var(--red); }
+.skor-sorun-listesi li.cezamid  { border-left-color: var(--yellow); }
+.skor-sorun-listesi li b { color: var(--text); }
+.skor-sorun-listesi li .ceza { float: right; font-family: 'Geist Mono', monospace; color: var(--red); font-weight: 700; }
+
 .soru-paylasim-modal {
   display: none; position: fixed; inset: 0; background: rgba(8,11,18,.78);
   backdrop-filter: blur(6px); z-index: 9000; align-items: center; justify-content: center; padding: 28px;
@@ -1943,6 +1982,17 @@ function temaDegistir() {
         </div>
       </div>
 
+      <!-- Kalite skoru detay paneli -->
+      <div class="skor-panel" id="skor-panel">
+        <div class="skor-panel-baslik">
+          <div class="buyuk-skor" id="skor-buyuk">—</div>
+          <div class="aciklama" id="skor-aciklama"></div>
+          <button class="btn btn-outline btn-xs" onclick="skorPaneliKapat()">Kapat</button>
+          <button class="btn btn-primary btn-xs" id="skor-duzelt-btn" onclick="skorDuzelt()" style="display:none">✨ AI ile Düzelt</button>
+        </div>
+        <ul class="skor-sorun-listesi" id="skor-sorun-listesi"></ul>
+      </div>
+
       <!-- Soru defteri banner — tüm çıktıların üstünde -->
       <div class="sorular-banner" id="sorular-banner" style="display:none" onclick="sorularSekmesineGec()">
         <span class="b-emoji">📋</span>
@@ -2555,7 +2605,7 @@ function switchTab(tab) {
   const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   if (tab === 'history')       loadHistory();
-  if (tab === 'output')        { refreshOutputTabs(); sorularDefteriYenile(); }
+  if (tab === 'output')        { refreshOutputTabs(); sorularDefteriYenile(); skorTumYukle(); }
   if (tab === 'ui-code')       loadUiFiles();
   if (tab === 'settings')      settingsYukle();
   if (tab === 'jira-settings') jiraConfigYukle();
@@ -3035,6 +3085,7 @@ async function outputSec(tab) {
 
   editIptal();
   duzeltPaneliKapat();
+  skorPaneliKapat();
 
   const content      = document.getElementById('output-content');
   const iframe       = document.getElementById('mockup-iframe');
@@ -3421,6 +3472,131 @@ async function jiraHiyerarsiOnayla() {
 
 function jiraModalKapat() {
   document.getElementById('jira-modal').classList.remove('visible');
+}
+
+// ─── Çıktı Kalite Skoru ────────────────────────────────────────────────────
+let _skorCache = {};   // {dosya: skor_yanit}
+let _aktifSkorDosya = null;
+
+function _skorRozetHTML(skor, renk) {
+  return `<span class="skor-rozet ${renk}" onclick="event.stopPropagation();skorPaneliAc('__SELF__')" title="Kalite skoru — detay için tıkla">${skor}</span>`;
+}
+
+async function skorTumYukle() {
+  // Tüm tab'lar için skoru paralel çek
+  const tablar = document.querySelectorAll('.output-tab');
+  await Promise.all(Array.from(tablar).map(async (tab) => {
+    const f = tab.dataset.file;
+    if (!f || f === '__sorular__' || f === 'mockup.html') return;
+    try {
+      const r = await fetch(`/api/cikti/${f}/skor`);
+      const d = await r.json();
+      if (!d.ok) return;
+      _skorCache[f] = d;
+      // Tab başlığına rozet ekle
+      const eskiRozet = tab.querySelector('.skor-rozet');
+      if (eskiRozet) eskiRozet.remove();
+      const rozet = document.createElement('span');
+      rozet.className = `skor-rozet ${d.renk}`;
+      rozet.textContent = d.skor;
+      rozet.title = `Kalite skoru: ${d.skor}/100 — detay için sekmeyi açıp tıkla`;
+      rozet.onclick = (e) => { e.stopPropagation(); skorPaneliAc(f); };
+      tab.appendChild(rozet);
+    } catch {}
+  }));
+}
+
+function skorPaneliAc(dosya) {
+  if (dosya === '__SELF__') dosya = _aktifSkorDosya;
+  const d = _skorCache[dosya];
+  if (!d) return;
+  _aktifSkorDosya = dosya;
+
+  const panel = document.getElementById('skor-panel');
+  document.getElementById('skor-buyuk').textContent = d.skor;
+  document.getElementById('skor-buyuk').className = `buyuk-skor ${d.renk}`;
+
+  const renkAciklama = {
+    yesil: 'Mükemmel — çıktı yayımlanmaya hazır.',
+    sari: 'İyi — küçük iyileştirmeler önerilir.',
+    turuncu: 'Orta — birkaç sorunu gidermek faydalı.',
+    kirmizi: 'Düşük — ciddi sorunlar var, mutlaka düzeltin.',
+  };
+  document.getElementById('skor-aciklama').innerHTML = `<strong>${dosya}</strong> · ${renkAciklama[d.renk] || ''}`;
+
+  const liste = document.getElementById('skor-sorun-listesi');
+  if (!d.sorunlar || !d.sorunlar.length) {
+    liste.innerHTML = '<li style="border-left-color:var(--green)">✓ Bu çıktıda otomatik tespit edilen sorun yok.</li>';
+  } else {
+    liste.innerHTML = d.sorunlar.map(s => {
+      const cezaClass = s.ceza >= 10 ? 'cezahigh' : (s.ceza >= 3 ? 'cezamid' : '');
+      const ornek = s.ornek ? `<br><em style="font-size:11px;color:var(--text3)">Örnek: ${escHtml(String(s.ornek).slice(0, 100))}</em>` : '';
+      return `<li class="${cezaClass}"><span class="ceza">-${s.ceza}</span><b>${s.adet ? s.adet+' × ' : ''}${_skorTipBaslik(s.tip)}</b><br>${escHtml(s.aciklama)}${ornek}</li>`;
+    }).join('');
+  }
+
+  // "AI ile Düzelt" butonu — sadece otomatik düzeltilebilir tipler varsa
+  const duzeltilebilir = (d.sorunlar || []).some(s =>
+    ['belirsiz_iddia','yasak_ifade','kaynaksiz_id','izlenebilirlik_yok','ddl_yok','yaml_yok','is_kirilimi_yok'].includes(s.tip)
+  );
+  document.getElementById('skor-duzelt-btn').style.display = duzeltilebilir ? '' : 'none';
+
+  panel.classList.add('visible');
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function _skorTipBaslik(tip) {
+  const m = {
+    belirsiz_iddia: 'Belirsiz iddia',
+    varsayim: 'Varsayım',
+    acik_soru: 'Açık soru',
+    yasak_ifade: 'Muğlak ifade',
+    kaynaksiz_id: 'Kaynaksız ID',
+    izlenebilirlik_yok: 'İzlenebilirlik Matrisi eksik',
+    ddl_yok: 'DDL bloğu eksik',
+    yaml_yok: 'OpenAPI YAML eksik',
+    is_kirilimi_yok: 'Bölüm 17 İş Kırılımı eksik',
+  };
+  return m[tip] || tip;
+}
+
+function skorPaneliKapat() {
+  document.getElementById('skor-panel').classList.remove('visible');
+}
+
+async function skorDuzelt() {
+  if (!_aktifSkorDosya) return;
+  const btn = document.getElementById('skor-duzelt-btn');
+  const eski = btn.textContent;
+  if (!confirm(`AI ${_aktifSkorDosya} dosyasındaki kalite sorunlarını düzeltmek için Yeniden Çalıştır yapacak. Devam edilsin mi?\n\n(Diğer bölümler değişmez. 30-60 saniye sürer.)`)) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Düzeltiliyor...';
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 180000);
+
+  try {
+    const r = await fetch(`/api/cikti/${_aktifSkorDosya}/skor/duzelt`, {
+      method: 'POST', signal: ctrl.signal,
+      headers: {'Content-Type':'application/json'},
+      body: '{}'
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || 'Düzeltme başarısız', 'error'); return; }
+    toast(`Skor: ${d.onceki_skor} → ${d.yeni_skor}`, d.yeni_skor > d.onceki_skor ? 'success' : 'info');
+    _skorCache[_aktifSkorDosya] = d.yeni_sonuclar;
+    skorPaneliAc(_aktifSkorDosya);
+    await skorTumYukle();
+    // Aktif çıktıyı yenile
+    const aktifTab = document.querySelector('.output-tab.active');
+    if (aktifTab && aktifTab.dataset.file === _aktifSkorDosya) outputSec(aktifTab);
+  } catch(e) {
+    toast(e.name === 'AbortError' ? 'Zaman aşımı' : 'Hata: ' + e.message, 'error');
+  } finally {
+    clearTimeout(tid);
+    btn.disabled = false;
+    btn.textContent = eski;
+  }
 }
 
 // ─── Soru Defteri ─────────────────────────────────────────────────────────────

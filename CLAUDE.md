@@ -34,6 +34,7 @@ skills/                 Asıl iş mantığı; agent.py buradan import eder
   jira_tasks.py         jira_hiyerarsi_uret (preview) + jira_hiyerarsi_olustur (create)
   confluence_yaz.py     md → Confluence Storage Format dönüşümü + yayımlama
   sorular.py            Soru defteri: parse + storage + refine entegrasyonu
+  kalite.py             Çıktı kalite skoru (0-100) + otomatik düzeltme notu
 
 templates/index.html    SPA (~4580 satır) — 4 sekme: Çalıştır / Çıktılar / Referanslar / Ayarlar
 
@@ -226,6 +227,15 @@ POST /api/jira/test            Bağlantı testi
 POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
 POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
 ```
+
+### Çıktı Kalite Skoru (skills/kalite.py)
+```
+GET  /api/cikti/<dosya>/skor          0-100 skor + sorun listesi + metrikler
+POST /api/cikti/<dosya>/skor/duzelt   Sorunları otomatik AI ile düzelt
+```
+Skor renkleri: yeşil 90+ · sarı 75-89 · turuncu 60-74 · kırmızı <60
+Tespitler: belirsiz iddia, varsayım, açık soru, yasak ifade, kaynaksız ID,
+izlenebilirlik/DDL/YAML/Bölüm 17 eksiklikleri.
 
 ### Soru Defteri (skills/sorular.py)
 ```
