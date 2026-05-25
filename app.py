@@ -1412,6 +1412,74 @@ def soru_sil_endpoint(soru_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/sorular/uygula", methods=["POST"])
+def sorular_uygula():
+    """Cevaplanmış/varsayım sorularını refine ile ilgili analize işler.
+
+    Body: {"zorla": false}  → True ise zaten uygulanmış olanları da tekrar uygular.
+    Her kaynak_dosya için ayrı refine çağrısı yapılır (atomik değil — birinde hata
+    olursa diğerleri devam eder; sonuç listesi durumu gösterir).
+    """
+    import workflow as wf
+    from skills.sorular import (
+        uygulanacak_sorular, duzeltme_notu_olustur, uygulandi_isaretle,
+        parse_ve_birlestir,
+    )
+    from skills.base import yeniden_calistir
+
+    if wf.ozet()["calisiyor"]:
+        return jsonify({"ok": False, "error": "Başka bir analiz çalışıyor. Bitince tekrar deneyin."}), 409
+
+    payload = request.get_json(silent=True) or {}
+    zorla = bool(payload.get("zorla", False))
+
+    gruplar = uygulanacak_sorular(zorla=zorla)
+    if not gruplar:
+        return jsonify({
+            "ok": True,
+            "mesaj": "Uygulanacak yeni cevap/varsayım yok.",
+            "sonuclar": [],
+        })
+
+    sonuclar = []
+    for kaynak, sorular in gruplar.items():
+        # Sadece bilinen analiz dosyalarına refine uygula
+        if kaynak not in IZIN_VERILEN_CIKTILAR:
+            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Bilinmeyen dosya, atlandı"})
+            continue
+        if not (OUTPUT_DIR / kaynak).exists():
+            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Dosya bulunamadı"})
+            continue
+        try:
+            not_metni = duzeltme_notu_olustur(sorular)
+            yeniden_calistir(kaynak, not_metni)
+            for s in sorular:
+                uygulandi_isaretle(s["id"], kaynak)
+            sonuclar.append({
+                "kaynak_dosya": kaynak,
+                "ok": True,
+                "uygulanan_sayi": len(sorular),
+                "uygulanan_ids": [s["id"] for s in sorular],
+            })
+            logger.info("Sorular uygulandı: %s — %d soru", kaynak, len(sorular))
+        except Exception as e:
+            logger.error("Refine hatası (%s): %s", kaynak, e)
+            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": str(e)})
+
+    # Soruları yeniden tara — AI çıktıyı değiştirdi, parser güncel veriyi alsın
+    try:
+        parse_ve_birlestir()
+    except Exception:
+        pass
+
+    basari_sayisi = sum(1 for s in sonuclar if s["ok"])
+    return jsonify({
+        "ok": basari_sayisi > 0,
+        "mesaj": f"{basari_sayisi}/{len(sonuclar)} dosya güncellendi",
+        "sonuclar": sonuclar,
+    })
+
+
 @app.route("/api/sorular/paylasim", methods=["GET"])
 def sorular_paylasim():
     """Bekleyen/açık soruları kopyala-yapıştır için düz metin döndürür."""

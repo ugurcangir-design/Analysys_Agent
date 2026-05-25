@@ -236,11 +236,14 @@ def istatistik_hesapla(sorular: list[dict]) -> dict:
     """Banner için özet sayılar."""
     sayilar = {d: 0 for d in DURUM_DEGERLERI}
     kritik_acik = 0
+    uygulanmamis = 0
     for s in sorular:
         d = s.get("durum", "acik")
         sayilar[d] = sayilar.get(d, 0) + 1
         if d in ("acik", "bekleniyor") and (s.get("oncelik") or "").lower().startswith("kritik"):
             kritik_acik += 1
+        if d in ("cevaplandi", "varsayim") and not s.get("uygulandi_at"):
+            uygulanmamis += 1
     return {
         "toplam": len(sorular),
         "acik": sayilar["acik"],
@@ -249,7 +252,76 @@ def istatistik_hesapla(sorular: list[dict]) -> dict:
         "atlandi": sayilar["atlandi"],
         "varsayim": sayilar["varsayim"],
         "kritik_acik": kritik_acik,
+        "uygulanmamis": uygulanmamis,
     }
+
+
+# ─── Refine Entegrasyonu ──────────────────────────────────────────────────────
+
+def uygulanacak_sorular(zorla: bool = False) -> dict[str, list[dict]]:
+    """Cevap/varsayım girilmiş ama analize henüz işlenmemiş soruları döndürür.
+
+    Args:
+        zorla: True ise zaten uygulanmış olanları da dahil eder (yeniden uygulama)
+
+    Returns:
+        {kaynak_dosya: [sorular]} formatında gruplandırılmış liste
+    """
+    data = sorular_yukle()
+    sonuc: dict[str, list[dict]] = {}
+    for s in data.get("sorular", []):
+        if s.get("durum") not in ("cevaplandi", "varsayim"):
+            continue
+        if not zorla and s.get("uygulandi_at"):
+            continue
+        kaynak = s.get("kaynak_dosya", "")
+        if not kaynak:
+            continue
+        sonuc.setdefault(kaynak, []).append(s)
+    return sonuc
+
+
+def duzeltme_notu_olustur(sorular: list[dict]) -> str:
+    """Bir dosyaya ait cevaplanmış soruları refine için düzeltme notuna çevirir."""
+    parcalar = [
+        "Aşağıdaki açık sorulara analist cevap verdi. Bu cevapları analize işle:",
+        "",
+        "**Kurallar:**",
+        "- CEVAP verilmiş soru: ilgili belirsizliği gideren bilgiyi ana metnin "
+        "doğru yerine yerleştir (örn. tablo satırı, kural detayı). Soruyu "
+        '"Açık Sorular" bölümünden KALDIR.',
+        "- VARSAYIM verilmiş soru: bilgiyi ana metne yerleştirirken başına "
+        "`⚠ VARSAYIM:` etiketi ekle. Soruyu açık sorularda BIRAK ve durumunu "
+        '"varsayım yapıldı, onaylanması gerekir" notuyla işaretle.',
+        "- Cevabın etkilemediği diğer bölümleri DEĞİŞTİRME.",
+        "- Cevap kaynak gerektiriyorsa `[K: Analist cevabı]` etiketi kullan.",
+        "",
+        "**Cevaplar:**",
+        "",
+    ]
+    for s in sorular:
+        tip = "VARSAYIM" if s.get("durum") == "varsayim" else "CEVAP"
+        icerik = s.get("varsayim") if s.get("durum") == "varsayim" else s.get("cevap")
+        parcalar.append(f"### [{s['id']}] ({tip})")
+        if s.get("baslik"):
+            parcalar.append(f"**Konu:** {s['baslik']}")
+        if s.get("bagli_id"):
+            parcalar.append(f"**Bağlı ID:** {s['bagli_id']}")
+        if s.get("soru"):
+            parcalar.append(f"**Orijinal soru:** {s['soru']}")
+        parcalar.append(f"**{tip}:** {icerik or '(boş)'}")
+        parcalar.append("")
+    return "\n".join(parcalar)
+
+
+def uygulandi_isaretle(soru_id: str, kaynak_dosya: str) -> None:
+    """Bir sorunun refine'a uygulandığını işaretler (uygulandi_at timestamp)."""
+    data = sorular_yukle()
+    for s in data.get("sorular", []):
+        if s.get("id") == soru_id and s.get("kaynak_dosya") == kaynak_dosya:
+            s["uygulandi_at"] = datetime.now().isoformat(timespec="seconds")
+    data["istatistik"] = istatistik_hesapla(data.get("sorular", []))
+    sorular_kaydet(data)
 
 
 # ─── Dış Paylaşım Formatı ─────────────────────────────────────────────────────

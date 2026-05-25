@@ -2045,6 +2045,9 @@ function temaDegistir() {
             <button class="btn btn-outline btn-sm" onclick="sorularPaylasimAc()" title="Bekleyen soruları metin olarak dışa aktar">
               <svg class="ico"><use href="#i-download"/></svg> Paylaş
             </button>
+            <button class="btn btn-primary btn-sm" id="btn-cevaplari-uygula" onclick="sorularUygula()" style="display:none" title="Yazılan cevap/varsayımları analiz dosyalarına işle">
+              <svg class="ico"><use href="#i-play"/></svg> Cevapları Uygula <span id="btn-uygula-sayac" style="background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-size:11px"></span>
+            </button>
             <span class="sayac" id="sorular-sayac"></span>
           </div>
           <div id="sorular-liste"></div>
@@ -3453,16 +3456,26 @@ function sorularBannerGuncelle() {
   const rozet  = document.getElementById('soru-tab-rozet');
   const ist    = _sorularCache.istatistik || {};
 
+  // "Uygula" butonu: uygulanmamış cevap/varsayım varsa görünür
+  const uygulaBtn   = document.getElementById('btn-cevaplari-uygula');
+  const uygulaSayac = document.getElementById('btn-uygula-sayac');
+  if (uygulaBtn) {
+    const uygulanmamis = ist.uygulanmamis || 0;
+    uygulaBtn.style.display = uygulanmamis > 0 ? '' : 'none';
+    if (uygulaSayac) uygulaSayac.textContent = uygulanmamis;
+  }
+
   const aktif = (ist.acik || 0) + (ist.bekleniyor || 0);
-  if (aktif === 0 && (ist.varsayim || 0) === 0) {
+  if (aktif === 0 && (ist.varsayim || 0) === 0 && (ist.uygulanmamis || 0) === 0) {
     banner.style.display = 'none';
     rozet.style.display = 'none';
     return;
   }
   const parcalar = [];
-  if (ist.acik)       parcalar.push(`${ist.acik} açık`);
-  if (ist.bekleniyor) parcalar.push(`${ist.bekleniyor} bekleyen`);
-  if (ist.varsayim)   parcalar.push(`${ist.varsayim} varsayım`);
+  if (ist.acik)        parcalar.push(`${ist.acik} açık`);
+  if (ist.bekleniyor)  parcalar.push(`${ist.bekleniyor} bekleyen`);
+  if (ist.varsayim)    parcalar.push(`${ist.varsayim} varsayım`);
+  if (ist.uygulanmamis) parcalar.push(`${ist.uygulanmamis} işlenmemiş cevap`);
   metin.textContent = parcalar.join(' · ');
 
   banner.classList.toggle('kritik', (ist.kritik_acik || 0) > 0);
@@ -3656,6 +3669,57 @@ async function soruDurumDegistir(buton, yeniDurum) {
     if (!d.ok) { toast(d.error, 'error'); return; }
     await sorularYukleVeListele();
   } finally { buton.disabled = false; }
+}
+
+async function sorularUygula() {
+  const btn = document.getElementById('btn-cevaplari-uygula');
+  const sayi = parseInt(document.getElementById('btn-uygula-sayac').textContent || '0', 10);
+  if (!sayi) { toast('Uygulanacak cevap yok', 'info'); return; }
+  if (!confirm(
+    `${sayi} adet cevap/varsayım analiz dosyalarına işlenecek.\n\n` +
+    `AI etkilenen bölümleri yeniden üretecek. Bu işlem 30-90 saniye sürebilir. ` +
+    `Devam edilsin mi?`
+  )) return;
+
+  btn.disabled = true;
+  const eskiMetin = btn.innerHTML;
+  btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor...';
+
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 240000);  // 4 dk
+
+  try {
+    const r = await fetch('/api/sorular/uygula', {
+      method: 'POST', signal: ctrl.signal,
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({})
+    });
+    const d = await r.json();
+    const basariliSayisi = (d.sonuclar || []).filter(s => s.ok).length;
+    if (d.ok) {
+      const detay = (d.sonuclar || []).map(s =>
+        s.ok ? `  ✓ ${s.kaynak_dosya} (${s.uygulanan_sayi} soru)`
+             : `  ✗ ${s.kaynak_dosya}: ${s.error}`
+      ).join('\n');
+      toast(d.mesaj, basariliSayisi === (d.sonuclar || []).length ? 'success' : 'info');
+      console.log('Sorular uygulandı:\n' + detay);
+      // Çıktı sekmesini yenile (içerik değişti) + soruları yeniden tara
+      await sorularYukleVeListele();
+      // Aktif outputu görüntülüyorsak yenile
+      const aktifTab = document.querySelector('.output-tab.active');
+      if (aktifTab && aktifTab.dataset.file !== '__sorular__') {
+        outputSec(aktifTab);
+      }
+    } else {
+      toast('Uygulama başarısız: ' + (d.error || d.mesaj || ''), 'error');
+    }
+  } catch (e) {
+    toast(e.name === 'AbortError' ? 'Zaman aşımı (4 dk)' : ('Hata: ' + e.message), 'error');
+  } finally {
+    clearTimeout(tid);
+    btn.disabled = false;
+    btn.innerHTML = eskiMetin;
+  }
 }
 
 async function sorularPaylasimAc() {

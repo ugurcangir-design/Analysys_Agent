@@ -33,6 +33,7 @@ skills/                 Asıl iş mantığı; agent.py buradan import eder
   html_mockup.py        HTML prototip üretimi + mockup_oku_kontekst
   jira_tasks.py         jira_hiyerarsi_uret (preview) + jira_hiyerarsi_olustur (create)
   confluence_yaz.py     md → Confluence Storage Format dönüşümü + yayımlama
+  sorular.py            Soru defteri: parse + storage + refine entegrasyonu
 
 templates/index.html    SPA (~4580 satır) — 4 sekme: Çalıştır / Çıktılar / Referanslar / Ayarlar
 
@@ -62,7 +63,7 @@ KILAVUZ.html            Ekip için kurulum + kullanım kılavuzu (self-contained
 surec-analizi.md           teknik-analiz.md           acik-sorular.md
 brd-analizi.md             brd-sorular.md
 kapsam-analizi.md          alternatif-surecler.md
-mockup.html                workflow-state.json
+mockup.html                workflow-state.json        sorular.json
 ```
 Yeni output dosyası eklenince `app.py`'deki `IZIN_VERILEN_CIKTILAR` set'ine de ekle.
 
@@ -225,6 +226,18 @@ POST /api/jira/test            Bağlantı testi
 POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
 POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
 ```
+
+### Soru Defteri (skills/sorular.py)
+```
+GET    /api/sorular[?parse=true]      Soru defteri + istatistik
+POST   /api/sorular/parse              Çıktılardan soruları yeniden tara
+POST   /api/sorular/<id>               Durum/cevap/varsayım güncelle
+DELETE /api/sorular/<id>?kaynak_dosya  Soruyu defterden sil
+POST   /api/sorular/uygula             Cevapları refine ile analize işle
+GET    /api/sorular/paylasim           Bekleyen soruları metin export
+```
+Durumlar: `acik / bekleniyor / cevaplandi / atlandi / varsayim`
+Kalıcı veri: `output/sorular.json` (atomik yazım)
 
 ### Confluence + diğer
 ```
