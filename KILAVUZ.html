@@ -172,7 +172,7 @@
   <aside>
     <div class="brand">Analyst Studio</div>
     <div class="brand-sub">Kullanıcı Kılavuzu</div>
-    <div class="ver">v2026.05 · 77 endpoint · 15 prompt · ekipçe</div>
+    <div class="ver">v2026.05 · 79 endpoint · 15 prompt · ekipçe</div>
     <nav>
       <a href="#bakis"     class="h1">1. Genel Bakış</a>
       <a href="#hizli"     class="h1">2. Hızlı Başlangıç</a>
@@ -270,7 +270,7 @@
       <ol>
         <li><strong>Klonla:</strong> <code>git clone https://github.com/ugurcangir-design/Analysys_Agent.git brd-analyst-agent</code></li>
         <li><strong>Kur:</strong> <code>cd brd-analyst-agent && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt</code></li>
-        <li><strong>.env oluştur:</strong> <code>echo "ANTHROPIC_API_KEY=sk-ant-..." > .env && chmod 600 .env</code></li>
+        <li><strong>.env oluştur:</strong> <code>echo "USE_CLAUDE_CLI=true" > .env && chmod 600 .env</code> <em>(CLI modu önerilir — abonelik kapsamında, ücretsiz)</em></li>
         <li><strong>Çalıştır:</strong> <code>python app.py</code> → tarayıcıda <code>http://localhost:5002</code></li>
         <li><strong>Bir doküman yükle</strong> (Çalıştır sekmesi) → <strong>Süreç Analizi</strong> butonuna bas. İlk çıktı ~60 saniyede gelir.</li>
       </ol>
@@ -334,25 +334,39 @@ pip install -r requirements.txt</code></pre>
       </p>
     </div>
 
-    <h3 id="k-env">3.5 .env dosyası — API anahtarı <span class="meta">⏱ 2 dk</span></h3>
+    <h3 id="k-env">3.5 .env dosyası — Claude erişimi <span class="meta">⏱ 2 dk</span></h3>
     <div class="step">
       <div class="num">4</div>
-      <h4>Anthropic API anahtarını .env'e yaz</h4>
+      <h4>Uygulamayı AI'a bağla — iki seçenek</h4>
+      <p>Analyst Studio AI çağrılarını iki şekilde yapabilir. <strong>CLI modu önerilir</strong> — abonelik kapsamında, per-token ücret yok.</p>
+
+      <h4 style="margin-top:14px">Seçenek A — Claude CLI (önerilir) <span class="pill new">Varsayılan</span></h4>
+      <p>Mevcut Claude.ai (Max/Pro) aboneliğinizi kullanır. Önce <code>claude</code> CLI kurulu olmalı (<code>npm install -g @anthropic-ai/claude-code</code>); sonra giriş: <code>claude</code>.</p>
 <pre><code>cat &gt; .env &lt;&lt;'EOF'
-ANTHROPIC_API_KEY=sk-ant-api03-XXXX...    # kendi anahtarınız
+USE_CLAUDE_CLI=true
 EOF
 chmod 600 .env</code></pre>
-      <div class="box err">
-        <strong>Güvenlik</strong>
-        <code>.env</code> dosyası <strong>asla</strong> git'e commit edilmez —
-        <code>.gitignore</code> tarafından dışlanır. Dosya izni 0600
-        (sadece sahip okuyabilir) tutulur.
+      <div class="box tip">
+        <strong>CLI modunun avantajları</strong>
+        <ul style="margin:6px 0 0 0">
+          <li>Analiz başına <strong>ek ücret yok</strong> — Max/Pro planınıza dahil</li>
+          <li>API anahtarı yönetmiyorsunuz — Claude.ai oturumu yeter</li>
+          <li>Sınır: Claude.ai planınızın <strong>hız limiti</strong> (saat/gün başına çağrı)</li>
+        </ul>
       </div>
-      <div class="box info">
-        <strong>API anahtarını nereden alırım?</strong>
-        <a href="https://console.anthropic.com">console.anthropic.com</a> →
-        <em>Settings</em> → <em>API Keys</em> → <em>Create Key</em>.
-        Anahtar <code>sk-ant-...</code> ile başlar.
+
+      <h4 style="margin-top:14px">Seçenek B — Anthropic API (per-token ücret)</h4>
+      <p>Doğrudan Anthropic API'sini kullanır — kurumsal hesapla veya kişisel API key ile. Her çağrı için token bazlı ücretlendirme.</p>
+<pre><code>cat &gt; .env &lt;&lt;'EOF'
+ANTHROPIC_API_KEY=sk-ant-api03-XXXX...    # console.anthropic.com'dan alın
+EOF
+chmod 600 .env</code></pre>
+      <p><em>Anahtar nasıl alınır:</em> <a href="https://console.anthropic.com">console.anthropic.com</a> → Settings → API Keys → Create Key. Anahtar <code>sk-ant-...</code> ile başlar.</p>
+
+      <div class="box err">
+        <strong>Güvenlik (her iki seçenek için)</strong>
+        <code>.env</code> dosyası <strong>asla</strong> git'e commit edilmez —
+        <code>.gitignore</code> tarafından dışlanır. Dosya izni 0600.
       </div>
       <p><em>Jira / Confluence anahtarları arayüzden eklenecek (Adım 4.2). Şimdilik bu kadarı yeterli.</em></p>
       <div class="box info">
@@ -1135,12 +1149,20 @@ pip install -r requirements.txt   # gerekirse</code></pre>
         <td><code>lsof -i :5002</code> → eski süreç var → <code>kill PID</code></td>
       </tr>
       <tr>
-        <td>"ANTHROPIC_API_KEY yok"</td>
-        <td><code>.env</code> dosyasını kontrol et; anahtar <code>sk-ant-</code> ile başlamalı; dosya izni <code>chmod 600 .env</code></td>
+        <td>"ANTHROPIC_API_KEY yok" (API modu)</td>
+        <td>Ya <code>.env</code>'e <code>ANTHROPIC_API_KEY=sk-ant-...</code> ekleyin, ya da CLI moduna geçin: <code>USE_CLAUDE_CLI=true</code></td>
       </tr>
       <tr>
-        <td>Rate limit (429)</td>
-        <td>Uygulama otomatik tekrar dener (3 kez); sürekli alıyorsanız Anthropic plan limitinizi kontrol edin</td>
+        <td>"claude komutu PATH'te bulunamadı" (CLI modu)</td>
+        <td>Claude CLI kurulu değil. <code>npm install -g @anthropic-ai/claude-code</code> → sonra <code>claude</code> ile giriş yapın</td>
+      </tr>
+      <tr>
+        <td>"claude CLI boş yanıt döndürdü"</td>
+        <td>Claude.ai oturumu süresi dolmuş olabilir. Terminal'de <code>claude</code> çalıştırıp tekrar giriş yapın</td>
+      </tr>
+      <tr>
+        <td>Rate limit / "abonelik sınırı"</td>
+        <td>API modunda: uygulama 3 kez otomatik tekrar dener (4s, 8s, 16s). CLI modunda: Claude.ai planınızın saatlik/günlük limiti. Beklemek gerekir</td>
       </tr>
       <tr>
         <td>Jira "401 Unauthorized"</td>
@@ -1208,7 +1230,12 @@ pip install -r requirements.txt   # gerekirse</code></pre>
     <p>Hayır. Tüm dokümanlar ve çıktılar yerel makinanızda kalır. Sadece Claude API çağrıları için içerik Anthropic'e gönderilir (Anthropic veri saklama politikası geçerlidir).</p>
 
     <h4>Aynı dokümanı tekrar tekrar çalıştırırsam maliyet ne olur?</h4>
-    <p>Prompt caching sayesinde referans bağlam ve sistem promptu önbelleğe alınır; 5 dakika içindeki tekrar çağrılarda token maliyeti ~%90 düşer. Yine de gereksiz tekrar çalıştırmayın — her tam tur ortalama 30K-50K input + 8K-16K output token'dır.</p>
+    <p><strong>Bu sorunun cevabı kullandığınız moda göre değişir:</strong></p>
+    <ul>
+      <li><strong>Claude CLI modu</strong> (önerilen, <code>USE_CLAUDE_CLI=true</code>): Analiz başına ek ücret yok — Claude.ai abonelik planınıza dahil. Tek sınır: planınızın hız limiti (saat/gün başına çağrı sayısı).</li>
+      <li><strong>Anthropic API modu</strong> (<code>ANTHROPIC_API_KEY</code> kullanırsanız): Token bazlı ücretlendirme — yaklaşık tam tur 30K-50K input + 8K-16K output token. Prompt caching ile referans bağlam ve sistem promptu önbelleğe alınır → 5 dakika içindeki tekrar çağrılarda token maliyeti ~%90 düşer.</li>
+    </ul>
+    <p>Her iki modda da gereksiz tekrar çalıştırmak yerine <strong>Yeniden Çalıştır</strong> + düzeltme notu kullanmak daha verimlidir.</p>
 
     <h4>Hangi modelleri kullanıyor?</h4>
     <p><code>claude-sonnet-4-6</code> tüm analizler için; <code>claude-haiku-4-5</code> Jira görev başlığı üretimi gibi hafif işler için.</p>
@@ -1224,6 +1251,22 @@ pip install -r requirements.txt   # gerekirse</code></pre>
 
     <h4>Çıktıyı bir başkasıyla paylaşmak istiyorum</h4>
     <p>İndir butonu ile <code>.md</code> dosyasını al, e-postayla paylaş. Ya da Confluence'a yayımla, link gönder.</p>
+
+    <h4>Bu küçük "?" işaretleri ne işe yarıyor?</h4>
+    <p>
+      Arayüzdeki gri yuvarlak <code>?</code> ikonları <strong>ipuçlarıdır</strong> —
+      üstüne gelin veya odaklanın, kısa bir açıklama görünür. RAG, FE/BE katman,
+      Kalite skoru, Bağlam Filtresi gibi kavramlar buralarda anlatılıyor.
+      Yeni başladıysanız her ipucunu okumanız önerilir.
+    </p>
+
+    <h4>İlk sekmeyi açtığımda yeşil bir kutu çıktı, ne yapayım?</h4>
+    <p>
+      Bu <strong>onboarding banner</strong>'dır — o sekmenin ne işe yaradığını
+      özetler. Okuyup <strong>×</strong> ile kapatın, bir daha gösterilmez.
+      Tekrar görmek için tarayıcı geliştirici konsolunda
+      <code>_onboardSifirla()</code> komutunu çalıştırın.
+    </p>
 
     <h4>PO/Jira'dan cevap günlerce gelmezse ne yaparım?</h4>
     <p>Soru defterinin amacı tam bu durumlar için. Yapacaklar:</p>
