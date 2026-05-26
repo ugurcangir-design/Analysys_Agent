@@ -669,6 +669,64 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 .jira-node-katman.febe  { background: rgba(234,179,8,.16); color: #e3c04e; }
 .jira-node-katman.genel { background: var(--surface2); color: var(--text3); }
 
+/* ── İpuçları (Tooltip) ───────────────────────────────────────── */
+.ipucu {
+  display: inline-flex; width: 15px; height: 15px;
+  border-radius: 50%; background: var(--surface2);
+  color: var(--text3); font-size: 10px; font-weight: 700;
+  align-items: center; justify-content: center;
+  cursor: help; margin-left: 6px; position: relative;
+  vertical-align: middle; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.ipucu:hover, .ipucu:focus { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ipucu::after {
+  content: attr(data-ipucu);
+  display: none; position: absolute;
+  top: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  background: #1a2330; color: #e5edf5;
+  padding: 9px 13px; border-radius: 5px;
+  font-size: 11.5px; font-weight: 400;
+  white-space: normal; width: 280px;
+  z-index: 1000; line-height: 1.5;
+  text-transform: none; letter-spacing: 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  text-align: left;
+}
+.ipucu::before {
+  content: '';
+  display: none; position: absolute;
+  top: 100%; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #1a2330;
+  z-index: 1001;
+}
+.ipucu:hover::after, .ipucu:focus::after,
+.ipucu:hover::before, .ipucu:focus::before { display: block; }
+/* Sağa hizalı ipucu (sağ kenara yakın elementlerde) */
+.ipucu.sol::after  { left: auto; right: 0; transform: none; }
+.ipucu.sol::before { left: auto; right: 8px; transform: none; }
+
+/* Onboarding banner — bir kez gösterilir */
+.onboard-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 16px; margin: 12px 0;
+  background: linear-gradient(90deg, rgba(45,168,154,.10), rgba(45,168,154,.04));
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  position: relative;
+}
+.onboard-banner .ob-icon { font-size: 22px; line-height: 1; }
+.onboard-banner .ob-icerik { flex: 1; font-size: 13px; color: var(--text); line-height: 1.55; }
+.onboard-banner .ob-icerik b { display: block; color: var(--accent2); margin-bottom: 4px; font-size: 13.5px; }
+.onboard-banner .ob-kapat {
+  position: absolute; top: 8px; right: 10px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 18px; line-height: 1;
+}
+.onboard-banner .ob-kapat:hover { color: var(--text); }
+
 /* ── Soru Defteri ─────────────────────────────────────────────── */
 .sorular-banner {
   display: flex; align-items: center; gap: 10px;
@@ -1815,6 +1873,7 @@ function temaDegistir() {
       <div class="ctx-toggle" id="ctx-toggle" onclick="toggleCtx()">
         <svg class="ico"><use href="#i-filter"/></svg>
         <span class="ctx-toggle-label">Bağlam Filtresi</span>
+        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="AI'a hangi referansları (Confluence, Jira, Swagger) göstermek istediğinizi daraltır. Yüzlerce sayfa yerine sadece projenizle ilgili olanları AI'a verir → daha hızlı ve doğru analiz. Boş bırakırsanız tüm senkronize kaynaklar AI'a verilir.">?</span>
         <span id="ctx-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
         <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
       </div>
@@ -1978,7 +2037,7 @@ function temaDegistir() {
           <button class="output-tab" data-file="kapsam-analizi.md"      onclick="outputSec(this)">Kapsam Analizi</button>
           <button class="output-tab" data-file="alternatif-surecler.md" onclick="outputSec(this)">Alternatif Süreçler</button>
           <button class="output-tab" data-file="mockup.html"            onclick="outputSec(this)">Prototip</button>
-          <button class="output-tab" data-file="__sorular__"            onclick="outputSec(this)">📋 Sorular <span id="soru-tab-rozet" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px"></span></button>
+          <button class="output-tab" data-file="__sorular__"            onclick="outputSec(this)" title="AI'nın ürettiği açık soruları yönet — cevapla, varsayım gir, ertele veya atla">📋 Sorular <span id="soru-tab-rozet" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px"></span></button>
         </div>
       </div>
 
@@ -1987,6 +2046,7 @@ function temaDegistir() {
         <div class="skor-panel-baslik">
           <div class="buyuk-skor" id="skor-buyuk">—</div>
           <div class="aciklama" id="skor-aciklama"></div>
+          <span class="ipucu sol" tabindex="0" data-ipucu="Skor 100'den başlar; AI çıktısındaki sorunlara göre azalır. Belirsiz ifade, kaynaksız iddia, eksik bölüm vb. her biri belli bir ceza puanı düşürür. DÜŞÜK SKOR KÖTÜ ÇIKTI DEĞİLDİR — açık sorular doğal, cevaplar geldikçe yükselir.">?</span>
           <button class="btn btn-outline btn-xs" onclick="skorPaneliKapat()">Kapat</button>
           <button class="btn btn-primary btn-xs" id="skor-duzelt-btn" onclick="skorDuzelt()" style="display:none">✨ AI ile Düzelt</button>
         </div>
@@ -2083,6 +2143,7 @@ function temaDegistir() {
             <button class="btn btn-outline btn-sm" onclick="sorularTara()" title="Çıktıları yeniden tara">
               <svg class="ico"><use href="#i-refresh"/></svg> Tara
             </button>
+            <span class="ipucu" tabindex="0" data-ipucu="AI'nın analizde belirsiz bulduğu konuları soru olarak çıkarır. Her sorunun 5 aksiyonu var: ✏ Cevapla (cevap biliyorsan), 🤖 Varsayım (mantıklı tahmin yeterli), ⏸ Beklet (sonra cevaplayacaksan), 🗑 Atla (gereksiz), ↻ Aç (geri al). Cevap yazdıktan sonra 'Cevapları Uygula' ile analize işlenir.">?</span>
             <select id="sorular-filtre-durum" onchange="sorularListele()">
               <option value="aktif">Aktif (açık + bekleyen)</option>
               <option value="">Tüm durumlar</option>
@@ -2098,6 +2159,7 @@ function temaDegistir() {
             <button class="btn btn-primary btn-sm" id="btn-cevaplari-uygula" onclick="sorularUygula()" style="display:none" title="Yazılan cevap/varsayımları analiz dosyalarına işle">
               <svg class="ico"><use href="#i-play"/></svg> Cevapları Uygula <span id="btn-uygula-sayac" style="background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-size:11px"></span>
             </button>
+            <span class="ipucu" tabindex="0" data-ipucu="Bu buton, yazdığınız cevap/varsayımları AI'a iletip ilgili analiz bölümlerini günceller. AI cevabı ana metne yerleştirir ve soruyu Açık Sorular'dan çıkarır. Diğer bölümler değişmez. Süre: 30-90 sn.">?</span>
             <span class="sayac" id="sorular-sayac"></span>
           </div>
           <div id="sorular-liste"></div>
@@ -2190,6 +2252,12 @@ function temaDegistir() {
           <button class="jira-modal-close" onclick="jiraModalKapat()" title="Kapat">&times;</button>
         </div>
         <div class="jira-modal-sub" id="jira-modal-sub"></div>
+        <div style="padding:8px 18px;background:var(--surface2);font-size:11.5px;color:var(--text2);border-bottom:1px solid var(--border)">
+          💡 <strong>FE / BE rozetleri:</strong>
+          <span class="pill fe" style="margin:0 4px">FE</span> = Frontend görev (ekran, form, UI)
+          <span class="pill be" style="margin:0 4px">BE</span> = Backend görev (API, DB, iş kuralı)
+          <span class="pill febe" style="margin:0 4px">FE+BE</span> = İki tarafı ilgilendiren ilişkili iş
+        </div>
         <div class="jira-modal-body" id="jira-modal-body"></div>
         <div class="jira-modal-result-wrap" id="jira-modal-result-wrap" style="display:none">
           <div class="jira-modal-result" id="jira-modal-result"></div>
