@@ -318,6 +318,22 @@ Sadece yapılandırma/yönetim endpoint'lerinde:
 
 ---
 
+## Onboarding (Yeni Başlayan Eğitimi)
+
+İlk kez kullanan analistlere yardımcı olmak için iki katman:
+
+### 1. Inline `.ipucu` tooltip'leri
+Küçük `?` ikonu (`class="ipucu"` + `data-ipucu="..."`). Hover/odakta açıklama.
+Şu an 4 yerde: Bağlam Filtresi, Sorular sekmesi, Kalite skoru, Cevapları Uygula.
+
+### 2. `.onboard-banner` — sekme başına ilk gösterimde 1 kez
+`localStorage.setItem('onboard.<anahtar>', 'done')` ile kapatılır.
+`_ONBOARD_BANNER` map'inde tanımlı 5 sekme: surec, brd, output, referanslar, prompts.
+Yeni banner: tabloya bir giriş ekle.
+Sıfırlama: console'da `_onboardSifirla()`.
+
+---
+
 ## Mimari: subprocess + sys.stdin.isatty()
 ```
 Tarayıcı → fetch /api/run → app.py → subprocess.Popen(run.py {mod})

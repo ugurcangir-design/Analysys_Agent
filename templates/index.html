@@ -2679,8 +2679,82 @@ function switchTab(tab) {
   if (tab === 'jira-settings') jiraConfigYukle();
   if (tab === 'prompts')       promptlariYukle();
   if (tab === 'update')        versiyonYukle();
-  if (tab === 'referanslar')   { loadSources(); loadRefDocs(); }
-  if (tab === 'surec')         _teknikButonGuncelle();
+  if (tab === 'referanslar')   { loadSources(); loadRefDocs(); onboardGoster('referanslar', 'page-referanslar'); }
+  if (tab === 'surec')         { _teknikButonGuncelle(); onboardGoster('surec', 'page-surec'); }
+  if (tab === 'brd')           onboardGoster('brd', 'page-brd');
+  if (tab === 'output')        onboardGoster('output', 'page-output');
+  if (tab === 'prompts')       onboardGoster('prompts', 'page-prompts');
+}
+
+// ─── Onboarding Banner'ları (her biri 1 kez gösterilir) ─────────────────────
+const _ONBOARD_BANNER = {
+  surec: {
+    icon: '🚀',
+    baslik: 'İlk Analiziniz — 3 Adım',
+    icerik: '1) Aşağıdaki kutuya BRD veya süreç dokümanınızı sürükleyin · ' +
+            '2) "Süreç Analizi Çalıştır" butonuna basın (~60 sn) · ' +
+            '3) Çıktıyı inceleyip onaylayın → Teknik Analiz otomatik başlar. ' +
+            'İleri özellikleri (Bağlam Filtresi, FE/BE katman) sonra keşfedebilirsiniz.'
+  },
+  brd: {
+    icon: '📋',
+    baslik: 'BRD Analizi Akışı',
+    icerik: 'BRD belgenizi yükleyin → AI fonksiyonel/fonksiyonel olmayan gereksinimleri ve eksiklikleri çıkarır. ' +
+            'PO sorularını "Çıktılar → Sorular" sekmesinde yönetebilirsiniz.'
+  },
+  output: {
+    icon: '📂',
+    baslik: 'Çıktılar Sekmesi',
+    icerik: 'Üretilen analizler burada. Her sekmenin yanındaki renkli sayı: Kalite skoru (yeşil iyi, kırmızı düşük). ' +
+            'Tıklarsanız detay görürsünüz. "📋 Sorular" sekmesinde AI\'nın belirsiz bulduğu konuları cevaplayabilirsiniz.'
+  },
+  referanslar: {
+    icon: '🔗',
+    baslik: 'Referanslar = AI\'ın Bağlam Kaynağı',
+    icerik: 'Confluence/Jira/Swagger\'dan veri çekerek AI\'a verirsiniz. Daha fazla referans = daha doğru analiz. ' +
+            '"Veri Kaynakları → Güncelle" ile senkronizasyon yapın. UI Kodu zip\'ini yüklerseniz tasarım diline uyar.'
+  },
+  prompts: {
+    icon: '⚙️',
+    baslik: 'Promptlar — Dikkat',
+    icerik: 'Bu sayfa AI\'nın "nasıl düşüneceğini" belirleyen sistem promptlarını içerir. Değiştirmeden önce ' +
+            'orijinali yedekleyin. "Varsayılana Dön" butonu kurtarıcıdır. Yeniyseniz hiç dokunmayın.'
+  },
+};
+
+function onboardGoster(anahtar, sayfaId) {
+  if (localStorage.getItem('onboard.' + anahtar) === 'done') return;
+  const tanim = _ONBOARD_BANNER[anahtar];
+  if (!tanim) return;
+  const sayfa = document.getElementById(sayfaId);
+  if (!sayfa) return;
+  // Zaten varsa dur
+  if (sayfa.querySelector('[data-onboard="' + anahtar + '"]')) return;
+
+  const div = document.createElement('div');
+  div.className = 'onboard-banner';
+  div.dataset.onboard = anahtar;
+  div.innerHTML = `
+    <span class="ob-icon">${tanim.icon}</span>
+    <div class="ob-icerik"><b>${tanim.baslik}</b>${tanim.icerik}</div>
+    <button class="ob-kapat" onclick="onboardKapat('${anahtar}', this)" title="Bir daha gösterme">&times;</button>
+  `;
+  // İlk .ph (page header) elementinden sonra ekle, yoksa başa
+  const ph = sayfa.querySelector('.ph');
+  if (ph) ph.parentNode.insertBefore(div, ph.nextSibling);
+  else sayfa.insertBefore(div, sayfa.firstChild);
+}
+
+function onboardKapat(anahtar, btn) {
+  localStorage.setItem('onboard.' + anahtar, 'done');
+  const banner = btn.closest('.onboard-banner');
+  if (banner) banner.remove();
+}
+
+// Test/sıfırlama için (console'dan): _onboardSifirla()
+function _onboardSifirla() {
+  Object.keys(_ONBOARD_BANNER).forEach(k => localStorage.removeItem('onboard.' + k));
+  console.log('Onboarding banner\'ları sıfırlandı, sayfayı yenileyin.');
 }
 
 // ─── Heartbeat & Uyku Yönetimi ───────────────────────────────────────────────
