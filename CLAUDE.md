@@ -267,10 +267,20 @@ GET  /api/history              Son 5 çalıştırma arşivi
 
 ---
 
+## Dağıtım Modeli
+
+**Birincil model:** Lokal kurulum — her analist kendi makinesinde Analyst Studio
+çalıştırır. Doğal paralellik + tam izolasyon. KILAVUZ Bölüm 14.1.
+
+**Sunucu modu (HOST=0.0.0.0 + AUTH):** ⚠ Deneysel, üretimde test edilmedi,
+şu an önerilmez. KILAVUZ Bölüm 14.4'te "deprecated" işaretli. Kod halen yerinde
+(silinmedi) ama yeni geliştirme bu yola odaklanmamalı. Bakım yükü:
+auth/admin/brute-force/CSRF kod yolları her güvenlik commit'inde test edilmeli.
+
 ## Güvenlik Mimarisi
 
-### Auth (opsiyonel — AUTH_ENABLED env ile aç/kapa)
-- Varsayılan **kapalı** (kişisel masaüstü kullanımı için)
+### Auth (opsiyonel — AUTH_ENABLED env ile aç/kapa, sunucu modu için)
+- Varsayılan **kapalı** (kişisel masaüstü kullanımı için — birincil)
 - Açıkken `session["username"]` üzerinden cookie-based auth
 - Şifre hash: `werkzeug.security.generate_password_hash` (scrypt)
 - `users.json` dosyasında saklanır; `manage_users.py` CLI ile eklenir
