@@ -1152,6 +1152,14 @@ pip install -r requirements.txt   # gerekirse</code></pre>
     <table>
       <tr><th>Belirti</th><th>Olası neden ve çözüm</th></tr>
       <tr>
+        <td>Kurulumda "swiftc bulunamadı" / masaüstü ikonu oluşmadı</td>
+        <td>Xcode Command Line Tools yok. Kurulum yine de tamamdır — <code>./start.sh</code> ile başlatın. İkon isterseniz: <code>xcode-select --install</code> → <code>bash create_app.sh</code></td>
+      </tr>
+      <tr>
+        <td>Kurulumda "Python 3.10 veya üzeri gerekli"</td>
+        <td>Eski Python sürümü. <code>brew install python@3.12</code> ile güncelleyin, sonra <code>bash setup.sh</code> tekrar.</td>
+      </tr>
+      <tr>
         <td>Uygulama açılmıyor</td>
         <td>Terminalden çalıştır: <code>source venv/bin/activate &amp;&amp; python app.py</code>. Hata mesajı görünür.</td>
       </tr>

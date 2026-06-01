@@ -53,7 +53,9 @@ chmod +x start.sh
 
 echo ""
 echo "=== Masaüstü ikonu oluşturuluyor ==="
-bash create_app.sh
+# İkon oluşturma kurulumun kritik parçası değil — başarısız olsa bile
+# (örn. swiftc yok) kurulum tamamlanmış sayılır; ./start.sh ile çalışır.
+bash create_app.sh || echo "  (Masaüstü ikonu atlandı — ./start.sh ile başlatabilirsiniz)"
 
 echo ""
 echo "=== Kurulum tamamlandı ==="

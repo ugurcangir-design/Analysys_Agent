@@ -34,6 +34,19 @@ open "\$URL"
 SHEOF
 chmod +x "$HELPER"
 
+# ── Swift kontrolü ────────────────────────────────────────────────────────────
+# swiftc yoksa (Xcode Command Line Tools kurulu değilse) masaüstü ikonu
+# oluşturulamaz — ama uygulama yine de ./start.sh ile çalışır. Kurulumu
+# çökertmek yerine zarifçe atla.
+if ! command -v swiftc &>/dev/null; then
+    echo ""
+    echo "  ⚠ swiftc bulunamadı — masaüstü ikonu OLUŞTURULAMADI (kurulum yine de tamam)."
+    echo "    Uygulamayı şununla başlatın:  ./start.sh"
+    echo "    Masaüstü ikonu isterseniz önce:  xcode-select --install"
+    echo "    ardından tekrar:  bash create_app.sh"
+    exit 0
+fi
+
 # ── Swift launcher binary oluştur ─────────────────────────────────────────────
 SWIFT_SRC=$(mktemp /tmp/brd_launcher_XXXX.swift)
 
