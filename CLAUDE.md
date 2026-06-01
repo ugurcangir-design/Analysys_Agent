@@ -2,9 +2,11 @@
 
 ## Proje Özeti
 **Analyst Studio** — macOS masaüstü uygulaması. BRD / süreç dokümanı →
-RAG destekli analiz → Jira Epic/Story/Subtask. Flask + Python, port **5002**.
+RAG destekli analiz → Jira Epic/Story/Subtask. Flask + Python (**3.10+ zorunlu**, `str|None` tipleri), port **5002**.
 Tarayıcı SPA: `http://localhost:5002`
-Başlatma: `source venv/bin/activate && python app.py` (veya Analyst Studio.app)
+Kurulum: `bash setup.sh` (önerilir) · Başlatma: `./start.sh` veya Analyst Studio.app
+AI modu: `USE_CLAUDE_CLI=true` (CLI, varsayılan/önerilen) veya `ANTHROPIC_API_KEY` (API).
+⚠ CLI modu görsel (PNG/JPG) BRD'yi analiz edemez — `_api_cagri_cli` net hata verir.
 
 İki ana akış:
 - **Süreç → Teknik → Jira:** ana akış (FE/BE katman ayrımıyla görev üretir)
@@ -385,12 +387,14 @@ otomatik hatırlatma üretir; ancak nihai sorumluluk Claude'dadır.
 ---
 
 ## Bilinen Kısıtlamalar
+- **CLI modu görsel (PNG/JPG) analiz edemez** — text-only. `_api_cagri_cli`
+  görsel blok görürse net hata verir. Görsel BRD için API modu gerekir.
 - `markdown_to_adf` nested list'leri düzleştirir
 - History limiti **5** (sabit, app.py `save_to_history()`)
 - Tek input dosyası (birden fazla yüklenirse ilk kullanılır)
 - Atlassian-only — Azure DevOps, GitHub Issues entegrasyonu yok
 - macOS-only dağıtım (Windows/Linux için manual setup gerekir)
-- Çıktı kalitesi için otomatik değerlendirme/puanlama mekanizması yok
+- Tek aktif analiz (sunucu modunda) — lokal kurulumda her makine bağımsız
 
 ---
 

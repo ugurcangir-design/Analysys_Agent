@@ -9,7 +9,6 @@ Renk:  90+ yeşil · 75-89 sarı · 60-74 turuncu · <60 kırmızı
 """
 
 import re
-from pathlib import Path
 
 from .base import OUTPUT_DIR
 

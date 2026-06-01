@@ -1753,11 +1753,31 @@ def _mesajlari_birlestir(sistem: str, mesajlar: list) -> str:
     return "\n\n".join(parcalar)
 
 
+def _icerikte_gorsel_var_mi(mesajlar: list) -> bool:
+    """Mesaj bloklarında image (görsel) tipi içerik var mı kontrol eder."""
+    for m in mesajlar:
+        icerik = m.get("content", [])
+        if isinstance(icerik, list):
+            for p in icerik:
+                if isinstance(p, dict) and p.get("type") == "image":
+                    return True
+    return False
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     claude_yolu = shutil.which("claude")
     if not claude_yolu:
         raise EnvironmentError(
             "'claude' komutu PATH'te bulunamadı. Claude Code CLI kurulu ve aktif olmalı."
+        )
+    # CLI metin tabanlı çalışır — görsel blokları gönderilemez. Sessizce
+    # atlamak yerine net hata ver, yoksa analist boş/eksik analiz alır.
+    if _icerikte_gorsel_var_mi(mesajlar):
+        raise RuntimeError(
+            "Görsel (PNG/JPG) dosyalar CLI modunda analiz edilemez — görsel içeriği "
+            "AI'a iletilemez. Çözüm: (1) Belgeyi PDF/DOCX/TXT/MD formatında yükleyin, "
+            "veya (2) .env'de ANTHROPIC_API_KEY tanımlayıp API moduna geçin "
+            "(USE_CLAUDE_CLI satırını kaldırın)."
         )
     tam_prompt = _mesajlari_birlestir(sistem, mesajlar)
     cli_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}

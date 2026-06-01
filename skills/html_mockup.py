@@ -8,8 +8,7 @@ from pathlib import Path
 from .base import (
     _api_cagri, _kaydet,
     dosya_oku, ui_kodu_hazirla, prompt_yukle,
-    OUTPUT_DIR, MODEL_ANALIZ,
-    MAX_CHARS_GENEL, MAX_CHARS_UI_TOT,
+    OUTPUT_DIR, MAX_CHARS_GENEL,
 )
 
 MAX_TOKENS_MOCKUP  = 8_000
@@ -74,7 +73,7 @@ def html_mockup_uret() -> Path:
     ui_kodu = ui_kodu_hazirla()
 
     if ui_kodu:
-        print(f"  UI kodu mevcut — tasarım diline uygun prototip üretiliyor...")
+        print("  UI kodu mevcut — tasarım diline uygun prototip üretiliyor...")
         ui_ozet = mockup_hazirla_kontekst(ui_kodu)
         ui_hint = _UI_HINT_GÖMÜLÜ
         icerik_parcalari = [

@@ -20,7 +20,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, send_file, abort, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, abort, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from skills.atlassian import (
     env_oku as _env_oku,
@@ -550,9 +550,6 @@ def version_bilgi():
             ["git", "log", "-1", "--format=%h|%s|%ci"], cwd=BASE_DIR, text=True
         ).strip()
         hash_, mesaj, tarih = commit.split("|", 2)
-        guncel = subprocess.check_output(
-            ["git", "fetch", "--dry-run"], cwd=BASE_DIR, stderr=subprocess.STDOUT, text=True
-        )
         return jsonify({"hash": hash_, "mesaj": mesaj, "tarih": tarih[:19], "hata": None})
     except Exception as e:
         return jsonify({"hash": "?", "mesaj": "Git bilgisi alınamadı", "tarih": "", "hata": str(e)})

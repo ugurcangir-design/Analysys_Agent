@@ -5,10 +5,8 @@ Markdown → Confluence storage format dönüşümü burada yapılır.
 """
 
 import re
-from pathlib import Path
 from .base import OUTPUT_DIR, dosya_oku, MAX_CHARS_GENEL
 from .atlassian import (
-    env_oku,
     confluence_sayfa_bul,
     confluence_sayfa_olustur,
     confluence_sayfa_guncelle,

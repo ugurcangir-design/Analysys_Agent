@@ -6,7 +6,7 @@ from .base import (
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur, ui_kodu_hazirla,
     prompt_yukle, extended_thinking_acik,
     OUTPUT_DIR,
-    MODEL_ANALIZ, MAX_CHARS_GENEL,
+    MAX_CHARS_GENEL,
     MAX_TOKENS_COMBINED,
 )
 from .html_mockup import mockup_oku_kontekst

@@ -11,7 +11,7 @@ from pathlib import Path
 from .base import (
     _api_cagri, _xml_ayir, _metin_sikistir,
     dosya_oku, OUTPUT_DIR,
-    MODEL_ANALIZ, MAX_CHARS_GENEL,
+    MAX_CHARS_GENEL,
 )
 from .atlassian import env_oku, atlassian_get, atlassian_post
 
@@ -19,7 +19,7 @@ from .atlassian import env_oku, atlassian_get, atlassian_post
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-from jira_agent import markdown_to_adf, _p, _h, _bullet  # noqa: E402
+from jira_agent import _p, _h, _bullet  # noqa: E402
 
 
 # ─── Token Limiti ─────────────────────────────────────────────────────────────

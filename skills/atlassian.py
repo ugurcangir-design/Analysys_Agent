@@ -5,7 +5,6 @@ skills/ içindeki tüm Atlassian işlemleri buradan yapılır.
 
 import logging
 import os
-import re
 import urllib.parse
 import requests as _req
 from pathlib import Path

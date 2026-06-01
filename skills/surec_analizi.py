@@ -4,7 +4,6 @@ from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, input_hazirla, prompt_yukle,
     referans_dosyalari_hazirla, _ref_bloklari_olustur,
-    OUTPUT_DIR,
     MAX_TOKENS_UZUN,
     extended_thinking_acik,
 )
