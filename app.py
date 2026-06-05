@@ -358,9 +358,41 @@ def _fetch_confluence_space(space_key: str, cloud_id: str) -> int:
     return total
 
 
+# Jira referans senkronizasyonunda DIŞLANACAK task statüleri.
+# Bu statüler henüz işlenmemiş (Backlog/To Do) veya iptal edilmiş (Cancel)
+# işleri temsil eder — analize bağlam olarak değer katmaz, hatta yanıltabilir.
+# Dahil edilenler: In Progress, In Review, Done ve diğer "çalışılmış" statüler.
+# Karşılaştırma normalize edilir (küçük harf, Türkçe karakter sadeleştirme),
+# İngilizce + Türkçe varyantları kapsar.
+JIRA_HARIC_STATUSLER = {
+    "backlog",
+    "to do", "todo", "yapilacak", "yapilacaklar", "acik", "open",
+    "cancel", "cancelled", "canceled", "iptal", "iptal edildi", "iptal edilen",
+}
+
+
+def _status_normalize(status: str) -> str:
+    """Status ismini karşılaştırma için normalize eder (küçük harf, TR→ASCII).
+
+    Türkçe İ/I/ı, lower()'dan ÖNCE 'i'ye çevrilir — aksi halde Python'da
+    'İ'.lower() birleşik nokta ('i̇') üretir ve eşleşme bozulur.
+    """
+    n = status.strip().replace("İ", "i").replace("I", "i").replace("ı", "i")
+    n = n.lower().replace("-", " ").replace("_", " ")
+    n = " ".join(n.split())  # çoklu boşluğu teke indir
+    cevrim = str.maketrans("şğüöç", "sguoc")
+    return n.translate(cevrim)
+
+
+def _jira_status_haric_mi(status: str) -> bool:
+    """True → bu status'teki task referans olarak KULLANILMAZ (Backlog/To Do/Cancel)."""
+    return _status_normalize(status) in JIRA_HARIC_STATUSLER
+
+
 def _fetch_jira_project(project_key: str, cloud_id: str) -> int:
     JIRA_REF_DIR.mkdir(parents=True, exist_ok=True)
     issues, next_token = [], None
+    elenen = 0
     while True:
         body = {
             "jql": f"project={project_key} ORDER BY updated DESC",
@@ -375,13 +407,18 @@ def _fetch_jira_project(project_key: str, cloud_id: str) -> int:
             break
         for issue in batch:
             f = issue.get("fields", {})
+            status_adi = (f.get("status") or {}).get("name", "")
+            # Backlog / To Do / Cancel statüleri analize dahil edilmez
+            if _jira_status_haric_mi(status_adi):
+                elenen += 1
+                continue
             desc = f.get("description") or ""
             if isinstance(desc, dict):
                 desc = _adf_to_text(desc)
             issues.append({
                 "key": issue["key"],
                 "summary": f.get("summary", ""),
-                "status": (f.get("status") or {}).get("name", ""),
+                "status": status_adi,
                 "type": (f.get("issuetype") or {}).get("name", ""),
                 "priority": (f.get("priority") or {}).get("name", ""),
                 "assignee": (f.get("assignee") or {}).get("displayName", ""),
@@ -393,7 +430,10 @@ def _fetch_jira_project(project_key: str, cloud_id: str) -> int:
     (JIRA_REF_DIR / f"{project_key}.json").write_text(
         json.dumps(issues, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    return len(issues)
+    if elenen:
+        logger.info("Jira [%s]: %d task dahil, %d task elendi (Backlog/To Do/Cancel)",
+                    project_key, len(issues), elenen)
+    return len(issues), elenen
 
 
 # Rerun (yeniden çalıştırma) lock — eş zamanlı rerun isteğini engeller
@@ -1809,9 +1849,12 @@ def sources_sync_baslat():
                 k = proj["key"]
                 with _sync_lock:
                     _sync_state["log"].append(f"Jira [{k}] çekiliyor...")
-                count = _fetch_jira_project(k, cloud_id)
+                count, elenen = _fetch_jira_project(k, cloud_id)
+                mesaj = f"✓ Jira [{k}]: {count} issue"
+                if elenen:
+                    mesaj += f" ({elenen} elendi: Backlog/To Do/Cancel)"
                 with _sync_lock:
-                    _sync_state["log"].append(f"✓ Jira [{k}]: {count} issue")
+                    _sync_state["log"].append(mesaj)
 
             last_sync = time.strftime("%d/%m/%Y %H:%M")
             sources["last_sync"] = last_sync

@@ -257,6 +257,8 @@ POST /api/confluence/publish   Markdown → Confluence sayfası
 POST /api/confluence/diagnose  Scope/erişim teşhisi
 POST /api/mockup/generate      HTML prototip üret
 POST /api/sources/sync         Confluence/Jira veri çek
+                               (Jira: Backlog/To Do/Cancel statüleri DIŞLANIR —
+                                _jira_status_haric_mi + JIRA_HARIC_STATUSLER)
 GET  /api/git/status           GitHub güncelleme kontrolü
 POST /api/git/pull             git pull --ff-only
 GET  /api/prompts              15 prompt + override durumu

@@ -469,6 +469,14 @@ JIRA_DEFAULT_SITE=&lt;sitename&gt;.atlassian.net</code></pre>
       <h4>Veri Kaynakları → Güncelle</h4>
       <p>Referanslar sekmesi üst kısımdaki <strong>Güncelle</strong> butonuna bas.</p>
       <p>Confluence sayfaları (.md) ve Jira issue'ları (.json) yerel <code>reference/</code> klasörüne çekilir.</p>
+      <div class="box info">
+        <strong>Jira task durumu filtresi</strong>
+        Jira projelerinden referans çekilirken <strong>Backlog, To&nbsp;Do ve Cancel/İptal</strong>
+        statüsündeki task'lar <strong>dışlanır</strong> — bunlar henüz işlenmemiş veya iptal edilmiş
+        işlerdir, analize değer katmaz. <strong>In&nbsp;Progress, In&nbsp;Review, Done</strong> ve
+        diğer çalışılmış statüler dahil edilir. Sync log'unda kaç task'ın elendiği görünür
+        (örn. <em>"✓ Jira [PROJ]: 142 issue (38 elendi: Backlog/To&nbsp;Do/Cancel)"</em>).
+      </div>
       <div class="box tip">
         <strong>Süre</strong>
         Space/proje büyüklüğüne göre 2-10 dakika. Tek seferlik yapılır; sonradan haftada bir
