@@ -574,6 +574,16 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/kilavuz")
+def kilavuz():
+    """Kullanıcı kılavuzunu (KILAVUZ.html) servis eder — uygulama içi sekmede
+    iframe ile gösterilir. Kod güncellendiğinde kılavuz da otomatik tazelenir."""
+    kilavuz_yolu = BASE_DIR / "KILAVUZ.html"
+    if not kilavuz_yolu.exists():
+        return "<h2>Kılavuz dosyası bulunamadı (KILAVUZ.html).</h2>", 404
+    return kilavuz_yolu.read_text(encoding="utf-8"), 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
     global _son_heartbeat, _suspended
@@ -2385,13 +2395,16 @@ def git_pull():
 @app.after_request
 def guvenlik_basliklari(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    # SAMEORIGIN: kendi origin'imizden iframe'e izin (Kılavuz sekmesi) ama
+    # başka sitelerin bizi embed etmesini engeller (clickjacking koruması).
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
         "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
-        "img-src 'self' data:;"
+        "img-src 'self' data:; "
+        "frame-ancestors 'self';"
     )
     return response
 

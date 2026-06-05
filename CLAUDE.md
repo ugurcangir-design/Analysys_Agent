@@ -17,7 +17,7 @@ AI modu: `USE_CLAUDE_CLI=true` (CLI, varsayılan/önerilen) veya `ANTHROPIC_API_
 ## Dosya Yapısı
 
 ```
-app.py                  Flask sunucusu (~2200 satır, 77 endpoint)
+app.py                  Flask sunucusu (~2200 satır, 80 endpoint)
 agent.py                13 satırlık import bridge — skills/ modüllerine yönlendirir
 jira_agent.py           Jira OAuth + ADF (Atlassian Document Format) yardımcıları
 jira_auth.py            OAuth 3LO flow (Jira + Confluence scope'ları)
@@ -315,8 +315,9 @@ Sadece yapılandırma/yönetim endpoint'lerinde:
 ### Diğer
 - `SESSION_COOKIE_HTTPONLY=True`, `SAMESITE=Lax`
 - `SESSION_COOKIE_SECURE` env ile açılır (HTTPS deploy için)
-- CSP, X-Frame-Options, X-Content-Type-Options başlıkları (`guvenlik_basliklari`)
+- CSP, X-Frame-Options (**SAMEORIGIN** — Kılavuz iframe için), X-Content-Type-Options (`guvenlik_basliklari`)
 - iframe sandbox: `allow-scripts allow-forms` (NO `allow-same-origin` → AI mockup parent DOM'a erişemez)
+- `/kilavuz` route KILAVUZ.html'i serve eder → SPA'da "Kılavuz" sekmesinde iframe ile gösterilir
 - `.env` chmod 0600, atomik yazım (tmp.replace)
 - Path traversal: `_guvenli_yol()` helper'ı tüm dosya yolu girdilerinde kullanılır
 

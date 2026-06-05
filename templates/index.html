@@ -321,6 +321,9 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 /* ── Page container ────────────────────────────────────────────── */
 .page { display: none; padding: 20px 22px; flex: 1; }
 .page.active { display: block; }
+/* Kılavuz: tam-ekran iframe, padding'siz */
+#page-kilavuz { padding: 0; }
+#page-kilavuz.active { display: flex; flex-direction: column; }
 .page-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
 .page-grid > main { min-width: 0; }
 .page-grid > aside { display: flex; flex-direction: column; gap: 14px; }
@@ -1640,6 +1643,10 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">Güncelleme</span>
       </div>
+      <div class="nav-item" id="nav-kilavuz" onclick="switchTab('kilavuz')">
+        <svg class="ico"><use href="#i-book"/></svg>
+        <span class="nav-label">Kılavuz</span>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -2634,6 +2641,11 @@ python cli.py ui ~/export.zip</pre>
       </div>
     </div>
 
+    <div class="page" id="page-kilavuz">
+      <iframe id="kilavuz-iframe" title="Kullanıcı Kılavuzu"
+        style="width:100%;height:100%;border:none;display:block;background:var(--bg)"></iframe>
+    </div>
+
   </div><!-- /.main -->
 </div><!-- /.layout -->
 
@@ -2670,7 +2682,7 @@ function switchTab(tab) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   if (tab === 'history')       loadHistory();
   if (tab === 'output')        { refreshOutputTabs(); sorularDefteriYenile(); skorTumYukle(); }
@@ -2684,6 +2696,13 @@ function switchTab(tab) {
   if (tab === 'brd')           onboardGoster('brd', 'page-brd');
   if (tab === 'output')        onboardGoster('output', 'page-output');
   if (tab === 'prompts')       onboardGoster('prompts', 'page-prompts');
+  if (tab === 'kilavuz')       kilavuzYukle();
+}
+
+// Kılavuz iframe'i ilk açılışta yükle (lazy). Güncel kod çekilince otomatik tazelenir.
+function kilavuzYukle() {
+  const f = document.getElementById('kilavuz-iframe');
+  if (f && !f.src) f.src = '/kilavuz';
 }
 
 // ─── Onboarding Banner'ları (her biri 1 kez gösterilir) ─────────────────────
