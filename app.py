@@ -1218,7 +1218,10 @@ def _maskele(deger: str) -> str:
 
 
 def _claude_cli_var_mi() -> bool:
-    return bool(shutil.which("claude"))
+    # PATH'e bağımlı değil — GUI .app minimal PATH alır, base.py'deki bulucu
+    # yaygın kurulum konumlarını (nvm, ~/.local/bin, homebrew) da tarar.
+    from skills.base import _claude_yolu_bul
+    return bool(_claude_yolu_bul())
 
 
 # ─── Auth Route'ları ──────────────────────────────────────────────────────────

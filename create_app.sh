@@ -17,6 +17,13 @@ PORT=5002
 URL="http://localhost:\$PORT"
 cd "$PROJECT_DIR"
 
+# macOS GUI uygulamaları minimal PATH alır (/usr/bin:/bin:...) — terminal'in
+# nvm / ~/.local/bin / homebrew PATH'i gelmez. claude CLI ve diğer araçların
+# bulunabilmesi için yaygın bin dizinlerini + en yeni nvm node'u PATH'e ekle.
+export PATH="\$HOME/.local/bin:\$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
+_NVM_BIN=\$(ls -d "\$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+[ -n "\$_NVM_BIN" ] && export PATH="\$_NVM_BIN:\$PATH"
+
 if curl -s --max-time 1 "\$URL" > /dev/null 2>&1; then
     open "\$URL"
     exit 0

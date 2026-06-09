@@ -1764,11 +1764,42 @@ def _icerikte_gorsel_var_mi(mesajlar: list) -> bool:
     return False
 
 
+def _claude_yolu_bul() -> str | None:
+    """claude CLI binary'sini bulur — PATH'e bağımlı DEĞİL.
+
+    macOS GUI uygulamaları (Analyst Studio.app) minimal PATH alır
+    (/usr/bin:/bin:...), terminal'in ~/.zshrc / nvm / ~/.local/bin PATH'ini
+    almaz. Bu yüzden shutil.which yeterli değil — yaygın kurulum konumlarını
+    da tarıyoruz (npm global, nvm, homebrew, ~/.local/bin).
+    """
+    import glob as _glob
+    yol = shutil.which("claude")
+    if yol:
+        return yol
+    ev = os.path.expanduser("~")
+    # nvm sürüm dizinleri — en yenisi öncelikli
+    adaylar = sorted(_glob.glob(f"{ev}/.nvm/versions/node/*/bin/claude"), reverse=True)
+    adaylar += [
+        f"{ev}/.local/bin/claude",
+        f"{ev}/.npm-global/bin/claude",
+        f"{ev}/.bun/bin/claude",
+        "/opt/homebrew/bin/claude",
+        "/usr/local/bin/claude",
+        "/usr/local/lib/node_modules/.bin/claude",
+    ]
+    for a in adaylar:
+        if os.path.isfile(a) and os.access(a, os.X_OK):
+            return a
+    return None
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
-    claude_yolu = shutil.which("claude")
+    claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
         raise EnvironmentError(
-            "'claude' komutu PATH'te bulunamadı. Claude Code CLI kurulu ve aktif olmalı."
+            "'claude' komutu bulunamadı. Claude Code CLI kurulu olmalı "
+            "(npm install -g @anthropic-ai/claude-code) veya .env'de "
+            "ANTHROPIC_API_KEY tanımlayıp API moduna geçin."
         )
     # CLI metin tabanlı çalışır — görsel blokları gönderilemez. Sessizce
     # atlamak yerine net hata ver, yoksa analist boş/eksik analiz alır.
@@ -1781,6 +1812,14 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
         )
     tam_prompt = _mesajlari_birlestir(sistem, mesajlar)
     cli_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    # claude'un kendi node/bağımlılıklarını bulabilmesi için binary dizinini
+    # + yaygın bin dizinlerini PATH'e ekle (GUI minimal PATH sorununu çözer).
+    _ev = os.path.expanduser("~")
+    _ek_path = [
+        os.path.dirname(claude_yolu), f"{_ev}/.local/bin",
+        "/opt/homebrew/bin", "/usr/local/bin",
+    ]
+    cli_env["PATH"] = os.pathsep.join(_ek_path) + os.pathsep + cli_env.get("PATH", "")
     proc = subprocess.run(
         [claude_yolu, "-p", "--output-format", "text"],
         input=tam_prompt,
