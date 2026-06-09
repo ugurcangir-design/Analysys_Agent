@@ -2555,10 +2555,24 @@ python cli.py ui ~/export.zip</pre>
             <button class="btn btn-outline btn-sm" onclick="confluenceDiagnose()">Confluence İzinlerini Kontrol Et</button>
           </div>
           <div id="conf-diagnose-result" style="display:none;margin-bottom:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11.5px;line-height:1.65"></div>
-          <div style="font-size:11px;color:var(--text3);line-height:1.65">
-            <strong style="color:var(--text2)">Kurulum:</strong> Atlassian Developer Console'da OAuth 2.0 app oluşturun.
-            Callback URL: <code>http://localhost:5002/api/jira/callback</code><br>
-            <strong style="color:var(--text2)">Confluence için:</strong> developer.atlassian.com → Uygulamanız → Permissions → <em>Confluence API</em> ekleyin, ardından "Jira'ya Bağlan" ile yeniden yetkilendirin.
+          <div class="box warn" style="margin:8px 0;font-size:12px">
+            <strong>⚠ "Callback URL is invalid" hatası alıyorsanız</strong>
+            Atlassian Developer Console'daki <strong>Callback URL</strong>, aşağıdaki adresle
+            <strong>birebir aynı</strong> olmalıdır (tam kopyalayın):
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+              <code id="jira-callback-url" style="flex:1;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;user-select:all">http://localhost:5002/api/jira/callback</code>
+              <button class="btn btn-outline btn-xs" onclick="jiraCallbackKopyala(this)">📋 Kopyala</button>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.7">
+            <strong style="color:var(--text2)">Kurulum adımları:</strong>
+            <ol style="margin:4px 0 0 18px;padding:0">
+              <li><a href="https://developer.atlassian.com/console/myapps/" target="_blank">developer.atlassian.com/console/myapps</a> → <em>Create</em> → <em>OAuth 2.0 integration</em></li>
+              <li>Sol menü → <strong>Authorization</strong> → OAuth 2.0 (3LO) → <em>Configure</em> → yukarıdaki Callback URL'i yapıştır → <em>Save</em></li>
+              <li>Sol menü → <strong>Permissions</strong> → Jira API + Confluence API ekle</li>
+              <li>Sol menü → <strong>Settings</strong> → Client ID ve Secret'ı kopyala → buradaki alanlara gir</li>
+              <li>"Jira'ya Bağlan" → Atlassian onay ekranı → tamam</li>
+            </ol>
           </div>
         </div>
       </div>
@@ -5173,8 +5187,25 @@ async function ctxFilterTemizle() {
 }
 
 // ─── Jira Ayarlar ────────────────────────────────────────────────────────────
+async function jiraCallbackKopyala(btn) {
+  const url = document.getElementById('jira-callback-url').textContent;
+  try {
+    await navigator.clipboard.writeText(url);
+    const eski = btn.textContent; btn.textContent = '✓ Kopyalandı';
+    setTimeout(() => { btn.textContent = eski; }, 1500);
+  } catch { toast('Kopyalanamadı — elle seçip kopyalayın', 'info'); }
+}
+
 async function jiraConfigYukle() {
   try {
+    // Gerçek callback URL'i göster (port/host değişmiş olabilir)
+    fetch('/api/jira/redirect-uri').then(r => r.json()).then(d => {
+      if (d.ok && d.redirect_uri) {
+        const el = document.getElementById('jira-callback-url');
+        if (el) el.textContent = d.redirect_uri;
+      }
+    }).catch(() => {});
+
     const r = await fetch('/api/jira/config');
     const d = await r.json();
     document.getElementById('jira-client-id').value   = d.client_id || '';

@@ -2009,13 +2009,21 @@ def jira_config_kaydet():
 
 @app.route("/api/jira/auth-url", methods=["POST"])
 def jira_auth_url():
-    """OAuth URL'ini döndür."""
+    """OAuth URL'ini döndür. redirect_uri de dönülür ki kullanıcı Atlassian
+    developer console'a aynı callback URL'i kaydedebilsin."""
     try:
-        from jira_auth import auth_url_olustur
+        from jira_auth import auth_url_olustur, REDIRECT_URI
         url = auth_url_olustur()
-        return jsonify({"ok": True, "url": url})
+        return jsonify({"ok": True, "url": url, "redirect_uri": REDIRECT_URI})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/jira/redirect-uri", methods=["GET"])
+def jira_redirect_uri():
+    """Kayıtlı olması gereken callback URL'i döndürür (Jira ayarları ekranı için)."""
+    from jira_auth import REDIRECT_URI
+    return jsonify({"ok": True, "redirect_uri": REDIRECT_URI})
 
 
 @app.route("/api/jira/callback")
@@ -2026,10 +2034,11 @@ def jira_callback():
 
     if error:
         logger.error(f"Jira OAuth hatası: {error}")
+        _geri = request.host_url.rstrip("/")
         return f"""<!DOCTYPE html><html><head><meta charset=UTF-8></head><body style='font-family:sans-serif;text-align:center;padding:50px;background:#0f1117;color:#e2e8f0'>
 <h2 style='color:#ef4444'>Yetkilendirme Başarısız</h2>
 <p>{error}</p>
-<p><a href='http://localhost:5002' style='color:#6366f1'>Uygulamaya Dön</a></p>
+<p><a href='{_geri}' style='color:#6366f1'>Uygulamaya Dön</a></p>
 </body></html>"""
 
     if not code:
@@ -2040,18 +2049,20 @@ def jira_callback():
         result = auth_tamamla(code)
         cloud_name = result.get("cloud_name", "")
         logger.info(f"Jira OAuth tamamlandı — Cloud: {cloud_name}")
+        _geri = request.host_url.rstrip("/")
         return f"""<!DOCTYPE html><html><head><meta charset=UTF-8></head><body style='font-family:sans-serif;text-align:center;padding:50px;background:#0f1117;color:#e2e8f0'>
 <h2 style='color:#22c55e'>Jira Bağlantısı Başarılı!</h2>
 <p>Instance: <strong>{cloud_name}</strong></p>
-<p style='margin-top:20px'><a href='http://localhost:5002' style='color:#6366f1'>Uygulamaya Dön</a></p>
+<p style='margin-top:20px'><a href='{_geri}' style='color:#6366f1'>Uygulamaya Dön</a></p>
 <script>setTimeout(()=>window.close(),3000)</script>
 </body></html>"""
     except Exception as e:
         logger.error(f"Jira token alma hatası: {e}")
+        _geri = request.host_url.rstrip("/")
         return f"""<!DOCTYPE html><html><head><meta charset=UTF-8></head><body style='font-family:sans-serif;text-align:center;padding:50px;background:#0f1117;color:#e2e8f0'>
 <h2 style='color:#ef4444'>Token Alınamadı</h2>
 <p>{e}</p>
-<p><a href='http://localhost:5002' style='color:#6366f1'>Uygulamaya Dön</a></p>
+<p><a href='{_geri}' style='color:#6366f1'>Uygulamaya Dön</a></p>
 </body></html>"""
 
 

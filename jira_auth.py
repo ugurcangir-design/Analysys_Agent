@@ -13,7 +13,20 @@ from dotenv import load_dotenv
 ENV_PATH = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
-REDIRECT_URI = "http://localhost:5002/api/jira/callback"
+# Callback URL — Atlassian developer console'da KAYITLI olan ile birebir
+# eşleşmelidir. Port veya host farklıysa .env'den override edilebilir:
+#   JIRA_REDIRECT_URI=http://localhost:5002/api/jira/callback
+# Aksi halde PORT env'inden türetilir (varsayılan localhost:5002).
+def _redirect_uri_belirle() -> str:
+    acik = os.getenv("JIRA_REDIRECT_URI", "").strip()
+    if acik:
+        return acik
+    port = os.getenv("PORT", "5002")
+    host = os.getenv("JIRA_CALLBACK_HOST", "localhost")
+    return f"http://{host}:{port}/api/jira/callback"
+
+
+REDIRECT_URI = _redirect_uri_belirle()
 OAUTH_SCOPE  = (
     "read:jira-work write:jira-work read:jira-user offline_access "
     # Confluence classic scopes (v1 API destekliyorsa)
