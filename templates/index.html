@@ -4637,15 +4637,22 @@ async function settingsYukle() {
   toggle.checked = d.cli_mod;
   _cliToggleGuncelle(d.cli_mod);
 
-  // CLI durum
+  // CLI durum — toggle ASLA disable edilmez; kullanıcı her zaman modlar
+  // arasında geçebilmeli (özellikle CLI yokken API moduna geçiş şart).
   const cliStatus = document.getElementById('cli-status');
+  toggle.disabled = false;
   if (d.claude_cli_var) {
     cliStatus.textContent = '✓ claude CLI bulundu — CLI modu kullanılabilir';
     cliStatus.style.color = 'var(--green)';
-  } else {
-    cliStatus.textContent = '✗ claude CLI bulunamadı — Claude Code kurulu ve PATH\'te olmalı';
+  } else if (d.cli_mod) {
+    // CLI modu açık AMA claude bulunamıyor → kullanıcı kilitli kalmasın
+    cliStatus.textContent = '✗ claude CLI bulunamadı — bu modda analiz ÇALIŞMAZ. '
+      + 'Anahtarı kapatıp API key girin, veya Claude Code CLI kurun.';
     cliStatus.style.color = 'var(--red)';
-    toggle.disabled = true;
+  } else {
+    cliStatus.textContent = 'ℹ claude CLI bulunamadı — CLI modunu kullanmak için '
+      + 'Claude Code CLI kurun (npm install -g @anthropic-ai/claude-code).';
+    cliStatus.style.color = 'var(--text3)';
   }
 
   // API key bölümü CLI moduna göre göster/gizle
