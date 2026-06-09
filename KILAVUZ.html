@@ -288,9 +288,10 @@
       <tr><th>Bileşen</th><th>Sürüm / Notlar</th><th>Durum</th></tr>
       <tr><td>İşletim sistemi</td><td>macOS 13+ (Apple Silicon veya Intel)</td><td><span class="pill req">Zorunlu</span></td></tr>
       <tr><td>Python</td><td><strong>3.10 veya üzeri zorunlu</strong> (3.12 önerilir). Kod modern tip ifadeleri kullanır — 3.9 ve altı çöker.</td><td><span class="pill req">Zorunlu</span></td></tr>
-      <tr><td>Node.js + Claude CLI</td><td>CLI modu için: <code>npm install -g @anthropic-ai/claude-code</code></td><td><span class="pill opt">CLI modu</span></td></tr>
+      <tr><td>Node.js + Claude CLI</td><td><code>npm install -g @anthropic-ai/claude-code</code> → <code>claude</code> ile giriş</td><td><span class="pill req">Zorunlu</span></td></tr>
+      <tr><td>Claude.ai aboneliği</td><td>Max veya Pro — CLI modu bunu kullanır (analiz başına ek ücret yok)</td><td><span class="pill req">Zorunlu</span></td></tr>
       <tr><td>Git</td><td>Herhangi bir güncel sürüm</td><td><span class="pill req">Zorunlu</span></td></tr>
-      <tr><td>Anthropic API anahtarı</td><td>Kişisel veya kurumsal</td><td><span class="pill req">Zorunlu</span></td></tr>
+      <tr><td>Anthropic API anahtarı</td><td>Yalnızca CLI yerine API modu kullanılacaksa</td><td><span class="pill opt">Opsiyonel</span></td></tr>
       <tr><td>Atlassian hesabı</td><td>Jira görevi açmak / Confluence okumak için</td><td><span class="pill opt">Opsiyonel</span></td></tr>
       <tr><td>İnternet</td><td>Claude API + Atlassian için sürekli</td><td><span class="pill req">Zorunlu</span></td></tr>
     </table>
@@ -337,41 +338,60 @@ pip install -r requirements.txt</code></pre>
       </p>
     </div>
 
-    <h3 id="k-env">3.5 .env dosyası — Claude erişimi <span class="meta">⏱ 2 dk</span></h3>
+    <h3 id="k-env">3.5 Claude CLI kurulumu ve giriş <span class="meta">⏱ 3 dk</span></h3>
+    <p>Analyst Studio AI çağrılarını <strong>Claude CLI</strong> üzerinden yapar — mevcut
+    Claude.ai (Max/Pro) aboneliğinizi kullanır, analiz başına <strong>ek ücret yoktur</strong>.</p>
+
     <div class="step">
       <div class="num">4</div>
-      <h4>Uygulamayı AI'a bağla — iki seçenek</h4>
-      <p>Analyst Studio AI çağrılarını iki şekilde yapabilir. <strong>CLI modu önerilir</strong> — abonelik kapsamında, per-token ücret yok.</p>
+      <h4>Claude CLI'yı kur</h4>
+<pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
+      <p><code>npm</code> yoksa önce Node.js kurun: <code>brew install node</code></p>
+    </div>
 
-      <h4 style="margin-top:14px">Seçenek A — Claude CLI (önerilir) <span class="pill new">Varsayılan</span></h4>
-      <p>Mevcut Claude.ai (Max/Pro) aboneliğinizi kullanır. Önce <code>claude</code> CLI kurulu olmalı (<code>npm install -g @anthropic-ai/claude-code</code>); sonra giriş: <code>claude</code>.</p>
+    <div class="step">
+      <div class="num">5</div>
+      <h4>Claude'a giriş yap (bir kez)</h4>
+      <p>Terminalde <code>claude</code> yazıp Enter'a basın. Tarayıcı açılır, Claude.ai
+      hesabınızla giriş yapın. Bu oturum kalıcıdır — her analizde tekrar gerekmez.</p>
+<pre><code>claude
+# → tarayıcıda Claude.ai girişi → "Login successful"
+# Doğrula:
+claude --version</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="num">6</div>
+      <h4>.env dosyasını oluştur</h4>
+      <p><code>bash setup.sh</code> ile kurduysanız bu dosya zaten CLI modunda hazırdır.
+      Manuel kurduysanız:</p>
 <pre><code>cat &gt; .env &lt;&lt;'EOF'
 USE_CLAUDE_CLI=true
 EOF
 chmod 600 .env</code></pre>
       <div class="box tip">
-        <strong>CLI modunun avantajları</strong>
-        <ul style="margin:6px 0 0 0">
-          <li>Analiz başına <strong>ek ücret yok</strong> — Max/Pro planınıza dahil</li>
-          <li>API anahtarı yönetmiyorsunuz — Claude.ai oturumu yeter</li>
-          <li>Sınır: Claude.ai planınızın <strong>hız limiti</strong> (saat/gün başına çağrı)</li>
-        </ul>
+        <strong>Özet</strong>
+        Analiz başına ek ücret yok (abonelik kapsamı) · API anahtarı yönetmezsiniz ·
+        Tek sınır: Claude.ai planınızın saatlik/günlük hız limiti.
       </div>
-
-      <h4 style="margin-top:14px">Seçenek B — Anthropic API (per-token ücret)</h4>
-      <p>Doğrudan Anthropic API'sini kullanır — kurumsal hesapla veya kişisel API key ile. Her çağrı için token bazlı ücretlendirme.</p>
-<pre><code>cat &gt; .env &lt;&lt;'EOF'
-ANTHROPIC_API_KEY=sk-ant-api03-XXXX...    # console.anthropic.com'dan alın
-EOF
-chmod 600 .env</code></pre>
-      <p><em>Anahtar nasıl alınır:</em> <a href="https://console.anthropic.com">console.anthropic.com</a> → Settings → API Keys → Create Key. Anahtar <code>sk-ant-...</code> ile başlar.</p>
-
       <div class="box err">
-        <strong>Güvenlik (her iki seçenek için)</strong>
-        <code>.env</code> dosyası <strong>asla</strong> git'e commit edilmez —
-        <code>.gitignore</code> tarafından dışlanır. Dosya izni 0600.
+        <strong>Güvenlik</strong>
+        <code>.env</code> dosyası <strong>asla</strong> git'e commit edilmez
+        (<code>.gitignore</code>'da, izin 0600).
       </div>
-      <p><em>Jira / Confluence anahtarları arayüzden eklenecek (Adım 4.2). Şimdilik bu kadarı yeterli.</em></p>
+      <p><em>Jira / Confluence bağlantısı arayüzden eklenecek (Adım 4.2).</em></p>
+
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--text3)">Alternatif: Anthropic API key (CLI kullanmıyorsanız)</summary>
+        <div style="padding:8px 0 0 16px;font-size:13px;color:var(--text2)">
+          CLI yerine doğrudan API kullanmak isterseniz (token bazlı ücret):
+          <code>.env</code>'e <code>USE_CLAUDE_CLI</code> yerine
+          <code>ANTHROPIC_API_KEY=sk-ant-api03-...</code> yazın
+          (<a href="https://console.anthropic.com">console.anthropic.com</a> → API Keys).
+          Ekip kurulumunda bu yöntem önerilmez.
+        </div>
+      </details>
+    </div>
       <div class="box info">
         <strong>Ekipçe kullanım?</strong>
         Önerilen yöntem: <strong>her analist kendi makinesinde kurar</strong> (bu adımları takip ederek). Doğal paralellik + tam izolasyon sağlar.
@@ -1180,12 +1200,21 @@ pip install -r requirements.txt   # gerekirse</code></pre>
         <td>Ya <code>.env</code>'e <code>ANTHROPIC_API_KEY=sk-ant-...</code> ekleyin, ya da CLI moduna geçin: <code>USE_CLAUDE_CLI=true</code></td>
       </tr>
       <tr>
-        <td>"claude komutu PATH'te bulunamadı" (CLI modu)</td>
-        <td>Claude CLI kurulu değil. <code>npm install -g @anthropic-ai/claude-code</code> → sonra <code>claude</code> ile giriş yapın</td>
+        <td>Ayarlar'da "✗ claude CLI bulunamadı" (ama terminalde <code>claude</code> çalışıyor)</td>
+        <td>Masaüstü ikonundan başlattıysanız: macOS GUI uygulamaları sınırlı PATH alır.
+        Uygulama yaygın konumları (nvm, ~/.local/bin, homebrew) otomatik tarar — güncel
+        sürümde çözüldü. <strong>Güncelleme sekmesi → Güncelle</strong> yapın. Sorun sürerse
+        <code>./start.sh</code> ile terminalden başlatın.</td>
       </tr>
       <tr>
-        <td>"claude CLI boş yanıt döndürdü"</td>
-        <td>Claude.ai oturumu süresi dolmuş olabilir. Terminal'de <code>claude</code> çalıştırıp tekrar giriş yapın</td>
+        <td>"claude komutu bulunamadı" — gerçekten kurulu değil</td>
+        <td><code>npm install -g @anthropic-ai/claude-code</code> → <code>claude</code> ile giriş yapın.
+        <code>npm</code> yoksa: <code>brew install node</code></td>
+      </tr>
+      <tr>
+        <td>"claude CLI boş yanıt döndürdü" / giriş gerekli</td>
+        <td>Claude.ai oturumu yok veya süresi dolmuş. Terminal'de <code>claude</code> çalıştırıp
+        Claude.ai hesabınızla giriş yapın (bir kez yeterli)</td>
       </tr>
       <tr>
         <td>Rate limit / "abonelik sınırı"</td>

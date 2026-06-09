@@ -5,8 +5,12 @@
 RAG destekli analiz → Jira Epic/Story/Subtask. Flask + Python (**3.10+ zorunlu**, `str|None` tipleri), port **5002**.
 Tarayıcı SPA: `http://localhost:5002`
 Kurulum: `bash setup.sh` (önerilir) · Başlatma: `./start.sh` veya Analyst Studio.app
-AI modu: `USE_CLAUDE_CLI=true` (CLI, varsayılan/önerilen) veya `ANTHROPIC_API_KEY` (API).
-⚠ CLI modu görsel (PNG/JPG) BRD'yi analiz edemez — `_api_cagri_cli` net hata verir.
+AI modu: **Pilot ekibi CLI modu kullanıyor** (`USE_CLAUDE_CLI=true`) — Claude.ai
+aboneliği, per-token ücret yok. API modu (`ANTHROPIC_API_KEY`) alternatif/ikincil.
+⚠ CLI modu görsel (PNG/JPG) BRD'yi analiz edemez — `_api_cagri_cli` net hata verir
+(ekip BRD'leri PDF/DOCX/MD/TXT olmalı).
+claude bulma: `_claude_yolu_bul()` PATH'e bağımlı değil — GUI .app minimal PATH
+sorunu için nvm/~.local/homebrew konumlarını da tarar.
 
 İki ana akış:
 - **Süreç → Teknik → Jira:** ana akış (FE/BE katman ayrımıyla görev üretir)
