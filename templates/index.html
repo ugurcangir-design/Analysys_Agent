@@ -3661,10 +3661,6 @@ function jiraModalKapat() {
 let _skorCache = {};   // {dosya: skor_yanit}
 let _aktifSkorDosya = null;
 
-function _skorRozetHTML(skor, renk) {
-  return `<span class="skor-rozet ${renk}" onclick="event.stopPropagation();skorPaneliAc('__SELF__')" title="Kalite skoru — detay için tıkla">${skor}</span>`;
-}
-
 async function skorTumYukle() {
   // Tüm tab'lar için skoru paralel çek
   const tablar = document.querySelectorAll('.output-tab');
