@@ -223,8 +223,10 @@ def csrf_kontrol():
         # Origin/Referer yoksa cross-site fetch olabilir — reddet
         return jsonify({"error": "Cross-origin isteği reddedildi (Origin/Referer yok)"}), 403
 
-    # Kaynak host_url ile başlamalı (same-origin)
-    if not kaynak.startswith(host_url):
+    # Same-origin kontrolü: tam eşitlik veya host_url + "/" prefix'i.
+    # Düz startswith(host_url) yanlıştı — "http://localhost:50021" gibi
+    # port-prefix origin'ler de geçiyordu.
+    if not (kaynak == host_url or kaynak.startswith(host_url + "/")):
         logger.warning(
             "CSRF reddi: path=%s origin=%s referer=%s host=%s",
             request.path, origin, referer, host_url
@@ -447,8 +449,19 @@ _process: subprocess.Popen | None = None
 _process_lock = threading.Lock()
 
 SUSPEND_SURE = 30           # saniye — bu kadar heartbeat gelmezse uyku (overlay)
-KAPAT_SURE   = 45           # saniye — heartbeat kesilirse desktop modunda kapat
+# KAPAT_SURE: Chrome, 5+ dk arka planda kalan sekmelerde timer'ları 1/dakikaya
+# düşürür (intensive throttling) → heartbeat 20s'den 60s'e seyrelir. Eski 45s
+# eşiği bu durumda YANLIŞ POZİTİF veriyordu: kullanıcı sekmeyi sadece arka
+# plana almışken uygulama kendini kapatmaya çalışıyordu. 180s = 2 kaçmış
+# throttled heartbeat + pay.
+KAPAT_SURE   = 180          # saniye — heartbeat kesilirse desktop modunda kapat
 DESKTOP_MODE = os.getenv("DESKTOP_MODE", "false").lower() in ("1", "true", "yes")
+
+
+def _analiz_calisiyor_mu() -> bool:
+    """Alt-süreçte aktif bir analiz var mı? Varsa otomatik kapanma ertelenir."""
+    with _process_lock:
+        return _process is not None and _process.poll() is None
 
 
 def _heartbeat_izle():
@@ -459,11 +472,23 @@ def _heartbeat_izle():
             gecen = time.time() - _son_heartbeat
         _suspended = gecen > SUSPEND_SURE
         # Desktop modunda: KAPAT_SURE saniye heartbeat gelmezse kapat.
-        # Sayfa yenilemede (Cmd+Shift+R) heartbeat ~2-5s içinde geri döner,
-        # bu eşiğe ulaşmaz. Sekme kapatıldığında heartbeat hiç gelmez → kapanır.
+        # Sayfa yenilemede heartbeat ~2-5s içinde geri döner, eşiğe ulaşmaz.
         if DESKTOP_MODE and gecen > KAPAT_SURE:
+            # Analiz sürüyorsa ASLA kapanma — kullanıcı sekmeyi arka plana
+            # almış olabilir; 90s'lik analizin ortasında intihar etme.
+            if _analiz_calisiyor_mu():
+                logger.info("Desktop modu: heartbeat yok (%.0fs) ama analiz sürüyor — kapanma ertelendi.", gecen)
+                continue
             logger.info("Desktop modu: tarayıcı bağlantısı kesildi (%.0fs), uygulama kapatılıyor.", gecen)
             os.kill(os.getpid(), signal.SIGINT)
+            # SIGINT bazen werkzeug tarafından işlenmiyor (kanıt: desktop
+            # log'da 3000+ kez 'kapatılıyor' satırı — process zombi kalıyordu,
+            # port 5002 işgal ediliyordu, kullanıcı eski kodla çalışıyordu).
+            # 10 sn zarif kapanma şansı ver; hâlâ buradaysak kesin çık.
+            time.sleep(10)
+            logger.warning("SIGINT işe yaramadı — os._exit ile zorla kapatılıyor.")
+            logging.shutdown()
+            os._exit(0)
 
 
 threading.Thread(target=_heartbeat_izle, daemon=True).start()

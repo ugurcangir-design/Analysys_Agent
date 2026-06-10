@@ -114,8 +114,12 @@ MAX_TOKENS_KAPSAM   =  8_000
 
 ### Heartbeat / Suspend (app.py)
 ```python
-SUSPEND_SURE = 30   # saniye — bu kadar heartbeat yoksa overlay göster
-KAPAT_SURE   = 45   # saniye — DESKTOP_MODE'da SIGINT (refresh ile karışmasın)
+SUSPEND_SURE = 30    # saniye — bu kadar heartbeat yoksa overlay göster
+KAPAT_SURE   = 180   # saniye — DESKTOP_MODE'da kapat. 180s: Chrome arka plan
+                     # throttling'ine (1 hb/dk) dayanıklı. Analiz sürerken
+                     # ASLA kapanmaz (_analiz_calisiyor_mu guard).
+                     # SIGINT 10s'de işe yaramazsa os._exit(0) — zombi önleme.
+# Heartbeat UI: 20s interval (arka planda da gönderilir) + visibilitychange'te anında
 ```
 
 ### Retry (skills/base.py)
