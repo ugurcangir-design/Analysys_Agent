@@ -750,14 +750,22 @@ def run_teknik():
 
     surec_cikti = OUTPUT_DIR / "surec-analizi.md"
 
-    # INPUT_DIR'de .md veya .txt varsa → surec-analizi.md olarak kullan
-    input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
-    md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
-    if md_dosya:
-        shutil.copy2(md_dosya, surec_cikti)
-        logger.info(f"Yüklenen dosya surec-analizi.md olarak kopyalandı: {md_dosya.name}")
-    elif not surec_cikti.exists():
-        return jsonify({"error": "Süreç analizi bulunamadı. Bir süreç analizi dokümanı (.md / .txt) yükleyin ya da önce tam pipeline çalıştırın."}), 400
+    # ÜRETİLMİŞ ANALİZ ASLA SESSİZCE EZİLMEZ.
+    # Eski davranış: input'ta .md/.txt varsa KOŞULSUZ surec-analizi.md'nin
+    # üzerine kopyalanıyordu → AI'ın ürettiği süreç analizi, ham kaynak
+    # dokümanla eziliyor ve teknik analiz ham dokümanı "süreç analizi"
+    # sanarak çalışıyordu. Artık input dosyası yalnızca output'ta analiz
+    # YOKKEN kullanılır (hazır-analiz yükleyip sadece-teknik senaryosu).
+    if surec_cikti.exists():
+        logger.info("Mevcut surec-analizi.md korunuyor — teknik analiz onunla başlatılıyor.")
+    else:
+        input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+        md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
+        if md_dosya:
+            shutil.copy2(md_dosya, surec_cikti)
+            logger.info(f"Yüklenen dosya surec-analizi.md olarak kopyalandı: {md_dosya.name}")
+        else:
+            return jsonify({"error": "Süreç analizi bulunamadı. Bir süreç analizi dokümanı (.md / .txt) yükleyin ya da önce tam pipeline çalıştırın."}), 400
 
     try:
         wf.baslat_teknik()
