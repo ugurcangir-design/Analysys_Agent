@@ -84,6 +84,10 @@ IDLE → SUREC_ANALIZI_CALISIYOR → ONAY_BEKLENIYOR
      → JIRA_GONDERILIYOR       → JIRA_TAMAMLANDI
      → HATA
 ```
+**Otomatik kurtarma:** `baslat()`/`baslat_teknik()` yalnız CALISMA_DURUMLARI'nda
+reddeder; HATA/bekleme/tamamlanmış durumlardan temiz başlar (elle sıfırlama
+gerekmez). Stale CALISIYOR (state çalışıyor der ama subprocess yok):
+`_stale_workflow_kurtar()` run/run-teknik'te + startup'ta otomatik sıfırlar.
 
 ---
 

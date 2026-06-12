@@ -135,9 +135,15 @@ def guncelle(yeni_durum: str, mesaj: str = "", hata: str | None = None) -> dict:
 
 
 def baslat(pipeline: str) -> dict:
-    """Pipeline'ı başlatır. pipeline: 'surec' veya 'brd'"""
+    """Pipeline'ı başlatır. pipeline: 'surec' veya 'brd'
+
+    Yalnızca GERÇEKTEN çalışan bir analiz varken reddedilir. HATA, onay
+    bekleme veya tamamlanmış durumlardan otomatik temiz başlangıç yapılır —
+    kullanıcı hata sonrası dosya/log silmek ya da elle sıfırlamak zorunda
+    kalmaz: yeni dosya yükle → çalıştır → temiz başlar.
+    """
     state = oku()
-    if state["durum"] != Durum.IDLE:
+    if state["durum"] in CALISMA_DURUMLARI:
         raise ValueError(f"Aktif workflow var: {state['durum']}")
 
     state = _bos_durum()
@@ -156,9 +162,13 @@ def baslat(pipeline: str) -> dict:
 
 
 def baslat_teknik() -> dict:
-    """Mevcut süreç analizi üzerinden doğrudan teknik analiz başlatır. IDLE → TEKNIK_ANALIZ_CALISIYOR"""
+    """Mevcut süreç analizi üzerinden doğrudan teknik analiz başlatır.
+
+    baslat() ile aynı kurtarma kuralı: yalnız aktif çalışma reddedilir;
+    HATA / bekleme / tamamlanmış durumlardan temiz başlanır.
+    """
     state = oku()
-    if state["durum"] != Durum.IDLE:
+    if state["durum"] in CALISMA_DURUMLARI:
         raise ValueError(f"Aktif workflow var: {state['durum']}")
 
     state = _bos_durum()

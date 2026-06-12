@@ -712,6 +712,20 @@ def upload():
     return jsonify({"ok": True, "dosya": guvenli_ad})
 
 
+def _stale_workflow_kurtar() -> None:
+    """Durum dosyası 'çalışıyor' diyor ama gerçek subprocess YOKSA sıfırlar.
+
+    Senaryo: uygulama analiz ortasında kapatıldı → workflow-state.json
+    CALISIYOR'da takılı kaldı → yeniden açılışta kullanıcı sonsuza dek
+    'Bir işlem zaten çalışıyor' alırdı. Gerçek process kontrolüyle kurtarılır.
+    """
+    import workflow as wf
+    if wf.calisiyor_mu() and not _analiz_calisiyor_mu():
+        durum = wf.oku()["durum"]
+        logger.warning("Stale workflow durumu (%s) — subprocess yok, sıfırlanıyor.", durum)
+        wf.sifirla()
+
+
 @app.route("/api/run", methods=["POST"])
 def run():
     import workflow as wf
@@ -721,6 +735,7 @@ def run():
     if pipeline not in ("surec", "brd"):
         return jsonify({"error": "Geçersiz pipeline. 'surec' veya 'brd' olmalı."}), 400
 
+    _stale_workflow_kurtar()
     ozet = wf.ozet()
     if ozet["calisiyor"]:
         return jsonify({"error": "Bir işlem zaten çalışıyor."}), 409
@@ -744,6 +759,7 @@ def run():
 @app.route("/api/run-teknik", methods=["POST"])
 def run_teknik():
     import workflow as wf
+    _stale_workflow_kurtar()
     ozet = wf.ozet()
     if ozet["calisiyor"]:
         return jsonify({"error": "Bir işlem zaten çalışıyor."}), 409
@@ -2500,6 +2516,14 @@ if __name__ == "__main__":
 
     if not _baslangic_guvenlik_kontrol(host, _auth_aktif_mi()):
         sys.exit(1)
+
+    # Uygulama YENİ başlıyor → subprocess kesinlikle yok. State dosyası
+    # CALISIYOR'da takılı kaldıysa (önceki oturum analiz ortasında kapanmış)
+    # temizle — kullanıcı UI'da sahte "çalışıyor" görmesin.
+    import workflow as _wf
+    if _wf.calisiyor_mu():
+        logger.warning("Başlangıçta takılı workflow durumu (%s) sıfırlandı.", _wf.oku()["durum"])
+        _wf.sifirla()
 
     import socket
     local_ip = socket.gethostbyname(socket.gethostname())
