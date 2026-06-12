@@ -239,6 +239,28 @@ def sifirla() -> dict:
     return state
 
 
+def zorla_durum(yeni_durum: str, mesaj: str = "", pipeline: str | None = None) -> dict:
+    """Geçiş kontrolü YAPMADAN durumu yazar — yalnızca kurtarma için.
+
+    Senaryo: analiz subprocess'i başarıyla bitti ama state bu sırada
+    dışarıdan değişti/sıfırlandı (ör. başka bir araç state dosyasına dokundu,
+    kullanıcı reset bastı). guncelle() geçersiz geçiş hatası verir ve üretilen
+    sonuç 'kaybolmuş' görünürdü. İş gerçekten bittiyse sonuç kazanır.
+    """
+    state = oku()
+    state["durum"] = yeni_durum
+    state["mesaj"] = mesaj
+    state["hata"] = None
+    if pipeline:
+        state["pipeline"] = pipeline
+    state["adimlar"].append({
+        "durum": yeni_durum, "zaman": time.time(),
+        "mesaj": f"{mesaj} (kurtarma: geçiş zorlandı)",
+    })
+    _kaydet(state)
+    return state
+
+
 def calisiyor_mu() -> bool:
     return oku()["durum"] in CALISMA_DURUMLARI
 

@@ -22,7 +22,15 @@ from workflow import Durum
 
 
 def _tamamlandi(durum: str, mesaj: str) -> None:
-    workflow.guncelle(durum, mesaj)
+    try:
+        workflow.guncelle(durum, mesaj)
+    except ValueError as e:
+        # Analiz BAŞARIYLA bitti ama state bu sırada dışarıdan değişmiş
+        # (sıfırlanmış vb.) olabilir — sonucu kaybetme, durumu zorla yaz.
+        # Aksi halde subprocess exit 1 olur ve üretilen çıktı UI'da
+        # "yok" gibi görünürdü.
+        print(f"[UYARI] Workflow geçişi reddedildi ({e}) — durum zorla yazılıyor.")
+        workflow.zorla_durum(durum, mesaj)
     print(f"[TAMAMLANDI] {mesaj}")
 
 
