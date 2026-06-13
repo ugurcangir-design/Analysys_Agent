@@ -67,7 +67,8 @@ MAX_CHARS_JIRA_TOT   =  60_000   # Jira issue'ları toplamı (markdown formatın
 MAX_CHARS_SERVIS_TOT =  60_000   # Swagger/OpenAPI toplamı
 MAX_CHARS_DIGER_TOT  =  20_000   # Diğer referanslar toplamı
 
-MAX_TOKENS_UZUN     =  8_000
+MAX_TOKENS_UZUN     = 16_000   # süreç analizi: 13 bölüm + 15+ açık soru +
+                               # izlenebilirlik matrisi. 8K kesiliyordu.
 MAX_TOKENS_KISA     =  3_000
 MAX_TOKENS_COMBINED = 16_000   # teknik analiz: DDL + OpenAPI YAML içerdiği için yüksek
 MAX_TOKENS_BRD_CMB  =  9_000
@@ -1820,8 +1821,14 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
         "/opt/homebrew/bin", "/usr/local/bin",
     ]
     cli_env["PATH"] = os.pathsep.join(_ek_path) + os.pathsep + cli_env.get("PATH", "")
+    # ÖNEMLİ: --output-format json kullanılıyor, text DEĞİL.
+    # text formatı uzun / çok-turn yanıtlarda çıktının BAŞINI kaybediyordu
+    # (yalnızca son asistan mesajını veriyordu) → süreç analizinin Bölüm
+    # 1-11'i kayboluyor, sadece son parça kalıyordu. json formatında
+    # "result" alanı TAM final çıktıyı içerir; ayrıca stop_reason/is_error
+    # ile kesilme tespiti yapılır.
     proc = subprocess.run(
-        [claude_yolu, "-p", "--output-format", "text"],
+        [claude_yolu, "-p", "--output-format", "json"],
         input=tam_prompt,
         capture_output=True,
         text=True,
@@ -1831,9 +1838,33 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     if proc.returncode != 0:
         hata_detay = proc.stderr.strip() or proc.stdout.strip() or "Bilinmeyen hata"
         raise RuntimeError(f"claude CLI hatası (kod {proc.returncode}): {hata_detay}")
-    yanit = proc.stdout.strip()
-    if not yanit:
+
+    ham = proc.stdout.strip()
+    if not ham:
         raise RuntimeError("claude CLI boş yanıt döndürdü.")
+
+    try:
+        veri = json.loads(ham)
+    except json.JSONDecodeError:
+        # Beklenmedik biçim — ham çıktıyı metin olarak kullan (geriye dönük güvence)
+        logger.warning("claude CLI json parse edilemedi, ham çıktı kullanılıyor.")
+        return ham
+
+    if veri.get("is_error"):
+        raise RuntimeError(f"claude CLI hata bildirdi: {veri.get('result') or veri.get('subtype') or 'bilinmeyen'}")
+
+    yanit = (veri.get("result") or "").strip()
+    if not yanit:
+        raise RuntimeError("claude CLI 'result' alanı boş döndü.")
+
+    # Çıktı token limitine takılıp KESİLDİYSE kullanıcıyı uyar — eksik
+    # analizin sessizce "tam" sanılmasını önler.
+    stop = veri.get("stop_reason")
+    if stop and stop not in ("end_turn", "stop_sequence", None):
+        logger.warning(
+            "claude CLI çıktısı '%s' nedeniyle erken bitti (num_turns=%s) — "
+            "analiz eksik olabilir.", stop, veri.get("num_turns"),
+        )
     return yanit
 
 
@@ -1894,6 +1925,7 @@ def _api_cagri_direct(
             system=sistem,
             messages=mesajlar,
         )
+        _api_kesilme_uyar(yanit, max_tokens)
         return "\n".join(b.text for b in yanit.content if b.type == "text")
 
     yanit = client.messages.create(
@@ -1903,7 +1935,20 @@ def _api_cagri_direct(
         messages=mesajlar,
         extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
+    _api_kesilme_uyar(yanit, max_tokens)
     return yanit.content[0].text
+
+
+def _api_kesilme_uyar(yanit, max_tokens: int) -> None:
+    """Yanıt max_tokens limitine takılıp kesildiyse uyarı loglar."""
+    if getattr(yanit, "stop_reason", None) == "max_tokens":
+        kullanim = getattr(yanit, "usage", None)
+        cikti_tok = getattr(kullanim, "output_tokens", "?") if kullanim else "?"
+        logger.warning(
+            "API çıktısı max_tokens limitine takıldı (output=%s/%s) — "
+            "analiz EKSİK üretildi. MAX_TOKENS limitini artırmayı düşünün.",
+            cikti_tok, max_tokens,
+        )
 
 
 def _api_cagri(

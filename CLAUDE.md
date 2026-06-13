@@ -9,6 +9,9 @@ AI modu: **Pilot ekibi CLI modu kullanıyor** (`USE_CLAUDE_CLI=true`) — Claude
 aboneliği, per-token ücret yok. API modu (`ANTHROPIC_API_KEY`) alternatif/ikincil.
 ⚠ CLI modu görsel (PNG/JPG) BRD'yi analiz edemez — `_api_cagri_cli` net hata verir
 (ekip BRD'leri PDF/DOCX/MD/TXT olmalı).
+⚠ CLI çağrısı `--output-format json` kullanır (text DEĞİL) — text uzun/çok-turn
+yanıtta çıktının başını kaybediyordu. json `result` tam döner; stop_reason/is_error
+ile kesilme tespiti yapılır.
 claude bulma: `_claude_yolu_bul()` PATH'e bağımlı değil — GUI .app minimal PATH
 sorunu için nvm/~.local/homebrew konumlarını da tarar.
 
@@ -109,7 +112,7 @@ MAX_CHARS_SERVIS_TOT = 60_000   # Swagger/OpenAPI
 MAX_CHARS_DIGER_TOT  = 20_000
 
 # Token limitleri
-MAX_TOKENS_UZUN     =  8_000
+MAX_TOKENS_UZUN     = 16_000   # süreç analizi (8K kesiyordu)
 MAX_TOKENS_KISA     =  3_000
 MAX_TOKENS_COMBINED = 16_000   # teknik analiz (DDL + OpenAPI YAML için)
 MAX_TOKENS_BRD_CMB  =  9_000
