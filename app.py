@@ -1438,52 +1438,6 @@ def settings_kaydet():
     })
 
 
-# ─── Çıktı Kalite Skoru ───────────────────────────────────────────────────────
-
-@app.route("/api/cikti/<dosya>/skor", methods=["GET"])
-def cikti_skor_getir(dosya):
-    """Bir çıktı dosyasının kalite skorunu döndürür (0-100, sorun listesi ile)."""
-    from skills.kalite import cikti_skoru
-    if dosya not in IZIN_VERILEN_CIKTILAR:
-        return jsonify({"ok": False, "error": "Geçersiz dosya"}), 400
-    return jsonify(cikti_skoru(dosya))
-
-
-@app.route("/api/cikti/<dosya>/skor/duzelt", methods=["POST"])
-def cikti_skor_duzelt(dosya):
-    """Skor sorunlarını otomatik düzeltmek için Yeniden Çalıştır + AI."""
-    import workflow as wf
-    from skills.kalite import cikti_skoru, duzeltme_notu_uret
-    from skills.base import yeniden_calistir
-
-    if dosya not in IZIN_VERILEN_CIKTILAR:
-        return jsonify({"ok": False, "error": "Geçersiz dosya"}), 400
-    if wf.ozet()["calisiyor"]:
-        return jsonify({"ok": False, "error": "Bir analiz çalışıyor, bitince tekrar deneyin"}), 409
-
-    onceki = cikti_skoru(dosya)
-    if not onceki.get("ok"):
-        return jsonify(onceki), 404
-    if not onceki.get("sorunlar"):
-        return jsonify({"ok": True, "mesaj": "Sorun yok, düzeltmeye gerek yok.", "skor": onceki["skor"]})
-
-    notu = duzeltme_notu_uret(onceki)
-    try:
-        yeniden_calistir(dosya, notu)
-    except Exception as e:
-        logger.error("Skor düzeltme hatası: %s", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-    sonra = cikti_skoru(dosya)
-    return jsonify({
-        "ok": True,
-        "onceki_skor": onceki["skor"],
-        "yeni_skor": sonra.get("skor"),
-        "uygulanan_not": notu,
-        "yeni_sonuclar": sonra,
-    })
-
-
 # ─── Soru Defteri ─────────────────────────────────────────────────────────────
 
 @app.route("/api/sorular", methods=["GET"])
@@ -1555,6 +1509,27 @@ def soru_sil_endpoint(soru_id):
     if not silindi:
         return jsonify({"ok": False, "error": "Soru bulunamadı"}), 404
     return jsonify({"ok": True})
+
+
+@app.route("/api/sorular/tumunu-sil", methods=["POST"])
+def sorular_tumunu_sil():
+    """Soru defterini tamamen temizler. Body opsiyonel: {"durum": "atlandi"}
+    verilirse yalnız o durumdakiler silinir; yoksa hepsi silinir."""
+    from skills.sorular import sorular_yukle, sorular_kaydet, istatistik_hesapla
+    payload = request.get_json(silent=True) or {}
+    durum_filtre = (payload.get("durum") or "").strip()
+
+    data = sorular_yukle()
+    onceki = len(data.get("sorular", []))
+    if durum_filtre:
+        data["sorular"] = [s for s in data.get("sorular", []) if s.get("durum") != durum_filtre]
+    else:
+        data["sorular"] = []
+    silinen = onceki - len(data["sorular"])
+    data["istatistik"] = istatistik_hesapla(data["sorular"])
+    sorular_kaydet(data)
+    logger.info("Soru defteri temizlendi: %d soru silindi (filtre=%s).", silinen, durum_filtre or "hepsi")
+    return jsonify({"ok": True, "silinen": silinen})
 
 
 @app.route("/api/sorular/uygula", methods=["POST"])

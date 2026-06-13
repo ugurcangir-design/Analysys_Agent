@@ -1,9 +1,11 @@
 {
   "keywords": [
-    "Ticket Management"
+    "rollback",
+    "Rollback"
   ],
   "jira_keys": [],
   "confluence_pages": [
-    "ticket management"
+    "rollback",
+    "rollback"
   ]
 }
