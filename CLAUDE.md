@@ -358,6 +358,10 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 - `encoding="utf-8", errors="replace", start_new_session=True`
 - `_bekle()` thread'i timeout/crash'i yakalar, workflow'u HATA'ya çeker
 - Zip yükleme: zip-bomb koruması (compression ratio > 100 atla)
+- **Timeout katmanları** (teknik analiz 17 bölüm büyük olabilir, CLI tam çıktıda yavaş):
+  - `_api_cagri_cli` claude CLI: **1200s** (20 dk) · API SDK client: 1200s
+  - app.py `_bekle` subprocess: **1320s** (22 dk) — CLI'dan FAZLA olmalı ki
+    claude timeout'u önce tetiklenip net hata dönsün
 
 ---
 

@@ -1827,12 +1827,16 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     # 1-11'i kayboluyor, sadece son parça kalıyordu. json formatında
     # "result" alanı TAM final çıktıyı içerir; ayrıca stop_reason/is_error
     # ile kesilme tespiti yapılır.
+    # timeout=1200 (20 dk): teknik analiz 17 bölüm (DDL+OpenAPI YAML+validation
+    # matris+FE tasarım+iş kırılımı) + büyük girdi → 10 dk yetmiyordu. CLI tam
+    # çıktı (json result) üretirken uzun sürebiliyor. app.py _bekle bundan biraz
+    # FAZLA bekler ki claude timeout'u önce tetiklensin ve net hata mesajı gelsin.
     proc = subprocess.run(
         [claude_yolu, "-p", "--output-format", "json"],
         input=tam_prompt,
         capture_output=True,
         text=True,
-        timeout=600,
+        timeout=1200,
         env=cli_env,
     )
     if proc.returncode != 0:
@@ -1914,7 +1918,8 @@ def _api_cagri_direct(
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY .env dosyasında tanımlı değil.")
-    client = anthropic.Anthropic(api_key=api_key)
+    # timeout=1200 (20 dk): SDK default 10 dk, büyük teknik analizde yetmiyor.
+    client = anthropic.Anthropic(api_key=api_key, timeout=1200.0)
 
     if thinking:
         budget = min(max_tokens // 2, 10_000)

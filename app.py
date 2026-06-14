@@ -549,7 +549,10 @@ def _surec_calistir(mod: str) -> None:
         global _process
         hata_mesaji: str | None = None
         try:
-            out, _ = _process.communicate(timeout=600)
+            # 1320s (22 dk): CLI çağrısının iç timeout'u (base.py: 1200s/20dk)
+            # bundan kısa — böylece claude timeout'u önce tetiklenip net hata
+            # döner, bu dış bekleme onu yakalar. Teknik analiz 17 bölüm büyük.
+            out, _ = _process.communicate(timeout=1320)
             if out:
                 logger.info(f"[{mod}] çıktı:\n{out}")
             if _process.returncode != 0:
@@ -561,7 +564,7 @@ def _surec_calistir(mod: str) -> None:
                 _process.wait(timeout=5)
             except Exception:
                 pass
-            hata_mesaji = "Zaman aşımı (10 dakika). Alt süreç sonlandırıldı."
+            hata_mesaji = "Zaman aşımı (22 dakika). Alt süreç sonlandırıldı."
             logger.error(f"[{mod}] {hata_mesaji}")
         except Exception as e:
             hata_mesaji = f"Beklenmeyen hata: {e}"
