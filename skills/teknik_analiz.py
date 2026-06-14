@@ -1,5 +1,14 @@
-"""Teknik analiz + açık sorular — tek API çağrısında XML combined output."""
+"""Teknik analiz — İKİ AŞAMALI üretim.
 
+Aşama 1: Sadece teknik analiz (16 bölüm) → teknik-analiz.md
+Aşama 2: Açık sorular AYRI çağrı (teknik analizi girdi alır) → acik-sorular.md
+
+İki ayrı, daha küçük API çağrısı: her biri tek dev çağrıdan hızlı biter,
+timeout riskini düşürür. Teknik analiz biter bitmez kaydedilir; açık
+sorular ondan sonra bağımsız adım olarak üretilir.
+"""
+
+import re
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
@@ -7,14 +16,23 @@ from .base import (
     prompt_yukle, extended_thinking_acik,
     OUTPUT_DIR,
     MAX_CHARS_GENEL,
-    MAX_TOKENS_COMBINED,
+    MAX_TOKENS_COMBINED, MAX_TOKENS_UZUN,
 )
 from .html_mockup import mockup_oku_kontekst
 
+
 def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str:
+    """Aşama 1 sistem promptu — SADECE teknik analiz (açık sorular ayrı aşamada)."""
     rol = prompt_yukle("teknik_analiz_rol")
     bolumler = prompt_yukle("teknik_analiz_bolumler")
-    sorular = prompt_yukle("teknik_analiz_sorular")
+    # "Açık Sorular" bölümünü Aşama 1'den ÇIKAR — açık sorular AYRI çağrıda
+    # üretiliyor. Aksi halde sorular iki kez üretilir ve Aşama 1 gereksiz
+    # uzayıp timeout riskini geri getirir. (## NN. Açık Sorular ... → bir sonraki ## başlığına kadar)
+    bolumler = re.sub(
+        r"(?ims)^#{1,3}\s*\d+\.\s*Açık Sorular.*?(?=^#{1,3}\s|\Z)",
+        "",
+        bolumler,
+    ).strip()
     ekler = []
     if ui_kodu:
         ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 16'da mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
@@ -23,10 +41,44 @@ def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str
     ek_metin = ("\n\n" + "\n".join(ekler)) if ekler else ""
     return (
         rol + ek_metin + "\n\n"
-        "Yanıtını iki XML bloğu halinde ver:\n\n"
-        f"<teknik_analiz>\n{bolumler}\n</teknik_analiz>\n\n"
+        "Teknik analiz raporunu TEK bir XML bloğu halinde ver. Açık sorular AYRI "
+        "bir adımda üretilecek — burada açık soru bölümü YAZMA, yalnızca aşağıdaki "
+        "bölümleri eksiksiz doldur:\n\n"
+        f"<teknik_analiz>\n{bolumler}\n</teknik_analiz>"
+    )
+
+
+def _acik_sorular_prompt_olustur() -> str:
+    """Aşama 2 sistem promptu — açık sorular (teknik analiz + süreç analizi girdi)."""
+    sorular = prompt_yukle("teknik_analiz_sorular")
+    return (
+        "Kıdemli yazılım mimarı olarak, ürettiğin teknik analiz ve kaynak süreç "
+        "analizini gözden geçir. Geliştirme ekibinin koda başlamadan ÖNCE "
+        "netleştirmesi gereken TÜM belirsizlikleri, çelişkileri, eksik kararları "
+        "ve kaynaksız varsayımları açık soru olarak topla.\n\n"
+        "Kurallar:\n"
+        "- Teknik analizde `[K: ❓ Belirsiz]` veya `⚠ VARSAYIM` işaretli her konu bir soru olmalı\n"
+        "- Süreç analizinden gelen Q-XXX'lar teknik bağlamda hâlâ açıksa dahil et\n"
+        "- Her soru BAĞIMSIZ cevaplanabilir ve tek konuya odaklı olmalı\n"
+        "- Önem sırasına göre (Kritik → Yüksek → Orta → Düşük) sırala\n\n"
+        "Çıktıyı TEK bir XML bloğu halinde ver:\n\n"
         f"<acik_sorular>\n{sorular}\n</acik_sorular>"
     )
+
+
+def _acik_sorular_uret(teknik_metni: str, surec_metni: str) -> str:
+    """Aşama 2 — teknik analizi girdi alıp açık soruları AYRI çağrıyla üretir."""
+    print("  Açık sorular ayrı adımda üretiliyor...")
+    sistem = _acik_sorular_prompt_olustur()
+    icerik = [
+        {"type": "text", "text": f"### Üretilen Teknik Analiz\n\n{teknik_metni}"},
+        {"type": "text", "text": f"### Kaynak Süreç Analizi\n\n{surec_metni}"},
+        {"type": "text", "text": "Yukarıdaki teknik analiz ve süreç analizindeki tüm açık konuları soru olarak topla."},
+    ]
+    mesajlar = [{"role": "user", "content": icerik}]
+    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_UZUN, thinking=extended_thinking_acik())
+    yanit = _metin_sikistir(yanit)
+    return _xml_ayir(yanit, "acik_sorular")
 
 
 def teknik_analiz_yap() -> tuple[Path, Path]:
@@ -74,21 +126,36 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
             f"{surec_metni}"
         ),
     })
-    icerik_parcalari.append({"type": "text", "text": "Teknik analiz raporunu ve açık soruları üret."})
+    icerik_parcalari.append({"type": "text", "text": "Teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda)."})
 
+    # ── AŞAMA 1: Sadece teknik analiz ──
     sistem = _teknik_prompt_olustur(ui_kodu, mockup_var=bool(mockup_icerik))
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
     yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
     yanit = _metin_sikistir(yanit)
-
-    teknik  = _xml_ayir(yanit, "teknik_analiz")
-    sorular = _xml_ayir(yanit, "acik_sorular")
+    teknik = _xml_ayir(yanit, "teknik_analiz")
 
     if kullanilan_referanslar:
         meta = "<!--\nKULLANILAN REFERANSLAR:\n- " + "\n- ".join(kullanilan_referanslar) + "\n-->\n\n"
         teknik = meta + teknik
 
-    teknik_yol  = _kaydet("teknik-analiz.md", teknik)
+    # Teknik analiz BİTER BİTMEZ kaydet — açık sorular adımı başarısız olsa bile
+    # teknik analiz korunur.
+    teknik_yol = _kaydet("teknik-analiz.md", teknik)
+
+    # ── AŞAMA 2: Açık sorular (ayrı çağrı) ──
+    try:
+        sorular = _acik_sorular_uret(teknik, surec_metni)
+    except Exception as e:
+        # Açık sorular üretimi başarısız olursa teknik analizi kaybetme;
+        # açık sorular dosyasına hata notu yaz, akış devam etsin.
+        print(f"  ⚠ Açık sorular üretilemedi: {e}")
+        sorular = (
+            "# Açık Sorular\n\n"
+            "⚠ Açık sorular otomatik üretilemedi (teknik analiz başarıyla tamamlandı). "
+            "Çıktılar sekmesinde 'Yeniden Çalıştır' ile açık soruları tekrar üretebilirsiniz.\n\n"
+            f"Hata: {e}"
+        )
     sorular_yol = _kaydet("acik-sorular.md", sorular)
 
     return teknik_yol, sorular_yol

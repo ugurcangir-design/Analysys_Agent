@@ -36,7 +36,7 @@ skills/                 Asıl iş mantığı; agent.py buradan import eder
   base.py               Sabitler, dosya okuma, API çağrısı, RAG, 15 sistem promptu
   atlassian.py          OAuth helper'ları (env_oku, atlassian_refresh/get/post/put) — CANONICAL
   surec_analizi.py      Süreç analizi
-  teknik_analiz.py      Teknik analiz + açık sorular
+  teknik_analiz.py      Teknik analiz + açık sorular (İKİ AŞAMALI: önce teknik analiz, sonra ayrı çağrıda açık sorular)
   brd_analizi.py        BRD analizi + PO soruları + brd_final_kaydet
   kapsam_analizi.py     Kapsam karşılaştırması + alternatif süreçler
   html_mockup.py        HTML prototip üretimi + mockup_oku_kontekst
@@ -358,7 +358,14 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 - `encoding="utf-8", errors="replace", start_new_session=True`
 - `_bekle()` thread'i timeout/crash'i yakalar, workflow'u HATA'ya çeker
 - Zip yükleme: zip-bomb koruması (compression ratio > 100 atla)
-- **Timeout katmanları** (teknik analiz 17 bölüm büyük olabilir, CLI tam çıktıda yavaş):
+- **Teknik analiz İKİ AŞAMALI** (`teknik_analiz_yap` → tuple(teknik_yol, sorular_yol)):
+  1. Aşama 1: yalnız teknik analiz (16 bölüm; Açık Sorular bölümü prompttan
+     runtime'da regex ile çıkarılır) → `teknik-analiz.md` BİTER BİTMEZ kaydedilir
+  2. Aşama 2: ayrı `_api_cagri` — Aşama 1 çıktısı + süreç analizi girdi alınıp
+     açık sorular üretilir → `acik-sorular.md`. Aşama 2 başarısız olsa bile
+     teknik analiz korunur (try/except → dosyaya hata notu). İki küçük çağrı
+     tek dev çağrıdan hızlı biter, timeout riskini düşürür.
+- **Timeout katmanları** (CLI tam çıktıda yavaş):
   - `_api_cagri_cli` claude CLI: **1200s** (20 dk) · API SDK client: 1200s
   - app.py `_bekle` subprocess: **1320s** (22 dk) — CLI'dan FAZLA olmalı ki
     claude timeout'u önce tetiklenip net hata dönsün
