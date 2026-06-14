@@ -1800,7 +1800,7 @@ function temaDegistir() {
               <button class="btn btn-outline btn-sm" onclick="reddet()">
                 <svg class="ico"><use href="#i-stop"/></svg> Durdur
               </button>
-              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Çıktıyı İncele</button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output','surec-analizi.md')">Çıktıyı İncele</button>
             </div>
             <div class="action-foot">
               <span>İsteğe bağlı:</span>
@@ -1832,7 +1832,7 @@ function temaDegistir() {
                 <button class="btn btn-outline btn-sm" onclick="teknikReddet()">
                   <svg class="ico"><use href="#i-stop"/></svg> Durdur
                 </button>
-                <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Teknik Analizi İncele</button>
+                <button class="btn btn-outline btn-sm" onclick="switchTab('output','teknik-analiz.md')">Teknik Analizi İncele</button>
               </div>
             </div>
             <!-- Jira sorusu (Onayla sonrası) -->
@@ -1856,7 +1856,7 @@ function temaDegistir() {
               <button class="btn btn-success" onclick="surecleriSifirla()">
                 <svg class="ico"><use href="#i-check"/></svg> Bitir
               </button>
-              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Çıktıları Görüntüle</button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output','teknik-analiz.md')">Çıktıları Görüntüle</button>
             </div>
           </div>
 
@@ -2007,7 +2007,7 @@ function temaDegistir() {
               </button>
               <button class="btn btn-outline btn-sm" onclick="kapsamAtla()">Analiz Olmadan Kaydet</button>
               <button class="btn btn-outline btn-sm" onclick="resetWorkflow()">Durdur</button>
-              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">BRD Sorularını Görüntüle</button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output','brd-sorular.md')">BRD Sorularını Görüntüle</button>
             </div>
           </div>
 
@@ -2018,7 +2018,7 @@ function temaDegistir() {
               <button class="btn btn-success" onclick="surecleriSifirla()">
                 <svg class="ico"><use href="#i-check"/></svg> Bitir
               </button>
-              <button class="btn btn-outline btn-sm" onclick="switchTab('output')">Çıktıları Görüntüle</button>
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output','brd-analizi.md')">Çıktıları Görüntüle</button>
             </div>
           </div>
 
@@ -2684,7 +2684,7 @@ let _mockupAbortCtrl = null;
 let _mockupCalisiyor = false;
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
+function switchTab(tab, hedefDosya) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + tab).classList.add('active');
@@ -2693,7 +2693,7 @@ function switchTab(tab) {
   const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   if (tab === 'history')       loadHistory();
-  if (tab === 'output')        { refreshOutputTabs(); sorularDefteriYenile(); }
+  if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
   if (tab === 'ui-code')       loadUiFiles();
   if (tab === 'settings')      settingsYukle();
   if (tab === 'jira-settings') jiraConfigYukle();
@@ -3244,6 +3244,19 @@ async function refreshOutputTabs() {
       tab.classList.toggle('has-content', !!(info && info.var));
     });
   } catch {}
+}
+
+// Çıktı sayfasına gelince hedef dosya verildiyse doğru alt sekmeyi aç.
+// "Teknik Analizi İncele" gibi butonlar artık doğru sekmeye iner. Hedef yoksa
+// (sol menü "Çıktılar" navı, geçmiş görüntüleme) eski davranış: sadece sekme
+// rozetlerini tazele, içerik seçimine dokunma.
+async function outputTabHazirla(hedefDosya) {
+  await refreshOutputTabs();
+  if (hedefDosya) outputSecByFile(hedefDosya);
+}
+function outputSecByFile(dosya) {
+  const el = document.querySelector('.output-tab[data-file="' + dosya + '"]');
+  if (el) outputSec(el);
 }
 
 async function outputSec(tab) {

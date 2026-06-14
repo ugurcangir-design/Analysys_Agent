@@ -1164,7 +1164,14 @@ UI_UZANTILAR = {
 
 def _xml_ayir(text: str, tag: str) -> str:
     m = re.search(f'<{tag}>(.*?)</{tag}>', text, re.DOTALL)
-    return m.group(1).strip() if m else text.strip()
+    if m:
+        return m.group(1).strip()
+    # Kapanış etiketi yok (çıktı KESİLMİŞ olabilir — özellikle CLI uzun analizde
+    # erken bitince). Açılıştan sonrasını kurtar, stray açılış/kapanış etiketlerini
+    # temizle; böylece yarım çıktı da etiketsiz, okunur şekilde alınır.
+    acik = re.search(f'<{tag}>(.*)', text, re.DOTALL)
+    ham = acik.group(1) if acik else text
+    return ham.replace(f'<{tag}>', '').replace(f'</{tag}>', '').strip()
 
 
 def _metin_sikistir(metin: str) -> str:

@@ -371,6 +371,11 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
      tek dev çağrıdan hızlı biter, timeout riskini düşürür.
   - **Boş bölüm kuralı:** kapsam yoksa (FE işi yok, yeni tablo yok vb.) bölüm
     uydurulmaz; başlık + tek satır not yazılır.
+  - **Kesilme koruması:** CLI uzun analizi bazen erken bitiriyordu (doküman ~9.
+    bölümde yarım kaydoluyordu). `_teknik_uret_tam()` Aşama 1 yanıtında kapanış
+    `</teknik_analiz>` yoksa kesilmiş sayar ve yeniden dener (max 2); başaramazsa
+    en dolu çıktıyı kaydedip uyarır. `_xml_ayir` (base.py) kapanış etiketi yoksa
+    yarımı stray-etiketsiz kurtarır — tüm XML çıktı ayrıştırıcıları için geçerli.
 - **Timeout katmanları** (CLI tam çıktıda yavaş):
   - `_api_cagri_cli` claude CLI: **1200s** (20 dk) · API SDK client: 1200s
   - app.py `_bekle` subprocess: **1320s** (22 dk) — CLI'dan FAZLA olmalı ki

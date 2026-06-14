@@ -66,6 +66,27 @@ def _acik_sorular_prompt_olustur() -> str:
     )
 
 
+def _teknik_uret_tam(sistem: str, mesajlar: list, max_deneme: int = 2) -> str:
+    """Aşama 1 üretimi — kapanış </teknik_analiz> etiketi yoksa çıktı KESİLMİŞ
+    demektir (özellikle CLI modu uzun analizde bazen erken biter; max_tokens CLI'de
+    geçerli değil). Tam yanıt gelene kadar (en fazla max_deneme) yeniden dener;
+    hiçbiri tam değilse en dolu ham yanıtı döndürür (_xml_ayir yarımı yine ayıklar).
+    Böylece eksik teknik analiz SESSİZCE kaydedilmez."""
+    en_dolu = ""
+    for deneme in range(1, max_deneme + 1):
+        ham = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
+        if "</teknik_analiz>" in ham:
+            if deneme > 1:
+                print(f"  ✓ {deneme}. denemede tam teknik analiz üretildi")
+            return ham
+        if len(ham) > len(en_dolu):
+            en_dolu = ham
+        if deneme < max_deneme:
+            print(f"  ⚠ Teknik analiz kesik geldi (kapanış etiketi yok) — yeniden deneniyor ({deneme}/{max_deneme})...")
+    print("  ⛔ Teknik analiz tam üretilemedi — eldeki en dolu çıktı kaydedilecek (eksik olabilir).")
+    return en_dolu
+
+
 def _acik_sorular_uret(teknik_metni: str, surec_metni: str) -> str:
     """Aşama 2 — teknik analizi girdi alıp açık soruları AYRI çağrıyla üretir."""
     print("  Açık sorular ayrı adımda üretiliyor...")
@@ -132,7 +153,7 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     # ── AŞAMA 1: Sadece teknik analiz ──
     sistem = _teknik_prompt_olustur(ui_kodu, mockup_var=bool(mockup_icerik))
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
-    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
+    yanit = _teknik_uret_tam(sistem, mesajlar)
     yanit = _metin_sikistir(yanit)
     teknik = _xml_ayir(yanit, "teknik_analiz")
 
