@@ -307,16 +307,6 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 }
 .et-chip:hover .et-tooltip { display: block; }
 
-/* ── Workflow bar ──────────────────────────────────────────────── */
-.wf-bar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 9px 22px;
-  display: flex; align-items: center; gap: 10px;
-  flex-shrink: 0;
-}
-.wf-bar .wf-label { font-size: 12px; font-weight: 500; flex: 1; color: var(--text); }
-.wf-bar .wf-sub { font-size: 11px; color: var(--text3); font-family: 'Geist Mono', monospace; }
 
 /* ── Page container ────────────────────────────────────────────── */
 .page { display: none; padding: 20px 22px; flex: 1; }
@@ -1042,6 +1032,54 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Hazırlanıyor görseli (analiz çalışırken) ──────────────────── */
+.hazirlaniyor {
+  display: flex; align-items: center; gap: 18px;
+  padding: 22px 24px; margin-bottom: 14px;
+  background: linear-gradient(120deg, rgba(45,168,154,.08), rgba(45,168,154,.02));
+  border: 1px solid rgba(45,168,154,.3); border-radius: var(--radius);
+  position: relative; overflow: hidden;
+}
+/* akan ışık şeridi */
+.hazirlaniyor::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(45,168,154,.10), transparent);
+  transform: translateX(-100%);
+  animation: hazir-shimmer 1.8s ease-in-out infinite;
+}
+@keyframes hazir-shimmer { to { transform: translateX(100%); } }
+.hazirlaniyor-spin {
+  width: 44px; height: 44px; flex-shrink: 0; position: relative; z-index: 1;
+}
+.hazirlaniyor-spin::before, .hazirlaniyor-spin::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: 3px solid transparent;
+}
+.hazirlaniyor-spin::before {
+  border-top-color: var(--accent); border-right-color: var(--accent);
+  animation: spin .9s linear infinite;
+}
+.hazirlaniyor-spin::after {
+  inset: 7px; border-bottom-color: var(--accent2);
+  animation: spin 1.4s linear infinite reverse;
+}
+.hazirlaniyor-metin { flex: 1; z-index: 1; }
+.hazirlaniyor-baslik {
+  font-size: 14.5px; font-weight: 600; color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+}
+.hazirlaniyor-baslik::after {
+  content: ''; display: inline-block; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--accent);
+  animation: hazir-nabiz 1s ease-in-out infinite;
+}
+@keyframes hazir-nabiz { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+.hazirlaniyor-alt { font-size: 12px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+.hazirlaniyor-sure {
+  font-size: 11px; color: var(--accent2); margin-top: 6px;
+  font-family: 'Geist Mono', monospace;
+}
+
 /* ── History ───────────────────────────────────────────────────── */
 .history-list { display: flex; flex-direction: column; gap: 6px; }
 .history-item {
@@ -1658,14 +1696,6 @@ function temaDegistir() {
       <div class="user-avatar" title="Kullanıcı">A</div>
     </div>
 
-    <!-- Workflow bar (sticky görünür sadece aktifken) -->
-    <div class="wf-bar" id="wf-bar" style="display:none">
-      <span class="status-dot" id="wf-dot"></span>
-      <div style="flex:1">
-        <div class="wf-label" id="wf-label">-</div>
-        <div class="wf-sub" id="wf-msg"></div>
-      </div>
-    </div>
 
     <!-- ─── SÜREÇ ANALİZİ ─── -->
     <div class="page active" id="page-surec">
@@ -1747,7 +1777,14 @@ function temaDegistir() {
 
           <!-- RUNNING -->
           <div id="surec-act-running" style="display:none">
-            <div class="action-desc" id="surec-running-desc">Çalışıyor...</div>
+            <div class="hazirlaniyor">
+              <div class="hazirlaniyor-spin"></div>
+              <div class="hazirlaniyor-metin">
+                <div class="hazirlaniyor-baslik" id="surec-running-desc">Analiz hazırlanıyor</div>
+                <div class="hazirlaniyor-alt">AI dokümanı ve referansları okuyup yapılandırılmış analizi üretiyor. Lütfen bekleyin — sekmeyi kapatmayın.</div>
+                <div class="hazirlaniyor-sure" id="surec-running-sure"></div>
+              </div>
+            </div>
             <div class="btn-group">
               <button class="btn btn-danger btn-sm" onclick="resetWorkflow()">
                 <svg class="ico"><use href="#i-stop"/></svg> Durdur
@@ -1938,7 +1975,14 @@ function temaDegistir() {
 
           <!-- RUNNING -->
           <div id="brd-act-running" style="display:none">
-            <div class="action-desc" id="brd-running-desc">Çalışıyor...</div>
+            <div class="hazirlaniyor">
+              <div class="hazirlaniyor-spin"></div>
+              <div class="hazirlaniyor-metin">
+                <div class="hazirlaniyor-baslik" id="brd-running-desc">Analiz hazırlanıyor</div>
+                <div class="hazirlaniyor-alt">AI dokümanı ve referansları okuyup yapılandırılmış analizi üretiyor. Lütfen bekleyin — sekmeyi kapatmayın.</div>
+                <div class="hazirlaniyor-sure" id="brd-running-sure"></div>
+              </div>
+            </div>
             <div class="btn-group">
               <button class="btn btn-danger btn-sm" onclick="resetWorkflow()">
                 <svg class="ico"><use href="#i-stop"/></svg> Durdur
@@ -2831,18 +2875,12 @@ function _setVisible(id, visible) {
 }
 
 function updateUI(s) {
-  const bar = document.getElementById('wf-bar');
-  bar.style.display = s.durum === 'idle' ? 'none' : 'flex';
-  document.getElementById('wf-label').textContent = s.etiket;
-  document.getElementById('wf-msg').textContent   = s.mesaj || '';
-
   const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
   const cls = s.calisiyor ? 'status-running'
     : bekliyor ? 'status-waiting'
     : s.tamamlandi ? 'status-done'
     : s.durum === 'hata' ? 'status-error' : 'status-idle';
 
-  document.getElementById('wf-dot').className           = 'status-dot ' + cls;
   document.getElementById('sidebar-dot').className      = 'status-dot ' + cls;
   if (!_mockupCalisiyor) {
     document.getElementById('sidebar-status-text').textContent = s.etiket;
@@ -2882,7 +2920,12 @@ function updateUI(s) {
   _setVisible('brd-act-error',   isBrd && s.durum === 'hata');
 
   const descEl = document.getElementById(isBrd ? 'brd-running-desc' : 'surec-running-desc');
-  if (descEl && s.calisiyor) descEl.textContent = s.etiket || 'Çalışıyor...';
+  if (descEl && s.calisiyor) descEl.textContent = s.etiket || 'Analiz hazırlanıyor';
+  const sureEl = document.getElementById(isBrd ? 'brd-running-sure' : 'surec-running-sure');
+  if (sureEl) {
+    const bas = _stepStart[s.durum];
+    sureEl.textContent = (s.calisiyor && bas) ? `⏱ ${Math.floor((Date.now() - bas) / 1000)} saniye geçti` : '';
+  }
 
   if (s.tamamlandi) {
     const doneEl = document.getElementById(isBrd ? 'brd-done-msg' : 'surec-done-msg');
@@ -3000,7 +3043,6 @@ function _stepSureTakip(durum) {
 }
 
 function resetWorkflowUI() {
-  document.getElementById('wf-bar').style.display = 'none';
   document.getElementById('sidebar-dot').className = 'status-dot status-idle';
   document.getElementById('sidebar-status-text').textContent = 'Hazır';
   const _tbDot2 = document.getElementById('topbar-dot');     if (_tbDot2)  _tbDot2.className = 'status-dot status-idle';
@@ -3118,7 +3160,6 @@ async function runPipeline(pipeline) {
   if (!res.ok) { toast(data.error, 'error'); return; }
 
   _activePipeline = pipeline;
-  document.getElementById('wf-bar').style.display = 'flex';
   toast(`${pipeline === 'surec' ? 'Süreç' : 'BRD'} pipeline başlatıldı`, 'info');
   startPoll();
 }
@@ -3135,7 +3176,6 @@ async function sadeceTeknikBaslat() {
   const data = await res.json();
   if (!res.ok) { toast(data.error, 'error'); return; }
   _activePipeline = 'surec';
-  document.getElementById('wf-bar').style.display = 'flex';
   toast('Teknik analiz başlatıldı', 'info');
   startPoll();
 }
@@ -3196,6 +3236,7 @@ async function kapsamAtla() {
   refreshOutputTabs();
 }
 async function resetWorkflow() {
+  if (!confirm('Mevcut işlem durdurulup sıfırlanacak. Çalışan bir analiz varsa kesilir ve ilerleme kaybolur.\n\nDevam edilsin mi?')) return;
   await fetch('/api/reset', {method:'POST'});
   resetWorkflowUI(); stopPoll();
   toast('Sıfırlandı', 'info');
@@ -3985,8 +4026,6 @@ async function mockupOlustur() {
     if (msgOnay) { msgOnay.className = ''; msgOnay.textContent = v ? 'Prototip üretiliyor...' : ''; }
     const devamBtn = document.querySelector('#surec-act-onay .btn-success');
     if (devamBtn) devamBtn.disabled = v;
-    const wfMsg = document.getElementById('wf-msg');
-    if (wfMsg) wfMsg.textContent = v ? 'HTML Prototip oluşturuluyor...' : '';
     const statusText = 'HTML Prototip oluşturuluyor...';
     if (v) {
       const sd = document.getElementById('sidebar-status-text'); if (sd) sd.textContent = statusText;
@@ -4032,6 +4071,7 @@ async function mockupOlustur() {
 }
 
 function mockupIptal() {
+  if (!confirm('Prototip üretimi durdurulsun mu?')) return;
   if (_mockupAbortCtrl) _mockupAbortCtrl.abort();
 }
 
@@ -4321,6 +4361,7 @@ async function uiDosyaGoster(yol, el) {
 
 async function uiDosyaSil(e, yol) {
   e.stopPropagation();
+  if (!confirm(`"${yol}" dosyası silinsin mi?`)) return;
   await fetch('/api/ui-files/delete', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({yol})
