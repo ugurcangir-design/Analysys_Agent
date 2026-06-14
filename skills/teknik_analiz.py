@@ -1,7 +1,7 @@
 """Teknik analiz — İKİ AŞAMALI üretim.
 
-Aşama 1: Sadece teknik analiz (16 bölüm) → teknik-analiz.md
-Aşama 2: Açık sorular AYRI çağrı (teknik analizi girdi alır) → acik-sorular.md
+Aşama 1: Teknik analiz (1-11. bölümler) → teknik-analiz.md
+Aşama 2: Karar Bekleyen Konular / açık sorular AYRI çağrı → acik-sorular.md
 
 İki ayrı, daha küçük API çağrısı: her biri tek dev çağrıdan hızlı biter,
 timeout riskini düşürür. Teknik analiz biter bitmez kaydedilir; açık
@@ -25,19 +25,19 @@ def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str
     """Aşama 1 sistem promptu — SADECE teknik analiz (açık sorular ayrı aşamada)."""
     rol = prompt_yukle("teknik_analiz_rol")
     bolumler = prompt_yukle("teknik_analiz_bolumler")
-    # "Açık Sorular" bölümünü Aşama 1'den ÇIKAR — açık sorular AYRI çağrıda
-    # üretiliyor. Aksi halde sorular iki kez üretilir ve Aşama 1 gereksiz
-    # uzayıp timeout riskini geri getirir. (## NN. Açık Sorular ... → bir sonraki ## başlığına kadar)
+    # Güvenlik ağı: "Açık Sorular / Karar Bekleyen Konular" başlığı prompta
+    # sızarsa Aşama 1'den ÇIKAR — bu bölüm AYRI çağrıda üretiliyor. Aksi halde
+    # sorular iki kez üretilir ve Aşama 1 uzayıp timeout riskini geri getirir.
     bolumler = re.sub(
-        r"(?ims)^#{1,3}\s*\d+\.\s*Açık Sorular.*?(?=^#{1,3}\s|\Z)",
+        r"(?ims)^#{1,3}\s*\d+\.\s*(?:Açık Sorular|Karar Bekleyen Konular).*?(?=^#{1,3}\s|\Z)",
         "",
         bolumler,
     ).strip()
     ekler = []
     if ui_kodu:
-        ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 16'da mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
+        ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 7 (Frontend İş Kırılımı)'nda mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
     if mockup_var:
-        ekler.append("HTML prototip de sağlanmıştır. Bölüm 16'da prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt.")
+        ekler.append("HTML prototip de sağlanmıştır. Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt.")
     ek_metin = ("\n\n" + "\n".join(ekler)) if ekler else ""
     return (
         rol + ek_metin + "\n\n"

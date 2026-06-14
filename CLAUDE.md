@@ -190,7 +190,7 @@ Halüsinasyon Koruması (Entity Whitelist), İzlenebilirlik (aşama bazlı ID ta
 ```
 BRD Analizi    : FR-XXX  NFR-XXX  US-XXX  AC-XXX  I-XXX
 Süreç Analizi  : A-XXX   PA-XXX   BR-XXX  AF-XXX  EF-XXX  AC-XXX  EK-XXX (ekran)
-Teknik Analiz  : T-FE-XX  T-BE-XX (Bölüm 17 İş Kırılımı)
+Teknik Analiz  : T-FE-XX  T-BE-XX (Bölüm 2/5/7'den çıkarılan FE/BE görevleri)
 Kapsam Analizi : YE-XXX (yeni eklenen) KL-XXX (kaldırılan) DG-XXX (değiştirilen)
 ```
 
@@ -199,9 +199,9 @@ Süreç adımları, iş kuralları, ekranlar ve teknik iş öğeleri **katman et
 taşır: `FE / BE / FE+BE / Tek tip`. Bu, FE ve BE Jira görevlerinin ayrı ama
 ilişkili olarak açılmasını sağlar.
 
-**Teknik analizde:**
-- Bölüm 16 → Frontend (FE) Teknik Tasarımı (her zaman, koşulsuz)
-- Bölüm 17 → İş Kırılımı (T-FE / T-BE tablosu — Jira temeli)
+**Teknik analizde (kullanıcının 12 bölümlük şablonu):**
+- Bölüm 7 → Frontend İş Kırılımı (FE bileşen/state/API/validasyon; FE işi yoksa boş bölüm notu)
+- Bölüm 2 (İş Gereksinimleri) + 5 (API Tasarımı) → BE/işlevsel görevler; Jira hiyerarşisi bu bölümlerden çıkarılır
 
 **Jira önizleme modalı** her Story/Subtask satırında `FE` / `BE` rozeti gösterir.
 
@@ -359,12 +359,18 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 - `_bekle()` thread'i timeout/crash'i yakalar, workflow'u HATA'ya çeker
 - Zip yükleme: zip-bomb koruması (compression ratio > 100 atla)
 - **Teknik analiz İKİ AŞAMALI** (`teknik_analiz_yap` → tuple(teknik_yol, sorular_yol)):
-  1. Aşama 1: yalnız teknik analiz (16 bölüm; Açık Sorular bölümü prompttan
-     runtime'da regex ile çıkarılır) → `teknik-analiz.md` BİTER BİTMEZ kaydedilir
+  1. Aşama 1: teknik analiz 1-11. bölümler (kullanıcının şablonu: Amaç/Hedefler,
+     İş Gereksinimleri, Teknik Gereksinimler, Veritabanı, API, İş Mantığı,
+     Frontend İş Kırılımı, Role Management, Hata Yönetimi, Teknik Borç/Riskler,
+     Kabul Kriterleri). 12. bölüm "Karar Bekleyen Konular" güvenlik ağı regex'iyle
+     prompttan çıkarılır → `teknik-analiz.md` BİTER BİTMEZ kaydedilir
   2. Aşama 2: ayrı `_api_cagri` — Aşama 1 çıktısı + süreç analizi girdi alınıp
-     açık sorular üretilir → `acik-sorular.md`. Aşama 2 başarısız olsa bile
+     "Karar Bekleyen Konular" / açık sorular üretilir → `acik-sorular.md`
+     (`### Q-T-NNN:` blok formatı, UI parser uyumlu). Aşama 2 başarısız olsa bile
      teknik analiz korunur (try/except → dosyaya hata notu). İki küçük çağrı
      tek dev çağrıdan hızlı biter, timeout riskini düşürür.
+  - **Boş bölüm kuralı:** kapsam yoksa (FE işi yok, yeni tablo yok vb.) bölüm
+    uydurulmaz; başlık + tek satır not yazılır.
 - **Timeout katmanları** (CLI tam çıktıda yavaş):
   - `_api_cagri_cli` claude CLI: **1200s** (20 dk) · API SDK client: 1200s
   - app.py `_bekle` subprocess: **1320s** (22 dk) — CLI'dan FAZLA olmalı ki

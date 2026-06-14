@@ -383,175 +383,138 @@ doğrular.
         "aciklama": "Teknik analiz raporu bölüm yapısı. Geliştirme ekibi bu çıktıdan doğrudan kod yazabilmeli.",
         "icerik": (
             "🎯 **Çıktı Hedefi:** Geliştirme ekibi (BE + FE) bu dokümanı okuyarak "
-            "DDL'i çalıştırabilmeli, OpenAPI YAML'ı import edebilmeli, validation "
-            "kurallarını kodlayabilmeli, ekran/bileşen yapısını kurabilmeli, "
-            "test senaryolarını yazabilmeli. Eksik veya muğlak alan YASAK.\n\n"
-            "## 1. Teknik Özet\n"
-            "- 2-3 paragraf: projenin teknik kapsamı, kritik kararlar, öne çıkan riskler\n"
+            "DDL'i çalıştırabilmeli, endpoint'leri ve request/response'ları "
+            "kodlayabilmeli, validation kurallarını uygulayabilmeli, ekran/bileşen "
+            "yapısını kurabilmeli, kabul kriterlerinden test yazabilmeli. "
+            "Eksik veya muğlak alan YASAK.\n\n"
+            "⚠️ **BOŞ BÖLÜM KURALI:** Bir bölümün kapsamı bu modülde YOKSA "
+            "(örn. frontend işi yoksa, yeni tablo yoksa) o bölümü UYDURMA. "
+            "Başlığı koy ve altına tek satır not yaz: "
+            "\"Bu modülde [frontend / yeni tablo / vb.] işi bulunmamaktadır.\" "
+            "Kaynakta olmayan endpoint, tablo, alan veya kural ASLA icat etme.\n\n"
+            "## 1. Amaç ve Hedefler\n"
+            "Bu bölüm doküman girişidir; ayrı bir 'Açıklama' başlığı AÇMA.\n"
+            "- **Açıklama:** 1-2 cümle — bu teknik analiz hangi modül/ekran/işi kapsıyor (başlık: \"[Modül] - [Ekran/İş] - Teknik Analiz\")\n"
+            "- **Amaç:** ne geliştirilecek, hangi yetenek sisteme kazandırılacak\n"
+            "- **Hedef:** iş açısından beklenen sonuç + somut sınır/kısıt değerleri (varsa)\n"
             "- Karşılanan süreç ID'leri (özet): BR-001..BR-NN, AC-001..AC-NN, PA-001..PA-NN\n\n"
-            "## 2. Sistem Mimarisi ve Bileşenler\n"
-            "- Katmanlar (Frontend / Backend / DB / 3rd-party) ve aralarındaki ilişkiler\n"
-            "- Her bileşen için: teknoloji seçimi + gerekçe + kaynak\n"
-            "- Deployment mimarisi (monolith / microservice / serverless vb.)\n"
-            "- Component diagram (mermaid blok önerilir):\n"
-            "```mermaid\ngraph LR\n  FE[Frontend] --> BFF[BFF/API Gateway]\n  BFF --> SVC[Service]\n  SVC --> DB[(DB)]\n```\n\n"
-            "## 3. Veri Modeli ve Akışı\n"
-            "Her tablo için gerçek DDL yaz. Mevcut DDL referansta varsa ONU kullan.\n\n"
+            "## 2. İş Gereksinimleri\n"
+            "Ekran/modal/işlevin bileşen bazlı kırılımı. Alt başlıklar kullan "
+            "(2.1, 2.2, ...). Her bileşen grubu için Bileşen / Açıklama tablosu:\n\n"
+            "### 2.1. [Ekran / Bölüm Adı]\n"
+            "| Bileşen | Açıklama |\n"
+            "|---------|----------|\n"
+            "| [Buton/Alan/Modal] | [ne yapar, hangi kural/yetki geçerli, bağlı BR-XXX] |\n\n"
+            "- Her bileşenin zorunluluk/uzunluk/biçim kuralını yaz (örn. \"2-64 karakter, zorunlu\")\n"
+            "- Readonly / disabled / dinamik set edilen alanları belirt\n"
+            "- İlgili iş kuralı: BR-XXX, kabul kriteri: AC-XXX bağla\n\n"
+            "## 3. Teknik Gereksinimler\n"
+            "Konsolide akışlar — uçtan uca senaryolar adım adım (numaralı). "
+            "PA-XXX süreç adımlarına referans ver.\n\n"
+            "Her ana akış için (açılış, kontrol, doğrulama, başarılı kayıt, hata "
+            "senaryoları, iptal/kapatma):\n"
+            "1. [Tetikleyici] → [sistem davranışı] → [sonuç]\n"
+            "2. ...\n\n"
+            "- Durum geçişi varsa state machine (mermaid `stateDiagram-v2`) ekle\n"
+            "- Hangi adımda hangi endpoint çağrılır, hangi alan set edilir — net yaz\n\n"
+            "## 4. Veritabanı Tasarımı\n"
+            "Veritabanı sistemini belirt (örn. PostgreSQL). Üç alt bölüm:\n\n"
+            "**4.A Mevcut Tablolar** — bu modülün kullandığı ama başka analizde "
+            "tanımlı olabilecek tablolar:\n"
+            "| Tablo Adı | Amaç | Durum |\n"
+            "|-----------|------|-------|\n"
+            "| risk_categories | ... | ⚠ Başka analizde tanımlı olabilir, doğrulanmalı |\n\n"
+            "**4.B Bu Modül İçin Yeni Tablolar** — gerçek DDL yaz (yeni tablo yoksa "
+            "boş bölüm kuralını uygula):\n"
             "```sql\n"
             "CREATE TABLE ornek_tablo (\n"
             "    id          BIGSERIAL PRIMARY KEY,\n"
-            "    alan_adi    VARCHAR(255) NOT NULL,\n"
-            "    durum       VARCHAR(20)  NOT NULL DEFAULT 'AKTIF',\n"
-            "    olusturuldu TIMESTAMPTZ  NOT NULL DEFAULT NOW(),\n"
-            "    guncellendi TIMESTAMPTZ  NOT NULL DEFAULT NOW(),\n"
-            "    CONSTRAINT chk_durum CHECK (durum IN ('AKTIF','PASIF','SILINDI'))\n"
+            "    alan_adi    VARCHAR(64) NOT NULL,\n"
+            "    durum       VARCHAR(20) NOT NULL DEFAULT 'AKTIF',\n"
+            "    olusturuldu TIMESTAMPTZ NOT NULL DEFAULT NOW(),\n"
+            "    CONSTRAINT chk_durum CHECK (durum IN ('AKTIF','PASIF'))\n"
             ");\n"
             "CREATE INDEX idx_ornek_alan ON ornek_tablo(alan_adi);\n"
-            "```\n\n"
-            "- FK ilişkileri (ON DELETE/UPDATE davranışı dahil)\n"
-            "- Index stratejisi (sorgu paterni → index)\n"
-            "- Veri akışı tablosu: hangi servis hangi tabloyu yazar/okur\n"
-            "- Soft delete / audit kolonları stratejisi\n"
-            "- **Karşılanan iş kuralları:** BR-XXX, BR-YYY → hangi tablo/kolon\n\n"
-            "## 4. API ve Entegrasyon Tasarımı\n"
-            "Her endpoint için OpenAPI 3.0 YAML. Mevcut Swagger referansta varsa ONU baz al, "
-            "yeni endpoint ekliyorsan aynı stilde devam ettir.\n\n"
-            "```yaml\n"
-            "/api/v1/ornek:\n"
-            "  post:\n"
-            "    summary: Örnek kayıt oluşturma\n"
-            "    operationId: createOrnek\n"
-            "    security:\n"
-            "      - bearerAuth: []\n"
-            "    requestBody:\n"
-            "      required: true\n"
-            "      content:\n"
-            "        application/json:\n"
-            "          schema:\n"
-            "            type: object\n"
-            "            required: [alan]\n"
-            "            properties:\n"
-            "              alan: {type: string, minLength: 1, maxLength: 255}\n"
-            "    responses:\n"
-            "      '201': {description: Oluşturuldu, content: {application/json: {schema: {$ref: '#/components/schemas/Ornek'}}}}\n"
-            "      '400': {description: Validation hatası, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}\n"
-            "      '401': {description: Yetkisiz}\n"
-            "      '403': {description: Yetersiz yetki}\n"
-            "      '409': {description: Çakışan kayıt}\n"
-            "      '422': {description: İş kuralı ihlali}\n"
-            "```\n\n"
-            "- Auth yöntemi (Bearer/API Key/Cookie) belirt — security scheme tanımı\n"
-            "- Rate limiting kuralları (endpoint × limit/dakika)\n"
-            "- Idempotency key gerektiren endpoint'ler işaretle\n"
+            "```\n"
+            "- FK ilişkileri (ON DELETE/UPDATE), index stratejisi, soft delete/audit kolonları\n"
+            "- **Karşılanan iş kuralları:** BR-XXX → hangi tablo/kolon\n\n"
+            "**4.C Enum / Statik Tanımlar** — kullanılan tüm enum'lar Değer / Açıklama tablosuyla:\n"
+            "| Değer | Açıklama |\n"
+            "|-------|----------|\n"
+            "| PLAYER | Oyuncu bazlı ... |\n\n"
+            "## 5. API Tasarımı\n"
+            "API tipi (REST), versiyonlama (/api/v1/), auth (JWT), yetkilendirme "
+            "(RBAC), ortak header'ları belirt. Endpoint'leri tablo + örnek ile ver.\n\n"
+            "**Endpoint Listesi:**\n"
+            "| HTTP | Endpoint | Açıklama | Gerekli Yetki |\n"
+            "|------|----------|----------|---------------|\n"
+            "| POST | /bff/.../risk-categories | Yeni kayıt oluşturur | RISK_CATEGORY:WRITE |\n\n"
+            "**Endpoint Detayları** — kritik endpoint'ler için gerçek request/response JSON örneği:\n"
+            "```json\n"
+            "// POST /bff/.../risk-categories  (Request)\n"
+            "{ \"name\": \"VIP\", \"type\": \"PLAYER\", \"isDefault\": false,\n"
+            "  \"limits\": [ { \"limitType\": \"PLAYER_STAKE_PER_DAY\", \"channel\": \"ALL\", \"value\": 50000 } ] }\n"
+            "```\n"
+            "```json\n"
+            "// Response 201 Created\n"
+            "{ \"success\": true, \"data\": { \"id\": \"uuid\", \"createdAt\": \"...\" } }\n"
+            "```\n"
+            "- Her alan için validasyon kuralı (required, min/max, enum) — FE+BE AYNI kuralı uygular\n"
+            "- Hata response'ları (400/403/409) bölüm 9'daki hata kodlarıyla tutarlı olmalı\n"
             "- **Karşılanan iş kuralları:** her endpoint hangi BR-XXX'i karşılıyor\n\n"
-            "## 5. Validation Kuralları (Alan Bazlı Matris)\n"
-            "Frontend ve backend'in AYNI kuralı uygulayabilmesi için tek bir kaynak.\n\n"
-            "| BR-ID | Endpoint/Form | Alan | Kural | Hata Kodu | Hata Mesajı (TR) | Doğrulama Anı | Kaynak |\n"
-            "|-------|---------------|------|-------|-----------|------------------|---------------|--------|\n"
-            "| BR-001 | POST /api/v1/X | email | regex e-posta + max 255 | E_VAL_001 | \"Geçerli e-posta giriniz.\" | Client + Server | [BRD §X] |\n\n"
-            "(Her validation kuralı bir BR'a bağlı olmalı; bağlı değilse Karar Bekleyen'e taşı)\n\n"
-            "## 6. İş Mantığı ve Durum Geçişleri\n"
-            "- Kritik akışlar adım adım (PA-XXX referansıyla)\n"
-            "- State machine (varsa) mermaid ile:\n"
-            "```mermaid\nstateDiagram-v2\n  [*] --> Taslak\n  Taslak --> Onayda: gonder()\n  Onayda --> Onayli: onayla()\n  Onayda --> Taslak: reddet()\n```\n"
-            "- **Transaction Sınırları:** hangi işlem atomik (BEGIN..COMMIT), hangileri saga/eventual consistency\n"
-            "- **Idempotency:** retry-safe endpoint'ler için idempotency-key stratejisi\n"
-            "- **Concurrency:** optimistic locking (version kolonu) / pessimistic lock / queue\n\n"
-            "## 7. Güvenlik, Yetkilendirme ve Veri Koruması\n"
-            "- Auth mekanizması (JWT/OAuth2 detayı; expiry, refresh, signing algoritması)\n"
-            "- **Yetki Matrisi:**\n"
-            "| Rol | Resource | Action | Şart | Kaynak |\n"
-            "|-----|----------|--------|------|--------|\n"
-            "| A-001 | Ornek | READ | kendi kaydı | [BRD §X] |\n\n"
-            "- PII / hassas veri sınıflandırması (kolon × sınıf × maskeleme stratejisi)\n"
-            "- Güvenlik kontrol listesi: rate limiting, CSRF (cookie auth'ta), XSS, SQL injection, IDOR, mass-assignment\n"
-            "- Şifreleme: at-rest (TDE/kolon) + in-transit (TLS sürümü)\n\n"
-            "## 8. Performans ve Ölçeklenebilirlik\n"
-            "- Beklenen yük (RPS, concurrent user, veri hacmi büyümesi/yıl)\n"
-            "- SLO/SLA hedefleri (p50/p95/p99 latency, error budget)\n"
-            "- Darboğaz noktaları: DB sorgu, dış servis, cache\n"
-            "- Cache stratejisi (key, TTL, invalidation)\n"
-            "- Horizontal/vertical scaling planı, statelessness kontrolü\n\n"
-            "## 9. Hata Yönetimi ve Hata Kodu Katalogu\n"
-            "| Kod | HTTP | Tip | Açıklama | Kullanıldığı Endpoint | Kullanıcı Mesajı | Recovery |\n"
-            "|-----|------|-----|----------|----------------------|------------------|----------|\n"
-            "| E_VAL_001 | 400 | Validation | E-posta formatı geçersiz | POST /api/v1/X | \"Geçerli e-posta giriniz.\" | Kullanıcı düzeltir |\n"
-            "| E_BIZ_001 | 422 | İş Kuralı | Limit aşımı | ... | ... | ... |\n"
-            "| E_SYS_001 | 500 | Sistem | DB bağlantı kopuk | * | \"Geçici sorun, tekrar deneyin.\" | Retry + circuit breaker |\n\n"
-            "- Retry / circuit breaker / fallback / DLQ stratejileri\n"
-            "- Tüm hata kodları EF-XXX (süreç) ile eşleştirilmeli\n\n"
-            "## 10. Observability — Loglama, Metrik, İz, Alarm\n"
-            "- **Loglama:** log level politikası, structured log alanları (trace_id, user_id, action), korelasyon ID\n"
-            "- **Metrikler:** business metric (oluşturulan kayıt/saat), tech metric (latency, error rate)\n"
-            "- **Dağıtık izleme:** trace context propagation (OpenTelemetry)\n"
-            "- **Alarm kuralları:** error rate > %X, latency p95 > Yms\n"
-            "- **Audit:** hangi event (kim, ne, ne zaman, hangi kayıt) hangi tabloya yazılır\n\n"
-            "## 11. Test Stratejisi\n"
-            "- Unit / integration / contract / e2e kapsamı (hedef coverage %)\n"
-            "- **Kabul Kriteri → Test Senaryosu eşlemesi:**\n"
-            "| AC-ID | Test Adı | Tip | Veri Seti | Beklenen |\n"
-            "|-------|----------|-----|-----------|----------|\n"
-            "| AC-001 | ... | E2E | ... | ... |\n\n"
-            "- Edge case test listesi (her EF-XXX için en az 1 test)\n"
-            "- Performance test: hedef RPS + threshold\n"
-            "- Test ortamı ve veri yönetimi (fixtures, factory pattern)\n\n"
-            "## 12. Teknik Riskler ve Öneriler\n"
-            "| Risk | Olasılık | Etki | Tetikleyici | Önlem | Sorumlu | Kaynak |\n"
-            "|------|----------|------|-------------|-------|---------|--------|\n"
-            "| ...  | Y/O/D    | Y/O/D| ...         | ...   | ...     | ...    |\n\n"
-            "## 13. Uygulama Yol Haritası\n"
-            "- **Aşama 1 (Temel):** ... — bağımlılık: yok\n"
-            "- **Aşama 2 (Genişletme):** ... — bağımlılık: Aşama 1\n"
-            "- Migration / rollback stratejisi (DB değişiklikleri için)\n"
-            "- Feature flag stratejisi\n\n"
-            "## 14. İzlenebilirlik Matrisi (Traceability)\n"
-            "Süreç analizindeki her ID'nin teknik analizdeki karşılığı.\n\n"
-            "| Süreç ID | Tür | Açıklama (kısa) | Karşılayan Teknik Bölüm | Notlar |\n"
-            "|----------|-----|------------------|--------------------------|--------|\n"
-            "| BR-001 | İş Kuralı | E-posta zorunlu | §3 Tablo:users, §5 Validation, §11 AC-001 | — |\n"
-            "| AC-001 | Kabul Kriteri | Kullanıcı kayıt | §11 Test \"register-happy\" | — |\n"
-            "| EF-001 | Hata Akışı | DB hata | §9 E_SYS_001, §11 Test \"db-failure\" | — |\n\n"
-            "## 15. Açık Sorular / Karar Bekleyen Konular\n"
-            "Süreç analizinden gelen Q-XXX'lar + teknik analizde yeni ortaya çıkan belirsizlikler.\n\n"
-            "| # | Konu | Tip | Önem | Bağlı | Beklenen Yanıt | Sorumlu |\n"
-            "|---|------|-----|------|-------|----------------|---------|\n"
-            "| Q-T-001 | ... | Çelişki/Eksik/Karar | Kritik/Yüksek/Orta | BR-XXX | ... | PO/Mimar/DBA |\n\n"
-            + """## 16. Frontend (FE) Teknik Tasarımı
-Süreç analizindeki ekranların (EK-XXX) teknik tasarımı. FE geliştirici bu
-bölümden ekran/bileşen yapısını doğrudan kurabilmeli.
-
-| Ekran / Route | EK-ID | Bağlı PA-ID | Tip | Bileşenler | Çağırdığı API'ler | Kaynak |
-|---------------|-------|-------------|-----|------------|-------------------|--------|
-| /siparis | EK-003 | PA-005 | Yeni/Güncelleme | SiparisForm, SiparisListe | POST /api/v1/siparis | [BRD §5] |
-
-Her ekran için:
-- Bileşen ağacı (component breakdown) ve her bileşenin sorumluluğu
-- Route tanımı ve navigasyon akışı
-- State yönetimi (hangi veri nerede tutulur)
-- API çağrıları: hangi endpoint, ne zaman çağrılır, hata/boş/yükleniyor
-  durumunda ekranda ne gösterilir
-- FE validation kuralları (Bölüm 5 ile AYNI BR-ID'leri kullan)
-- UX kararları (HTML prototip sağlandıysa ondan; yoksa süreç analizinden)
-
-Mevcut UI kodu sağlandıysa: hangi ekran/route/bileşen zaten var, hangisi
-yeni, hangisi değişecek — açıkça belirt ve mevcut tasarım diline uy.
-
-## 17. İş Kırılımı — FE / BE Geliştirme Görevleri
-Teknik analizdeki tüm işi, Jira'da task açılabilecek somut geliştirme
-görevlerine böl. Her görev TEK katmana ait olur; FE+BE işler ayrı FE ve
-BE görevine bölünüp birbirine bağlanır.
-
-| Görev ID | Başlık | Katman | Kapsam (kısa) | Bağlı Bölüm | Bağlı Süreç ID | İlişkili Görev |
-|----------|--------|--------|---------------|-------------|----------------|----------------|
-| T-BE-01 | siparis tablosu + migration | BE | §3 DDL | BR-007 | — |
-| T-BE-02 | POST /api/v1/siparis endpoint | BE | §4 API | BR-007, AC-002 | T-FE-01 |
-| T-FE-01 | Sipariş Formu ekranı | FE | §16 EK-003 | EK-003, BR-007 | T-BE-02 |
-
-Kurallar:
-- Her görev bağımsız geliştirilebilir/test edilebilir büyüklükte olmalı
-- FE+BE bir iş → ayrı T-FE ve T-BE görevleri + "İlişkili Görev" ile bağ
-- Ayrıştırma gereksizse tek görev (katman: Tek tip)
-- Bu tablo Jira hiyerarşisinin temelini oluşturur — eksiksiz olmalı"""
+            "## 6. İş Mantığı ve Algoritma Detayları\n"
+            "Kritik algoritmaları alt başlıklarla aç (6.1, 6.2, ...). Her biri için "
+            "**Amaç** + **Mantık** (numaralı adımlar / sözde kod):\n\n"
+            "### 6.1. [Algoritma Adı]\n"
+            "**Amaç:** [ne çözüyor]\n"
+            "**Mantık:**\n"
+            "1. [adım]\n"
+            "2. [koşul → davranış]\n\n"
+            "- Transaction sınırları (atomik işlemler), concurrency (optimistic/pessimistic lock), idempotency gerektiren akışları belirt\n"
+            "- PA-XXX süreç adımlarıyla bağla\n\n"
+            "## 7. Frontend İş Kırılımı\n"
+            "FE geliştiricinin doğrudan uygulayabileceği bileşen/state/API kırılımı. "
+            "Alt başlıklar (7.1, 7.2, ...). **FE işi yoksa boş bölüm kuralını uygula.**\n\n"
+            "Tipik alt başlıklar:\n"
+            "- **7.1 Bileşen Geliştirme** — bileşen adı (örn. `RiskCategoryModal.tsx`), props, dinamik başlık\n"
+            "- **7.2 State Yönetimi** — hangi veri nerede tutulur, initial state, form kütüphanesi\n"
+            "- **7.3 API Çağrıları** — hangi endpoint ne zaman (useEffect/onSubmit), loading/empty/error davranışı\n"
+            "- **7.4 Validasyon** — client-side kurallar (Bölüm 2/5 ile AYNI kurallar), inline hata mesajları\n"
+            "- **7.5 Save / Cancel / Loading** — başarı (toast, liste yenileme), iptal (reset), yükleniyor (disabled+spinner)\n\n"
+            "Mevcut UI kodu sağlandıysa: hangi bileşen/route zaten var, hangisi yeni, "
+            "hangisi değişecek — açıkça belirt ve mevcut tasarım diline uy.\n\n"
+            "## 8. Role Management\n"
+            "Bu modülün gerektirdiği yetkiler:\n"
+            "| Resource | Action | Açıklama |\n"
+            "|----------|--------|----------|\n"
+            "| RISK_CATEGORY | WRITE | Yeni kayıt oluşturma yetkisi. POST ... için gerekli. |\n"
+            "| RISK_CATEGORY | READ | Görüntüleme + (varsa) ön kontrol için gerekli. |\n\n"
+            "- Hangi endpoint hangi yetkiyi ister, dolaylı gereken yetkileri (READ vb.) not düş\n\n"
+            "## 9. Hata Yönetimi ve İstisna Tanımları\n"
+            "Tüm hata durumları, kullanıcı mesajları TR + EN olarak:\n"
+            "| Hata Kodu | Açıklama | Örnek Mesaj (TR) | Örnek Mesaj (EN) |\n"
+            "|-----------|----------|------------------|------------------|\n"
+            "| VALIDATION_ERROR | Form validasyon hatası | \"Kategori adı zorunludur\" | \"Category name is required\" |\n"
+            "| DEFAULT_CATEGORY_EXISTS | Çakışan default kayıt | \"Bu tip için zaten varsayılan mevcut\" | \"A default already exists for this type\" |\n"
+            "| PERMISSION_DENIED | Yetki yok | \"Bu işlem için yetkiniz yok\" | \"You do not have permission\" |\n"
+            "| NETWORK_ERROR | Bağlantı hatası | \"Bağlantı hatası, tekrar deneyin\" | \"Connection error, please try again\" |\n\n"
+            "- Her hata bir HTTP koduyla eşleşmeli; bölüm 5 response'larıyla tutarlı olmalı\n"
+            "- Süreçten gelen hata akışları (EF-XXX) ile eşleştir\n\n"
+            "## 10. Teknik Borç ve Riskler\n"
+            "Madde madde — geçici çözümler, gelecekte iyileştirilmesi gerekenler, "
+            "canlıya geçiş öncesi kontrol noktaları:\n"
+            "- **[Başlık]:** [risk/borç açıklaması + ne zaman/nasıl giderilmeli]\n"
+            "- Future improvement önerilerini ayrıca işaretle (💡)\n\n"
+            "## 11. Kabul Kriterleri\n"
+            "Test edilebilir, somut kabul kriterleri. Her satır bir AC-XXX ile eşlenebilir:\n"
+            "| No | Bölüm | Gereksinim / Özellik | Kabul Kriteri |\n"
+            "|----|-------|----------------------|---------------|\n"
+            "| 1 | Modal Açılış | Add Player butonu | Modal açılır, başlık \"...- Player\", type=PLAYER readonly |\n"
+            "| 2 | Validasyon | Name boş | Save'de \"Kategori adı zorunludur\" inline hata, API çağrılmaz |\n\n"
+            "- Her ana akış + hata senaryosu için en az bir kabul kriteri olmalı\n"
+            "- Süreçteki AC-XXX'leri buraya bağla\n\n"
+            "> **Not — 12. Karar Bekleyen Konular:** Bu bölüm AYRI bir adımda "
+            "üretilir (açık sorular çıktısı). Burada YAZMA."
         ),
     },
     "teknik_analiz_rol": {
@@ -599,8 +562,8 @@ veya muğlak alan YASAK — belirsizlik Açık Sorular'a taşınır.
 2. Swagger/OpenAPI — mevcut endpoint adı, path, request/response şeması; aynen kullan
 3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
 4. Jira task geçmişi — geçmiş geliştirme kararları; çelişki varsa açık not düş
-5. HTML prototip — Bölüm 16'da prototipdeki ekran, bileşen ve UX kararlarını yansıt
-6. Mevcut UI kodu — Bölüm 16 için mevcut ekran/route/bileşen listesini çıkar
+5. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekran, bileşen ve UX kararlarını yansıt
+6. Mevcut UI kodu — Bölüm 7 (Frontend İş Kırılımı) için mevcut ekran/route/bileşen listesini çıkar
 
 Referans YOKSA: süreç analizine dayan; eksik teknik bağlamı Açık Sorular'da belirt.
 Çelişki varsa: yüksek öncelikliyi kullan, çelişkiyi Açık Sorular'a taşı.
@@ -609,11 +572,12 @@ Referans YOKSA: süreç analizine dayan; eksik teknik bağlamı Açık Sorular'd
 Süreç analizinden gelen katman etiketlerini (FE / BE / FE+BE / Tek tip)
 koru ve teknik analize uygula:
 - BE işleri — DDL, endpoint, iş mantığı, entegrasyon
-- FE işleri — ekran, bileşen, form, UX (Bölüm 16)
+- FE işleri — ekran, bileşen, form, UX (Bölüm 7 — Frontend İş Kırılımı)
 - FE+BE işleri — FE ve BE parçalarını AYRI tanımla ama bağını açıkça belirt
   (örn: "POST /api/v1/siparis endpoint'i ← EK-003 Sipariş Formu ekranını besler")
-- Validation kuralları hem FE hem BE'de uygulanır → Bölüm 5'te her kuralın
-  hangi katmanda çalıştığını belirt (İstemci / Sunucu / Her ikisi)
+- Validation kuralları hem FE hem BE'de uygulanır → Bölüm 5 (API Tasarımı)
+  ve Bölüm 7 (Frontend)'de AYNI kuralı, hangi katmanda çalıştığıyla belirt
+  (İstemci / Sunucu / Her ikisi)
 
 Amaç: Jira adımında işin FE task ve ilişkili BE task olarak ayrı ayrı
 açılabilmesi. Bu yüzden her teknik iş öğesi katmanıyla birlikte verilmeli.
@@ -980,9 +944,12 @@ Teknik analiz dokümanından bir Jira task hiyerarşisi üret: 1 Epic, altında
 Story'ler, her Story altında Subtask'lar.
 
 # BİRİNCİL KAYNAK
-Teknik analizdeki "Bölüm 17 — İş Kırılımı (FE/BE Geliştirme Görevleri)"
-tablosu bu hiyerarşinin temelidir. Oradaki T-FE / T-BE görevlerini Story
-ve Subtask'lara dönüştür. Bölüm 17 yoksa teknik analizin tamamından çıkar.
+Teknik analizin tamamı bu hiyerarşinin kaynağıdır. Geliştirme görevlerini
+şu bölümlerden çıkar: Bölüm 2 (İş Gereksinimleri) ve Bölüm 5 (API Tasarımı)
+→ BE/işlevsel işler; Bölüm 7 (Frontend İş Kırılımı) → FE işleri; Bölüm 4
+(Veritabanı) → migration/DDL işleri; Bölüm 11 (Kabul Kriterleri) →
+acceptance_criteria. Her işi tek katmana ait, bağımsız test edilebilir
+büyüklükte Story/Subtask'a böl.
 
 # KATMAN AYRIMI (FE / BE)
 Her Story ve Subtask bir KATMAN etiketi taşır: FE, BE, FE+BE veya Genel.
@@ -1827,8 +1794,8 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     # 1-11'i kayboluyor, sadece son parça kalıyordu. json formatında
     # "result" alanı TAM final çıktıyı içerir; ayrıca stop_reason/is_error
     # ile kesilme tespiti yapılır.
-    # timeout=1200 (20 dk): teknik analiz 17 bölüm (DDL+OpenAPI YAML+validation
-    # matris+FE tasarım+iş kırılımı) + büyük girdi → 10 dk yetmiyordu. CLI tam
+    # timeout=1200 (20 dk): teknik analiz 11 bölüm (DDL+API+validation+FE
+    # kırılımı) + büyük girdi → 10 dk yetmiyordu. CLI tam
     # çıktı (json result) üretirken uzun sürebiliyor. app.py _bekle bundan biraz
     # FAZLA bekler ki claude timeout'u önce tetiklensin ve net hata mesajı gelsin.
     proc = subprocess.run(
