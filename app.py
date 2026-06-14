@@ -80,6 +80,11 @@ def _eski_loglari_temizle(gun: int = 30) -> None:
 _eski_loglari_temizle()
 
 app = Flask(__name__)
+# Template'leri her istekte değişiklik için kontrol et (debug=False olsa bile).
+# Bunsuz Jinja, derlenmiş index.html'i bellekte önbelleğe alır; "Güncelleme"
+# özelliği yeni bir index.html çekse bile kullanıcı sunucuyu yeniden başlatana
+# kadar eski arayüzü görür. Maliyeti istek başına ihmal edilebilir bir stat().
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
