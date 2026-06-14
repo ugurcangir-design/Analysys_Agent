@@ -120,9 +120,10 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         "type": "text",
         "text": (
             "### Süreç Analizi\n"
-            "Aşağıdaki süreç analizindeki BR-XXX, AC-XXX, PA-XXX, EF-XXX, AF-XXX ID'lerini "
-            "teknik analizdeki ilgili bölümlerde MUTLAKA referans al ve "
-            "İzlenebilirlik Matrisi'nde göster.\n\n"
+            "Aşağıdaki süreç analizindeki BR-XXX, AC-XXX, PA-XXX, EF-XXX, AF-XXX, EK-XXX "
+            "ID'lerini teknik analizdeki ilgili bölümlerde (İş Gereksinimleri, API, "
+            "Veritabanı, Kabul Kriterleri) MUTLAKA referans al — her teknik karar bir "
+            "süreç ID'sini karşılamalı.\n\n"
             f"{surec_metni}"
         ),
     })

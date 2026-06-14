@@ -3574,7 +3574,7 @@ async function jiraHiyerarsiOnayla() {
   };
 
   if (epicDahil && !hierarchy.epic_summary) {
-    alert('Epic başlığı boş olamaz.');
+    toast('Epic başlığı boş olamaz.', 'error');
     return;
   }
 

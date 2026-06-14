@@ -146,8 +146,10 @@ _ORTAK_EK_KURALLAR = (
     "kararda hangi BR/AC/PA/EK'yi karşıladığını belirtir)\n"
     "- FE/BE katman etiketi taşıyan öğelerde (süreç adımı, kural, ekran, görev) "
     "katmanı da koru ve göster\n"
-    "- Çıktının sonuna **İzlenebilirlik Matrisi** ekle: kaynak ID → bu çıktıdaki "
-    "karşılığı (bölüm / tablo / test / görev)\n"
+    "- Kaynak ID'lerini ilgili her bölümde inline referans al (örn. \"BR-007 → §4 DDL\")\n"
+    "- Bölüm yapında ayrı bir **İzlenebilirlik Matrisi** bölümü TANIMLIYSA, kaynak "
+    "ID → bu çıktıdaki karşılığı (bölüm / tablo / test / görev) eşlemesini orada topla; "
+    "tanımlı değilse ayrı matris bölümü EKLEME (inline referanslar yeterli)\n"
     "- Önceki aşamada tanımlı bir ID'nin bu çıktıda karşılığı yoksa Açık Sorular'a taşı"
 )
 
@@ -382,6 +384,9 @@ doğrular.
         "ad": "Teknik Analiz — Bölümler",
         "aciklama": "Teknik analiz raporu bölüm yapısı. Geliştirme ekibi bu çıktıdan doğrudan kod yazabilmeli.",
         "icerik": (
+            "Çıktı Türkçe Markdown formatında olmalı. Aşağıdaki 11 bölüm başlığı "
+            "ZORUNLU ve bu sırada olmalı. Süreç ID'lerini (BR/AC/PA/EF/EK) ilgili "
+            "bölümlerde referans al.\n\n"
             "🎯 **Çıktı Hedefi:** Geliştirme ekibi (BE + FE) bu dokümanı okuyarak "
             "DDL'i çalıştırabilmeli, endpoint'leri ve request/response'ları "
             "kodlayabilmeli, validation kurallarını uygulayabilmeli, ekran/bileşen "
@@ -583,7 +588,7 @@ Amaç: Jira adımında işin FE task ve ilişkili BE task olarak ayrı ayrı
 açılabilmesi. Bu yüzden her teknik iş öğesi katmanıyla birlikte verilmeli.
 
 # KALİTE ÖLÇÜTÜ
-- DDL, OpenAPI YAML, validation matrisi gerçek çalışabilir/import edilebilir
+- DDL gerçek çalışabilir; endpoint request/response JSON örnekleri gerçek import/test edilebilir
 - Referansta mevcut entity/endpoint varsa AYNI isim kullanılır (yeniden adlandırma yok)
 - Süreç analizindeki her BR/AC/EF/EK teknik analizde karşılık bulur; bulmuyorsa
   Açık Sorular'a taşınır

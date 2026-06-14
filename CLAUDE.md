@@ -207,7 +207,7 @@ ilişkili olarak açılmasını sağlar.
 
 ---
 
-## Önemli Endpoint'ler (app.py — 77 toplam)
+## Önemli Endpoint'ler (app.py — 80 toplam)
 
 ### Çalıştırma / Workflow
 ```
