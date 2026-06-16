@@ -620,6 +620,38 @@ Her soru aşağıdaki formatta:
 - Etki: [yanıt alınmadan ilerlenemeyecek kısım]"""
         ),
     },
+    "teknik_analiz_denetci": {
+        "ad": "Teknik Analiz — Otomatik Denetçi",
+        "aciklama": "Üretilen teknik analizi kalite/tutarlılık açısından denetler; yeni içerik üretmez, yalnızca sorun tespit eder.",
+        "icerik": (
+            """# ROL
+Kıdemli yazılım mimarı ve bağımsız teknik denetçisin. Görevin: ÜRETİLMİŞ bir
+teknik analiz dokümanını kaynak süreç analizine ve kalite ölçütlerine karşı
+denetlemek. YENİ içerik, endpoint, tablo veya kural ÜRETME — yalnızca mevcut
+dokümandaki SORUNLARI tespit et.
+
+# DENETİM KONTROL LİSTESİ (her birini tara)
+1. **Kaynaksız iddia:** `[K: ...]` etiketi olmayan somut alan / endpoint / tablo / kural / hata kodu
+2. **§5 ↔ §7 validasyon drift'i:** Aynı alan için API (§5) ve Frontend (§7)'de FARKLI validasyon kuralı
+3. **Uydurma entity:** Swagger / Confluence referanslarında GEÇMEYEN endpoint veya tablo adı
+4. **Hata tutarsızlığı:** §5 hata response'ları (400/403/409) ile §9 hata kodları/§ süreç EF-XXX uyuşmuyor
+5. **Çalıştırılamaz çıktı:** DDL (§4) veya request/response JSON (§5) sözdizimi hatası
+6. **Sahte doluluk:** Kapsamı olmayıp boş bırakılması gereken bölüm uydurulmuş içerikle doldurulmuş
+7. **Eksik karşılama:** Süreç ID'si (BR/AC/PA/EF/EK) ne ana metinde ne açık sorularda ele alınmış
+
+# ÇIKTI
+Bulguları TEK bir XML bloğu içinde, önem sırasına göre (Kritik → Yüksek → Orta) tablo olarak ver.
+Hiç önemli sorun yoksa tablo yerine tek satır yaz: "Önemli bir tutarsızlık tespit edilmedi."
+
+<denetim_notlari>
+| Önem | Konum (bölüm) | Bulgu | Önerilen Düzeltme |
+|------|---------------|-------|-------------------|
+| Kritik | §5 / §7 | `amount` alanı API'de min=0, FE'de min=1 — drift | İki katmanda da min=1 yap veya kaynağı netleştir |
+</denetim_notlari>
+
+KURAL: Spekülasyon yapma; yalnızca dokümanda KANITLANABİLİR sorunları yaz. Her bulgu somut bir konuma (bölüm/alan) bağlı olmalı."""
+        ),
+    },
     "brd_analizi_rol": {
         "ad": "BRD Analizi — Rol ve Kurallar",
         "aciklama": "Claude'un BRD analistlik rolü ve dikkat edilecek noktalar.",
@@ -1176,6 +1208,29 @@ def _xml_ayir(text: str, tag: str) -> str:
 
 def _metin_sikistir(metin: str) -> str:
     return re.sub(r'\n{3,}', '\n\n', metin).strip()
+
+
+_SUREC_ID_DESENI = re.compile(r'\b((?:BR|AC|PA|EF|EK)-\d{1,4})\b')
+
+
+def surec_id_kapsam(surec_metni: str, teknik_metni: str) -> dict:
+    """Süreç analizindeki gereksinim ID'lerinin (BR/AC/PA/EF/EK) teknik analizde
+    referans edilip edilmediğini DETERMİNİSTİK denetler. Promptun 'DENETLE' adımının
+    kod ile garantisi: modelin sessizce atladığı süreç gereksinimlerini yakalar.
+
+    Heuristik: ID aralıkları (BR-001..BR-005) tam çözümlenmez; kaba ama yönsel
+    olarak doğru — gross atlamalar net yakalanır."""
+    surec_idler = sorted(set(_SUREC_ID_DESENI.findall(surec_metni)))
+    teknik_idler = set(_SUREC_ID_DESENI.findall(teknik_metni))
+    karsilanan = [i for i in surec_idler if i in teknik_idler]
+    eksik = [i for i in surec_idler if i not in teknik_idler]
+    toplam = len(surec_idler)
+    return {
+        "toplam": toplam,
+        "karsilanan": karsilanan,
+        "eksik": eksik,
+        "skor": round(len(karsilanan) / toplam, 2) if toplam else 1.0,
+    }
 
 
 def _metin_kes(metin: str, limit: int, dosya_adi: str) -> str:

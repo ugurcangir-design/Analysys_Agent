@@ -36,7 +36,7 @@ skills/                 Asıl iş mantığı; agent.py buradan import eder
   base.py               Sabitler, dosya okuma, API çağrısı, RAG, 15 sistem promptu
   atlassian.py          OAuth helper'ları (env_oku, atlassian_refresh/get/post/put) — CANONICAL
   surec_analizi.py      Süreç analizi
-  teknik_analiz.py      Teknik analiz + açık sorular (İKİ AŞAMALI: önce teknik analiz, sonra ayrı çağrıda açık sorular)
+  teknik_analiz.py      Teknik analiz (ÜÇ AŞAMALI: teknik analiz → kapsam denetimi+AI denetçi → açık sorular)
   brd_analizi.py        BRD analizi + PO soruları + brd_final_kaydet
   kapsam_analizi.py     Kapsam karşılaştırması + alternatif süreçler
   html_mockup.py        HTML prototip üretimi + mockup_oku_kontekst
@@ -160,7 +160,7 @@ Her tip ayrı limitle, başına bir context blok başlığı ile gönderilir.
 
 ---
 
-## 15 Sistem Promptu (skills/base.py → VARSAYILAN_PROMPTLAR)
+## 16 Sistem Promptu (skills/base.py → VARSAYILAN_PROMPTLAR)
 
 Tutarlı yapı: `# ROL → GÖREV → ÇIKTININ AMACI → ÇALIŞMA YÖNTEMİ → RAG İLKESİ → BAĞLAM KULLANIMI → KALİTE ÖLÇÜTÜ`.
 
@@ -170,7 +170,11 @@ surec_analizi                brd_analizi_bolumler       kapsam_analizi_bolumler
 teknik_analiz_rol            brd_analizi_sorular        kapsam_analizi_alternatifler
 teknik_analiz_bolumler       html_mockup_base           refine
 teknik_analiz_sorular        jira_tasks                 confluence_publisher
+teknik_analiz_denetci
 ```
+`teknik_analiz_denetci` (Aşama 3 denetçi) `_ORTAK_EK_KURALLAR` ALMAZ — sadece
+sorun tespit eder, içerik üretmez. UI prompt editöründe `_PROMPT_GRUPLARI`
+(index.html) "Süreç / Teknik Analiz" grubuna ekli.
 
 ### EK KURALLAR (otomatik append)
 `prompt_yukle()` şu 5 prompta `_ORTAK_EK_KURALLAR` ekler:
@@ -358,17 +362,24 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 - `encoding="utf-8", errors="replace", start_new_session=True`
 - `_bekle()` thread'i timeout/crash'i yakalar, workflow'u HATA'ya çeker
 - Zip yükleme: zip-bomb koruması (compression ratio > 100 atla)
-- **Teknik analiz İKİ AŞAMALI** (`teknik_analiz_yap` → tuple(teknik_yol, sorular_yol)):
+- **Teknik analiz ÜÇ AŞAMALI** (`teknik_analiz_yap` → tuple(teknik_yol, sorular_yol)):
   1. Aşama 1: teknik analiz 1-11. bölümler (kullanıcının şablonu: Amaç/Hedefler,
      İş Gereksinimleri, Teknik Gereksinimler, Veritabanı, API, İş Mantığı,
      Frontend İş Kırılımı, Role Management, Hata Yönetimi, Teknik Borç/Riskler,
      Kabul Kriterleri). 12. bölüm "Karar Bekleyen Konular" güvenlik ağı regex'iyle
-     prompttan çıkarılır → `teknik-analiz.md` BİTER BİTMEZ kaydedilir
-  2. Aşama 2: ayrı `_api_cagri` — Aşama 1 çıktısı + süreç analizi girdi alınıp
+     prompttan çıkarılır → `teknik-analiz.md` (ham) BİTER BİTMEZ kaydedilir
+  2. Aşama 3 (denetim): `surec_id_kapsam()` (base.py) deterministik olarak süreç
+     ID'lerinin (BR/AC/PA/EF/EK) teknik analizde referans edilip edilmediğini
+     denetler. Ardından `_teknik_denetle()` (prompt `teknik_analiz_denetci`)
+     AI denetçi pass'i: kaynaksız iddia, §5↔§7 validasyon drift'i, uydurma
+     endpoint/tablo, hata tutarsızlığı tarar. Kapsam özeti + denetçi bulguları
+     `## 🔍 Otomatik Denetim Notları` olarak teknik-analiz.md SONUNA eklenip
+     yeniden kaydedilir. Denetçi başarısız olursa ham teknik analiz korunur (try/except).
+  3. Aşama 2: ayrı `_api_cagri` — ham Aşama 1 çıktısı + süreç analizi girdi alınıp
      "Karar Bekleyen Konular" / açık sorular üretilir → `acik-sorular.md`
-     (`### Q-T-NNN:` blok formatı, UI parser uyumlu). Aşama 2 başarısız olsa bile
-     teknik analiz korunur (try/except → dosyaya hata notu). İki küçük çağrı
-     tek dev çağrıdan hızlı biter, timeout riskini düşürür.
+     (`### Q-T-NNN:` blok formatı, UI parser uyumlu). Kapsam denetiminde
+     karşılanmayan ID'ler Aşama 2'ye verilip GARANTİLİ açık soruya dönüştürülür.
+     Aşama 2 başarısız olsa bile teknik analiz korunur (try/except → dosyaya hata notu).
   - **Boş bölüm kuralı:** kapsam yoksa (FE işi yok, yeni tablo yok vb.) bölüm
     uydurulmaz; başlık + tek satır not yazılır.
   - **Kesilme koruması:** CLI uzun analizi bazen erken bitiriyordu (doküman ~9.
