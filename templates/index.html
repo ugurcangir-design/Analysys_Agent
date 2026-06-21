@@ -1508,6 +1508,58 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
   .sidebar { display: none; }
 }
 
+/* ── Jira Görevleri ── */
+.jg-fetch-row { display: flex; gap: 10px; align-items: center; }
+.jg-fetch-row .setting-input { flex: 1; }
+.jg-msg { font-size: 12px; color: var(--text3); margin-top: 10px; min-height: 15px; }
+.jg-msg.err { color: var(--red); }
+.jg-msg.ok { color: var(--green); }
+.jg-toolbar { display: flex; gap: 10px; align-items: center; padding: 12px 14px; }
+.jg-toolbar .setting-input { flex: 1; }
+.jg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.jg-dot.ok { background: var(--green); }
+.jg-dot.warn { background: var(--yellow); }
+.jg-sub { font-size: 11.5px; color: var(--text3); }
+.jg-group-head { cursor: pointer; user-select: none; gap: 8px; }
+.jg-group-head:hover { background: var(--surface2); }
+.jg-caret { width: 14px; height: 14px; color: var(--text3); transition: transform .15s; }
+.jg-group.kapali .jg-caret { transform: rotate(-90deg); }
+.jg-group.kapali .panel-body { display: none; }
+.jg-list { display: flex; flex-direction: column; }
+.jg-empty { color: var(--text3); font-size: 12.5px; padding: 10px 0 2px; }
+/* Görev kartı — soru-kart standardıyla aynı dil */
+.jg-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; border-left: 3px solid var(--border); }
+.jg-item.hazir { border-left-color: var(--green); }
+.jg-item.detay { border-left-color: var(--yellow); }
+.jg-item-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.jg-key { font-family: 'Geist Mono', monospace; font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.jg-summary { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); min-width: 200px; }
+.jg-pill { font-size: 10px; font-weight: 600; border-radius: 5px; padding: 2px 7px; text-transform: uppercase; letter-spacing: .02em; }
+.jg-pill.type { background: var(--surface2); color: var(--text2); }
+.jg-pill.status { background: var(--accent-soft); color: var(--accent); }
+.jg-gerekce-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.jg-gerekce { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.jg-kaynak { font-size: 9.5px; font-weight: 700; border-radius: 4px; padding: 1px 6px; text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0; }
+.jg-kaynak.ai { background: rgba(34,197,94,.16); color: var(--green); }
+.jg-kaynak.yapisal { background: var(--surface2); color: var(--text3); }
+.jg-eksik { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.jg-detay-ac { margin-top: 8px; }
+.jg-detay-ac summary { cursor: pointer; user-select: none; font-size: 11.5px; color: var(--accent); font-weight: 600; list-style: none; display: inline-flex; align-items: center; gap: 4px; }
+.jg-detay-ac summary::-webkit-details-marker { display: none; }
+.jg-detay-ac summary::before { content: '▸'; font-size: 9px; transition: transform .12s; }
+.jg-detay-ac[open] summary::before { transform: rotate(90deg); }
+.jg-icerik { margin-top: 8px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; line-height: 1.55; color: var(--text2); white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+.jg-item-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.jg-item-actions button {
+  font-size: 11.5px; padding: 5px 11px; border-radius: 5px; cursor: pointer;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+  font-family: inherit; transition: all .12s;
+}
+.jg-item-actions button:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
+.jg-editor { width: 100%; min-height: 360px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; padding: 12px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); white-space: pre-wrap; resize: vertical; box-sizing: border-box; }
+.jg-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.jg-warn { font-size: 11.5px; color: var(--text3); flex: 1; min-width: 220px; }
+
 </style>
 
 <script>
@@ -1604,6 +1656,10 @@ function temaDegistir() {
       <div class="nav-item" id="nav-brd" onclick="switchTab('brd')">
         <svg class="ico"><use href="#i-clipboard"/></svg>
         <span class="nav-label">BRD Analizi</span>
+      </div>
+      <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
+        <svg class="ico"><use href="#i-ticket"/></svg>
+        <span class="nav-label">Jira Görevleri</span>
       </div>
 
       <div class="nav-section">Çıktılar</div>
@@ -2036,6 +2092,96 @@ function temaDegistir() {
     </div>
 
     <!-- ─── ÇIKTILAR ─── -->
+    <!-- ── Jira Görevleri ── -->
+    <div class="page" id="page-jira-gorevler">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Jira Görevleri</h1>
+          <p>Epic/Story altındaki görevleri çek ve iki gruba ayır: hızlı işleme alınacaklar vs. detaylı analiz gerekenler.</p>
+        </div>
+      </div>
+
+      <!-- Faz 1: Çekme -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title">Üst Görev</span>
+          <span class="panel-tag">ADIM 1</span>
+          <span class="panel-spacer"></span>
+        </div>
+        <div class="panel-body">
+          <div class="jg-fetch-row">
+            <input type="text" id="jg-parent-key" class="setting-input" placeholder="Açık Epic / Story anahtarı (örn. MBSTRADE-1133)" autocomplete="off" onkeydown="if(event.key==='Enter')jgGorevleriCek()">
+            <button class="btn btn-primary" id="jg-fetch-btn" onclick="jgGorevleriCek()">
+              <svg class="ico"><use href="#i-search"/></svg> Görevleri Çek
+            </button>
+          </div>
+          <div id="jg-fetch-msg" class="jg-msg"></div>
+        </div>
+      </div>
+
+      <div id="jg-results" style="display:none">
+        <!-- Araç çubuğu: arama + AI sınıflandırma -->
+        <div class="panel" style="margin-bottom:14px">
+          <div class="panel-body jg-toolbar">
+            <input type="text" id="jg-search" class="setting-input" placeholder="Görevlerde ara (anahtar / başlık)…" autocomplete="off" oninput="jgFiltrele()">
+            <button class="btn btn-outline" id="jg-ai-btn" onclick="jgSiniflandir()" title="AI her görevin başlık+açıklamasını okur ve içeriğe göre sınıflandırır (gerekçeli). Uzun listede birkaç dk sürebilir.">
+              <svg class="ico"><use href="#i-sparkles"/></svg> AI ile Sınıflandır
+            </button>
+          </div>
+        </div>
+
+        <!-- Grup 1: Hızlı işleme -->
+        <div class="panel jg-group" style="margin-bottom:14px">
+          <div class="panel-head jg-group-head" onclick="jgGrupAc('hazir')">
+            <span class="jg-dot ok"></span>
+            <span class="panel-title">Hızlı İşleme Alınacak</span>
+            <span class="badge" id="jg-hazir-count">0</span>
+            <span class="panel-spacer"></span>
+            <span class="jg-sub">Formatla/düzenle → ekibe gönder</span>
+            <svg class="ico jg-caret" id="jg-caret-hazir"><use href="#i-chevron-down"/></svg>
+          </div>
+          <div class="panel-body" id="jg-hazir-body">
+            <div id="jg-hazir-list" class="jg-list"></div>
+          </div>
+        </div>
+
+        <!-- Grup 2: Detaylı analiz -->
+        <div class="panel jg-group" style="margin-bottom:14px">
+          <div class="panel-head jg-group-head" onclick="jgGrupAc('detay')">
+            <span class="jg-dot warn"></span>
+            <span class="panel-title">Detaylı Analiz Gerekir</span>
+            <span class="badge" id="jg-detay-count">0</span>
+            <span class="panel-spacer"></span>
+            <span class="jg-sub">Teknik Analiz Et → detaylandır → ekibe gönder</span>
+            <svg class="ico jg-caret" id="jg-caret-detay"><use href="#i-chevron-down"/></svg>
+          </div>
+          <div class="panel-body" id="jg-detay-body">
+            <div id="jg-detay-list" class="jg-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Önizleme / düzenleme / onay paneli -->
+      <div class="panel" id="jg-preview-card" style="display:none;margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title" id="jg-preview-title">Önizleme</span>
+          <span class="panel-spacer"></span>
+          <span class="jg-sub" id="jg-preview-sub"></span>
+        </div>
+        <div class="panel-body">
+          <textarea id="jg-preview-editor" class="jg-editor" spellcheck="false" placeholder="İçerik yükleniyor…"></textarea>
+          <div class="jg-actions">
+            <span class="jg-warn">⚠ Onayla'ya basınca Jira görevinin açıklaması ÜZERİNE YAZILIR (geri alınamaz).</span>
+            <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
+            <button class="btn btn-success" id="jg-approve-btn" onclick="jgJiraGuncelle()">
+              <svg class="ico"><use href="#i-check"/></svg> Onayla ve Jira'da Güncelle
+            </button>
+          </div>
+          <div id="jg-preview-msg" class="jg-msg"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="page-output">
       <div class="output-toolbar">
         <div class="output-tabs" id="output-tabs">
@@ -2690,8 +2836,12 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
+  // Jira Görevleri sekmesi: üst bar workflow yerine bu sayfanın durumunu gösterir
+  _jgTabAktif = (tab === 'jira-gorevler');
+  if (_jgTabAktif) { _jgTopbar('Jira Görevleri', false); }
+  else if (_lastState) { updateUI(_lastState); }   // başka sekmeye dönünce workflow durumunu geri yükle
   if (tab === 'history')       loadHistory();
   if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
   if (tab === 'ui-code')       loadUiFiles();
@@ -2711,6 +2861,198 @@ function switchTab(tab, hedefDosya) {
 function kilavuzYukle() {
   const f = document.getElementById('kilavuz-iframe');
   if (f && !f.src) f.src = '/kilavuz';
+}
+
+// ─── Jira Görevleri ───────────────────────────────────────────────────────────
+let _jgGorevler = {};            // key → görev nesnesi (formatla/analiz için)
+let _jgCurrent = null;           // { key, summary } — önizlemedeki görev
+let _jgParentKey = '';           // son çekilen üst görev (AI sınıflandırma için)
+let _jgData = { hazir: [], detay: [] };  // filtreleme için ham liste
+let _jgTabAktif = false;         // Jira Görevleri sekmesi açık mı (üst-bar guard)
+
+function _jgMsg(id, text, tip) {
+  const el = document.getElementById(id);
+  el.className = 'jg-msg' + (tip ? ' ' + tip : '');
+  el.textContent = text || '';
+}
+
+// Üst bar: Jira işlemleri sırasında "çalışıyor" göstergesi — workflow state'ini bastırır
+// (süreç/teknik analiz yazılırkenki görselin aynısı: status-running animasyonu).
+function _jgTopbar(text, working) {
+  const st = document.getElementById('topbar-status');
+  const dot = document.getElementById('topbar-dot');
+  if (st) st.textContent = text;
+  if (dot) dot.className = 'status-dot ' + (working ? 'status-running' : 'status-idle');
+}
+
+// FAZ 1 — yalnızca çek + yapısal sınıflandır (0 token, anında)
+async function jgGorevleriCek() {
+  const key = document.getElementById('jg-parent-key').value.trim();
+  if (!key) { _jgMsg('jg-fetch-msg', 'Epic/Story anahtarı girin.', 'err'); return; }
+  const btn = document.getElementById('jg-fetch-btn');
+  btn.disabled = true;
+  _jgMsg('jg-fetch-msg', 'Görevler çekiliyor…');
+  _jgTopbar('Görevler çekiliyor…', true);
+  try {
+    const r = await fetch('/api/jira/gorevler/cek', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_key: key })
+    });
+    const d = await r.json();
+    if (!d.ok) { _jgMsg('jg-fetch-msg', d.error || 'Hata', 'err'); _jgTopbar('Hazır', false); return; }
+    _jgParentKey = d.parent_key;
+    _jgYerlestir(d);
+    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görev — ${d.hazir.length} hızlı, ${d.detay.length} analiz. Bu ayrım yalnızca FORMAT ön-taraması (içerik incelenmedi). Agent'ın her görevi okuyup karar vermesi için "AI ile Sınıflandır".`, 'ok');
+    _jgTopbar(`${d.toplam} görev çekildi`, false);
+  } catch (e) {
+    _jgMsg('jg-fetch-msg', 'Bağlantı hatası: ' + e, 'err'); _jgTopbar('Hazır', false);
+  } finally { btn.disabled = false; }
+}
+
+// FAZ 2 — AI ile sınıflandır (yalnızca belirsiz görevler; opt-in, token tasarrufu)
+async function jgSiniflandir() {
+  if (!_jgParentKey) return;
+  const btn = document.getElementById('jg-ai-btn');
+  btn.disabled = true;
+  _jgMsg('jg-fetch-msg', 'AI belirsiz görevleri sınıflandırıyor…');
+  _jgTopbar('Görevler sınıflandırılıyor…', true);
+  try {
+    const r = await fetch('/api/jira/gorevler/siniflandir', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_key: _jgParentKey })
+    });
+    const d = await r.json();
+    if (!d.ok) { _jgMsg('jg-fetch-msg', d.error || 'Hata', 'err'); _jgTopbar('Hazır', false); return; }
+    _jgYerlestir(d);
+    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görev — ${d.hazir.length} hızlı, ${d.detay.length} analiz (AI ile sınıflandırıldı).`, 'ok');
+    _jgTopbar('Sınıflandırma tamam', false);
+  } catch (e) {
+    _jgMsg('jg-fetch-msg', 'Bağlantı hatası: ' + e, 'err'); _jgTopbar('Hazır', false);
+  } finally { btn.disabled = false; }
+}
+
+function _jgYerlestir(d) {
+  _jgData = { hazir: d.hazir || [], detay: d.detay || [] };
+  _jgGorevler = {};
+  [..._jgData.hazir, ..._jgData.detay].forEach(g => { _jgGorevler[g.key] = g; });
+  document.getElementById('jg-results').style.display = 'block';
+  jgPreviewKapat();
+  jgFiltrele();
+}
+
+// Uzun listede arama: her iki grubu canlı filtreler, sayaçları filtreli/toplam gösterir
+function jgFiltrele() {
+  const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
+  const suz = (liste) => !q ? liste
+    : liste.filter(g => (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q));
+  const h = suz(_jgData.hazir), dt = suz(_jgData.detay);
+  jgListeCiz('jg-hazir-list', h, true);
+  jgListeCiz('jg-detay-list', dt, false);
+  document.getElementById('jg-hazir-count').textContent = q ? `${h.length}/${_jgData.hazir.length}` : _jgData.hazir.length;
+  document.getElementById('jg-detay-count').textContent = q ? `${dt.length}/${_jgData.detay.length}` : _jgData.detay.length;
+}
+
+function jgGrupAc(grup) {
+  const caret = document.getElementById('jg-caret-' + grup);
+  if (caret) caret.closest('.jg-group').classList.toggle('kapali');
+}
+
+function jgListeCiz(containerId, liste, hazirMi) {
+  const kap = document.getElementById(containerId);
+  if (!liste.length) { kap.innerHTML = '<div class="jg-empty">Bu kategoride görev yok.</div>'; return; }
+  const sinif = hazirMi ? 'hazir' : 'detay';
+  kap.innerHTML = liste.map(g => {
+    const eksik = (g.eksikler && g.eksikler.length) ? `<div class="jg-eksik">Eksik: ${escHtml(g.eksikler.join(', '))}</div>` : '';
+    const kaynakRozet = g.kaynak === 'ai'
+      ? '<span class="jg-kaynak ai" title="AI görevin içeriğini okudu">AI incelendi</span>'
+      : '<span class="jg-kaynak yapisal" title="Yalnızca format/bölüm taraması — içerik AI ile incelenmedi">yapısal ön-tarama</span>';
+    return `<div class="jg-item ${sinif}">
+      <div class="jg-item-top">
+        <span class="jg-key">${escHtml(g.key)}</span>
+        <span class="jg-summary">${escHtml(g.summary || '')}</span>
+        ${g.type ? `<span class="jg-pill type">${escHtml(g.type)}</span>` : ''}
+        ${g.status ? `<span class="jg-pill status">${escHtml(g.status)}</span>` : ''}
+      </div>
+      <div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>
+      ${eksik}
+      <details class="jg-detay-ac">
+        <summary>İçeriği gör</summary>
+        <div class="jg-icerik">${g.description ? escHtml(g.description) : '(Jira görevinde açıklama yok)'}</div>
+      </details>
+      <div class="jg-item-actions">
+        <button onclick="jgFormatla('${escHtml(g.key)}')">Standart Formatla</button>
+        <button onclick="jgAnaliz('${escHtml(g.key)}')">Teknik Analiz Et</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
+  const gorev = _jgGorevler[key];
+  if (!gorev) return;
+  const card = document.getElementById('jg-preview-card');
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('jg-preview-title').textContent = baslik + ' — ' + key;
+  document.getElementById('jg-preview-sub').textContent = gorev.summary || '';
+  document.getElementById('jg-preview-editor').value = bekleMesaji;
+  document.getElementById('jg-approve-btn').disabled = true;
+  _jgMsg('jg-preview-msg', '');
+  _jgCurrent = null;
+  try {
+    const r = await fetch(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gorev })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      document.getElementById('jg-preview-editor').value = '';
+      _jgMsg('jg-preview-msg', d.error || 'Hata', 'err');
+      return;
+    }
+    document.getElementById('jg-preview-editor').value = d.markdown || '';
+    document.getElementById('jg-approve-btn').disabled = false;
+    _jgCurrent = { key: key, summary: gorev.summary || '' };
+  } catch (e) {
+    document.getElementById('jg-preview-editor').value = '';
+    _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
+  }
+}
+
+function jgFormatla(key) {
+  return _jgIslem(key, '/api/jira/gorev/formatla', 'Standart Format', 'Standart formata çevriliyor…');
+}
+function jgAnaliz(key) {
+  return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor — bu işlem birkaç dakika sürebilir…');
+}
+
+function jgPreviewKapat() {
+  document.getElementById('jg-preview-card').style.display = 'none';
+  document.getElementById('jg-preview-editor').value = '';
+  _jgCurrent = null;
+}
+
+async function jgJiraGuncelle() {
+  if (!_jgCurrent) return;
+  const markdown = document.getElementById('jg-preview-editor').value.trim();
+  if (!markdown) { _jgMsg('jg-preview-msg', 'İçerik boş.', 'err'); return; }
+  if (!confirm(`${_jgCurrent.key} görevinin Jira açıklaması ÜZERİNE YAZILACAK. Devam edilsin mi?`)) return;
+  const btn = document.getElementById('jg-approve-btn');
+  btn.disabled = true;
+  _jgMsg('jg-preview-msg', 'Jira güncelleniyor…');
+  try {
+    const r = await fetch('/api/jira/gorev/guncelle', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: _jgCurrent.key, summary: _jgCurrent.summary, markdown })
+    });
+    const d = await r.json();
+    if (!d.ok) { _jgMsg('jg-preview-msg', d.error || 'Hata', 'err'); btn.disabled = false; return; }
+    _jgMsg('jg-preview-msg', `✓ ${d.key} Jira'da güncellendi.`, 'ok');
+    toast(`${d.key} güncellendi`, 'success');
+  } catch (e) {
+    _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
+    btn.disabled = false;
+  }
 }
 
 // ─── Onboarding Banner'ları (her biri 1 kez gösterilir) ─────────────────────
@@ -2877,10 +3219,12 @@ function updateUI(s) {
     : s.tamamlandi ? 'status-done'
     : s.durum === 'hata' ? 'status-error' : 'status-idle';
 
-  if (!_mockupCalisiyor) {
+  // _jgTabAktif: Jira Görevleri sekmesindeyken workflow state'i üst bara yazma —
+  // o sayfa kendi durumunu (çekiliyor/sınıflandırılıyor) gösterir.
+  if (!_mockupCalisiyor && !_jgTabAktif) {
     const _tbStat = document.getElementById('topbar-status'); if (_tbStat) _tbStat.textContent = s.etiket;
+    const _tbDot = document.getElementById('topbar-dot'); if (_tbDot) _tbDot.className = 'status-dot ' + cls;
   }
-  const _tbDot = document.getElementById('topbar-dot'); if (_tbDot) _tbDot.className = 'status-dot ' + cls;
 
   const surecDurumlar = ['surec_analizi_calisiyor','onay_bekleniyor','teknik_analiz_calisiyor',
     'teknik_analiz_onay_bekleniyor','jira_gonderiliyor','jira_tamamlandi'];

@@ -41,6 +41,7 @@ skills/                 Asıl iş mantığı; agent.py buradan import eder
   kapsam_analizi.py     Kapsam karşılaştırması + alternatif süreçler
   html_mockup.py        HTML prototip üretimi + mockup_oku_kontekst
   jira_tasks.py         jira_hiyerarsi_uret (preview) + jira_hiyerarsi_olustur (create)
+  jira_gorevleri.py     Epic/Story alt görevlerini çek + sınıflandır (yapısal+AI); standart formatla / teknik analiz et / Jira'ya yaz
   confluence_yaz.py     md → Confluence Storage Format dönüşümü + yayımlama
   sorular.py            Soru defteri: parse + storage + refine entegrasyonu
 
@@ -246,7 +247,25 @@ GET  /api/jira/callback        OAuth dönüş
 POST /api/jira/test            Bağlantı testi
 POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
 POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
+POST /api/jira/gorevler/cek        FAZ 1: alt görevleri çek + YAPISAL sınıflandır (AI'sız, 0 token, anında)
+POST /api/jira/gorevler/siniflandir FAZ 2: yeniden çek + HİBRİT (yapısal+AI) sınıflandır (opt-in)
+POST /api/jira/gorev/formatla      Özellik 1: görevi standart formata çevir (önizleme, YAZMAZ)
+POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detaylandır (önizleme, YAZMAZ)
+POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'da güncelle (markdown→ADF)
 ```
+
+**Jira Görevleri sekmesi** (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`):
+açık Epic/Story KEY'i girilir → `alt_gorevleri_cek` üç modeli birleştirir:
+`parent = KEY` (sub-task), `"Epic Link" = KEY` (epic), **`issue in linkedIssues(KEY)`**
+(Relates issue-link — bazı ekipler hiyerarşi yerine bunu kullanır). **İki fazlı**
+(token/timeout için): FAZ 1 yapısal sınıflandırma (anında, AI'sız) → analist listeyi
+hemen görür; FAZ 2 "AI ile Sınıflandır" butonu HİBRİT yapar (AI yalnızca BELİRSİZ
+görevleri inceler, `_yapisal_skor`/`_net_eksik` ile süzülür — 90+ görevde bile hızlı).
+İki aksiyon-grubu: **Hızlı İşleme Alınacak** (Standart Formatla, Özellik 1) ve
+**Detaylı Analiz Gerekir** (Teknik Analiz Et, Özellik 2). UI: arama/filtre +
+katlanabilir gruplar; Jira sekmesindeyken üst bar workflow yerine kendi durumunu
+gösterir (`_jgTabAktif` guard). Önizleme editörde düzenlenir; **Onayla** ile
+`gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf).
 
 ### Soru Defteri (skills/sorular.py)
 ```

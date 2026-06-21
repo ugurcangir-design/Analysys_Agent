@@ -2174,6 +2174,120 @@ def jira_hierarchy_olustur():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# ─── Jira Görevleri (Epic/Story alt görevleri) ────────────────────────────────
+
+@app.route("/api/jira/gorevler/cek", methods=["POST"])
+def jira_gorevler_cek():
+    """FAZ 1 — Epic/Story KEY'inin bir-seviye-alt görevlerini çeker ve YALNIZCA
+    yapısal (AI'sız, 0 token, anında) sınıflandırır. AI sınıflandırma ayrı adımda
+    (/siniflandir) yapılır — token tasarrufu + timeout önleme. Jira'ya YAZMAZ."""
+    data = request.get_json(silent=True) or {}
+    parent_key = (data.get("parent_key") or "").strip()
+    if not parent_key:
+        return jsonify({"ok": False, "error": "Epic/Story anahtarı gerekli (örn. PROJ-123)"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    try:
+        from skills.jira_gorevleri import alt_gorevleri_cek, gorevleri_siniflandir
+        gorevler = alt_gorevleri_cek(parent_key)
+        sonuc = gorevleri_siniflandir(gorevler, ai_kullan=False)
+        return jsonify({"ok": True, "parent_key": parent_key.upper(),
+                        "toplam": len(gorevler), "ai": False, **sonuc})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Jira görev çekme hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/gorevler/siniflandir", methods=["POST"])
+def jira_gorevler_siniflandir():
+    """FAZ 2 — görevleri yeniden çekip HİBRİT (yapısal + AI) sınıflandırır.
+    AI yalnızca belirsiz görevleri inceler. Analist tetikler (opt-in)."""
+    data = request.get_json(silent=True) or {}
+    parent_key = (data.get("parent_key") or "").strip()
+    if not parent_key:
+        return jsonify({"ok": False, "error": "Epic/Story anahtarı gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    try:
+        from skills.jira_gorevleri import alt_gorevleri_cek, gorevleri_siniflandir
+        gorevler = alt_gorevleri_cek(parent_key)
+        sonuc = gorevleri_siniflandir(gorevler, ai_kullan=True)
+        return jsonify({"ok": True, "parent_key": parent_key.upper(),
+                        "toplam": len(gorevler), "ai": True, **sonuc})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Jira görev sınıflandırma hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/gorev/formatla", methods=["POST"])
+def jira_gorev_formatla():
+    """Özellik 1 — görevi standart formata çevirir (önizleme; Jira'ya YAZMAZ)."""
+    data = request.get_json(silent=True) or {}
+    gorev = data.get("gorev")
+    if not isinstance(gorev, dict) or not gorev.get("key"):
+        return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    try:
+        from skills.jira_gorevleri import gorev_standart_formatla
+        markdown = gorev_standart_formatla(gorev)
+        return jsonify({"ok": True, "key": gorev["key"], "markdown": markdown})
+    except Exception as e:
+        logger.error(f"Görev formatlama hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/gorev/analiz", methods=["POST"])
+def jira_gorev_analiz():
+    """Özellik 2 — görevi teknik analiz motoruyla detaylandırır (önizleme; Jira'ya YAZMAZ).
+    AI çağrısı uzun sürebilir (özellikle CLI modunda)."""
+    data = request.get_json(silent=True) or {}
+    gorev = data.get("gorev")
+    if not isinstance(gorev, dict) or not gorev.get("key"):
+        return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    try:
+        from skills.jira_gorevleri import gorev_analiz_et
+        markdown = gorev_analiz_et(gorev)
+        return jsonify({"ok": True, "key": gorev["key"], "markdown": markdown})
+    except Exception as e:
+        logger.error(f"Görev analiz hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/gorev/guncelle", methods=["POST"])
+def jira_gorev_guncelle():
+    """Analist onayından sonra görevin Jira description'ını günceller (markdown→ADF).
+    GERİ DÖNDÜRÜLEMEZ — yalnızca analistin açık onayıyla çağrılmalı."""
+    data = request.get_json(silent=True) or {}
+    key = (data.get("key") or "").strip()
+    markdown = data.get("markdown") or ""
+    summary = (data.get("summary") or "").strip() or None
+    if not key or not markdown.strip():
+        return jsonify({"ok": False, "error": "key ve markdown gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    try:
+        from skills.jira_gorevleri import gorev_jiraya_yaz
+        gorev_jiraya_yaz(key, markdown, summary=summary)
+        return jsonify({"ok": True, "key": key.upper()})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Görev Jira güncelleme hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ─── Confluence Yayımla ───────────────────────────────────────────────────────
 
 @app.route("/api/confluence/publish", methods=["POST"])
