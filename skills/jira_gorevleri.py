@@ -115,9 +115,11 @@ _ID_DESENI = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 
 
 def alt_gorevleri_cek(parent_key: str) -> list[dict]:
-    """Verilen Epic/Story KEY'inin BİR SEVİYE altındaki görevleri çeker.
-    Önce `parent = KEY` (team-managed + sub-task), boş dönerse epic için
-    `"Epic Link" = KEY` (company-managed) fallback'i denenir."""
+    """Verilen Epic/Story KEY'inin BİR SEVİYE altındaki görevleri çeker. Üç bağ
+    modelini BİRLEŞTİRİR (tekrarsız): `parent = KEY` (sub-task/team-managed çocuk),
+    `"Epic Link" = KEY` (company-managed epic çocuğu) ve `issue in linkedIssues(KEY)`
+    (Relates vb. issue-link — bazı ekipler hiyerarşi yerine bunu kullanır). Projede
+    olmayan alan/JQL sessizce atlanır."""
     parent_key = (parent_key or "").strip().upper()
     if not _ID_DESENI.match(parent_key):
         raise ValueError(f"Geçersiz Jira anahtarı: '{parent_key}' (örn. PROJ-123 olmalı)")
@@ -516,7 +518,11 @@ def gorev_jiraya_yaz(task_key: str, markdown: str, summary: str | None = None) -
     task_key = (task_key or "").strip().upper()
     if not _ID_DESENI.match(task_key):
         raise ValueError(f"Geçersiz Jira anahtarı: '{task_key}'")
-    fields = {"description": {"type": "doc", "version": 1, "content": markdown_to_adf(markdown)}}
+    adf_content = markdown_to_adf(markdown)
+    if not adf_content:
+        # İçerik yalnızca HTML yorumu/boşluktan ibaretse ADF boş kalır — Jira 400 verir.
+        raise ValueError("Dönüştürülen içerik boş; Jira'ya yazılamaz. Editörde geçerli markdown bırakın.")
+    fields = {"description": {"type": "doc", "version": 1, "content": adf_content}}
     if summary:
         fields["summary"] = summary
     try:

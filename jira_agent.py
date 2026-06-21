@@ -259,6 +259,11 @@ def _table(rows: list) -> dict:
 
 
 def markdown_to_adf(md: str) -> list:
+    # HTML yorumlarını (<!-- ... -->) at — markdown'da görünmez olmaları beklenir,
+    # ama ADF'te paragraf olarak literal yazıya dönüşüp Jira description'ında
+    # görünür hale gelirler (örn. jira_gorevleri'nin RAG meta yorumu). Tek/çok
+    # satırlı tüm yorumları temizle.
+    md = re.sub(r"<!--.*?-->", "", md, flags=re.DOTALL)
     lines = md.split("\n")
     nodes = []
     i = 0

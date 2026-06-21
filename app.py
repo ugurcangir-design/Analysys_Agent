@@ -2203,8 +2203,9 @@ def jira_gorevler_cek():
 
 @app.route("/api/jira/gorevler/siniflandir", methods=["POST"])
 def jira_gorevler_siniflandir():
-    """FAZ 2 — görevleri yeniden çekip HİBRİT (yapısal + AI) sınıflandırır.
-    AI yalnızca belirsiz görevleri inceler. Analist tetikler (opt-in)."""
+    """FAZ 2 — görevleri yeniden çekip AI ile (içerikten) sınıflandırır.
+    AI her görevin başlık+açıklamasını okur; yapısal sonuç fallback'tir.
+    Analist tetikler (opt-in, token harcar)."""
     data = request.get_json(silent=True) or {}
     parent_key = (data.get("parent_key") or "").strip()
     if not parent_key:
