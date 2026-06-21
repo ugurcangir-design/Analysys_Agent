@@ -255,6 +255,8 @@ POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'd
 ```
 
 **Jira Görevleri sekmesi** (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`):
+çekme + benzer-içerik tespiti + yorumlar + iki fazlı sınıflandırma + Jira yazımı.
+
 açık Epic/Story KEY'i girilir → `alt_gorevleri_cek` üç modeli birleştirir:
 `parent = KEY` (sub-task), `"Epic Link" = KEY` (epic), **`issue in linkedIssues(KEY)`**
 (Relates issue-link — bazı ekipler hiyerarşi yerine bunu kullanır). **İki fazlı**
@@ -262,9 +264,15 @@ açık Epic/Story KEY'i girilir → `alt_gorevleri_cek` üç modeli birleştirir
 hemen görür; FAZ 2 "AI ile Sınıflandır" butonu HİBRİT yapar (AI yalnızca BELİRSİZ
 görevleri inceler, `_yapisal_skor`/`_net_eksik` ile süzülür — 90+ görevde bile hızlı).
 İki aksiyon-grubu: **Hızlı İşleme Alınacak** (Standart Formatla, Özellik 1) ve
-**Detaylı Analiz Gerekir** (Teknik Analiz Et, Özellik 2). UI: arama/filtre +
-katlanabilir gruplar; Jira sekmesindeyken üst bar workflow yerine kendi durumunu
-gösterir (`_jgTabAktif` guard). Önizleme editörde düzenlenir; **Onayla** ile
+**Detaylı Analiz Gerekir** (Teknik Analiz Et, Özellik 2). Sınıflandırmadan ÖNCE
+`benzer_gorevleri_isaretle` Jaccard ile (eşik 0.35, 0 token) her görev için
+benzer içerikli başka görevleri bulup `g['benzerler']` listesine yazar — UI'da
+**sarı uyarı** ve tıklanabilir link ile karta zıplama. Görevlerin **yorumları**
+(ADF→metin, yazar+tarih) çekilir ve kartta açılır panelde gösterilir. UI:
+sayfaya doğru orantılı arama kutuları (etiketli, max-width sınırlı); arama
+eşleşmediği grubu **tamamen gizler**; katlanabilir gruplar; Jira sekmesindeyken
+üst bar workflow yerine kendi durumunu gösterir (`_jgTabAktif` guard).
+Önizleme editörde düzenlenir; **Onayla** ile
 `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf).
 
 ### Soru Defteri (skills/sorular.py)

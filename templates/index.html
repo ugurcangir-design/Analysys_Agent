@@ -1510,12 +1510,14 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 
 /* ── Jira Görevleri ── */
 .jg-fetch-row { display: flex; gap: 10px; align-items: center; }
-.jg-fetch-row .setting-input { flex: 1; }
+.jg-fetch-row .setting-input { flex: 1; max-width: 420px; }
 .jg-msg { font-size: 12px; color: var(--text3); margin-top: 10px; min-height: 15px; }
 .jg-msg.err { color: var(--red); }
 .jg-msg.ok { color: var(--green); }
-.jg-toolbar { display: flex; gap: 10px; align-items: center; padding: 12px 14px; }
-.jg-toolbar .setting-input { flex: 1; }
+.jg-toolbar { display: flex; gap: 10px; align-items: center; padding: 12px 14px; flex-wrap: wrap; }
+.jg-toolbar-arama { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 260px; max-width: 480px; }
+.jg-toolbar-arama .jg-arama-lbl { font-size: 11.5px; color: var(--text2); font-weight: 600; flex-shrink: 0; }
+.jg-toolbar-arama .setting-input { flex: 1; }
 .jg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .jg-dot.ok { background: var(--green); }
 .jg-dot.warn { background: var(--yellow); }
@@ -1549,6 +1551,19 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-detay-ac summary::before { content: '▸'; font-size: 9px; transition: transform .12s; }
 .jg-detay-ac[open] summary::before { transform: rotate(90deg); }
 .jg-icerik { margin-top: 8px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; line-height: 1.55; color: var(--text2); white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+/* Benzer içerik uyarısı */
+.jg-benzer { margin-top: 7px; padding: 6px 10px; background: rgba(234,179,8,.10); border: 1px solid rgba(234,179,8,.30); border-radius: 5px; font-size: 11.5px; color: var(--text2); }
+.jg-benzer a { color: var(--accent); font-family: 'Geist Mono', monospace; font-weight: 600; text-decoration: none; }
+.jg-benzer a:hover { text-decoration: underline; }
+.jg-benzer-skor { color: var(--text3); font-size: 10.5px; margin-left: 2px; }
+/* Yorumlar */
+.jg-yorumlar { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.jg-yorum { padding: 8px 10px; background: var(--surface2); border-left: 2px solid var(--border-strong); border-radius: 4px; }
+.jg-yorum-meta { font-size: 10.5px; color: var(--text3); font-weight: 600; }
+.jg-yorum-metin { font-size: 12px; color: var(--text2); white-space: pre-wrap; margin-top: 3px; line-height: 1.5; }
+/* Tıklanan benzer karta vurgu animasyonu */
+.jg-vurgu { animation: jgVurgu 1.5s ease-out; }
+@keyframes jgVurgu { 0%, 30% { box-shadow: 0 0 0 2px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .jg-item-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .jg-item-actions button {
   font-size: 11.5px; padding: 5px 11px; border-radius: 5px; cursor: pointer;
@@ -2110,7 +2125,8 @@ function temaDegistir() {
         </div>
         <div class="panel-body">
           <div class="jg-fetch-row">
-            <input type="text" id="jg-parent-key" class="setting-input" placeholder="Açık Epic / Story anahtarı (örn. MBSTRADE-1133)" autocomplete="off" onkeydown="if(event.key==='Enter')jgGorevleriCek()">
+            <label class="jg-arama-lbl" for="jg-parent-key">Anahtar</label>
+            <input type="text" id="jg-parent-key" class="setting-input" placeholder="Açık Epic / Story (örn. MBSTRADE-1133)" autocomplete="off" onkeydown="if(event.key==='Enter')jgGorevleriCek()">
             <button class="btn btn-primary" id="jg-fetch-btn" onclick="jgGorevleriCek()">
               <svg class="ico"><use href="#i-search"/></svg> Görevleri Çek
             </button>
@@ -2123,7 +2139,10 @@ function temaDegistir() {
         <!-- Araç çubuğu: arama + AI sınıflandırma -->
         <div class="panel" style="margin-bottom:14px">
           <div class="panel-body jg-toolbar">
-            <input type="text" id="jg-search" class="setting-input" placeholder="Görevlerde ara (anahtar / başlık)…" autocomplete="off" oninput="jgFiltrele()">
+            <div class="jg-toolbar-arama">
+              <label class="jg-arama-lbl" for="jg-search">Görevde ara</label>
+              <input type="text" id="jg-search" class="setting-input" placeholder="anahtar veya başlık…" autocomplete="off" oninput="jgFiltrele()">
+            </div>
             <button class="btn btn-outline" id="jg-ai-btn" onclick="jgSiniflandir()" title="AI her görevin başlık+açıklamasını okur ve içeriğe göre sınıflandırır (gerekçeli). Uzun listede birkaç dk sürebilir.">
               <svg class="ico"><use href="#i-sparkles"/></svg> AI ile Sınıflandır
             </button>
@@ -2940,7 +2959,8 @@ function _jgYerlestir(d) {
   jgFiltrele();
 }
 
-// Uzun listede arama: her iki grubu canlı filtreler, sayaçları filtreli/toplam gösterir
+// Uzun listede arama: her iki grubu canlı filtreler. Aramada içi boş grubu TAMAMEN
+// gizler (sadece içeriği olan grup görünür); aramasız durumda her iki grup açık.
 function jgFiltrele() {
   const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
   const suz = (liste) => !q ? liste
@@ -2948,13 +2968,30 @@ function jgFiltrele() {
   const h = suz(_jgData.hazir), dt = suz(_jgData.detay);
   jgListeCiz('jg-hazir-list', h, true);
   jgListeCiz('jg-detay-list', dt, false);
-  document.getElementById('jg-hazir-count').textContent = q ? `${h.length}/${_jgData.hazir.length}` : _jgData.hazir.length;
-  document.getElementById('jg-detay-count').textContent = q ? `${dt.length}/${_jgData.detay.length}` : _jgData.detay.length;
+  document.getElementById('jg-hazir-count').textContent = h.length;
+  document.getElementById('jg-detay-count').textContent = dt.length;
+  // Aramada içi boş grubu gizle — gereksiz başlık+sayaç kalmasın
+  const hazirGrp = document.getElementById('jg-caret-hazir').closest('.jg-group');
+  const detayGrp = document.getElementById('jg-caret-detay').closest('.jg-group');
+  hazirGrp.style.display = (q && h.length === 0) ? 'none' : '';
+  detayGrp.style.display = (q && dt.length === 0) ? 'none' : '';
 }
 
 function jgGrupAc(grup) {
   const caret = document.getElementById('jg-caret-' + grup);
   if (caret) caret.closest('.jg-group').classList.toggle('kapali');
+}
+
+// Benzer task linkine tıklayınca o karta götür (varsa açık grupta, yoksa açıp)
+function jgGorevineGit(key) {
+  const el = document.getElementById('jg-card-' + key);
+  if (!el) return;
+  // İçinde bulunduğu grup kapalıysa aç
+  const grp = el.closest('.jg-group');
+  if (grp && grp.classList.contains('kapali')) grp.classList.remove('kapali');
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('jg-vurgu');
+  setTimeout(() => el.classList.remove('jg-vurgu'), 1500);
 }
 
 function jgListeCiz(containerId, liste, hazirMi) {
@@ -2966,7 +3003,21 @@ function jgListeCiz(containerId, liste, hazirMi) {
     const kaynakRozet = g.kaynak === 'ai'
       ? '<span class="jg-kaynak ai" title="AI görevin içeriğini okudu">AI incelendi</span>'
       : '<span class="jg-kaynak yapisal" title="Yalnızca format/bölüm taraması — içerik AI ile incelenmedi">yapısal ön-tarama</span>';
-    return `<div class="jg-item ${sinif}">
+    // Benzer içerik uyarısı: hangi görev(ler) ile örtüşüyor?
+    const benzerUyari = (g.benzerler && g.benzerler.length)
+      ? `<div class="jg-benzer">⚠ Benzer içerik: ${g.benzerler.map(b =>
+          `<a href="#" onclick="jgGorevineGit('${escHtml(b.key)}');return false" title="${escHtml(b.summary)}">${escHtml(b.key)}</a> <span class="jg-benzer-skor">%${Math.round(b.skor*100)}</span>`
+        ).join(' · ')}</div>`
+      : '';
+    // Yorumlar (varsa) — son 3
+    const yorumlar = (g.comments && g.comments.length)
+      ? `<details class="jg-detay-ac"><summary>Yorumlar (${g.comments.length})</summary><div class="jg-yorumlar">${
+          g.comments.slice(-3).map(c =>
+            `<div class="jg-yorum"><span class="jg-yorum-meta">${escHtml(c.yazar || 'bilinmiyor')} · ${escHtml(c.tarih || '')}</span><div class="jg-yorum-metin">${escHtml(c.metin || '')}</div></div>`
+          ).join('')
+        }</div></details>`
+      : '';
+    return `<div class="jg-item ${sinif}" id="jg-card-${escHtml(g.key)}">
       <div class="jg-item-top">
         <span class="jg-key">${escHtml(g.key)}</span>
         <span class="jg-summary">${escHtml(g.summary || '')}</span>
@@ -2975,10 +3026,12 @@ function jgListeCiz(containerId, liste, hazirMi) {
       </div>
       <div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>
       ${eksik}
+      ${benzerUyari}
       <details class="jg-detay-ac">
         <summary>İçeriği gör</summary>
         <div class="jg-icerik">${g.description ? escHtml(g.description) : '(Jira görevinde açıklama yok)'}</div>
       </details>
+      ${yorumlar}
       <div class="jg-item-actions">
         <button onclick="jgFormatla('${escHtml(g.key)}')">Standart Formatla</button>
         <button onclick="jgAnaliz('${escHtml(g.key)}')">Teknik Analiz Et</button>

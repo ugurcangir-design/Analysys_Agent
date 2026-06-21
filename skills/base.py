@@ -1874,8 +1874,21 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
         env=cli_env,
     )
     if proc.returncode != 0:
-        hata_detay = proc.stderr.strip() or proc.stdout.strip() or "Bilinmeyen hata"
-        raise RuntimeError(f"claude CLI hatası (kod {proc.returncode}): {hata_detay}")
+        # stdout JSON ise içinden okunabilir mesaj çıkar (429 limit, billing vb.)
+        ham_err = proc.stdout.strip() or proc.stderr.strip() or "Bilinmeyen hata"
+        try:
+            v = json.loads(ham_err)
+            if v.get("api_error_status") == 429:
+                # "You've hit your limit · resets 1:30pm (Europe/Istanbul)"
+                raise RuntimeError(
+                    f"Claude kullanım limitine ulaşıldı: {v.get('result','limit doldu')}. "
+                    "Reset zamanından sonra tekrar deneyin veya .env'de ANTHROPIC_API_KEY ile API moduna geçin."
+                )
+            mesaj = v.get("result") or v.get("subtype") or "bilinmeyen hata"
+            raise RuntimeError(f"claude CLI hatası: {mesaj}")
+        except (ValueError, KeyError, TypeError):
+            pass  # JSON değilse alttaki ham mesaja düş
+        raise RuntimeError(f"claude CLI hatası (kod {proc.returncode}): {ham_err[:300]}")
 
     ham = proc.stdout.strip()
     if not ham:

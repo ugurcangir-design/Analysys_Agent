@@ -95,7 +95,7 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
         raise ValueError(f"Geçersiz Jira anahtarı: '{parent_key}' (örn. PROJ-123 olmalı)")
 
     cloud_id = _cloud_id()
-    alanlar = ["summary", "description", "status", "issuetype", "priority", "assignee", "parent"]
+    alanlar = ["summary", "description", "status", "issuetype", "priority", "assignee", "parent", "comment"]
 
     def _ara(jql: str) -> list[dict]:
         gorevler, next_token = [], None
@@ -108,6 +108,14 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
                 f = issue.get("fields", {})
                 desc = f.get("description")
                 desc_metin = _adf_to_text(desc) if isinstance(desc, dict) else (desc or "")
+                # Comment'ler: ADF→metin + yazar/tarih (analist task detayında görsün)
+                comments = []
+                cdata = f.get("comment") or {}
+                for c in (cdata.get("comments") if isinstance(cdata, dict) else cdata) or []:
+                    body_metin = _adf_to_text(c.get("body")) if isinstance(c.get("body"), dict) else (c.get("body") or "")
+                    yazar = (c.get("author") or {}).get("displayName", "")
+                    tarih = (c.get("created") or "")[:10]  # YYYY-MM-DD
+                    comments.append({"yazar": yazar, "tarih": tarih, "metin": body_metin.strip()})
                 gorevler.append({
                     "key": issue["key"],
                     "summary": f.get("summary", ""),
@@ -116,6 +124,7 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
                     "priority": (f.get("priority") or {}).get("name", ""),
                     "assignee": (f.get("assignee") or {}).get("displayName", ""),
                     "description": desc_metin.strip(),
+                    "comments": comments,
                 })
             next_token = data.get("nextPageToken")
             if not next_token:
@@ -200,6 +209,48 @@ def _json_ayikla(metin: str) -> dict:
 
 _BOLUM_ETIKET = {"amac": "Amaç", "degisiklik": "Değişiklik", "referans": "Referans", "kabul": "Kabul kriteri"}
 
+# ─── Benzer Task Tespiti (deterministik, 0 token) ────────────────────────────
+
+_STOPWORDS = {
+    "ve", "ile", "için", "de", "da", "bir", "bu", "şu", "the", "of", "for", "to", "in", "on",
+    "fe", "be", "ui", "api",  # katman/genel etiketleri — sinyal değil
+}
+_TOKEN_DESENI = re.compile(r"[a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]{3,}")
+
+
+def _benzerlik_jetonlari(gorev: dict) -> set[str]:
+    """Görevin başlığı + açıklamasının ilk 300 karakterinden token seti üretir.
+    Stopword'ler ve 3'ten kısa kelimeler atılır."""
+    metin = (gorev.get("summary", "") + " " + (gorev.get("description", "") or "")[:300]).lower()
+    return {t for t in _TOKEN_DESENI.findall(metin) if t not in _STOPWORDS}
+
+
+def benzer_gorevleri_isaretle(gorevler: list[dict], esik: float = 0.35) -> None:
+    """Görev listesinde her görev için BENZER (Jaccard ≥ esik) olanları bulup
+    g['benzerler'] = [{'key', 'summary', 'skor'}] olarak işaretler. Token harcamaz.
+    O(n²) ama 100 görevde milisaniye düzeyinde."""
+    setler = [(g, _benzerlik_jetonlari(g)) for g in gorevler]
+    for g, s in setler:
+        g["benzerler"] = []
+        if len(s) < 4:  # çok az token varsa sinyal güvenilmez
+            continue
+        skorlar = []
+        for h, sh in setler:
+            if h is g or len(sh) < 4:
+                continue
+            kesisim = len(s & sh)
+            birlesim = len(s | sh)
+            if not birlesim:
+                continue
+            j = kesisim / birlesim
+            if j >= esik:
+                skorlar.append((j, h))
+        skorlar.sort(reverse=True, key=lambda x: x[0])
+        g["benzerler"] = [
+            {"key": h["key"], "summary": h.get("summary", ""), "skor": round(j, 2)}
+            for j, h in skorlar[:3]  # ilk 3 benzer yeter
+        ]
+
 
 def _yapisal_gerekce(ys: dict) -> str:
     """Yapısal taramada NEYE göre karar verildiğini şeffaf gösterir (içerik
@@ -250,6 +301,9 @@ def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
 
     for g in gorevler:
         g["yapisal"] = _yapisal_skor(g)
+
+    # Benzer içerik tespiti — deterministik, 0 token; her görev `benzerler` listesi alır
+    benzer_gorevleri_isaretle(gorevler)
 
     ai_map = _ai_siniflandir(gorevler) if ai_kullan else {}
 
