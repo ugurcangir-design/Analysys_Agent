@@ -1514,6 +1514,12 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-msg { font-size: 12px; color: var(--text3); margin-top: 10px; min-height: 15px; }
 .jg-msg.err { color: var(--red); }
 .jg-msg.ok { color: var(--green); }
+.jg-ctx-bilgi { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 9px 12px; background: var(--info-bg, rgba(59,130,246,.08)); border: 1px solid var(--info-bd, rgba(59,130,246,.25)); border-radius: 6px; font-size: 12px; color: var(--text2); }
+.jg-ctx-bilgi .ico { width: 13px; height: 13px; color: var(--info-tx, #3b82f6); flex-shrink: 0; }
+.jg-ctx-bilgi > span { flex: 1; line-height: 1.5; }
+.jg-ctx-bilgi strong { color: var(--text); }
+.jg-ctx-bilgi .btn-link { background: transparent; border: none; color: var(--accent); font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0; font-family: inherit; }
+.jg-ctx-bilgi .btn-link:hover { text-decoration: underline; }
 .jg-toolbar { display: flex; gap: 10px; align-items: center; padding: 12px 14px; flex-wrap: wrap; }
 .jg-toolbar-arama { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 260px; max-width: 480px; }
 .jg-toolbar-arama .jg-arama-lbl { font-size: 11.5px; color: var(--text2); font-weight: 600; flex-shrink: 0; }
@@ -2150,6 +2156,11 @@ function temaDegistir() {
             </button>
           </div>
           <div id="jg-fetch-msg" class="jg-msg"></div>
+          <div id="jg-ctx-bilgi" class="jg-ctx-bilgi" style="display:none">
+            <svg class="ico"><use href="#i-filter"/></svg>
+            <span><strong>Bağlam Filtresi aktif</strong> — <span id="jg-ctx-detay"></span> · Teknik Analiz Et bu filtreyi kullanır.</span>
+            <button class="btn-link" onclick="switchTab('surec'); setTimeout(()=>document.getElementById('ctx-toggle').scrollIntoView({block:'center',behavior:'smooth'}),200)">Düzenle →</button>
+          </div>
         </div>
       </div>
 
@@ -2889,7 +2900,7 @@ function switchTab(tab, hedefDosya) {
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Jira Görevleri sekmesi: üst bar workflow yerine bu sayfanın durumunu gösterir
   _jgTabAktif = (tab === 'jira-gorevler');
-  if (_jgTabAktif) { _jgTopbar('Jira Görevleri', false); }
+  if (_jgTabAktif) { _jgTopbar('Jira Görevleri', false); jgCtxBilgiYukle(); }
   else if (_lastState) { updateUI(_lastState); }   // başka sekmeye dönünce workflow durumunu geri yükle
   if (tab === 'history')       loadHistory();
   if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
@@ -3010,6 +3021,28 @@ function jgFiltrele() {
 function jgGrupAc(grup) {
   const caret = document.getElementById('jg-caret-' + grup);
   if (caret) caret.closest('.jg-group').classList.toggle('kapali');
+}
+
+// Bağlam Filtresi şeridi: Süreç ekranında girilen filtreyi Jira sekmesinde göster
+// (Teknik Analiz Et bu filtreyi kullanır — analist hangi filtre aktif olduğunu burada görür)
+async function jgCtxBilgiYukle() {
+  try {
+    const r = await fetch('/api/context-filter');
+    if (!r.ok) return;
+    const ctx = await r.json();
+    const parcalar = [];
+    if (ctx.keywords && ctx.keywords.length)            parcalar.push('kelime: ' + ctx.keywords.join(', '));
+    if (ctx.jira_keys && ctx.jira_keys.length)          parcalar.push('Jira: ' + ctx.jira_keys.join(', '));
+    if (ctx.confluence_pages && ctx.confluence_pages.length) parcalar.push('Confluence: ' + ctx.confluence_pages.join(', '));
+    const bilgi = document.getElementById('jg-ctx-bilgi');
+    if (!bilgi) return;
+    if (parcalar.length) {
+      document.getElementById('jg-ctx-detay').textContent = parcalar.join(' · ');
+      bilgi.style.display = '';
+    } else {
+      bilgi.style.display = 'none';
+    }
+  } catch {}
 }
 
 // Benzer task linkine tıklayınca o karta götür (varsa açık grupta, yoksa açıp)

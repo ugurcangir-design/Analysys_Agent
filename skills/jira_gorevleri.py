@@ -19,7 +19,7 @@ from .atlassian import env_oku, atlassian_post, atlassian_put
 from .base import (
     _api_cagri, _xml_ayir, _metin_sikistir,
     prompt_yukle, extended_thinking_acik,
-    referans_dosyalari_hazirla, _ref_bloklari_olustur,
+    referans_dosyalari_hazirla, _ref_bloklari_olustur, load_context_filter,
     MAX_TOKENS_KISA, MAX_TOKENS_COMBINED,
 )
 
@@ -415,9 +415,24 @@ def gorev_analiz_et(gorev: dict) -> dict:
         f"<teknik_analiz>\n{bolumler}\n</teknik_analiz>"
     )
 
+    # RAG: bağlam filtresi (Süreç Analizi ekranındaki filtre) ile filtrelenmiş
+    # referansları topla. referans_dosyalari_hazirla() zaten load_context_filter()
+    # + filtrele_referanslar() çağırıyor — atlamıyor. Burada ayrıca filtre durumunu
+    # log ve çıktı meta yorumu için yakalıyoruz (analist şeffaflığı).
+    ctx = load_context_filter() or {}
+    aktif_filtreler = []
+    if ctx.get("keywords"):         aktif_filtreler.append(f"kelime:{','.join(ctx['keywords'])}")
+    if ctx.get("jira_keys"):        aktif_filtreler.append(f"jira:{','.join(ctx['jira_keys'])}")
+    if ctx.get("confluence_pages"): aktif_filtreler.append(f"conf:{','.join(ctx['confluence_pages'])}")
+
     stable_bloklar: list[dict] = []
+    referans_sayisi = 0
     try:
         ref_dosyalar = referans_dosyalari_hazirla()
+        referans_sayisi = len(ref_dosyalar)
+        if aktif_filtreler:
+            print(f"  🔍 Bağlam filtresi aktif — {' | '.join(aktif_filtreler)}")
+        print(f"  {referans_sayisi} referans dosya dahil ediliyor...")
         if ref_dosyalar:
             ref_bloklari, _ = _ref_bloklari_olustur(ref_dosyalar)
             stable_bloklar.extend(ref_bloklari)
@@ -435,6 +450,14 @@ def gorev_analiz_et(gorev: dict) -> dict:
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
                        max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
     teknik = _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
+
+    # Şeffaflık: editör ön-izlemesinde + history'de RAG durumu görünür.
+    # HTML yorumu olarak ekle — markdown render'da görünmez ama analist editörde okur.
+    filtre_str = " | ".join(aktif_filtreler) if aktif_filtreler else "yok"
+    teknik = (
+        f"<!-- RAG: {referans_sayisi} referans dosya kullanıldı | bağlam filtresi: {filtre_str} -->\n\n"
+        + teknik
+    )
 
     # Aşama 2 — Açık Sorular (haiku, kısa). Hata olursa teknik analizi kaybetme.
     acik = ""
