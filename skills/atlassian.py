@@ -107,7 +107,13 @@ def atlassian_post(path: str, body: dict, cloud_id: str, service: str = "jira") 
         headers["Authorization"] = f"Bearer {token}"
         r = _req.post(base + path, json=body, headers=headers, timeout=30)
     r.raise_for_status()
-    return r.json()
+    # Bazı POST'lar (örn. comment ekleme, transition) 204/boş gövde döndürebilir.
+    if not r.content or r.status_code == 204:
+        return {}
+    try:
+        return r.json()
+    except ValueError:
+        return {}
 
 
 def atlassian_put(path: str, body: dict, cloud_id: str, service: str = "jira") -> dict:

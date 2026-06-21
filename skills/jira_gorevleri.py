@@ -507,12 +507,22 @@ def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
 
 def gorev_jiraya_yaz(task_key: str, markdown: str, summary: str | None = None) -> bool:
     """Görevin description'ını markdown→ADF olarak günceller (üzerine yazar).
-    İsteğe bağlı summary de güncellenir. Canonical atlassian_put kullanır."""
+    İsteğe bağlı summary de güncellenir. Canonical atlassian_put kullanır.
+
+    SAĞLAMLIK: Jira issue update PUT 204 No Content döndürür. Eski wrapper sürümleri
+    veya beklenmedik response biçimlerinde r.json() ValueError fırlatabiliyor — bu
+    durumda yazma BAŞARILI olmuş ama UI'a hata gidiyor (kullanıcı: 'görev güncellendi
+    ama hata aldım'). Çift güvenceli: ValueError yutulur, yazma başarılı sayılır."""
     task_key = (task_key or "").strip().upper()
     if not _ID_DESENI.match(task_key):
         raise ValueError(f"Geçersiz Jira anahtarı: '{task_key}'")
     fields = {"description": {"type": "doc", "version": 1, "content": markdown_to_adf(markdown)}}
     if summary:
         fields["summary"] = summary
-    atlassian_put(f"/rest/api/3/issue/{task_key}", body={"fields": fields}, cloud_id=_cloud_id())
+    try:
+        atlassian_put(f"/rest/api/3/issue/{task_key}", body={"fields": fields}, cloud_id=_cloud_id())
+    except ValueError as parse_err:
+        # Response body parse hatası — HTTP isteği başarılı olduğu için yazma TAMAM.
+        # Bu, eski atlassian_put sürümünde 204'te r.json() patlaması durumunu kapsar.
+        print(f"  ⚠ Yanıt parse uyarısı (yazma başarılı sayılıyor): {parse_err}")
     return True
