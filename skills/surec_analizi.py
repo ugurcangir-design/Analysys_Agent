@@ -4,6 +4,7 @@ from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, input_hazirla, prompt_yukle,
     referans_dosyalari_hazirla, _ref_bloklari_olustur,
+    yonetici_ozeti_olustur,
     MAX_TOKENS_UZUN,
     extended_thinking_acik,
 )
@@ -47,4 +48,7 @@ def surec_analizi_yap() -> Path:
         meta = "<!--\nKULLANILAN REFERANSLAR:\n- " + "\n- ".join(kullanilan_referanslar) + "\n-->\n\n"
         yanit = meta + yanit
 
-    return _kaydet("surec-analizi.md", yanit)
+    # Yönetici Özeti (TL;DR) — analist hızlı tarayıp onaylasın. Süreç analizi Jira'ya
+    # gitmez ama tutarlılık için aynı format (açık sorular doküman içinde, tablo formatı).
+    ozet = yonetici_ozeti_olustur(yanit)
+    return _kaydet("surec-analizi.md", ozet + yanit)

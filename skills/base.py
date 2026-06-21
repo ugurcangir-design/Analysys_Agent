@@ -1237,6 +1237,62 @@ def surec_id_kapsam(surec_metni: str, teknik_metni: str) -> dict:
     }
 
 
+# ─── Yönetici Özeti (TL;DR) — deterministik, 0 token; Jira'ya YAZILMAZ ────────
+
+YONETICI_OZETI_BASLIK = "## 📋 Yönetici Özeti"
+
+
+def yonetici_ozeti_olustur(markdown: str, kapsam: dict | None = None,
+                           acik_sorular: str = "") -> str:
+    """Üretilen analiz dokümanından hızlı-tarama özeti üretir (deterministik sayım,
+    token harcamaz). Çıktının EN ÜSTÜNE eklenir; analist 10 saniyede karar verir.
+    NOT: Bu blok yonetici_ozetini_cikar() ile Jira'ya yazılmadan ÖNCE silinir."""
+    def say(desen, metin):
+        return len(re.findall(desen, metin, re.IGNORECASE | re.MULTILINE))
+
+    endpoint = say(r"^\|\s*(?:GET|POST|PUT|PATCH|DELETE)\b", markdown)
+    tablo = say(r"\bCREATE\s+TABLE\b", markdown)
+    bolum = say(r"^##\s+\d+\.", markdown)
+    # Açık soru sayımı: harici metin verildiyse oradan, yoksa dokümanın kendisinden.
+    # İki format: başlık (### Q-T-001) ve tablo satırı (| Q-001 | ...) — ikisini de say.
+    soru_kaynak = acik_sorular or markdown
+    soru = say(r"^(?:#{2,4}\s+|\|\s*)Q-", soru_kaynak)
+    kritik = say(r"^-?\s*\**\s*Önem\s*\**\s*:\s*Kritik", soru_kaynak)
+
+    kapsam_parca = []
+    if endpoint: kapsam_parca.append(f"{endpoint} endpoint")
+    if tablo:    kapsam_parca.append(f"{tablo} tablo")
+    if bolum:    kapsam_parca.append(f"{bolum} bölüm")
+
+    satirlar = [YONETICI_OZETI_BASLIK,
+                "*(Hızlı tarama için — Jira'ya yazılmaz, düzenlenebilir.)*", ""]
+    if kapsam_parca:
+        satirlar.append("- **Kapsam:** " + " · ".join(kapsam_parca))
+    if kapsam and kapsam.get("toplam"):
+        eksik_not = (f"; eksik: {', '.join(kapsam['eksik'][:6])}"
+                     f"{'…' if len(kapsam['eksik']) > 6 else ''}") if kapsam.get("eksik") else ""
+        satirlar.append(
+            f"- **Süreç kapsamı:** %{kapsam['skor']*100:.0f} "
+            f"({len(kapsam['karsilanan'])}/{kapsam['toplam']} ID karşılandı{eksik_not})")
+    if soru:
+        kritik_not = f" ({kritik} kritik)" if kritik else ""
+        satirlar.append(f"- **Açık sorular:** {soru}{kritik_not} — ekibe sormadan başlamayın")
+    if not kapsam_parca and not soru:
+        satirlar.append("- _(özetlenecek yapılandırılmış içerik bulunamadı)_")
+    satirlar += ["", "---", ""]
+    return "\n".join(satirlar)
+
+
+def yonetici_ozetini_cikar(markdown: str) -> str:
+    """Yönetici Özeti bloğunu (başlıktan onu izleyen ilk '---' ayırıcıya kadar)
+    siler. Jira'ya yazan TÜM yollar bunu önce çağırmalı — özet Jira'ya gitmez."""
+    desen = re.compile(
+        r"^\s*##\s*📋\s*Yönetici Özeti\b.*?\n---\n+",
+        re.DOTALL,
+    )
+    return desen.sub("", markdown, count=1).lstrip()
+
+
 def _metin_kes(metin: str, limit: int, dosya_adi: str) -> str:
     if len(metin) <= limit:
         return metin
@@ -2007,6 +2063,46 @@ def _api_kesilme_uyar(yanit, max_tokens: int) -> None:
         )
 
 
+# ─── Çıktı Önbelleği (re-run/refine token tasarrufu, 429 limitine çare) ──────
+# Aynı girdi (sistem promptu + mesajlar + model + limit) → kaydedilen yanıt, 0 token.
+# İçerik değişirse (doküman/referans/filtre/prompt) anahtar değişir → taze çağrı.
+# Kapatmak için .env'de API_CACHE=false. TTL sonrası bayatlamaz.
+_API_CACHE_DIR = BASE_DIR / ".api_cache"
+_API_CACHE_TTL = int(os.getenv("API_CACHE_TTL", str(7 * 24 * 3600)))  # 7 gün
+_API_CACHE_AKTIF = os.getenv("API_CACHE", "true").lower() in ("1", "true", "yes")
+
+
+def _api_cache_key(sistem, mesajlar, model, max_tokens, thinking) -> str:
+    h = hashlib.sha256()
+    h.update(f"{model}|{max_tokens}|{thinking}|".encode())
+    h.update(sistem.encode("utf-8", "ignore"))
+    h.update(json.dumps(mesajlar, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8", "ignore"))
+    return h.hexdigest()[:40]
+
+
+def _api_cache_oku(key: str) -> str | None:
+    if not _API_CACHE_AKTIF:
+        return None
+    import time
+    p = _API_CACHE_DIR / f"{key}.txt"
+    try:
+        if p.exists() and (time.time() - p.stat().st_mtime) < _API_CACHE_TTL:
+            return p.read_text(encoding="utf-8")
+    except Exception:
+        pass
+    return None
+
+
+def _api_cache_yaz(key: str, icerik: str) -> None:
+    if not _API_CACHE_AKTIF or not icerik:
+        return
+    try:
+        _API_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        (_API_CACHE_DIR / f"{key}.txt").write_text(icerik, encoding="utf-8")
+    except Exception as e:
+        logger.warning("API önbellek yazılamadı: %s", e)
+
+
 def _api_cagri(
     sistem: str,
     mesajlar: list,
@@ -2014,9 +2110,17 @@ def _api_cagri(
     max_tokens: int = MAX_TOKENS_UZUN,
     thinking: bool = False,
 ) -> str:
+    key = _api_cache_key(sistem, mesajlar, model, max_tokens, thinking)
+    onbellek = _api_cache_oku(key)
+    if onbellek is not None:
+        print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
+        return onbellek
     if USE_CLAUDE_CLI:
-        return _api_cagri_cli(sistem, mesajlar)
-    return _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
+        sonuc = _api_cagri_cli(sistem, mesajlar)
+    else:
+        sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
+    _api_cache_yaz(key, sonuc)
+    return sonuc
 
 
 def _kaydet(dosya_adi: str, icerik: str) -> Path:

@@ -14,6 +14,7 @@ from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur, ui_kodu_hazirla,
     prompt_yukle, extended_thinking_acik, surec_id_kapsam,
+    yonetici_ozeti_olustur,
     OUTPUT_DIR,
     MAX_CHARS_GENEL,
     MAX_TOKENS_COMBINED, MAX_TOKENS_UZUN, MAX_TOKENS_KAPSAM,
@@ -219,9 +220,11 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         print(f"  ⚠ Karşılanmayan süreç ID'leri: {', '.join(kapsam['eksik'])}")
 
     # ── AŞAMA 3: Otomatik denetçi (AI) — ham teknik analize denetim bölümü ekle ──
+    teknik_final = teknik_ham
     try:
         denetim_notlari = _teknik_denetle(teknik_ham, surec_metni)
-        teknik_yol = _kaydet("teknik-analiz.md", teknik_ham + _denetim_bolumu_olustur(kapsam, denetim_notlari))
+        teknik_final = teknik_ham + _denetim_bolumu_olustur(kapsam, denetim_notlari)
+        teknik_yol = _kaydet("teknik-analiz.md", teknik_final)
     except Exception as e:
         # Denetçi başarısız olsa bile ham teknik analiz zaten kayıtlı.
         print(f"  ⚠ Otomatik denetçi çalışmadı (ham teknik analiz korundu): {e}")
@@ -240,5 +243,10 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
             f"Hata: {e}"
         )
     sorular_yol = _kaydet("acik-sorular.md", sorular)
+
+    # ── Yönetici Özeti (TL;DR) — deterministik, 0 token; EN ÜSTE ekle.
+    # Jira'ya YAZILMAZ (jira_tasks + gorev_jiraya_yaz yonetici_ozetini_cikar çağırır).
+    ozet = yonetici_ozeti_olustur(teknik_ham, kapsam=kapsam, acik_sorular=sorular)
+    teknik_yol = _kaydet("teknik-analiz.md", ozet + teknik_final)
 
     return teknik_yol, sorular_yol

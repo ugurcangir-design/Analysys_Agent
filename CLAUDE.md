@@ -101,7 +101,8 @@ gerekmez). Stale CALISIYOR (state çalışıyor der ama subprocess yok):
 ## Sabitler / Limitler (skills/base.py)
 ```python
 MODEL_ANALIZ = "claude-sonnet-4-6"   # tüm analizler
-# jira_agent.py: claude-haiku-4-5    # Jira görev başlığı için (hafif iş)
+MODEL_HAFIF  = "claude-haiku-4-5"    # hafif iş (jira_gorevleri: Standart Formatla,
+                                     # açık sorular; jira_agent: görev başlığı)
 
 # Karakter limitleri
 MAX_CHARS_BRD     = 100_000
@@ -135,6 +136,19 @@ KAPAT_SURE   = 180   # saniye — DESKTOP_MODE'da kapat. 180s: Chrome arka plan
 
 ### Retry (skills/base.py)
 `_api_yeniden_dene` — 429/5xx/connection için exponential backoff (4s, 8s, 16s; 3 deneme).
+
+### Çıktı Önbelleği (skills/base.py — token tasarrufu, 429 çare)
+`_api_cagri` içerik-hash'li önbellek: aynı (sistem prompt + mesajlar + model + limit)
+→ kaydedilen yanıt, **0 token**. İçerik değişince (doküman/referans/filtre/prompt)
+anahtar değişir → taze çağrı. Refine'in düzeltme notu prompt'u değiştirdiği için
+doğal cache-miss. Depo: `.api_cache/` (gitignored). Kapat: `.env` `API_CACHE=false`,
+TTL: `API_CACHE_TTL` (vars. 7 gün).
+
+### Yönetici Özeti / TL;DR (skills/base.py)
+`yonetici_ozeti_olustur()` süreç & teknik analiz çıktısının EN ÜSTÜne deterministik
+(0 token) özet ekler: kapsam (endpoint/tablo/bölüm), süreç kapsam %'si, açık soru
+(kritik) sayısı. **Jira'ya YAZILMAZ** — `yonetici_ozetini_cikar()` her Jira yazma
+yolunda (jira_tasks hiyerarşi + gorev_jiraya_yaz) çağrılır.
 
 ---
 

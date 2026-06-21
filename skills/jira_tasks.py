@@ -210,6 +210,9 @@ def jira_hiyerarsi_uret(teknik_analiz_dosya: str = "teknik-analiz.md") -> dict:
     if not dosya_yolu.exists():
         raise FileNotFoundError(f"{teknik_analiz_dosya} bulunamadı. Önce teknik analiz yapın.")
     teknik_analiz = dosya_oku(dosya_yolu, MAX_CHARS_GENEL)
+    # Yönetici Özeti (TL;DR) Jira'ya gitmemeli — hiyerarşi üretimine girdi olmadan çıkar.
+    from .base import yonetici_ozetini_cikar
+    teknik_analiz = yonetici_ozetini_cikar(teknik_analiz)
     print(f"  Teknik analiz okundu ({len(teknik_analiz):,} karakter)")
 
     # 2. Proje issue type'larını öğren (oluşturma değil, sadece tip tespiti)

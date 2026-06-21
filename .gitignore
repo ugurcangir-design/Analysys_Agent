@@ -43,3 +43,6 @@ _launcher_bin
 
 # ── Claude Code (kullanıcıya özel) ───────────────────────────────
 .claude/settings.local.json
+
+# ── API çıktı önbelleği ──
+.api_cache/

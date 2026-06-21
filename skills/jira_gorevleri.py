@@ -20,6 +20,7 @@ from .base import (
     _api_cagri, _xml_ayir, _metin_sikistir,
     prompt_yukle, extended_thinking_acik,
     referans_dosyalari_hazirla, _ref_bloklari_olustur, load_context_filter,
+    yonetici_ozeti_olustur, yonetici_ozetini_cikar,
     MAX_TOKENS_KISA, MAX_TOKENS_COMBINED,
 )
 
@@ -468,7 +469,9 @@ def gorev_analiz_et(gorev: dict) -> dict:
     except Exception as e:
         print(f"  ⚠ Görev açık soruları üretilemedi: {e}")
 
-    return {"markdown": teknik, "acik_sorular": acik}
+    # Yönetici Özeti (TL;DR) — modalda görünür, Jira'ya YAZILMAZ (gorev_jiraya_yaz keser).
+    ozet = yonetici_ozeti_olustur(teknik, acik_sorular=acik)
+    return {"markdown": ozet + teknik, "acik_sorular": acik}
 
 
 def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
@@ -518,6 +521,8 @@ def gorev_jiraya_yaz(task_key: str, markdown: str, summary: str | None = None) -
     task_key = (task_key or "").strip().upper()
     if not _ID_DESENI.match(task_key):
         raise ValueError(f"Geçersiz Jira anahtarı: '{task_key}'")
+    # Yönetici Özeti (TL;DR) Jira'ya gitmez — onaylanan içerikte varsa kes.
+    markdown = yonetici_ozetini_cikar(markdown)
     adf_content = markdown_to_adf(markdown)
     if not adf_content:
         # İçerik yalnızca HTML yorumu/boşluktan ibaretse ADF boş kalır — Jira 400 verir.
