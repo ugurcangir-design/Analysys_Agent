@@ -75,7 +75,10 @@ def _teknik_uret_tam(sistem: str, mesajlar: list, max_deneme: int = 2) -> str:
     Böylece eksik teknik analiz SESSİZCE kaydedilmez."""
     en_dolu = ""
     for deneme in range(1, max_deneme + 1):
-        ham = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
+        # 1. deneme önbelleği kullanabilir; kesik gelirse 2+ denemede önbelleği
+        # BYPASS et (yoksa cache aynı kesik yanıtı döndürür → retry işlevsiz kalır).
+        ham = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_COMBINED,
+                         thinking=extended_thinking_acik(), onbellek=(deneme == 1))
         if "</teknik_analiz>" in ham:
             if deneme > 1:
                 print(f"  ✓ {deneme}. denemede tam teknik analiz üretildi")

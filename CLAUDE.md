@@ -279,7 +279,7 @@ başlangıç güvenlik kontrolü, dağıtım modeli, onboarding). Özet:
 Tarayıcı → fetch /api/run → app.py → subprocess.Popen(run.py {mod})
                                   ↓
                           run.py → skills/* modülleri → Claude API
-app.py /api/status ← polling 1.5s, workflow.py durum okur
+app.py /api/workflow-state ← polling 1.5s, workflow.py durum okur
 not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 ```
 

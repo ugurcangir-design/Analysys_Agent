@@ -2093,11 +2093,35 @@ def _api_cache_oku(key: str) -> str | None:
     return None
 
 
+_api_cache_temizlendi = False
+
+
+def _api_cache_temizle() -> None:
+    """Süresi geçmiş önbellek dosyalarını sil — oturum başına 1 kez (sınırsız
+    büyümeyi önler). Hata olursa sessiz geç."""
+    global _api_cache_temizlendi
+    if _api_cache_temizlendi or not _API_CACHE_DIR.exists():
+        return
+    _api_cache_temizlendi = True
+    import time
+    simdi = time.time()
+    try:
+        for p in _API_CACHE_DIR.glob("*.txt"):
+            try:
+                if simdi - p.stat().st_mtime >= _API_CACHE_TTL:
+                    p.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def _api_cache_yaz(key: str, icerik: str) -> None:
     if not _API_CACHE_AKTIF or not icerik:
         return
     try:
         _API_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _api_cache_temizle()
         (_API_CACHE_DIR / f"{key}.txt").write_text(icerik, encoding="utf-8")
     except Exception as e:
         logger.warning("API önbellek yazılamadı: %s", e)
@@ -2109,17 +2133,22 @@ def _api_cagri(
     model: str = MODEL_ANALIZ,
     max_tokens: int = MAX_TOKENS_UZUN,
     thinking: bool = False,
+    onbellek: bool = True,
 ) -> str:
+    """onbellek=False → önbellek OKUMAZ (taze çağrı), ama sonucu yine YAZAR.
+    Aynı prompt'la 'farklı sonuç bekleyen' retry'lar (örn. kesik çıktı yeniden
+    denemesi) bunu kullanmalı; aksi halde cache aynı kesik yanıtı döndürür."""
     key = _api_cache_key(sistem, mesajlar, model, max_tokens, thinking)
-    onbellek = _api_cache_oku(key)
-    if onbellek is not None:
-        print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
-        return onbellek
+    if onbellek:
+        kayit = _api_cache_oku(key)
+        if kayit is not None:
+            print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
+            return kayit
     if USE_CLAUDE_CLI:
         sonuc = _api_cagri_cli(sistem, mesajlar)
     else:
         sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
-    _api_cache_yaz(key, sonuc)
+    _api_cache_yaz(key, sonuc)  # taze sonucu yaz (kesik kayıt varsa üzerine yazar)
     return sonuc
 
 
@@ -2146,5 +2175,6 @@ def yeniden_calistir(hedef_dosya: str, duzeltme_notu: str) -> Path:
     mesajlar = [{"role": "user", "content": [
         {"type": "text", "text": "Düzeltme notlarını uygula ve çıktıyı yeniden üret."}
     ]}]
-    yanit = _api_cagri(sistem, mesajlar)
+    # Refine = analistin açık "yeniden üret" isteği — önbellekten DEĞİL, taze üret.
+    yanit = _api_cagri(sistem, mesajlar, onbellek=False)
     return _kaydet(hedef_dosya, yanit)
