@@ -64,6 +64,10 @@ logs/                   RotatingFileHandler — app.log; eski app-YYYYMMDD.log >
 
 PROJE-OZETI.md          AI portföy değerlendirmesi için özet
 KILAVUZ.html            Ekip için kurulum + kullanım kılavuzu (self-contained HTML)
+docs/                   CLAUDE.md'den ayrılan referans detayı:
+  ENDPOINTS.md            Tam endpoint kataloğu (~80)
+  GUVENLIK-DAGITIM.md     Auth/CSRF/admin + dağıtım + onboarding
+  DEGISIKLIK-GECMISI.md   Tamamlanan işler / faz geçmişi
 ```
 
 ---
@@ -212,171 +216,47 @@ ilişkili olarak açılmasını sağlar.
 
 ---
 
-## Önemli Endpoint'ler (app.py — 80 toplam)
+## Endpoint'ler & Jira Görevleri Özelliği
 
-### Çalıştırma / Workflow
-```
-POST /api/run                  Analiz başlat
-GET  /api/status               Workflow durumu (polling 1.5s)
-POST /api/approve              Süreç analizi onayı
-POST /api/approve-teknik       Teknik analiz onayı (jira ile)
-POST /api/approve-teknik-no-jira
-POST /api/reject(-teknik)      Reddet
-POST /api/rerun                Düzeltme notu ile yeniden çalıştır
-POST /api/reset                Workflow'u IDLE'a sıfırla
-POST /api/heartbeat            UI canlı sinyali (every 20s)
-POST /api/shutdown             DESKTOP_MODE'da sunucuyu kapat
-```
+**Tam endpoint kataloğu (~80 endpoint): [docs/ENDPOINTS.md](docs/ENDPOINTS.md)** —
+endpoint ekleyince/kaldırınca orayı güncelle. Aşağıda yalnızca en yeni/karmaşık
+özelliğin mimarisi özetlenir.
 
-### Çıktı / Referans
-```
-GET  /api/outputs              Mevcut çıktıları listele
-GET  /api/output/<ad>          İçerik oku
-POST /api/output/delete        Çıktıyı sil
-GET  /api/reference/list       Referans dosya ağacı
-POST /api/reference/upload/<kategori>
-POST /api/reference/delete
-GET  /api/reference/content
-POST /api/reference/fetch-be   Backend'den içerik çek
-```
+### Jira Görevleri (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`)
+Doküman yüklemeden, **mevcut** bir Jira Epic/Story altındaki görevleri çekip triyaj eder.
 
-### Jira
-```
-GET  /api/jira/auth-url        OAuth başlat
-GET  /api/jira/callback        OAuth dönüş
-POST /api/jira/test            Bağlantı testi
-POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
-POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
-POST /api/jira/gorevler/cek        FAZ 1: alt görevleri çek + YAPISAL sınıflandır (AI'sız, 0 token, anında)
-POST /api/jira/gorevler/siniflandir FAZ 2: yeniden çek + HİBRİT (yapısal+AI) sınıflandır (opt-in)
-POST /api/jira/gorev/formatla      Özellik 1: görevi standart formata çevir (önizleme, YAZMAZ)
-POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detaylandır (önizleme, YAZMAZ)
-POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'da güncelle (markdown→ADF)
-```
+- **Çekme:** `alt_gorevleri_cek` üç bağ modelini birleştirir (tekrarsız): `parent = KEY`
+  (sub-task), `"Epic Link" = KEY` (epic), `issue in linkedIssues(KEY)` (Relates — bazı
+  ekipler hiyerarşi yerine bunu kullanır). Görev yorumları (ADF→metin) da çekilir.
+- **İki fazlı sınıflandırma** (token/timeout için):
+  - FAZ 1 (`/cek`, `ai_kullan=False`): yalnızca **yapısal ön-tarama** (`_yapisal_skor` —
+    bölüm/dosya işaretleri), anında, 0 token. Kartta `kaynak=yapisal`.
+  - FAZ 2 (`/siniflandir`, "AI ile Sınıflandır"): AI **HER görevi içerikten** okuyup
+    gerekçeyle sınıflandırır (parçalı). `kaynak=ai`. Opt-in, token harcar.
+- **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta
+  sarı uyarı + tıklanabilir link.
+- **İki aksiyon-grubu:** *Hızlı İşleme Alınacak* → **Standart Formatla** (Özellik 1, 4 başlık,
+  **Haiku**); *Detaylı Analiz Gerekir* → **Teknik Analiz Et** (Özellik 2 — Sonnet teknik
+  analiz [RAG + Süreç ekranındaki **bağlam filtresi** dahil] + ayrı **Haiku** açık-sorular
+  pass'i; modal'da ikinci sekme, Jira'ya yazılmaz).
+- **UI:** arama/filtre, katlanabilir gruplar, tam ekran **modal** (`.jg-modal`, Esc), Jira
+  sekmesinde üst bar kendi durumunu gösterir (`_jgTabAktif`). **Onayla** → `gorev_jiraya_yaz`
+  Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf; HTML yorumları silinir).
 
-**Jira Görevleri sekmesi** (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`):
-çekme + benzer-içerik tespiti + yorumlar + iki fazlı sınıflandırma + Jira yazımı.
-
-açık Epic/Story KEY'i girilir → `alt_gorevleri_cek` üç modeli birleştirir:
-`parent = KEY` (sub-task), `"Epic Link" = KEY` (epic), **`issue in linkedIssues(KEY)`**
-(Relates issue-link — bazı ekipler hiyerarşi yerine bunu kullanır). **İki fazlı**
-(token/timeout için): FAZ 1 yapısal sınıflandırma (anında, AI'sız) → analist listeyi
-hemen görür; FAZ 2 "AI ile Sınıflandır" butonu HİBRİT yapar (AI yalnızca BELİRSİZ
-görevleri inceler, `_yapisal_skor`/`_net_eksik` ile süzülür — 90+ görevde bile hızlı).
-İki aksiyon-grubu: **Hızlı İşleme Alınacak** (Standart Formatla, Özellik 1) ve
-**Detaylı Analiz Gerekir** (Teknik Analiz Et, Özellik 2 — Sonnet teknik analiz +
-ayrı Haiku açık-sorular pass'i, UI'da modal'da ikinci sekme; Jira'ya yazılmaz).
-Özellik 1 hafif iş olduğu için **Haiku** kullanır (sonnet'in ~%10 maliyeti).
-Sınıflandırmadan ÖNCE
-`benzer_gorevleri_isaretle` Jaccard ile (eşik 0.35, 0 token) her görev için
-benzer içerikli başka görevleri bulup `g['benzerler']` listesine yazar — UI'da
-**sarı uyarı** ve tıklanabilir link ile karta zıplama. Görevlerin **yorumları**
-(ADF→metin, yazar+tarih) çekilir ve kartta açılır panelde gösterilir. UI:
-sayfaya doğru orantılı arama kutuları (etiketli, max-width sınırlı); arama
-eşleşmediği grubu **tamamen gizler**; katlanabilir gruplar; Jira sekmesindeyken
-üst bar workflow yerine kendi durumunu gösterir (`_jgTabAktif` guard).
-**Önizleme/düzenleme tam ekran MODAL'da** (`.jg-modal` overlay, Esc ile kapanır,
-body scroll kilitlenir) — Çıktı + Açık Sorular sekmeleri. **Onayla** ile
-`gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf).
-
-### Soru Defteri (skills/sorular.py)
-```
-GET    /api/sorular[?parse=true]      Soru defteri + istatistik
-POST   /api/sorular/parse              Çıktılardan soruları yeniden tara
-POST   /api/sorular/<id>               Durum/cevap/varsayım güncelle
-DELETE /api/sorular/<id>?kaynak_dosya  Soruyu defterden sil
-POST   /api/sorular/tumunu-sil         Tüm soruları sil (opsiyonel {"durum":...} filtresi)
-POST   /api/sorular/uygula             Cevapları refine ile analize işle
-GET    /api/sorular/paylasim           Bekleyen soruları metin export
-```
-Durumlar: `acik / bekleniyor / cevaplandi / atlandi / varsayim`
-Kalıcı veri: `output/sorular.json` (atomik yazım)
-
-### Confluence + diğer
-```
-POST /api/confluence/publish   Markdown → Confluence sayfası
-POST /api/confluence/diagnose  Scope/erişim teşhisi
-POST /api/mockup/generate      HTML prototip üret
-POST /api/sources/sync         Confluence/Jira veri çek
-                               (Jira: Backlog/To Do/Cancel statüleri DIŞLANIR —
-                                _jira_status_haric_mi + JIRA_HARIC_STATUSLER)
-GET  /api/git/status           GitHub güncelleme kontrolü
-POST /api/git/pull             git pull --ff-only
-GET  /api/prompts              15 prompt + override durumu
-POST /api/prompts/<id>         Prompt özelleştirme kaydet
-POST /api/prompts/<id>/reset   Varsayılana dön
-GET  /api/context-filter
-POST /api/context-filter
-GET  /api/history              Son 5 çalıştırma arşivi
-```
+Soru Defteri durumları: `acik / bekleniyor / cevaplandi / atlandi / varsayim`
+(kalıcı: `output/sorular.json`, atomik yazım).
 
 ---
 
-## Dağıtım Modeli
+## Güvenlik & Dağıtım
 
-**Birincil model:** Lokal kurulum — her analist kendi makinesinde Analyst Studio
-çalıştırır. Doğal paralellik + tam izolasyon. KILAVUZ Bölüm 14.1.
-
-**Sunucu modu (HOST=0.0.0.0 + AUTH):** ⚠ Deneysel, üretimde test edilmedi,
-şu an önerilmez. KILAVUZ Bölüm 14.4'te "deprecated" işaretli. Kod halen yerinde
-(silinmedi) ama yeni geliştirme bu yola odaklanmamalı. Bakım yükü:
-auth/admin/brute-force/CSRF kod yolları her güvenlik commit'inde test edilmeli.
-
-## Güvenlik Mimarisi
-
-### Auth (opsiyonel — AUTH_ENABLED env ile aç/kapa, sunucu modu için)
-- Varsayılan **kapalı** (kişisel masaüstü kullanımı için — birincil)
-- Açıkken `session["username"]` üzerinden cookie-based auth
-- Şifre hash: `werkzeug.security.generate_password_hash` (scrypt)
-- `users.json` dosyasında saklanır; `manage_users.py` CLI ile eklenir
-- Brute-force koruması: IP başına 5 deneme/60s (RAM'de)
-- `_admin_mi()`: env `ADMIN_USER` ile eşleşen username admindir
-
-### CSRF — Origin/Referer kontrolü
-- `csrf_kontrol()` before_request: POST/PUT/PATCH/DELETE'te kaynak host_url ile eşleşmeli
-- Eşleşmezse 403 + WARN log
-- `CSRF_MUAF`: `/api/auth/login`, `/api/heartbeat`
-- Belt-and-suspenders: `SESSION_COOKIE_SAMESITE=Lax` zaten cross-site POST'a cookie göndermez
-
-### Admin Yetkisi (@admin_gerekli decorator)
-Sadece yapılandırma/yönetim endpoint'lerinde:
-- `POST /api/prompts/<id>` (AI davranışı)
-- `POST /api/prompts/<id>/reset`
-- `POST /api/git/pull` (uygulama güncelleme)
-- `POST /api/reset` (workflow zorla sıfırla)
-- AUTH kapalıyken decorator otomatik geçer (kişisel mod = herkes admin)
-
-### Başlangıç Güvenlik Kontrolü
-`_baslangic_guvenlik_kontrol()`:
-- **Default `HOST=127.0.0.1`** (yalnız yerel)
-- LAN'a açmak için `.env`'de `HOST=0.0.0.0`
-- LAN açık + AUTH kapalı → uygulama BAŞLATILMAZ (3 çözüm önerisi gösterir)
-- Override: `ALLOW_LAN_NO_AUTH=true` (bilinçli risk kabulü)
-
-### Diğer
-- `SESSION_COOKIE_HTTPONLY=True`, `SAMESITE=Lax`
-- `SESSION_COOKIE_SECURE` env ile açılır (HTTPS deploy için)
-- CSP, X-Frame-Options (**SAMEORIGIN** — Kılavuz iframe için), X-Content-Type-Options (`guvenlik_basliklari`)
-- iframe sandbox: `allow-scripts allow-forms` (NO `allow-same-origin` → AI mockup parent DOM'a erişemez)
-- `/kilavuz` route KILAVUZ.html'i serve eder → SPA'da "Kılavuz" sekmesinde iframe ile gösterilir
-- `.env` chmod 0600, atomik yazım (tmp.replace)
-- Path traversal: `_guvenli_yol()` helper'ı tüm dosya yolu girdilerinde kullanılır
-
----
-
-## Onboarding (Yeni Başlayan Eğitimi)
-
-İlk kez kullanan analistlere yardımcı olmak için iki katman:
-
-### 1. Inline `.ipucu` tooltip'leri
-Küçük `?` ikonu (`class="ipucu"` + `data-ipucu="..."`). Hover/odakta açıklama.
-Şu an 4 yerde: Bağlam Filtresi, Sorular sekmesi, Kalite skoru, Cevapları Uygula.
-
-### 2. `.onboard-banner` — sekme başına ilk gösterimde 1 kez
-`localStorage.setItem('onboard.<anahtar>', 'done')` ile kapatılır.
-`_ONBOARD_BANNER` map'inde tanımlı 5 sekme: surec, brd, output, referanslar, prompts.
-Yeni banner: tabloya bir giriş ekle.
-Sıfırlama: console'da `_onboardSifirla()`.
+Detay: **[docs/GUVENLIK-DAGITIM.md](docs/GUVENLIK-DAGITIM.md)** (auth, CSRF, admin yetkisi,
+başlangıç güvenlik kontrolü, dağıtım modeli, onboarding). Özet:
+- **Birincil dağıtım:** lokal kurulum (her analist kendi makinesinde). Sunucu modu deneysel/deprecated.
+- **Default `HOST=127.0.0.1`**; LAN açık + AUTH kapalı → uygulama BAŞLATILMAZ.
+- CSRF Origin/Referer kontrolü (`csrf_kontrol`), path traversal koruması (`_guvenli_yol`),
+  `.env` chmod 0600 + atomik yazım, CSP/X-Frame-Options.
+- Güvenlik/auth kod yolu değişirse o dosyayı da güncelle.
 
 ---
 
@@ -437,6 +317,10 @@ CLAUDE.md'yi de güncelle ve push et:
 - FE/BE katman akışı veya workflow durumları
 - Geliştirme kuralları / bilinen kısıtlamalar
 
+**Referans detayı `docs/`'a ayrıldı** — endpoint değişikliği → `docs/ENDPOINTS.md`;
+auth/güvenlik/dağıtım → `docs/GUVENLIK-DAGITIM.md`; faz/özellik bitince
+→ `docs/DEGISIKLIK-GECMISI.md`. CLAUDE.md ana yapı/işlev + en yeni özellik özetini tutar.
+
 Sadece görsel/CSS/typo değişiklikleri için atlanabilir.
 
 `.claude/hooks/post-commit-reminder.py` her `git commit`'ten sonra
@@ -471,29 +355,7 @@ otomatik hatırlatma üretir; ancak nihai sorumluluk Claude'dadır.
 
 ---
 
-## Tamamlanan İşler (referans için)
+## Tamamlanan İşler / Değişiklik Geçmişi
 
-### Faz 1 — Skill ayrıştırma ✅
-`agent.py` → 13 satırlık import bridge; tüm iş mantığı `skills/` altında.
-
-### Faz 2 ✅
-- **Confluence yazma:** `skills/confluence_yaz.py` + Markdown→Storage Format
-- **Jira hiyerarşi:** `skills/jira_tasks.py` — preview/create iki adımlı, FE/BE katman, modal seçim
-- **API Şema & DDL:** teknik analiz Bölüm 3 (CREATE TABLE) ve Bölüm 4 (OpenAPI YAML)
-- **HTML Prototip:** `skills/html_mockup.py` + mockup.html çıktısı
-
-### Faz 3 (bu session) ✅
-- **Deduplication:** atlassian helper'ları tek noktaya (skills/atlassian.py)
-- **RAG tüm analizlerde:** `brd_analizi` ve `kapsam_analizi`'ne referans entegrasyonu
-- **Jira JSON → kompakt markdown:** `_jira_json_to_md` ile ~%40 token tasarrufu
-- **Tip bazlı ref bölümleri:** Confluence/Jira/Swagger ayrı bloklar, ayrı limitler
-- **FE/BE katman ayrımı:** süreç → teknik → Jira boyunca; modal FE/BE rozeti
-- **15 promptun yeniden yazımı:** ROL/GÖREV/ÇALIŞMA YÖNTEMİ/RAG İLKESİ yapısı
-- **EK-XXX, T-FE/T-BE, FR/NFR/US/I, YE/KL/DG** yeni ID tipleri
-- **`_ORTAK_EK_KURALLAR` güncellemesi:** aşama bazlı ID tablosu, FE/BE katman
-- **Stabilite:** log rotation + eski log temizliği, atomik .env yazımı (chmod 600),
-  subprocess crash recovery, API retry (exponential backoff), session cookie flags,
-  zip-bomb koruması
-- **GitHub self-update:** /api/git/status + /api/git/pull (sadece güncelleme sayfasında)
-- **Heartbeat fix:** Cmd+Shift+R refresh'te uygulama kapanmıyor; SUSPEND_SURE=30s, KAPAT_SURE=45s
-- **Belgeleme:** `PROJE-OZETI.md` (AI portföy) + `KILAVUZ.html` (ekip kılavuzu)
+Tarihsel kayıt (Faz 1-4): **[docs/DEGISIKLIK-GECMISI.md](docs/DEGISIKLIK-GECMISI.md)**.
+Büyük bir faz/özellik tamamlandığında oraya özet ekle.
