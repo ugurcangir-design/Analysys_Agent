@@ -121,7 +121,14 @@ def atlassian_put(path: str, body: dict, cloud_id: str, service: str = "jira") -
         headers["Authorization"] = f"Bearer {token}"
         r = _req.put(base + path, json=body, headers=headers, timeout=30)
     r.raise_for_status()
-    return r.json()
+    # PUT genellikle 204 No Content döndürür (Jira issue update böyle). Boş body'de
+    # r.json() patlar → çağıran taraf "Expecting value" hatası alır ama yazma başarılı.
+    if not r.content or r.status_code == 204:
+        return {}
+    try:
+        return r.json()
+    except ValueError:
+        return {}
 
 
 # ─── Confluence Sayfa CRUD (v2 API — Modern Mode) ─────────────────────────────

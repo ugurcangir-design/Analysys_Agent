@@ -27,6 +27,30 @@ from .base import (
 # CLAUDE.md ve jira_agent.py ile aynı haiku sürümü.
 MODEL_HAFIF = "claude-haiku-4-5-20251001"
 
+# ─── Meta-Not Temizleyici (Jira description'a sızmasın) ─────────────────────
+# Modelin (her promptta yasakladığımız halde) bazen yazdığı içsel/yönlendirme
+# notlarını çıktıdan siler. Yasak kalıplar:
+#  - "> Not — 12. Karar Bekleyen Konular: ... AYRI bir adımda üretilir..."
+#  - "Açık Sorular ayrı çıktıda detaylandırılmalıdır"
+#  - "[K: ❓ Belirsiz] olarak işaretlenen maddeler ayrı çıktıda..."
+_META_NOT_DESENLERI = [
+    # Tüm satır: "> **Not — ...Karar Bekleyen Konular: ... AYRI bir adımda...**" türü
+    re.compile(r"(?im)^\s*>?\s*\*?\*?Not[^\n]*(?:Karar Bekleyen Konular|Aç[ıi]k Sorular)[^\n]*ayr[ıi][^\n]*ad[ıi]mda[^\n]*\n?"),
+    # "Açık Sorular ayrı çıktıda detaylandırılmalıdır" türü
+    re.compile(r"(?im)^[^\n]*aç[ıi]k\s*sorular[^\n]*(ayr[ıi]\s*ç[ıi]kt[ıi]da|ayr[ıi]\s*dok[üu]mantasyonda)[^\n]*\n?"),
+    # "[K: ❓ Belirsiz] olarak işaretlenen maddeler ayrı çıktıda..."
+    re.compile(r"(?im)^[^\n]*\[K:\s*❓?\s*Belirsiz\][^\n]*ayr[ıi]\s*ç[ıi]kt[ıi]da[^\n]*\n?"),
+]
+
+
+def _meta_notlari_temizle(metin: str) -> str:
+    """Üretilen markdown çıktısındaki içsel/yönlendirme notlarını siler.
+    Bunlar promptta yasak olmasına rağmen bazen çıkıyor; Jira description'a
+    gitmeden burada kesilir. Birden çok arka arkaya boş satır da sıkıştırılır."""
+    for desen in _META_NOT_DESENLERI:
+        metin = desen.sub("", metin)
+    return re.sub(r"\n{3,}", "\n\n", metin).strip()
+
 # markdown_to_adf — jira_agent.py'den (teknik analiz task'ı açarkenki format)
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
@@ -361,7 +385,7 @@ def gorev_standart_formatla(gorev: dict) -> str:
     ]
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
                        model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False)
-    return _xml_ayir(_metin_sikistir(yanit), "gorev")
+    return _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "gorev"))
 
 
 # ─── Özellik 2: Teknik Analiz ile Detaylandır ────────────────────────────────
@@ -410,7 +434,7 @@ def gorev_analiz_et(gorev: dict) -> dict:
     ]
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
                        max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
-    teknik = _xml_ayir(_metin_sikistir(yanit), "teknik_analiz")
+    teknik = _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
 
     # Aşama 2 — Açık Sorular (haiku, kısa). Hata olursa teknik analizi kaybetme.
     acik = ""

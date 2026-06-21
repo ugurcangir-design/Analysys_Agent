@@ -517,9 +517,13 @@ doğrular.
             "| 1 | Modal Açılış | Add Player butonu | Modal açılır, başlık \"...- Player\", type=PLAYER readonly |\n"
             "| 2 | Validasyon | Name boş | Save'de \"Kategori adı zorunludur\" inline hata, API çağrılmaz |\n\n"
             "- Her ana akış + hata senaryosu için en az bir kabul kriteri olmalı\n"
-            "- Süreçteki AC-XXX'leri buraya bağla\n\n"
-            "> **Not — 12. Karar Bekleyen Konular:** Bu bölüm AYRI bir adımda "
-            "üretilir (açık sorular çıktısı). Burada YAZMA."
+            "- Süreçteki AC-XXX'leri buraya bağla"
+            # NOT: "12. Karar Bekleyen Konular" / "Açık Sorular" bölümü AYRI bir
+            # adımda (Aşama 2) üretilir. Promptta META-NOT/UYARI YAZMA — model
+            # böyle satırları çıktıya aynen kopyalıyor ve Jira description'a sızıyor.
+            # Bunun yerine teknik_analiz.py + jira_gorevleri.py içindeki
+            # bolumler = re.sub(...) güvenlik ağı bu başlığı şablondan kaldırır,
+            # ayrıca üretim sonrası temizleyici stray "açık sorular" notlarını siler.
         ),
     },
     "teknik_analiz_rol": {
