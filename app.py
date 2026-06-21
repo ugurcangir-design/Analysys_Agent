@@ -2257,8 +2257,11 @@ def jira_gorev_analiz():
         return jsonify({"ok": False, "error": hata}), 400
     try:
         from skills.jira_gorevleri import gorev_analiz_et
-        markdown = gorev_analiz_et(gorev)
-        return jsonify({"ok": True, "key": gorev["key"], "markdown": markdown})
+        sonuc = gorev_analiz_et(gorev)
+        # Geriye uyumlu: hem markdown (teknik analiz) hem acik_sorular ayrı sekme için
+        return jsonify({"ok": True, "key": gorev["key"],
+                        "markdown": sonuc.get("markdown", ""),
+                        "acik_sorular": sonuc.get("acik_sorular", "")})
     except Exception as e:
         logger.error(f"Görev analiz hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500

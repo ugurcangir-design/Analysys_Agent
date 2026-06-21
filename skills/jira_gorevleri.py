@@ -23,6 +23,10 @@ from .base import (
     MAX_TOKENS_KISA, MAX_TOKENS_COMBINED,
 )
 
+# Hafif modelin tam kimliği — Standart Formatla için sonnet yerine kullanılır.
+# CLAUDE.md ve jira_agent.py ile aynı haiku sürümü.
+MODEL_HAFIF = "claude-haiku-4-5-20251001"
+
 # markdown_to_adf — jira_agent.py'den (teknik analiz task'ı açarkenki format)
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
@@ -334,30 +338,40 @@ def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
 # ─── Özellik 1: Standart Formata Çevir ───────────────────────────────────────
 
 def gorev_standart_formatla(gorev: dict) -> str:
-    """Mevcut görev içeriğini agent'ın standart görev formatına çevirir (hızlı normalize).
-    Yeni kapsam UYDURMAZ — yalnızca var olan içeriği yeniden yapılandırır."""
+    """Mevcut görev içeriğini agent'ın standart 4-başlık görev formatına çevirir.
+    Hafif iş → haiku (Sonnet'in ~%10 maliyeti). YENİ kapsam UYDURMAZ; sadece var
+    olan içeriği yeniden yapılandırır + boş bölüme '(belirtilmemiş)' notu yazar."""
     sistem = (
         "Kıdemli teknik analistsin. Sana bir Jira görevinin mevcut başlık ve açıklaması "
-        "verilecek. Bu içeriği AŞAĞIDAKİ standart formata yeniden yapılandır. "
-        "YENİ kapsam, dosya, kural veya kabul kriteri UYDURMA — yalnızca var olan bilgiyi "
-        "doğru bölümlere yerleştir. Eksik bölüm varsa başlığı koy ve '(belirtilmemiş)' yaz.\n\n"
+        "verilecek. Bu içeriği AŞAĞIDAKİ standart 4-başlık formata yeniden yapılandır.\n\n"
+        "KURALLAR:\n"
+        "1. YENİ kapsam/dosya/kural/kabul kriteri UYDURMA — yalnızca verilen bilgiyi "
+        "doğru bölümlere yerleştir.\n"
+        "2. Bir bölüm için bilgi yoksa başlığı KOY ve altına '(belirtilmemiş)' yaz "
+        "(başlık varlığı + dolu/boş kuralı). Asla başlığı atlama, asla 'detay başka çıktıda' "
+        "veya 'açık sorular ayrı dokümanda' türü notlar EKLEME — bu çıktı kendi kendine yeter.\n"
+        "3. Yalnızca aşağıdaki 4 başlık bulunsun, ek bölüm ekleme.\n\n"
         "Çıktıyı TEK bir XML bloğu içinde, Türkçe Markdown olarak ver:\n\n"
         f"<gorev>\n{STANDART_GOREV_SABLONU}\n</gorev>"
     )
     icerik = [
         {"type": "text", "text": f"### Görev: {gorev.get('key','')} — {gorev.get('summary','')}"},
         {"type": "text", "text": f"### Mevcut Açıklama\n\n{gorev.get('description','') or '(açıklama yok)'}"},
-        {"type": "text", "text": "Yukarıdaki görevi standart formata çevir."},
+        {"type": "text", "text": "Yukarıdaki görevi standart 4-başlık formata çevir."},
     ]
-    yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}], max_tokens=MAX_TOKENS_KISA, thinking=False)
+    yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
+                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False)
     return _xml_ayir(_metin_sikistir(yanit), "gorev")
 
 
 # ─── Özellik 2: Teknik Analiz ile Detaylandır ────────────────────────────────
 
-def gorev_analiz_et(gorev: dict) -> str:
+def gorev_analiz_et(gorev: dict) -> dict:
     """Görevi teknik analiz motoruyla (teknik_analiz_rol + _bolumler promptları)
-    detaylandırır. RAG referansları dahil edilir. Tek görev kapsamında çalışır."""
+    detaylandırır. İki aşama: (1) Sonnet ile detaylı teknik analiz (RAG dahil),
+    (2) Haiku ile kısa açık-sorular pass'i. Çıktı:
+        {"markdown": "<teknik analiz markdown>", "acik_sorular": "<varsa>"}.
+    Açık sorular Jira'ya YAZILMAZ — UI'da ayrı sekmede gösterilir."""
     rol = prompt_yukle("teknik_analiz_rol")
     bolumler = prompt_yukle("teknik_analiz_bolumler")
     # Açık sorular bölümünü Aşama-2 mantığıyla burada da çıkar (tek görev için sade tut)
@@ -369,6 +383,11 @@ def gorev_analiz_et(gorev: dict) -> str:
         rol + "\n\n"
         "Sana TEK bir Jira görevi verildi; SADECE bu görevin kapsamı için teknik analiz "
         "üret. Kapsam dışı bölümlerde boş bölüm kuralını uygula.\n\n"
+        "ÖNEMLİ — KENDİ KENDİNE YETEN ÇIKTI:\n"
+        "Açık sorular AYRI bir adımda üretilecek. Bu çıktıda 'Açık Sorular ayrı çıktıda "
+        "detaylandırılmalıdır', 'detaylandırma gerekir', '[K: ❓ Belirsiz] olarak işaretlenen "
+        "maddeler ayrı çıktıda...' türü meta-uyarı/yönlendirme NOTLARI YAZMA. Belirsizlik "
+        "varsa metin içinde '[K: ❓ Belirsiz]' işaretle ve geç; ayrı bölüm/uyarı oluşturma.\n\n"
         f"<teknik_analiz>\n{bolumler}\n</teknik_analiz>"
     )
 
@@ -387,11 +406,54 @@ def gorev_analiz_et(gorev: dict) -> str:
         {"type": "text", "text": f"### Analiz Edilecek Jira Görevi: {gorev.get('key','')}\n\n"
                                  f"**Başlık:** {gorev.get('summary','')}\n\n"
                                  f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
-        {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ)."},
+        {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."},
     ]
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
                        max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
-    return _xml_ayir(_metin_sikistir(yanit), "teknik_analiz")
+    teknik = _xml_ayir(_metin_sikistir(yanit), "teknik_analiz")
+
+    # Aşama 2 — Açık Sorular (haiku, kısa). Hata olursa teknik analizi kaybetme.
+    acik = ""
+    try:
+        acik = _gorev_acik_sorular_uret(teknik, gorev)
+    except Exception as e:
+        print(f"  ⚠ Görev açık soruları üretilemedi: {e}")
+
+    return {"markdown": teknik, "acik_sorular": acik}
+
+
+def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
+    """Aşama-2 açık sorular: üretilen teknik analiz + görev kapsamına göre
+    geliştirme ekibinin başlamadan netleştirmesi gereken sorular. Haiku — ucuz,
+    hızlı. Çıktı Markdown; boşsa UI'da panel gizlenir."""
+    sistem = (
+        "Kıdemli teknik analistsin. Sana üretilmiş bir teknik analiz + ilgili Jira görevi "
+        "verilecek. Geliştirme ekibinin kod yazmaya başlamadan önce netleştirmesi gereken "
+        "açık soruları topla.\n\n"
+        "KURALLAR:\n"
+        "- Teknik analizde `[K: ❓ Belirsiz]` veya `⚠ VARSAYIM` işaretli her konuyu bir soruya çevir\n"
+        "- Soru BAĞIMSIZ cevaplanabilir, tek konuya odaklı olmalı\n"
+        "- Önem sırasına göre (Kritik → Yüksek → Orta → Düşük) sırala\n"
+        "- Hiç gerçek belirsizlik yoksa SADECE şu satırı dön: 'Açık soru tespit edilmedi.'\n\n"
+        "Çıktı Türkçe Markdown, XML bloğu içinde:\n\n"
+        "<acik_sorular>\n"
+        "### Q-T-001: [Başlık]\n"
+        "- Önem: Kritik / Yüksek / Orta / Düşük\n"
+        "- Bağlı bölüm: [§5 API / §4 DB / vb.]\n"
+        "- Soru: [tek cümle]\n"
+        "- Beklenen yanıt: [alan tipi / değer kümesi / karar]\n"
+        "</acik_sorular>"
+    )
+    icerik = [
+        {"type": "text", "text": f"### Üretilen Teknik Analiz\n\n{teknik_metni}"},
+        {"type": "text", "text": f"### Kaynak Jira Görevi: {gorev.get('key','')}\n\n"
+                                 f"**Başlık:** {gorev.get('summary','')}\n\n"
+                                 f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
+        {"type": "text", "text": "Yukarıdaki teknik analiz ve görevdeki tüm açık konuları soru olarak topla."},
+    ]
+    yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
+                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False)
+    return _xml_ayir(_metin_sikistir(yanit), "acik_sorular")
 
 
 # ─── Jira'ya Yaz (onaydan sonra) ─────────────────────────────────────────────

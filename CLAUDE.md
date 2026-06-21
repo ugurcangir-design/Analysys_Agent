@@ -264,7 +264,10 @@ açık Epic/Story KEY'i girilir → `alt_gorevleri_cek` üç modeli birleştirir
 hemen görür; FAZ 2 "AI ile Sınıflandır" butonu HİBRİT yapar (AI yalnızca BELİRSİZ
 görevleri inceler, `_yapisal_skor`/`_net_eksik` ile süzülür — 90+ görevde bile hızlı).
 İki aksiyon-grubu: **Hızlı İşleme Alınacak** (Standart Formatla, Özellik 1) ve
-**Detaylı Analiz Gerekir** (Teknik Analiz Et, Özellik 2). Sınıflandırmadan ÖNCE
+**Detaylı Analiz Gerekir** (Teknik Analiz Et, Özellik 2 — Sonnet teknik analiz +
+ayrı Haiku açık-sorular pass'i, UI'da modal'da ikinci sekme; Jira'ya yazılmaz).
+Özellik 1 hafif iş olduğu için **Haiku** kullanır (sonnet'in ~%10 maliyeti).
+Sınıflandırmadan ÖNCE
 `benzer_gorevleri_isaretle` Jaccard ile (eşik 0.35, 0 token) her görev için
 benzer içerikli başka görevleri bulup `g['benzerler']` listesine yazar — UI'da
 **sarı uyarı** ve tıklanabilir link ile karta zıplama. Görevlerin **yorumları**
@@ -272,7 +275,8 @@ benzer içerikli başka görevleri bulup `g['benzerler']` listesine yazar — UI
 sayfaya doğru orantılı arama kutuları (etiketli, max-width sınırlı); arama
 eşleşmediği grubu **tamamen gizler**; katlanabilir gruplar; Jira sekmesindeyken
 üst bar workflow yerine kendi durumunu gösterir (`_jgTabAktif` guard).
-Önizleme editörde düzenlenir; **Onayla** ile
+**Önizleme/düzenleme tam ekran MODAL'da** (`.jg-modal` overlay, Esc ile kapanır,
+body scroll kilitlenir) — Çıktı + Açık Sorular sekmeleri. **Onayla** ile
 `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf).
 
 ### Soru Defteri (skills/sorular.py)

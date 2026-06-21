@@ -1572,6 +1572,24 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 }
 .jg-item-actions button:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
 .jg-editor { width: 100%; min-height: 360px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; padding: 12px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); white-space: pre-wrap; resize: vertical; box-sizing: border-box; }
+/* ── Önizleme modal ────────────────────────────────────────────── */
+.jg-modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.jg-modal-icerik { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); width: min(1100px, 96vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.jg-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-bottom: 1px solid var(--border); gap: 12px; }
+.jg-modal-baslik { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.jg-modal-baslik .panel-title { font-size: 14px; font-weight: 600; }
+.jg-modal-baslik .jg-sub { font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jg-modal-kapat { background: transparent; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 4px 10px; font-size: 14px; cursor: pointer; line-height: 1; transition: all .12s; }
+.jg-modal-kapat:hover { background: var(--surface2); color: var(--text); }
+.jg-modal-tabs { display: flex; gap: 4px; padding: 8px 22px 0; border-bottom: 1px solid var(--border); }
+.jg-modal-tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text3); font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all .12s; }
+.jg-modal-tab:hover { color: var(--text2); }
+.jg-modal-tab.aktif { color: var(--accent); border-bottom-color: var(--accent); }
+.jg-modal-tab .badge { background: var(--surface2); color: var(--text3); }
+.jg-modal-tab.aktif .badge { background: var(--accent-soft); color: var(--accent); }
+.jg-modal-body { padding: 16px 22px; flex: 1; overflow: auto; min-height: 0; }
+.jg-modal-aksiyon { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 22px; border-top: 1px solid var(--border); background: var(--surface2); }
+.jg-editor-modal { min-height: 480px; max-height: 70vh; }
 .jg-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jg-warn { font-size: 11.5px; color: var(--text3); flex: 1; min-width: 220px; }
 
@@ -2180,24 +2198,36 @@ function temaDegistir() {
         </div>
       </div>
 
-      <!-- Önizleme / düzenleme / onay paneli -->
-      <div class="panel" id="jg-preview-card" style="display:none;margin-bottom:14px">
-        <div class="panel-head">
-          <span class="panel-title" id="jg-preview-title">Önizleme</span>
-          <span class="panel-spacer"></span>
-          <span class="jg-sub" id="jg-preview-sub"></span>
-        </div>
-        <div class="panel-body">
-          <textarea id="jg-preview-editor" class="jg-editor" spellcheck="false" placeholder="İçerik yükleniyor…"></textarea>
-          <div class="jg-actions">
-            <span class="jg-warn">⚠ Onayla'ya basınca Jira görevinin açıklaması ÜZERİNE YAZILIR (geri alınamaz).</span>
-            <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
-            <button class="btn btn-success" id="jg-approve-btn" onclick="jgJiraGuncelle()">
-              <svg class="ico"><use href="#i-check"/></svg> Onayla ve Jira'da Güncelle
-            </button>
+    </div>
+
+    <!-- Önizleme / düzenleme / onay — TAM EKRAN MODAL (page-jira-gorevler dışında, üstte) -->
+    <div class="jg-modal" id="jg-preview-card" style="display:none" onclick="if(event.target===this)jgPreviewKapat()">
+      <div class="jg-modal-icerik" onclick="event.stopPropagation()">
+        <div class="jg-modal-head">
+          <div class="jg-modal-baslik">
+            <span class="panel-title" id="jg-preview-title">Önizleme</span>
+            <span class="jg-sub" id="jg-preview-sub"></span>
           </div>
-          <div id="jg-preview-msg" class="jg-msg"></div>
+          <button class="jg-modal-kapat" onclick="jgPreviewKapat()" title="Kapat (Esc)">✕</button>
         </div>
+        <div class="jg-modal-tabs" id="jg-modal-tabs">
+          <button class="jg-modal-tab aktif" data-tab="ana" onclick="jgModalTab('ana')">Çıktı</button>
+          <button class="jg-modal-tab" data-tab="sorular" id="jg-modal-tab-sorular" onclick="jgModalTab('sorular')" style="display:none">
+            Açık Sorular <span class="badge" id="jg-sorular-rozet">0</span>
+          </button>
+        </div>
+        <div class="jg-modal-body">
+          <textarea id="jg-preview-editor" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="İçerik yükleniyor…"></textarea>
+          <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." style="display:none" readonly></textarea>
+        </div>
+        <div class="jg-modal-aksiyon">
+          <span class="jg-warn">⚠ Onayla'ya basınca Jira görevinin açıklaması ÜZERİNE YAZILIR (geri alınamaz). Açık Sorular Jira'ya YAZILMAZ.</span>
+          <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
+          <button class="btn btn-success" id="jg-approve-btn" onclick="jgJiraGuncelle()">
+            <svg class="ico"><use href="#i-check"/></svg> Onayla ve Jira'da Güncelle
+          </button>
+        </div>
+        <div id="jg-preview-msg" class="jg-msg" style="padding:0 22px 14px"></div>
       </div>
     </div>
 
@@ -3043,12 +3073,15 @@ function jgListeCiz(containerId, liste, hazirMi) {
 async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
   const gorev = _jgGorevler[key];
   if (!gorev) return;
-  const card = document.getElementById('jg-preview-card');
-  card.style.display = 'block';
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const modal = document.getElementById('jg-preview-card');
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
   document.getElementById('jg-preview-title').textContent = baslik + ' — ' + key;
   document.getElementById('jg-preview-sub').textContent = gorev.summary || '';
   document.getElementById('jg-preview-editor').value = bekleMesaji;
+  document.getElementById('jg-preview-sorular').value = '';
+  document.getElementById('jg-modal-tab-sorular').style.display = 'none';
+  jgModalTab('ana');  // varsayılan: ana çıktı
   document.getElementById('jg-approve-btn').disabled = true;
   _jgMsg('jg-preview-msg', '');
   _jgCurrent = null;
@@ -3066,10 +3099,27 @@ async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
     document.getElementById('jg-preview-editor').value = d.markdown || '';
     document.getElementById('jg-approve-btn').disabled = false;
     _jgCurrent = { key: key, summary: gorev.summary || '' };
+    // Açık sorular geldiyse ayrı sekme aç (Jira'ya yazılmaz)
+    if (d.acik_sorular && d.acik_sorular.trim()) {
+      document.getElementById('jg-preview-sorular').value = d.acik_sorular;
+      const tab = document.getElementById('jg-modal-tab-sorular');
+      tab.style.display = '';
+      // soru sayısını çıkar: '### Q-' başlıklarını say
+      const sayi = (d.acik_sorular.match(/^###\s+Q-/gm) || []).length;
+      document.getElementById('jg-sorular-rozet').textContent = sayi || '!';
+    }
   } catch (e) {
     document.getElementById('jg-preview-editor').value = '';
     _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
   }
+}
+
+// Modal sekme: 'ana' (teknik analiz / standart format) ↔ 'sorular' (açık sorular)
+function jgModalTab(ad) {
+  document.querySelectorAll('.jg-modal-tab').forEach(t =>
+    t.classList.toggle('aktif', t.dataset.tab === ad));
+  document.getElementById('jg-preview-editor').style.display = ad === 'ana' ? '' : 'none';
+  document.getElementById('jg-preview-sorular').style.display = ad === 'sorular' ? '' : 'none';
 }
 
 function jgFormatla(key) {
@@ -3082,8 +3132,17 @@ function jgAnaliz(key) {
 function jgPreviewKapat() {
   document.getElementById('jg-preview-card').style.display = 'none';
   document.getElementById('jg-preview-editor').value = '';
+  document.getElementById('jg-preview-sorular').value = '';
+  document.body.style.overflow = '';
   _jgCurrent = null;
 }
+
+// Esc tuşuyla modal kapansın (UX standardı)
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('jg-preview-card').style.display !== 'none') {
+    jgPreviewKapat();
+  }
+});
 
 async function jgJiraGuncelle() {
   if (!_jgCurrent) return;
