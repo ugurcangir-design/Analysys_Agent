@@ -46,3 +46,8 @@ _launcher_bin
 
 # ── API çıktı önbelleği ──
 .api_cache/
+
+# ── Makineye özel çalışma-zamanı config (pull çakışmasını önler; .example seed edilir) ──
+reference/context_filter.json
+reference/prompts.json
+reference/sources.json

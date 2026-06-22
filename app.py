@@ -290,6 +290,24 @@ _sync_state: dict = {"running": False, "log": [], "last_sync": None, "error": No
 _sync_lock = threading.Lock()
 
 
+def _runtime_config_seed() -> None:
+    """Makineye özel çalışma-zamanı config dosyaları (context_filter/prompts/sources)
+    git'te İZLENMEZ — pull çakışmasını önler. Eksiklerse .example varsayılanından
+    oluşturulur. Böylece taze klon + güncelleme sonrası ekip varsayılanları korunur."""
+    for ad in ("context_filter.json", "prompts.json", "sources.json"):
+        gercek = REF_DIR / ad
+        ornek = REF_DIR / f"{ad}.example"
+        if not gercek.exists() and ornek.exists():
+            try:
+                gercek.write_text(ornek.read_text(encoding="utf-8"), encoding="utf-8")
+                logger.info("Çalışma-zamanı config seed edildi: %s", ad)
+            except Exception as e:
+                logger.warning("Config seed edilemedi (%s): %s", ad, e)
+
+
+_runtime_config_seed()
+
+
 def _load_sources() -> dict:
     if SOURCES_PATH.exists():
         try:
@@ -2515,7 +2533,13 @@ def git_pull():
         if not (BASE_DIR / ".git").exists():
             return jsonify({"ok": False, "error": "Bu dizin bir git deposu değil."}), 400
 
-        # Yerel değişiklik varsa güvenli olmak için reddet
+        # Makineye özel çalışma-zamanı dosyalarının yerel değişikliklerini güncelleme
+        # öncesi geri al — bunlar pull'u bloke etmemeli (eski klonlarda hâlâ tracked
+        # olabilir). Untrack edilenlerde no-op; tracked-modified olanlarda temizler.
+        for _rt in ("reference/context_filter.json", "reference/prompts.json", "reference/sources.json"):
+            _git_calistir(["checkout", "--", _rt])  # hata olursa _git_calistir yutar
+
+        # Kalan yerel değişiklik varsa güvenli olmak için reddet
         kirli = _git_calistir(["status", "--porcelain"])
         if kirli["stdout"]:
             return jsonify({

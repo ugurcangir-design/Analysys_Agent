@@ -53,9 +53,10 @@ reference/
   services/             Swagger/OpenAPI .json/.yaml
   ui-code/              Frontend kaynak kod referansı (zip upload ile)
   current-brd/          Aktif baseline BRD (kapsam karşılaştırması için)
-  sources.json          Confluence spaces + Jira projects listesi
-  context_filter.json   Bağlam filtresi (keyword / jira_keys / confluence_pages)
-  prompts.json          Kullanıcı prompt override'ları
+  sources.json          Confluence spaces + Jira projects listesi      ⚠ MAKİNEYE ÖZEL
+  context_filter.json   Bağlam filtresi (keyword / jira_keys / conf)    ⚠ MAKİNEYE ÖZEL
+  prompts.json          Kullanıcı prompt override'ları                  ⚠ MAKİNEYE ÖZEL
+  *.json.example        Yukarıdaki 3 dosyanın seed varsayılanı (İZLENEN)
 
 input/                  Yüklenen tek dosya (PDF/DOCX/MD/TXT/PNG/JPG)
 output/                 Üretilen çıktılar (aşağıdaki IZIN_VERILEN_CIKTILAR)
@@ -354,6 +355,10 @@ otomatik hatırlatma üretir; ancak nihai sorumluluk Claude'dadır.
 9. Prompt değiştirmek için: `VARSAYILAN_PROMPTLAR` (base.py) veya
    `reference/prompts.json` (override) — her ikisi geçerli, override öncelikli
 10. Yeni prompt EK KURALLAR almasını istiyorsan `_EK_KURAL_SKILL_IDS`'e ekle
+11. **Makineye özel runtime config'i ASLA git'e ekleme** —
+    `reference/{context_filter,prompts,sources}.json` `.gitignore`'da; her makinede
+    değişir, izlenirse `git pull` çakışır. Sadece `*.json.example` izlenir;
+    `_runtime_config_seed()` (app.py) açılışta eksikse örnekten oluşturur.
 
 ---
 
