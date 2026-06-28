@@ -1,0 +1,44 @@
+# ── Agent context ağırlığını azalt: bu yolları tarama/okuma dışında tut ──
+
+# Python ortam & cache
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.api_cache/
+
+# Üretilmiş / runtime veri (büyük, ezbere taranmamalı)
+output/
+input/
+history/
+logs/
+*.log
+
+# RAG kaynakları — Atlassian sync (MB'larca; gerektiğinde skill kodu hedefli okur)
+reference/confluence/
+reference/jira/
+reference/services/
+reference/ui-code/
+reference/current-brd/
+reference/_filtered_cache/
+
+# Makineye özel runtime config (içerik anlamsız; .example yeterli)
+reference/context_filter.json
+reference/prompts.json
+reference/sources.json
+
+# Standart web/build artefaktları (projede yoksa zararsız)
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.lock
+package-lock.json
+yarn.lock
+*.min.js
+*.map
+
+# Git & OS
+.git/
+.DS_Store
