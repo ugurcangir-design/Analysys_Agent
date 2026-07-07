@@ -66,6 +66,9 @@ yazma yolunda (jira_tasks hiyerarşi + gorev_jiraya_yaz) çağrılır.
   bloğa cache breakpoint; `anthropic-beta: prompt-caching-2024-07-31`. 5 dk içi tekrar ~%90 tasarruf.
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
   → `referans_dosyalari_hazirla()` + `_ref_bloklari_olustur()`.
+- **UI kodu referansı:** `reference/ui-code` artık varsayılan olarak analiz bağlamına eklenmez
+  (`UI_CODE_REFERENCE=true` yapılırsa eski davranış açılır). UI bağlamı için hedef yön Claude MCP + Chrome
+  üzerinden ekrandan/doğrudan okuma; token tüketimini düşürmek için ham UI kodu gönderimi kapalıdır.
 
 ## Sistem Promptları (16) — `VARSAYILAN_PROMPTLAR` (`skills/base.py`)
 Tutarlı yapı: `# ROL → GÖREV → ÇIKTININ AMACI → ÇALIŞMA YÖNTEMİ → RAG İLKESİ → BAĞLAM KULLANIMI → KALİTE ÖLÇÜTÜ`.

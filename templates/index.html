@@ -3601,13 +3601,27 @@ function toggleCtx() {
   document.getElementById('ctx-fields').classList.toggle('open');
 }
 
-function splitCtx(val) { return val.split(',').map(s=>s.trim()).filter(Boolean); }
+function splitCtx(val, mode) {
+  const seen = new Set();
+  const out = [];
+  val.split(',').forEach(raw => {
+    let s = raw.trim();
+    if (!s) return;
+    if (mode === 'upper') s = s.toUpperCase();
+    if (mode === 'lower') s = s.toLowerCase();
+    const key = s.toLocaleLowerCase('tr-TR');
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(s);
+  });
+  return out;
+}
 
 function buildContextFilter() {
   return {
-    keywords:         splitCtx(document.getElementById('ctx-keywords').value),
-    jira_keys:        splitCtx(document.getElementById('ctx-jira-keys').value.toUpperCase()),
-    confluence_pages: splitCtx(document.getElementById('ctx-conf-pages').value.toLowerCase()),
+    keywords:         splitCtx(document.getElementById('ctx-keywords').value, 'lower'),
+    jira_keys:        splitCtx(document.getElementById('ctx-jira-keys').value, 'upper'),
+    confluence_pages: splitCtx(document.getElementById('ctx-conf-pages').value, 'lower'),
   };
 }
 
@@ -5546,13 +5560,13 @@ async function ctxFilterYukle() {
 }
 
 async function ctxFilterKaydet() {
-  const parse = id => document.getElementById(id).value.split(',').map(s=>s.trim()).filter(Boolean);
+  const parse = (id, mode) => splitCtx(document.getElementById(id).value, mode);
   const r = await fetch('/api/context-filter', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
-      keywords:         parse('ctx-keywords'),
-      jira_keys:        parse('ctx-jira-keys'),
-      confluence_pages: parse('ctx-conf-pages'),
+      keywords:         parse('ctx-keywords', 'lower'),
+      jira_keys:        parse('ctx-jira-keys', 'upper'),
+      confluence_pages: parse('ctx-conf-pages', 'lower'),
     })
   });
   const d = await r.json();

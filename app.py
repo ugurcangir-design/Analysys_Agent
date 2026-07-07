@@ -2002,10 +2002,28 @@ def context_filter_oku():
 @app.route("/api/context-filter", methods=["POST"])
 def context_filter_kaydet():
     data = request.get_json(silent=True) or {}
+    def temiz_liste(degerler, *, upper=False, lower=False):
+        sonuc = []
+        gorulen = set()
+        for deger in degerler or []:
+            metin = str(deger).strip()
+            if not metin:
+                continue
+            if upper:
+                metin = metin.upper()
+            elif lower:
+                metin = metin.lower()
+            anahtar = metin.casefold()
+            if anahtar in gorulen:
+                continue
+            gorulen.add(anahtar)
+            sonuc.append(metin)
+        return sonuc
+
     filtre = {
-        "keywords":         [str(k).strip() for k in data.get("keywords", [])         if str(k).strip()],
-        "jira_keys":        [str(k).strip() for k in data.get("jira_keys", [])        if str(k).strip()],
-        "confluence_pages": [str(p).strip() for p in data.get("confluence_pages", []) if str(p).strip()],
+        "keywords": temiz_liste(data.get("keywords", []), lower=True),
+        "jira_keys": temiz_liste(data.get("jira_keys", []), upper=True),
+        "confluence_pages": temiz_liste(data.get("confluence_pages", []), lower=True),
     }
     p = REF_DIR / "context_filter.json"
     p.write_text(json.dumps(filtre, ensure_ascii=False, indent=2), encoding="utf-8")

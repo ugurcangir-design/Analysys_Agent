@@ -1591,6 +1591,8 @@ def referans_brd_oku() -> str | None:
 # ─── UI Kodu ──────────────────────────────────────────────────────────────────
 
 def ui_kodu_hazirla() -> str | None:
+    if os.getenv("UI_CODE_REFERENCE", "false").lower() not in ("1", "true", "yes"):
+        return None
     if not UI_CODE_DIR.exists():
         return None
     CONFIG_UZANTILAR = {".json", ".yml", ".yaml"}
@@ -1647,10 +1649,38 @@ def ui_dosyalari_listele() -> list[dict]:
 def load_context_filter() -> dict | None:
     if CONTEXT_FILTER_PATH.exists():
         try:
-            return json.loads(CONTEXT_FILTER_PATH.read_text(encoding="utf-8"))
+            return _context_filter_normalize(json.loads(CONTEXT_FILTER_PATH.read_text(encoding="utf-8")))
         except Exception:
             pass
     return None
+
+
+def _benzersiz_liste(degerler: list, *, upper: bool = False, lower: bool = False) -> list[str]:
+    sonuc: list[str] = []
+    gorulen: set[str] = set()
+    for deger in degerler or []:
+        metin = str(deger).strip()
+        if not metin:
+            continue
+        if upper:
+            metin = metin.upper()
+        elif lower:
+            metin = metin.lower()
+        anahtar = metin.casefold()
+        if anahtar in gorulen:
+            continue
+        gorulen.add(anahtar)
+        sonuc.append(metin)
+    return sonuc
+
+
+def _context_filter_normalize(ctx: dict | None) -> dict:
+    ctx = ctx or {}
+    return {
+        "keywords": _benzersiz_liste(ctx.get("keywords", []), lower=True),
+        "jira_keys": _benzersiz_liste(ctx.get("jira_keys", []), upper=True),
+        "confluence_pages": _benzersiz_liste(ctx.get("confluence_pages", []), lower=True),
+    }
 
 
 def _filtrele_openapi_json(json_path: Path, keywords: list) -> "Path | None | bool":
@@ -1697,9 +1727,10 @@ def _filtrele_openapi_json(json_path: Path, keywords: list) -> "Path | None | bo
 
 
 def filtrele_referanslar(all_files: list, ctx: dict) -> list:
-    keywords  = [k.strip().lower() for k in ctx.get("keywords", [])         if k.strip()]
-    jira_keys = [k.strip().upper() for k in ctx.get("jira_keys", [])        if k.strip()]
-    conf_pages = [p.strip().lower() for p in ctx.get("confluence_pages", []) if p.strip()]
+    ctx = _context_filter_normalize(ctx)
+    keywords = ctx["keywords"]
+    jira_keys = ctx["jira_keys"]
+    conf_pages = ctx["confluence_pages"]
 
     if not keywords and not jira_keys and not conf_pages:
         return all_files
@@ -1719,7 +1750,9 @@ def filtrele_referanslar(all_files: list, ctx: dict) -> list:
                 continue
             if f.suffix.lower() == ".json" and keywords:
                 result = _filtrele_openapi_json(f, keywords)
-                filtered.append(result if (result and result is not False) else f)
+                if result is False:
+                    continue
+                filtered.append(result if result else f)
             else:
                 filtered.append(f)
             continue
