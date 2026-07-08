@@ -1,13 +1,12 @@
 """
 HTML Prototip Skill — Adım 8.
 Süreç analizinden çalışan HTML+CSS+JS prototipi üretir.
-UI kodu yüklüyse mevcut tasarım diline uyar.
 """
 
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet,
-    dosya_oku, ui_kodu_hazirla, prompt_yukle,
+    dosya_oku, prompt_yukle,
     OUTPUT_DIR, MAX_CHARS_GENEL,
 )
 
@@ -28,65 +27,26 @@ Gereksinimler:
 {ui_hint}
 Yalnızca HTML içeriğini ver — başka açıklama ekleme, kod bloğu (```) işareti kullanma."""
 
-_UI_HINT_GÖMÜLÜ = """\
-
-Önemli: Mevcut UI kaynak kodu sağlanmıştır. Aşağıdaki kurallara uy:
-- Aynı renk paletini, tipografiyi ve spacing'i kullan
-- Mevcut bileşen stillerini (buton, kart, form, tablo) taklit et
-- Yeni ekranlar var olan sayfalarla görsel tutarlılık taşısın"""
-
 _UI_HINT_YOK = """\
 
 Tasarım rehberi: koyu sidebar + açık içerik alanı; accent rengi #5b5ef4; \
 font-family: system-ui; temiz ve minimal."""
 
 
-def mockup_hazirla_kontekst(ui_kodu_ozet: str | None) -> str:
-    """
-    ui-code/ içeriğinden kısa tasarım özeti çıkar.
-    Tüm kodu geçmek yerine sadece CSS değişkenleri + ilk bileşen örnekleri alınır.
-    """
-    if not ui_kodu_ozet:
-        return ""
-    # CSS değişkenlerini ve ilk 3k karakteri al — tasarım dilini anlamak yeterli
-    satirlar = []
-    karakter = 0
-    for satir in ui_kodu_ozet.splitlines():
-        satirlar.append(satir)
-        karakter += len(satir)
-        if karakter >= 3_000:
-            satirlar.append("... (kısaltıldı)")
-            break
-    return "\n".join(satirlar)
-
-
 def html_mockup_uret() -> Path:
     """
     output/surec-analizi.md → output/mockup.html
-    reference/ui-code/ varsa mevcut UI tasarımına uyar.
     """
     surec_dosya = OUTPUT_DIR / "surec-analizi.md"
     if not surec_dosya.exists():
         raise FileNotFoundError("surec-analizi.md bulunamadı. Önce süreç analizi yapın.")
 
     surec_metni = dosya_oku(surec_dosya, MAX_CHARS_GENEL)
-    ui_kodu = ui_kodu_hazirla()
-
-    if ui_kodu:
-        print("  UI kodu mevcut — tasarım diline uygun prototip üretiliyor...")
-        ui_ozet = mockup_hazirla_kontekst(ui_kodu)
-        ui_hint = _UI_HINT_GÖMÜLÜ
-        icerik_parcalari = [
-            {"type": "text", "text": f"### Mevcut UI Kaynak Kodu (Tasarım Referansı)\n\n{ui_ozet}"},
-            {"type": "text", "text": f"### Süreç Analizi\n\n{surec_metni}"},
-            {"type": "text", "text": "Mevcut UI tasarım diline uygun HTML prototipi oluştur."},
-        ]
-    else:
-        ui_hint = _UI_HINT_YOK
-        icerik_parcalari = [
-            {"type": "text", "text": f"### Süreç Analizi\n\n{surec_metni}"},
-            {"type": "text", "text": "Bu süreç için HTML prototipi oluştur."},
-        ]
+    ui_hint = _UI_HINT_YOK
+    icerik_parcalari = [
+        {"type": "text", "text": f"### Süreç Analizi\n\n{surec_metni}"},
+        {"type": "text", "text": "Bu süreç için HTML prototipi oluştur."},
+    ]
 
     sistem = (prompt_yukle("html_mockup_base") + "\n{ui_hint}\nYalnızca HTML içeriğini ver — başka açıklama ekleme, kod bloğu (```) işareti kullanma.").format(ui_hint=ui_hint)
     mesajlar = [{"role": "user", "content": icerik_parcalari}]

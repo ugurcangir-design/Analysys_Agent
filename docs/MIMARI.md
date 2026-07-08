@@ -27,9 +27,10 @@ MODEL_ANALIZ = "claude-sonnet-4-6"   # tüm analizler
 MODEL_HAFIF  = "claude-haiku-4-5"    # hafif iş (jira_gorevleri Standart Formatla, açık sorular; jira_agent görev başlığı)
 
 # Karakter limitleri
-MAX_CHARS_BRD=100_000  MAX_CHARS_GENEL=30_000  MAX_CHARS_UI=10_000  MAX_CHARS_UI_TOT=60_000
+MAX_CHARS_BRD=100_000  MAX_CHARS_GENEL=30_000
 MAX_CHARS_REF=15_000   # dosya başına
-MAX_CHARS_CONF_TOT=80_000  MAX_CHARS_JIRA_TOT=60_000  MAX_CHARS_SERVIS_TOT=60_000  MAX_CHARS_DIGER_TOT=20_000
+MAX_CHARS_CONF_TOT=80_000  MAX_CHARS_JIRA_TOT=60_000  MAX_CHARS_SERVIS_TOT=60_000
+MAX_CHARS_LIVE_APP_TOT=60_000  MAX_CHARS_DIGER_TOT=20_000
 
 # Token limitleri
 MAX_TOKENS_UZUN=16_000  (süreç analizi)   MAX_TOKENS_KISA=3_000
@@ -59,16 +60,22 @@ yazma yolunda (jira_tasks hiyerarşi + gorev_jiraya_yaz) çağrılır.
 ## RAG Mimarisi (`skills/base.py`)
 - **Bağlam blokları:** `_ref_bloklari_olustur(ref_dosyalar)` tipine göre gruplar — `### CONFLUENCE
   DOKÜMANTASYONU` (md), `### JİRA TASK GEÇMİŞİ` (`_jira_json_to_md` kompakt md), `### API / SWAGGER
-  TANIMLARI` (filtrelenmiş openapi), `### DİĞER REFERANSLAR`. Her tip ayrı limitle.
-- **Bağlam filtresi:** `load_context_filter()` → keyword / jira_keys / confluence_pages ön-filtre;
-  `filtrele_referanslar(files, ctx)` büyük Swagger'ı `_filtrele_openapi_json()` ile keyword bazlı kırpar.
-- **Prompt caching:** system prompt → `cache_control: ephemeral`; stable user blocks (ref+UI+mockup) son
+  TANIMLARI` (filtrelenmiş openapi), `### CANLI UYGULAMA GÖZLEMİ` (`reference/live-app`),
+  `### DİĞER REFERANSLAR`. Her tip ayrı limitle.
+- **Bağlam filtresi:** `load_context_filter()` → keyword / jira_keys / confluence_pages ön-filtre +
+  `live_app.target_url`, en fazla 5 `live_app.extra_urls` ve `live_app.use_as_sample`; `filtrele_referanslar(files, ctx)`
+  büyük Swagger'ı `_filtrele_openapi_json()` ile keyword bazlı kırpar.
+- **Canlı uygulama MCP/Chrome:** Süreç ve teknik analizde `canli_uygulama_baglami_hazirla()` URL listesi
+  doluysa Claude Code'a ana URL'den başlayarak ekranı simüle etme, validasyon/mesaj/akışları ve network
+  servislerini toplama görevi verir. MCP gözlem çıktıları `reference/live-app/` altına `.md/.json/.html`
+  olarak bırakılırsa RAG'e `CANLI UYGULAMA GÖZLEMİ` bloğu olarak girer. Gizli header/token/cookie değerleri
+  maskelenmelidir; kaynak etiketleri `[K: Canlı UI:<route>]` ve `[K: Network:<METHOD> <path>]`.
+  `use_as_sample=true` ise ana URL süreç analizinde örnek ekran kabul edilir ve isterler ekran yapısına göre
+  detaylandırılır. Ham UI kaynak kodu okuma/yükleme arayüzü kaldırılmıştır.
+- **Prompt caching:** system prompt → `cache_control: ephemeral`; stable user blocks (ref+MCP hedefleri+mockup) son
   bloğa cache breakpoint; `anthropic-beta: prompt-caching-2024-07-31`. 5 dk içi tekrar ~%90 tasarruf.
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
   → `referans_dosyalari_hazirla()` + `_ref_bloklari_olustur()`.
-- **UI kodu referansı:** `reference/ui-code` artık varsayılan olarak analiz bağlamına eklenmez
-  (`UI_CODE_REFERENCE=true` yapılırsa eski davranış açılır). UI bağlamı için hedef yön Claude MCP + Chrome
-  üzerinden ekrandan/doğrudan okuma; token tüketimini düşürmek için ham UI kodu gönderimi kapalıdır.
 
 ## Sistem Promptları (16) — `VARSAYILAN_PROMPTLAR` (`skills/base.py`)
 Tutarlı yapı: `# ROL → GÖREV → ÇIKTININ AMACI → ÇALIŞMA YÖNTEMİ → RAG İLKESİ → BAĞLAM KULLANIMI → KALİTE ÖLÇÜTÜ`.

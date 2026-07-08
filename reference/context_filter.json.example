@@ -1,5 +1,10 @@
 {
   "keywords": [],
   "jira_keys": [],
-  "confluence_pages": []
+  "confluence_pages": [],
+  "live_app": {
+    "target_url": "",
+    "extra_urls": [],
+    "use_as_sample": false
+  }
 }

@@ -3,7 +3,7 @@
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
-    dosya_oku, input_hazirla, referans_brd_oku, ui_kodu_hazirla,
+    dosya_oku, input_hazirla, referans_brd_oku,
     referans_dosyalari_hazirla, _ref_bloklari_olustur,
     prompt_yukle,
     OUTPUT_DIR,
@@ -23,7 +23,6 @@ def kapsam_analizi_yap() -> tuple[Path, Path]:
             "reference/current-brd/ klasöründe mevcut BRD bulunamadı."
         )
 
-    ui_kodu = ui_kodu_hazirla()
     brd_analiz_dosya = OUTPUT_DIR / "brd-analizi.md"
     ek_baglam = dosya_oku(brd_analiz_dosya, MAX_CHARS_GENEL) if brd_analiz_dosya.exists() else ""
 
@@ -53,13 +52,6 @@ def kapsam_analizi_yap() -> tuple[Path, Path]:
             "text": f"### Önceki BRD Analizi\n\n{ek_baglam}",
         })
 
-    if ui_kodu:
-        print(f"  UI kodu dahil ediliyor ({len(ui_kodu):,} karakter)...")
-        icerik_parcalari.append({
-            "type": "text",
-            "text": f"### Mevcut UI Kodu\n\n{ui_kodu}",
-        })
-
     icerik_parcalari.append({
         "type": "text",
         "text": "İki BRD'yi karşılaştır, kapsam analizi ve alternatif süreçleri üret.",
@@ -68,9 +60,6 @@ def kapsam_analizi_yap() -> tuple[Path, Path]:
     rol = prompt_yukle("kapsam_analizi_rol")
     bolumler = prompt_yukle("kapsam_analizi_bolumler")
     alt_format = prompt_yukle("kapsam_analizi_alternatifler")
-
-    if ui_kodu:
-        alt_format += "\n### Mevcut UI'ya Etkisi"
 
     sistem = (
         rol + "\n\n"

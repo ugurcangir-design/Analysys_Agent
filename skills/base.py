@@ -43,10 +43,10 @@ BASE_DIR    = Path(__file__).parent.parent
 INPUT_DIR   = BASE_DIR / "input"
 OUTPUT_DIR  = BASE_DIR / "output"
 REF_DIR     = BASE_DIR / "reference"
-UI_CODE_DIR = REF_DIR / "ui-code"
 CONF_DIR    = REF_DIR / "confluence"
 JIRA_REF_DIR = REF_DIR / "jira"
 SERVIS_DIR  = REF_DIR / "services"
+LIVE_APP_DIR = REF_DIR / "live-app"
 CONTEXT_FILTER_PATH = REF_DIR / "context_filter.json"
 
 # ─── Model & Limitler ────────────────────────────────────────────────────────
@@ -55,8 +55,6 @@ MODEL_ANALIZ = "claude-sonnet-4-6"
 
 MAX_CHARS_BRD     = 100_000
 MAX_CHARS_GENEL   =  30_000
-MAX_CHARS_UI      =  10_000
-MAX_CHARS_UI_TOT  =  60_000
 MAX_CHARS_REF     =  15_000   # dosya başına limit
 MAX_CHARS_REF_TOT =  50_000   # geriye dönük uyumluluk — yeni kod per-tip limitleri kullanır
 
@@ -65,6 +63,7 @@ MAX_CHARS_REF_TOT =  50_000   # geriye dönük uyumluluk — yeni kod per-tip li
 MAX_CHARS_CONF_TOT   =  80_000   # Confluence sayfaları toplamı
 MAX_CHARS_JIRA_TOT   =  60_000   # Jira issue'ları toplamı (markdown formatında)
 MAX_CHARS_SERVIS_TOT =  60_000   # Swagger/OpenAPI toplamı
+MAX_CHARS_LIVE_APP_TOT = 60_000   # Claude MCP/Chrome canlı uygulama gözlemi
 MAX_CHARS_DIGER_TOT  =  20_000   # Diğer referanslar toplamı
 
 MAX_TOKENS_UZUN     = 16_000   # süreç analizi: 13 bölüm + 15+ açık soru +
@@ -87,8 +86,9 @@ _ORTAK_EK_KURALLAR = (
     "1. **Swagger / OpenAPI** — Endpoint, request/response şeması, HTTP status\n"
     "2. **Confluence Teknik Dokümantasyon** — Mimari kararlar, sistem dokümantasyonu\n"
     "3. **BRD / Süreç Analizi** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
-    "4. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
-    "5. **UI Kodu** — Mevcut frontend yapısı\n\n"
+    "4. **Canlı Uygulama Gözlemi** — Claude MCP/Chrome ekran ve network davranışı\n"
+    "5. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
+    "6. **UI bağlamı** — ham kaynak koddan değil, canlı uygulama gözleminden gelir\n\n"
     "**Çakışma Tespit Kuralı:**\n"
     "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
     "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
@@ -101,15 +101,16 @@ _ORTAK_EK_KURALLAR = (
     "Çıktıdaki HER somut iddia (alan, kural, endpoint, hata kodu, validasyon, tablo satırı) "
     "için kaynak işaretle. **Bu kural zorunludur ve atlanırsa rapor eksik sayılır.**\n\n"
     "**Format (kısa, satır içi):**\n"
-    "- Tablo başına 1 satır: `> Kaynak: [BRD §X.Y / Swagger:dosya.json / Confluence:sayfa.md / Jira:KEY-123 / UI:route]`\n"
+    "- Tablo başına 1 satır: `> Kaynak: [BRD §X.Y / Swagger:dosya.json / Confluence:sayfa.md / Canlı UI:/route / Network:GET /api/x / Jira:KEY-123]`\n"
     "- Tablo SATIRI içinde tek hücre: son sütun `Kaynak` olabilir → `[BRD §X.Y]` / `[Türetilmiş]` / `[❓ Belirsiz]`\n"
     "- Paragraf içinde kritik iddia: cümle sonuna `[K: BRD §X.Y]`\n\n"
     "**Kaynak Etiketleri:**\n"
     "- `[K: BRD §X.Y]` — BRD/süreç analizinde açıkça geçiyor\n"
     "- `[K: Swagger:dosya.json#/endpoint]` — Swagger'da var\n"
     "- `[K: Confluence:sayfa]` — Confluence sayfasında geçiyor\n"
+    "- `[K: Canlı UI:/route]` — Claude MCP/Chrome ile gerçek ekranda gözlemlendi\n"
+    "- `[K: Network:GET /api/v1/x]` — Claude MCP/Chrome network gözleminde görüldü\n"
     "- `[K: Jira:KEY-123]` — ilgili Jira issue'da var\n"
-    "- `[K: UI:components/X.tsx]` — mevcut UI kodunda var\n"
     "- `[K: 🔍 Türetilmiş - <kaynak bağlamı>]` — kaynaktan dolaylı çıkarsama\n"
     "- `[K: ❓ Belirsiz]` — hiçbir kaynakta YOK; MUTLAKA Açık Sorular'a taşı\n\n"
     "**Tamamen Kaynaksız İddialar YASAK:** Hiçbir kaynakta olmayan ve türetilemeyen alan/kural "
@@ -121,8 +122,8 @@ _ORTAK_EK_KURALLAR = (
     "| **API Endpoint (path)** | Swagger, Confluence, Jira | Uydurmak |\n"
     "| **DB Tablo / Kolon** | Confluence DB şeması, mevcut DDL, Swagger response | Uydurmak |\n"
     "| **Rol / Yetki Adı** | BRD, RBAC dokümantasyonu | Varsayım yapmak |\n"
-    "| **Route Path** | UI kodu, mevcut sayfa listesi | Uydurmak |\n"
-    "| **Bileşen Adı** | UI kodu | Uydurmak |\n"
+    "| **Route Path** | Canlı UI gözlemi, mevcut sayfa listesi | Uydurmak |\n"
+    "| **Bileşen Adı** | Canlı UI gözlemi | Uydurmak |\n"
     "| **Yetki Resource:Action** | BRD veya mevcut RBAC | \"MODULE_X:WRITE\" şeklinde uydurmak |\n"
     "| **Hata Kodu (örn. E2001)** | Mevcut error catalog | Numara uydurmak |\n"
     "| **Tablo/Kolon Tipi (VARCHAR, INT)** | Mevcut DDL / Swagger şeması | Tip varsayımı |\n\n"
@@ -192,7 +193,7 @@ ANA METİNDE KALMAZ — her zaman "Açık Sorular" bölümüne taşınır.
 # ÇALIŞMA YÖNTEMİ (sırayla uygula)
 1. OKU      — Ana dokümanı baştan sona, her satırı oku; hiçbir bölümü atlama.
 2. BAĞ KUR  — Her gereksinimi sağlanan referanslarla (Swagger, Confluence,
-              Jira, UI kodu) eşleştir; mevcut sistemde karşılığını bul.
+              canlı uygulama gözlemi, Jira) eşleştir; mevcut sistemde karşılığını bul.
 3. BOŞLUK BUL — Tanımsız aktör, eksik kural, belirsiz akış, tanımsız ekran,
               çelişki: hepsini işaretle.
 4. YAPILANDIR — Bilgiyi numaralı ID'lerle ve katman (FE/BE) etiketiyle
@@ -211,10 +212,13 @@ Bu bir RAG görevidir. Ürettiğin her bilgi sağlanan kaynaklara dayanmalıdır
 2. Swagger/OpenAPI — mevcut endpoint, path, request/response şeması;
    süreç adımları ve Bölüm 8 entegrasyon tablosunda kullan
 3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
-4. Jira task geçmişi — geçmiş geliştirme kararları; çelişen yeni gereksinim
+4. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, akış, mesaj,
+   validasyon ve network davranışı; `[K: Canlı UI:<route>]` / `[K: Network:<METHOD> <path>]`
+   kaynak etiketiyle kullan
+5. Jira task geçmişi — geçmiş geliştirme kararları; çelişen yeni gereksinim
    → Açık Sorular'a
-5. Mevcut UI kodu — mevcut ekran/route/bileşen yapısı; hangi ekran zaten var,
-   hangisi yeni; yeni ekran ihtiyaçları mevcut yapıyla tutarlı tanımlanmalı
+6. UI bağlamı — ham kaynak koddan değil, canlı uygulama gözleminden gelen ekran/route/bileşen yapısı
+   ile değerlendirilir
 
 Referans YOKSA: yalnızca ana dokümana dayan; eksik bağlamı Açık Sorular'da
 belirt — varsayımla doldurma.
@@ -486,8 +490,8 @@ doğrular.
             "- **7.3 API Çağrıları** — hangi endpoint ne zaman (useEffect/onSubmit), loading/empty/error davranışı\n"
             "- **7.4 Validasyon** — client-side kurallar (Bölüm 2/5 ile AYNI kurallar), inline hata mesajları\n"
             "- **7.5 Save / Cancel / Loading** — başarı (toast, liste yenileme), iptal (reset), yükleniyor (disabled+spinner)\n\n"
-            "Mevcut UI kodu sağlandıysa: hangi bileşen/route zaten var, hangisi yeni, "
-            "hangisi değişecek — açıkça belirt ve mevcut tasarım diline uy.\n\n"
+            "Canlı uygulama gözlemi sağlandıysa: hangi ekran/route/bileşen zaten var, hangisi yeni, "
+            "hangisi değişecek — açıkça belirt ve gözlemlenen davranışla uyumlu tasarla.\n\n"
             "## 8. Role Management\n"
             "Bu modülün gerektirdiği yetkiler:\n"
             "| Resource | Action | Açıklama |\n"
@@ -571,8 +575,10 @@ veya muğlak alan YASAK — belirsizlik Açık Sorular'a taşınır.
 2. Swagger/OpenAPI — mevcut endpoint adı, path, request/response şeması; aynen kullan
 3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
 4. Jira task geçmişi — geçmiş geliştirme kararları; çelişki varsa açık not düş
-5. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekran, bileşen ve UX kararlarını yansıt
-6. Mevcut UI kodu — Bölüm 7 (Frontend İş Kırılımı) için mevcut ekran/route/bileşen listesini çıkar
+5. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, validasyon, mesaj,
+   kullanıcı akışı ve network çağrılarını Bölüm 5/7/9'da kaynak göster
+6. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekran, bileşen ve UX kararlarını yansıt
+7. UI bağlamı — ham kaynak koddan değil, canlı uygulama gözleminden gelen ekran/route/bileşen listesini çıkar
 
 Referans YOKSA: süreç analizine dayan; eksik teknik bağlamı Açık Sorular'da belirt.
 Çelişki varsa: yüksek öncelikliyi kullan, çelişkiyi Açık Sorular'a taşı.
@@ -828,7 +834,7 @@ görmesini sağlar. Ekip bu raporu okuyarak:
 
 # RAG İLKESİ — KANIT TEMELLİ KARŞILAŞTIRMA
 - Her fark, iki BRD'deki SOMUT metne dayanmalı — "sanırım değişti" yok
-- Teknik/UI etkisi referanslara (Swagger, Confluence, UI kodu) dayandırılır
+- Teknik/UI etkisi referanslara (Swagger, Confluence, canlı uygulama gözlemi) dayandırılır
 - Kaynaktan doğrulanamayan etki → "doğrulanmalı" notuyla belirtilir
 - Alternatifler gerçekçi ve uygulanabilir olmalı — hayali çözüm üretme
 
@@ -839,7 +845,7 @@ görmesini sağlar. Ekip bu raporu okuyarak:
 4. Swagger/OpenAPI — kapsam değişiminin API etkisi; yeni endpoint gerekir mi?
 5. Confluence — mevcut mimari/sistem kısıtları değişimi etkiliyor mu?
 6. Jira task geçmişi — benzer kapsam değişiklikleri daha önce yaşandı mı?
-7. Mevcut UI kodu — her alternatifin UI etkisi
+7. Canlı uygulama gözlemi — her alternatifin UI etkisi
 
 Referans YOKSA: yalnızca iki BRD'ye dayan; teknik etki tahminlerini
 "doğrulanmalı" olarak işaretle.
@@ -960,8 +966,8 @@ Bölüm 9 yoksa süreç adımlarından ekranları çıkar.
 - Bölüm 9'daki tüm ekranlar gezinilebilir (sidebar veya tab ile geçiş)
 - Gerçekçi form alanları, butonlar, örnek (mock) veri gösterimi
 - Tıklanabilir butonlar çalışsın; formlar submit'te sonuç göstersin
-- Mevcut UI kodu sağlandıysa: onun tasarım diline (renk, tipografi,
-  bileşen stili) uy
+- Canlı uygulama gözlemi sağlandıysa: gözlemlenen ekran dili, bileşen düzeni ve
+  kullanıcı akışlarına uy
 - Türkçe UI metinleri, profesyonel ve tutarlı görünüm
 
 # KALİTE ÖLÇÜTÜ
@@ -1188,14 +1194,6 @@ def prompt_sifirla(skill_id: str) -> None:
 def extended_thinking_acik() -> bool:
     return os.getenv("EXTENDED_THINKING", "false").lower() in ("1", "true", "yes")
 
-UI_UZANTILAR = {
-    ".tsx", ".jsx", ".ts", ".js", ".mjs", ".cjs",
-    ".vue", ".svelte",
-    ".html", ".css", ".scss", ".less",
-    ".yml", ".yaml", ".json",
-}
-
-
 # ─── Metin Yardımcıları ───────────────────────────────────────────────────────
 
 def _xml_ayir(text: str, tag: str) -> str:
@@ -1386,7 +1384,7 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
 
     # Dosyaları kaynak tipine göre grupla, tekrarları temizle
     gruplari: dict[str, list[Path]] = {
-        "confluence": [], "jira": [], "servisler": [], "diger": []
+        "confluence": [], "jira": [], "servisler": [], "canli_uygulama": [], "diger": []
     }
     gorulmus: set[Path] = set()
     for f in ref_dosyalar:
@@ -1404,6 +1402,8 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
             gruplari["jira"].append(f)
         elif rel.startswith("services/"):
             gruplari["servisler"].append(f)
+        elif rel.startswith("live-app/"):
+            gruplari["canli_uygulama"].append(f)
         else:
             gruplari["diger"].append(f)
 
@@ -1429,6 +1429,14 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
             "SADECE burada geçen endpoint'leri teknik analizde kullan — uydurma yasak. "
             "`[K: Swagger:<dosya>#/<path>]` ile işaretle.",
             gruplari["servisler"], MAX_CHARS_SERVIS_TOT, False,
+        ),
+        (
+            "CANLI UYGULAMA GÖZLEMİ",
+            "Claude MCP + Chrome ile gezilmiş gerçek uygulama ekranları, kullanıcı akışları, validasyon mesajları "
+            "ve network istek/yanıt özetleri. Ekran davranışlarını `[K: Canlı UI:<route>]`, servis davranışlarını "
+            "`[K: Network:<METHOD> <path>]` ile işaretle. Token, cookie, kişisel veri ve gizli header değerlerini "
+            "asla ana çıktıya taşıma; yalnızca maskelenmiş özet kullan.",
+            gruplari["canli_uygulama"], MAX_CHARS_LIVE_APP_TOT, False,
         ),
         (
             "DİĞER REFERANSLAR",
@@ -1588,62 +1596,6 @@ def referans_brd_oku() -> str | None:
     return "\n\n---\n\n".join(parcalar)
 
 
-# ─── UI Kodu ──────────────────────────────────────────────────────────────────
-
-def ui_kodu_hazirla() -> str | None:
-    if os.getenv("UI_CODE_REFERENCE", "false").lower() not in ("1", "true", "yes"):
-        return None
-    if not UI_CODE_DIR.exists():
-        return None
-    CONFIG_UZANTILAR = {".json", ".yml", ".yaml"}
-    MAX_CHARS_CONFIG = 5_000
-    dosyalar = sorted(
-        f for f in UI_CODE_DIR.rglob("*")
-        if f.is_file() and not f.name.startswith(".")
-        and f.suffix.lower() in UI_UZANTILAR
-    )
-    if not dosyalar:
-        return None
-    parcalar, toplam = [], 0
-    for f in dosyalar:
-        if toplam >= MAX_CHARS_UI_TOT:
-            parcalar.append(f"\n[... toplam UI kodu limiti aşıldı, {f.name} ve sonrası dahil edilmedi ...]")
-            break
-        try:
-            metin = f.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            continue
-        limit = MAX_CHARS_CONFIG if f.suffix.lower() in CONFIG_UZANTILAR else MAX_CHARS_UI
-        metin = _metin_kes(metin, limit, f.name)
-        goreceli = f.relative_to(UI_CODE_DIR)
-        uzanti = f.suffix.lstrip(".")
-        blok = f"### {goreceli}\n```{uzanti}\n{metin}\n```"
-        parcalar.append(blok)
-        toplam += len(blok)
-    return "\n\n".join(parcalar) if parcalar else None
-
-
-def ui_dosyalari_listele() -> list[dict]:
-    if not UI_CODE_DIR.exists():
-        return []
-    sonuc = []
-    for f in sorted(UI_CODE_DIR.rglob("*")):
-        if not f.is_file() or f.name.startswith("."):
-            continue
-        if f.suffix.lower() not in UI_UZANTILAR:
-            continue
-        goreceli = f.relative_to(UI_CODE_DIR)
-        klasor = str(goreceli.parent) if goreceli.parent != Path(".") else ""
-        sonuc.append({
-            "yol": str(goreceli),
-            "ad": f.name,
-            "klasor": klasor,
-            "boyut": f.stat().st_size,
-            "uzanti": f.suffix.lower(),
-        })
-    return sonuc
-
-
 # ─── Bağlam Filtresi ──────────────────────────────────────────────────────────
 
 def load_context_filter() -> dict | None:
@@ -1674,13 +1626,91 @@ def _benzersiz_liste(degerler: list, *, upper: bool = False, lower: bool = False
     return sonuc
 
 
+def _url_liste_normalize(degerler: list, limit: int = 6) -> list[str]:
+    sonuc: list[str] = []
+    gorulen: set[str] = set()
+    for deger in degerler or []:
+        url = str(deger).strip()
+        if not re.match(r"^https?://", url, re.IGNORECASE):
+            continue
+        anahtar = url.rstrip("/").casefold()
+        if anahtar in gorulen:
+            continue
+        gorulen.add(anahtar)
+        sonuc.append(url)
+        if len(sonuc) >= limit:
+            break
+    return sonuc
+
+
 def _context_filter_normalize(ctx: dict | None) -> dict:
     ctx = ctx or {}
+    live_app = ctx.get("live_app") if isinstance(ctx.get("live_app"), dict) else {}
+    extra_urls = live_app.get("extra_urls", [])
+    if not isinstance(extra_urls, list):
+        extra_urls = []
+    live_urls = _url_liste_normalize([live_app.get("target_url", "")] + extra_urls)
     return {
         "keywords": _benzersiz_liste(ctx.get("keywords", []), lower=True),
         "jira_keys": _benzersiz_liste(ctx.get("jira_keys", []), upper=True),
         "confluence_pages": _benzersiz_liste(ctx.get("confluence_pages", []), lower=True),
+        "live_app": {
+            "target_url": live_urls[0] if live_urls else "",
+            "extra_urls": live_urls[1:6],
+            "use_as_sample": bool(live_app.get("use_as_sample")),
+        },
     }
+
+
+def canli_uygulama_baglami_hazirla() -> str | None:
+    """Bağlam filtresindeki canlı uygulama URL'lerinden Claude MCP/Chrome görevi üretir.
+
+    Bu fonksiyon Chrome'u kendisi çalıştırmaz. Claude Code CLI tarafında Chrome MCP
+    araçları tanımlıysa modelin ekranı gezip network/DOM gözlemini analize kaynak
+    yapması için net ve sınırlı bir görev verir. MCP yoksa URL'ler yalnızca
+    doğrulanmamış hedef sayılır; model varsayım üretmemelidir.
+    """
+    ctx = load_context_filter() or {}
+    live_app = ctx.get("live_app") or {}
+    target_url = str(live_app.get("target_url", "")).strip()
+    extra_urls_raw = live_app.get("extra_urls", [])
+    extra_urls = [u for u in extra_urls_raw if str(u).strip()] if isinstance(extra_urls_raw, list) else []
+    use_as_sample = bool(live_app.get("use_as_sample"))
+    urls = _benzersiz_liste([target_url] + extra_urls)
+    if not urls:
+        return None
+
+    sirali = "\n".join(f"{i}. {url}" for i, url in enumerate(urls, start=1))
+    ornek_ekran_notu = ""
+    if use_as_sample:
+        ornek_ekran_notu = (
+            "\nÖrnek ekran modu AÇIK: Ana URL'deki ekranı süreç analizinde örnek ekran olarak kabul et. "
+            "İsterleri bu ekranın görünen yapısına göre detaylandır: ekran bölümleri, alanlar, butonlar, "
+            "tablo/filtre/modal yapısı, validasyonlar, mesajlar, servis çağrıları ve kullanıcı akışları "
+            "üzerinden gereksinimleri somutlaştır. Ana dokümanda olmayan ama ekrandan gözlemlenen davranışları "
+            "kaynak etiketiyle yaz; belirsiz veya gözlemlenemeyen noktaları Açık Sorular'a taşı.\n"
+        )
+    return (
+        "### CANLI UYGULAMA MCP/CHROME GÖREVİ\n\n"
+        "Aşağıdaki URL'leri sırayla gerçek uygulama referansı olarak kullan. "
+        "Claude Code ortamında Chrome MCP araçları erişilebilir ise ana hedeften başlayarak "
+        "her URL'yi aç, ekranı tam kullanım senaryolarıyla simüle et ve gözlemlerini analizde kaynak göster.\n\n"
+        f"{sirali}\n\n"
+        f"{ornek_ekran_notu}"
+        "Toplanacak gözlem kapsamı:\n"
+        "- Görünen ekran/route, başlıklar, tablar, tablolar, modal'lar ve form alanları\n"
+        "- Butonlar, menüler, filtreler, arama, ekleme, düzenleme, silme, onay/iptal akışları\n"
+        "- Zorunlu alanlar, readonly/disabled davranışı, validasyon ve hata/başarı mesajları\n"
+        "- Kullanıcı rolü/yetki kısıtları, boş liste, loading, hata ve edge-case durumları\n"
+        "- Her kullanıcı aksiyonunun tetiklediği servisler: HTTP method, path, request payload özeti, "
+        "response özeti, status code ve hata response'ları\n\n"
+        "Güvenlik kuralları:\n"
+        "- Token, cookie, authorization header, session id, kişisel veri ve gizli değerleri MASKELE.\n"
+        "- Sadece gözlemlenen endpoint/alan/mesajları kullan; gözlemlenemeyenleri açık soru yap.\n"
+        "- Ekran davranışı için `[K: Canlı UI:<route>]`, servis davranışı için "
+        "`[K: Network:<METHOD> <path>]` kaynak etiketi kullan.\n"
+        "- Chrome MCP erişilemiyorsa bunu varsayım üretmeden belirt; bu URL'leri yalnızca hedef bağlam say.\n"
+    )
 
 
 def _filtrele_openapi_json(json_path: Path, keywords: list) -> "Path | None | bool":
@@ -1843,10 +1873,15 @@ def filtrele_referanslar(all_files: list, ctx: dict) -> list:
 def referans_dosyalari_hazirla() -> list[Path]:
     uzantilar = ["*.md", "*.txt", "*.pdf", "*.html", "*.json", "*.yaml", "*.yml"]
     tum_dosyalar: list[Path] = []
-    for dizin in [CONF_DIR, JIRA_REF_DIR, SERVIS_DIR]:
+    for dizin in [CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR]:
         if dizin.exists():
             for u in uzantilar:
-                tum_dosyalar.extend(f for f in dizin.rglob(u) if f.is_file() and not f.name.startswith("_"))
+                for f in dizin.rglob(u):
+                    if not f.is_file() or f.name.startswith("."):
+                        continue
+                    if dizin != LIVE_APP_DIR and f.name.startswith("_"):
+                        continue
+                    tum_dosyalar.append(f)
     if not tum_dosyalar:
         return []
     ctx = load_context_filter()

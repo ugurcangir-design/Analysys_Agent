@@ -12,8 +12,8 @@ import re
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
-    dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur, ui_kodu_hazirla,
-    prompt_yukle, extended_thinking_acik, surec_id_kapsam,
+    dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur,
+    canli_uygulama_baglami_hazirla, prompt_yukle, extended_thinking_acik, surec_id_kapsam,
     yonetici_ozeti_olustur,
     OUTPUT_DIR,
     MAX_CHARS_GENEL,
@@ -22,7 +22,7 @@ from .base import (
 from .html_mockup import mockup_oku_kontekst
 
 
-def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str:
+def _teknik_prompt_olustur(mockup_var: bool = False) -> str:
     """Aşama 1 sistem promptu — SADECE teknik analiz (açık sorular ayrı aşamada)."""
     rol = prompt_yukle("teknik_analiz_rol")
     bolumler = prompt_yukle("teknik_analiz_bolumler")
@@ -35,8 +35,6 @@ def _teknik_prompt_olustur(ui_kodu: str | None, mockup_var: bool = False) -> str
         bolumler,
     ).strip()
     ekler = []
-    if ui_kodu:
-        ekler.append("Mevcut UI kaynak kodu da sağlanmıştır. Bölüm 7 (Frontend İş Kırılımı)'nda mevcut ekranları ve gerekli değişiklikleri/eklemeleri belirt.")
     if mockup_var:
         ekler.append("HTML prototip de sağlanmıştır. Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekranları, bileşenleri ve UX kararlarını teknik analize yansıt.")
     ek_metin = ("\n\n" + "\n".join(ekler)) if ekler else ""
@@ -159,13 +157,12 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         raise FileNotFoundError("surec-analizi.md bulunamadı. Önce süreç analizi yapın.")
 
     surec_metni = dosya_oku(surec_dosya, MAX_CHARS_GENEL)
-    ui_kodu = ui_kodu_hazirla()
     ref_dosyalar = referans_dosyalari_hazirla()
     mockup_icerik = mockup_oku_kontekst()
 
     icerik_parcalari: list[dict] = []
     kullanilan_referanslar: list[str] = []
-    # Stable bloklar = değişmeyen içerik (referanslar + mockup + UI kodu)
+    # Stable bloklar = değişmeyen içerik (referanslar + MCP/Chrome hedefleri + mockup)
     # Bunların sonuncusuna cache breakpoint eklenir → sonraki run'larda cache hit
     stable_bloklar: list[dict] = []
 
@@ -174,13 +171,14 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         ref_bloklari, kullanilan_referanslar = _ref_bloklari_olustur(ref_dosyalar)
         stable_bloklar.extend(ref_bloklari)
 
+    canli_baglam = canli_uygulama_baglami_hazirla()
+    if canli_baglam:
+        print("  Canlı uygulama MCP/Chrome hedefleri dahil ediliyor...")
+        stable_bloklar.append({"type": "text", "text": canli_baglam})
+
     if mockup_icerik:
         print(f"  HTML prototip dahil ediliyor ({len(mockup_icerik):,} karakter)...")
         stable_bloklar.append({"type": "text", "text": f"### HTML Prototip\n\n{mockup_icerik}"})
-
-    if ui_kodu:
-        print(f"  UI kodu dahil ediliyor ({len(ui_kodu):,} karakter)...")
-        stable_bloklar.append({"type": "text", "text": f"### Mevcut UI Kodu\n\n{ui_kodu}"})
 
     # Stable blokların sonuna cache breakpoint koy — sonraki run'larda cache hit
     if stable_bloklar:
@@ -201,7 +199,7 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     icerik_parcalari.append({"type": "text", "text": "Teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda)."})
 
     # ── AŞAMA 1: Sadece teknik analiz ──
-    sistem = _teknik_prompt_olustur(ui_kodu, mockup_var=bool(mockup_icerik))
+    sistem = _teknik_prompt_olustur(mockup_var=bool(mockup_icerik))
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
     yanit = _teknik_uret_tam(sistem, mesajlar)
     yanit = _metin_sikistir(yanit)

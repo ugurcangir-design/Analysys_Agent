@@ -524,6 +524,16 @@ input[type="email"].field-input,
 .ctx-fields { display: none; flex-direction: column; gap: 10px; padding: 12px 14px 4px; }
 .ctx-fields.open { display: flex; }
 .ctx-input { font-size: 12px; }
+.ctx-live-extra { margin-top: 6px; }
+.ctx-sample-btn {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+.ctx-sample-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 .ctx-field-label {
   font-size: 10.5px; font-weight: 600; color: var(--text3);
   letter-spacing: 0.06em; text-transform: uppercase;
@@ -919,90 +929,6 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 .md-body tr:nth-child(even) td { background: var(--surface2); }
 .md-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
-/* ── UI Code tab ───────────────────────────────────────────────── */
-.ui-layout {
-  display: grid; grid-template-columns: 280px 1fr;
-  gap: 14px; height: calc(100vh - 120px);
-}
-.ui-file-list {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); display: flex; flex-direction: column;
-  overflow: hidden; box-shadow: var(--shadow);
-}
-.ui-file-list-header {
-  padding: 9px 12px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 8px;
-}
-.ui-file-list-header h4 { font-size: 12px; font-weight: 600; flex: 1; }
-.ui-stats { font-size: 10.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
-
-.ui-upload-zone { padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); }
-.ui-upload-zone-inner {
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-sm); padding: 14px;
-  text-align: center; cursor: pointer;
-  transition: border-color .15s, background .15s;
-}
-.ui-upload-zone-inner:hover,
-.ui-upload-zone-inner.drag-over { border-color: var(--accent); background: var(--accent-soft); }
-.ui-upload-zone-inner p { font-size: 11.5px; color: var(--text); margin-bottom: 3px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.ui-upload-zone-inner small { font-size: 10.5px; color: var(--text3); }
-.ui-upload-secondary { display: flex; gap: 5px; margin-top: 8px; }
-.ui-files-inner { overflow-y: auto; flex: 1; padding: 4px 0; }
-.ui-folder-header {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 10px; cursor: pointer;
-  font-size: 10.5px; font-weight: 600;
-  color: var(--text2); text-transform: uppercase;
-  letter-spacing: 0.04em; user-select: none;
-}
-.ui-folder-header:hover { color: var(--text); background: var(--surface2); }
-.ui-folder-header .fold-icon { font-size: 9px; transition: transform .15s; display: inline-block; }
-.ui-folder-header.collapsed .fold-icon { transform: rotate(-90deg); }
-.ui-folder-header .ico { width: 11px; height: 11px; color: var(--text3); }
-.ui-folder-files.hidden { display: none; }
-.ui-file-item {
-  display: flex; align-items: center; gap: 7px;
-  padding: 5px 10px 5px 20px; cursor: pointer;
-  font-size: 11.5px; color: var(--text2);
-}
-.ui-file-item:hover { background: var(--surface2); color: var(--text); }
-.ui-file-item.active { background: var(--surface2); color: var(--accent); position: relative; }
-.ui-file-item.active::before {
-  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px;
-  background: var(--accent); border-radius: 1px;
-}
-.ext-badge {
-  font-size: 9px; background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 3px; padding: 1px 4px;
-  font-family: 'Geist Mono', monospace; flex-shrink: 0;
-  color: var(--text3); font-weight: 500;
-}
-.fi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'Geist Mono', monospace; font-size: 11px; }
-.fi-del { opacity: 0; color: var(--text3); font-size: 11px; padding: 2px 4px; border-radius: 3px; flex-shrink: 0; line-height: 0; }
-.ui-file-item:hover .fi-del { opacity: 1; }
-.fi-del:hover { color: var(--red); background: var(--red-soft); }
-.ui-footer { padding: 8px 10px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
-
-.ui-code-view {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  display: flex; flex-direction: column; box-shadow: var(--shadow);
-}
-.ui-code-view-header {
-  padding: 9px 12px; border-bottom: 1px solid var(--border);
-  font-size: 11px; color: var(--text2);
-  font-family: 'Geist Mono', monospace;
-  background: var(--surface2); display: flex; align-items: center; gap: 8px;
-}
-.ui-code-view-header .file-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ui-code-view pre {
-  flex: 1; overflow: auto; padding: 16px;
-  font-family: 'Geist Mono', monospace; font-size: 11.5px;
-  line-height: 1.6; color: var(--text);
-  background: var(--surface); margin: 0; white-space: pre;
-}
 .ui-empty {
   display: flex; align-items: center; justify-content: center; flex: 1;
   color: var(--text3); font-size: 12.5px;
@@ -1706,11 +1632,6 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-file-text"/></svg>
         <span class="nav-label">Çıktılar</span>
       </div>
-      <div class="nav-item" id="nav-ui-code" onclick="switchTab('ui-code')">
-        <svg class="ico"><use href="#i-monitor"/></svg>
-        <span class="nav-label">Mevcut UI</span>
-        <span class="badge" id="ui-badge" style="display:none">0</span>
-      </div>
       <div class="nav-item" id="nav-referanslar" onclick="switchTab('referanslar')">
         <svg class="ico"><use href="#i-book"/></svg>
         <span class="nav-label">Referanslar</span>
@@ -1971,7 +1892,7 @@ function temaDegistir() {
       <div class="ctx-toggle" id="ctx-toggle" onclick="toggleCtx()">
         <svg class="ico"><use href="#i-filter"/></svg>
         <span class="ctx-toggle-label">Bağlam Filtresi</span>
-        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="AI'a hangi referansları (Confluence, Jira, Swagger) göstermek istediğinizi daraltır. Yüzlerce sayfa yerine sadece projenizle ilgili olanları AI'a verir → daha hızlı ve doğru analiz. Boş bırakırsanız tüm senkronize kaynaklar AI'a verilir.">?</span>
+        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="AI'a hangi referansları (Confluence, Jira, Swagger, canlı uygulama) göstermek istediğinizi daraltır. Canlı uygulama URL'leri doluysa Claude MCP/Chrome ile ekran ve servis gözlemi analize dahil edilir.">?</span>
         <span id="ctx-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
         <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
       </div>
@@ -1990,6 +1911,23 @@ function temaDegistir() {
           <div class="ctx-field-label">Confluence Sayfa Adları</div>
           <div class="ctx-field-sub">Boş bırakılırsa içerik bazlı aranır</div>
           <input class="ctx-input" id="ctx-conf-pages" type="text" placeholder="örn: Ödeme Entegrasyonu, Kullanıcı Yönetimi" oninput="updateCtxBadge()">
+        </div>
+        <div>
+          <div class="ctx-field-label">MCP Ana Uygulama URL</div>
+          <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler</div>
+          <input class="ctx-input" id="ctx-live-target" type="url" placeholder="https://dev.example.com/app" oninput="updateCtxBadge()">
+          <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
+            Örnek ekran olarak kullan
+          </button>
+        </div>
+        <div>
+          <div class="ctx-field-label">MCP Alt URL'ler</div>
+          <div class="ctx-field-sub">Sırayla gezilecek ek ekranlar; boş bırakılanlar atlanır</div>
+          <input class="ctx-input ctx-live-extra" type="url" placeholder="1. alt URL" oninput="updateCtxBadge()">
+          <input class="ctx-input ctx-live-extra" type="url" placeholder="2. alt URL" oninput="updateCtxBadge()">
+          <input class="ctx-input ctx-live-extra" type="url" placeholder="3. alt URL" oninput="updateCtxBadge()">
+          <input class="ctx-input ctx-live-extra" type="url" placeholder="4. alt URL" oninput="updateCtxBadge()">
+          <input class="ctx-input ctx-live-extra" type="url" placeholder="5. alt URL" oninput="updateCtxBadge()">
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-outline btn-sm" onclick="ctxFilterKaydet()">Kaydet</button>
@@ -2378,66 +2316,6 @@ function temaDegistir() {
               <svg class="ico"><use href="#i-check"/></svg> Kaydet
             </button>
             <button class="btn btn-outline btn-sm" onclick="editIptal()">İptal</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─── UI CODE ─── -->
-    <div class="page" id="page-ui-code">
-      <div class="ui-layout">
-        <!-- Sol -->
-        <div class="ui-file-list">
-          <div class="ui-file-list-header">
-            <h4>Mevcut UI Kodu</h4>
-            <span class="ui-stats" id="ui-stats">0 dosya</span>
-          </div>
-
-          <div class="ui-upload-zone">
-            <div class="ui-upload-zone-inner" id="ui-zip-zone"
-                 onclick="document.getElementById('ui-zip-input').click()"
-                 ondrop="uiZipDrop(event)"
-                 ondragover="event.preventDefault();document.getElementById('ui-zip-zone').classList.add('drag-over')"
-                 ondragleave="document.getElementById('ui-zip-zone').classList.remove('drag-over')">
-              <p><svg class="ico"><use href="#i-zip"/></svg> Proje Export (.zip) Yükle</p>
-              <small>Tüm modül tek seferde — node_modules ve build klasörleri otomatik atlanır</small>
-            </div>
-            <input type="file" id="ui-zip-input" accept=".zip" style="display:none" onchange="uiZipYukle(this)">
-
-            <div class="ui-upload-secondary">
-              <input type="file" id="ui-folder-input" webkitdirectory multiple style="display:none" onchange="uiDosyaYukle(this)">
-              <input type="file" id="ui-files-input" multiple
-                accept=".tsx,.jsx,.ts,.js,.mjs,.vue,.html,.css,.scss,.yml,.yaml,.json,.svelte"
-                style="display:none" onchange="uiDosyaYukle(this)">
-              <button class="btn btn-outline btn-xs" style="flex:1" onclick="document.getElementById('ui-folder-input').click()">
-                <svg class="ico"><use href="#i-folder"/></svg> Klasör Seç
-              </button>
-              <button class="btn btn-outline btn-xs" style="flex:1" onclick="document.getElementById('ui-files-input').click()">
-                <svg class="ico"><use href="#i-plus"/></svg> Dosya Ekle
-              </button>
-            </div>
-          </div>
-
-          <div class="ui-files-inner" id="ui-files-inner">
-            <div class="ui-empty" style="padding:30px">
-              <span>Henüz dosya yok</span>
-              <span style="font-size:11px">Zip yükleyin veya klasör seçin</span>
-            </div>
-          </div>
-
-          <div class="ui-footer">
-            <button class="btn btn-outline btn-xs" style="flex:1;color:var(--text3)" onclick="uiTumunuTemizle()">
-              <svg class="ico"><use href="#i-trash"/></svg> Tümünü Temizle
-            </button>
-          </div>
-        </div>
-
-        <!-- Sağ -->
-        <div class="ui-code-view" id="ui-code-view">
-          <div class="ui-empty">
-            <svg class="ico"><use href="#i-code"/></svg>
-            <span>Soldan bir dosya seçin</span>
-            <span style="font-size:10.5px;max-width:260px;text-align:center;color:var(--text3)">Teknik analizde ve alternatif süreç üretiminde bu kodlar otomatik bağlam olarak eklenir</span>
           </div>
         </div>
       </div>
@@ -2896,7 +2774,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri',output:'Çıktılar','ui-code':'Mevcut UI',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Jira Görevleri sekmesi: üst bar workflow yerine bu sayfanın durumunu gösterir
   _jgTabAktif = (tab === 'jira-gorevler');
@@ -2904,7 +2782,6 @@ function switchTab(tab, hedefDosya) {
   else if (_lastState) { updateUI(_lastState); }   // başka sekmeye dönünce workflow durumunu geri yükle
   if (tab === 'history')       loadHistory();
   if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
-  if (tab === 'ui-code')       loadUiFiles();
   if (tab === 'settings')      settingsYukle();
   if (tab === 'jira-settings') jiraConfigYukle();
   if (tab === 'prompts')       promptlariYukle();
@@ -3617,17 +3494,38 @@ function splitCtx(val, mode) {
   return out;
 }
 
+let _ctxUseAsSample = false;
+
+function ctxSampleToggle(force) {
+  _ctxUseAsSample = (typeof force === 'boolean') ? force : !_ctxUseAsSample;
+  const btn = document.getElementById('ctx-sample-btn');
+  if (btn) {
+    btn.classList.toggle('active', _ctxUseAsSample);
+    btn.textContent = _ctxUseAsSample ? 'Örnek ekran olarak kullanılıyor' : 'Örnek ekran olarak kullan';
+  }
+  updateCtxBadge();
+}
+
 function buildContextFilter() {
+  const liveExtras = Array.from(document.querySelectorAll('.ctx-live-extra'))
+    .map(el => el.value.trim())
+    .filter(Boolean);
   return {
     keywords:         splitCtx(document.getElementById('ctx-keywords').value, 'lower'),
     jira_keys:        splitCtx(document.getElementById('ctx-jira-keys').value, 'upper'),
     confluence_pages: splitCtx(document.getElementById('ctx-conf-pages').value, 'lower'),
+    live_app: {
+      target_url: document.getElementById('ctx-live-target').value.trim(),
+      extra_urls: splitCtx(liveExtras.join(',')),
+      use_as_sample: _ctxUseAsSample,
+    },
   };
 }
 
 function updateCtxBadge() {
   const ctx = buildContextFilter();
-  const hasAny = ctx.keywords.length || ctx.jira_keys.length || ctx.confluence_pages.length;
+  const hasLive = ctx.live_app.target_url || ctx.live_app.extra_urls.length || ctx.live_app.use_as_sample;
+  const hasAny = ctx.keywords.length || ctx.jira_keys.length || ctx.confluence_pages.length || hasLive;
   document.getElementById('ctx-active-badge').style.display = hasAny ? 'inline-flex' : 'none';
 }
 
@@ -4698,14 +4596,6 @@ async function kontolEtRerun(eskiMtime) {
   }
 }
 
-// ─── UI Code ─────────────────────────────────────────────────────────────────
-const EXT_COLOR = {
-  '.tsx':'#61dafb','.jsx':'#61dafb','.ts':'#3178c6','.js':'#f7df1e','.mjs':'#f7df1e',
-  '.vue':'#42b883','.svelte':'#ff3e00','.html':'#e34c26',
-  '.css':'#264de4','.scss':'#cd6799','.less':'#1d365d',
-  '.yml':'#cb9820','.yaml':'#cb9820','.json':'#8bc34a','.cjs':'#f7df1e',
-};
-
 function _overlay(goster, mesaj='', alt='') {
   const el = document.getElementById('upload-overlay');
   el.classList.toggle('visible', goster);
@@ -4713,178 +4603,6 @@ function _overlay(goster, mesaj='', alt='') {
     document.getElementById('overlay-msg').textContent  = mesaj;
     document.getElementById('overlay-sub').textContent = alt;
   }
-}
-
-async function uiZipYukle(input) {
-  const file = input.files[0];
-  if (!file) return;
-  input.value = '';
-  document.getElementById('ui-zip-zone').classList.remove('drag-over');
-
-  _overlay(true, `"${file.name}" yükleniyor...`, 'node_modules ve build klasörleri atlanıyor');
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('mode', 'replace');
-    const r = await fetch('/api/upload-ui-project', {method:'POST', body: fd});
-    let d;
-    try { d = await r.json(); } catch { d = {}; }
-    if (!r.ok) {
-      toast(d.error || `Sunucu hatası (${r.status})`, 'error');
-      return;
-    }
-    if (d.dosya_sayisi === 0) {
-      toast(`Dosya yüklenmedi — zip içinde desteklenen kaynak dosyası bulunamadı (${d.atlananlar || 0} atlandı)`, 'warning');
-    } else {
-      toast(`${d.dosya_sayisi} dosya yüklendi${d.atlananlar ? ` · ${d.atlananlar} atlandı` : ''}`, 'success');
-    }
-    loadUiFiles();
-  } catch (e) {
-    toast('Yükleme hatası: ' + e.message, 'error');
-  } finally {
-    _overlay(false);
-  }
-}
-
-function uiZipDrop(e) {
-  e.preventDefault();
-  document.getElementById('ui-zip-zone').classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (!file) return;
-  if (!file.name.endsWith('.zip')) { toast('Yalnızca .zip dosyası kabul edilir', 'error'); return; }
-  const dt = new DataTransfer(); dt.items.add(file);
-  const input = document.getElementById('ui-zip-input');
-  input.files = dt.files;
-  uiZipYukle(input);
-}
-
-async function uiDosyaYukle(input) {
-  const files = Array.from(input.files);
-  if (!files.length) return;
-
-  _overlay(true, `${files.length} dosya yükleniyor...`, '');
-  try {
-    const fd = new FormData();
-    files.forEach(f => {
-      const goreceli = f.webkitRelativePath || f.name;
-      fd.append('files', new Blob([f], {type: f.type}), goreceli);
-    });
-    const r = await fetch('/api/upload-ui-code', {method:'POST', body: fd});
-    let d;
-    try { d = await r.json(); } catch { d = {}; }
-    if (!r.ok) {
-      toast(d.error || `Sunucu hatası (${r.status})`, 'error');
-      return;
-    }
-    const n = (d.yuklenenler || []).length;
-    if (n === 0) {
-      toast('Desteklenen dosya bulunamadı — .tsx .ts .js .vue .css .json vb. seçin', 'warning');
-    } else {
-      toast(`${n} dosya yüklendi`, 'success');
-    }
-    loadUiFiles();
-  } catch (e) {
-    toast('Yükleme hatası: ' + e.message, 'error');
-  } finally {
-    _overlay(false);
-    input.value = '';
-  }
-}
-
-async function loadUiFiles() {
-  const r = await fetch('/api/ui-files');
-  const dosyalar = await r.json();
-
-  const badge = document.getElementById('ui-badge');
-  const stats = document.getElementById('ui-stats');
-  badge.style.display = dosyalar.length ? 'inline-flex' : 'none';
-  badge.textContent   = dosyalar.length;
-  const toplamBoyut   = dosyalar.reduce((s,f) => s + f.boyut, 0);
-  stats.textContent   = `${dosyalar.length} dosya · ${formatBytes(toplamBoyut)}`;
-
-  const inner = document.getElementById('ui-files-inner');
-  if (!dosyalar.length) {
-    inner.innerHTML = '<div class="ui-empty" style="padding:30px"><span>Henüz dosya yok</span><span style="font-size:11px">Zip yükleyin veya klasör seçin</span></div>';
-    return;
-  }
-
-  // Klasöre göre grupla
-  const gruplar = {};
-  dosyalar.forEach(f => {
-    const k = f.klasor || '(kök)';
-    if (!gruplar[k]) gruplar[k] = [];
-    gruplar[k].push(f);
-  });
-
-  const html = Object.keys(gruplar).sort().map(klasor => {
-    const dosyaHtml = gruplar[klasor].map(f => {
-      const renk = EXT_COLOR[f.uzanti] || '#aaa';
-      const yolEncoded = encodeURIComponent(f.yol);
-      return `
-        <div class="ui-file-item" data-yol="${f.yol}" onclick="uiDosyaGoster('${f.yol}', this)">
-          <span class="ext-badge" style="color:${renk}">${f.uzanti.slice(1)}</span>
-          <span class="fi-name" title="${f.yol}">${f.ad}</span>
-          <span class="fi-del" onclick="uiDosyaSil(event,'${f.yol}')" title="Sil">✕</span>
-        </div>`;
-    }).join('');
-
-    const klasorAdi = klasor === '(kök)' ? '<svg class="ico"><use href="#i-file-text"/></svg><span>Kök</span>' : `<svg class="ico"><use href="#i-folder"/></svg><span>${klasor}</span>`;
-    return `
-      <div class="ui-folder">
-        <div class="ui-folder-header" onclick="klasorToggle(this)">
-          <span class="fold-icon">▾</span>
-          <span>${klasorAdi}</span>
-          <span style="margin-left:auto;font-size:10px;color:var(--text3)">${gruplar[klasor].length}</span>
-        </div>
-        <div class="ui-folder-files">${dosyaHtml}</div>
-      </div>`;
-  }).join('');
-
-  inner.innerHTML = html;
-}
-
-function klasorToggle(header) {
-  header.classList.toggle('collapsed');
-  header.nextElementSibling.classList.toggle('hidden');
-}
-
-async function uiDosyaGoster(yol, el) {
-  document.querySelectorAll('.ui-file-item').forEach(i => i.classList.remove('active'));
-  el.classList.add('active');
-
-  const r = await fetch(`/api/ui-files/content?yol=${encodeURIComponent(yol)}`);
-  if (!r.ok) { toast('Dosya okunamadı', 'error'); return; }
-  const icerik = await r.text();
-  const uzanti = yol.split('.').pop();
-  const view   = document.getElementById('ui-code-view');
-  const escaped = icerik.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  view.innerHTML = `
-    <div class="ui-code-view-header">
-      <span class="file-path">${yol}</span>
-      <span style="font-size:10px;color:var(--text3)">${formatBytes(new Blob([icerik]).size)}</span>
-    </div>
-    <pre>${escaped}</pre>`;
-}
-
-async function uiDosyaSil(e, yol) {
-  e.stopPropagation();
-  if (!confirm(`"${yol}" dosyası silinsin mi?`)) return;
-  await fetch('/api/ui-files/delete', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({yol})
-  });
-  document.getElementById('ui-code-view').innerHTML =
-    '<div class="ui-empty"><span>Dosya silindi</span></div>';
-  loadUiFiles();
-}
-
-async function uiTumunuTemizle() {
-  if (!confirm('Tüm UI dosyaları silinsin mi?')) return;
-  await fetch('/api/ui-files/clear', {method:'POST'});
-  document.getElementById('ui-code-view').innerHTML =
-    '<div class="ui-empty"><svg class="ico"><use href="#i-code"/></svg><span>Tüm dosyalar temizlendi</span></div>';
-  loadUiFiles();
-  toast('Tüm UI dosyaları silindi', 'info');
 }
 
 // ─── History ─────────────────────────────────────────────────────────────────
@@ -5555,19 +5273,20 @@ async function ctxFilterYukle() {
     document.getElementById('ctx-keywords').value    = (d.keywords||[]).join(', ');
     document.getElementById('ctx-jira-keys').value   = (d.jira_keys||[]).join(', ');
     document.getElementById('ctx-conf-pages').value  = (d.confluence_pages||[]).join(', ');
+    document.getElementById('ctx-live-target').value = d.live_app?.target_url || '';
+    document.querySelectorAll('.ctx-live-extra').forEach((el, i) => {
+      el.value = (d.live_app?.extra_urls || [])[i] || '';
+    });
+    ctxSampleToggle(d.live_app?.use_as_sample === true);
     updateCtxBadge();
   } catch {}
 }
 
 async function ctxFilterKaydet() {
-  const parse = (id, mode) => splitCtx(document.getElementById(id).value, mode);
+  const ctx = buildContextFilter();
   const r = await fetch('/api/context-filter', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      keywords:         parse('ctx-keywords', 'lower'),
-      jira_keys:        parse('ctx-jira-keys', 'upper'),
-      confluence_pages: parse('ctx-conf-pages', 'lower'),
-    })
+    body: JSON.stringify(ctx)
   });
   const d = await r.json();
   const st = document.getElementById('ctx-save-status');
@@ -5581,10 +5300,13 @@ async function ctxFilterKaydet() {
 async function ctxFilterTemizle() {
   const r = await fetch('/api/context-filter', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({keywords:[], jira_keys:[], confluence_pages:[]})
+    body: JSON.stringify({keywords:[], jira_keys:[], confluence_pages:[], live_app:{target_url:'', extra_urls:[], use_as_sample:false}})
   });
   if (r.ok) {
-    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages'].forEach(id => document.getElementById(id).value='');
+    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages','ctx-live-target'].forEach(id => document.getElementById(id).value='');
+    document.querySelectorAll('.ctx-live-extra').forEach(el => { el.value = ''; });
+    ctxSampleToggle(false);
+    updateCtxBadge();
     toast('Filtre temizlendi', 'info');
   }
 }
@@ -5739,7 +5461,6 @@ async function confluenceDiagnose() {
 (async () => {
   switchTab('surec');
   await refreshOutputTabs();
-  await loadUiFiles();
   await ctxFilterYukle();
   const r = await fetch('/api/workflow-state');
   const s = await r.json();

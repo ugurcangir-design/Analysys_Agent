@@ -23,7 +23,7 @@ GET  /api/outputs              Mevcut çıktıları listele
 GET  /api/output/<ad>          İçerik oku
 POST /api/output/delete        Çıktıyı sil
 GET  /api/reference/list       Referans dosya ağacı
-POST /api/reference/upload/<kategori>
+POST /api/reference/upload/<kategori>  kategori: confluence / jira / services / live-app
 POST /api/reference/delete
 GET  /api/reference/content
 POST /api/reference/fetch-be   Backend'den içerik çek
@@ -70,6 +70,6 @@ GET  /api/prompts              16 prompt + override durumu
 POST /api/prompts/<id>         Prompt özelleştirme kaydet
 POST /api/prompts/<id>/reset   Varsayılana dön
 GET  /api/context-filter
-POST /api/context-filter
+POST /api/context-filter       keyword/jira/confluence + live_app.target_url/extra_urls/use_as_sample
 GET  /api/history              Son 5 çalıştırma arşivi
 ```

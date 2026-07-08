@@ -12,7 +12,6 @@ import shutil
 import logging
 import logging.handlers
 import secrets
-import zipfile
 import subprocess
 import threading
 import tempfile
@@ -37,13 +36,13 @@ REF_DIR    = BASE_DIR / "reference"
 HISTORY_DIR = BASE_DIR / "history"
 LOG_DIR    = BASE_DIR / "logs"
 
-UI_CODE_DIR  = REF_DIR / "ui-code"
 CONF_DIR     = REF_DIR / "confluence"
 JIRA_REF_DIR = REF_DIR / "jira"
 SERVIS_DIR   = REF_DIR / "services"
+LIVE_APP_DIR = REF_DIR / "live-app"
 
-for d in [INPUT_DIR, OUTPUT_DIR, REF_DIR / "current-brd", UI_CODE_DIR,
-          CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, HISTORY_DIR, LOG_DIR]:
+for d in [INPUT_DIR, OUTPUT_DIR, REF_DIR / "current-brd",
+          CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR, HISTORY_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = LOG_DIR / "app.log"
@@ -239,21 +238,6 @@ def csrf_kontrol():
         return jsonify({"error": "Cross-origin isteği reddedildi"}), 403
 
 IZIN_VERILEN_UZANTILAR = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md", ".webp", ".docx"}
-UI_UZANTILAR = {
-    ".tsx", ".jsx", ".ts", ".js", ".mjs", ".cjs",
-    ".vue", ".svelte",
-    ".html", ".css", ".scss", ".less",
-    ".yml", ".yaml", ".json",
-}
-
-# Zip extraction sırasında atlanacak klasörler
-ZIP_ATLA_KLASORLER = {
-    "node_modules", ".git", "__pycache__", "dist", "build",
-    ".next", ".nuxt", "coverage", ".cache", ".vite", "out",
-    ".turbo", ".vercel", "storybook-static",
-}
-ZIP_MAX_DOSYA_BOYUTU = 512 * 1024       # 512 KB tek dosya
-ZIP_MAX_TOPLAM_BOYUT = 50 * 1024 * 1024  # 50 MB toplam unzipped
 IZIN_VERILEN_CIKTILAR = {
     "surec-analizi.md",
     "teknik-analiz.md",
@@ -272,17 +256,20 @@ REFERANS_KATEGORILER = {
     "confluence": {".md", ".txt", ".html", ".pdf"},
     "jira":       {".json"},
     "services":   {".json", ".yaml", ".yml"},
+    "live-app":   {".md", ".txt", ".json", ".html"},
 }
 REFERANS_DIZINLER = {
     "confluence": None,  # app init'te set edilecek
     "jira":       None,
     "services":   None,
+    "live-app":   None,
 }
 HISTORY_LIMIT = 5
 
 REFERANS_DIZINLER["confluence"] = CONF_DIR
 REFERANS_DIZINLER["jira"]       = JIRA_REF_DIR
 REFERANS_DIZINLER["services"]   = SERVIS_DIR
+REFERANS_DIZINLER["live-app"]   = LIVE_APP_DIR
 
 # Sources (Veri Kaynakları) — Confluence spaces + Jira projeleri listesi
 SOURCES_PATH = REF_DIR / "sources.json"
@@ -982,203 +969,6 @@ def save_history():
     return jsonify({"ok": True})
 
 
-def _zip_guvenlimi(member_path: str) -> bool:
-    """Zip üyesinin güvenli olup olmadığını kontrol et (zip-slip + atlanacak klasörler)."""
-    p = Path(member_path)
-    # Path traversal
-    if ".." in p.parts:
-        return False
-    # Atlanacak klasör
-    for parca in p.parts:
-        if parca in ZIP_ATLA_KLASORLER:
-            return False
-    return True
-
-
-def _zip_cikart(zip_yolu: str, hedef_dizin: Path, temizle: bool = True) -> dict:
-    """
-    Zip dosyasını hedef_dizin içine çıkart.
-    Güvenlik kontrolleri: zip-slip, atlanacak klasörler, boyut limiti, uzantı filtresi.
-    Returns: {"yuklenenler": [...], "atlananlar": int, "toplam_boyut": int}
-    """
-    if temizle:
-        shutil.rmtree(hedef_dizin, ignore_errors=True)
-    hedef_dizin.mkdir(parents=True, exist_ok=True)
-
-    yuklenenler = []
-    atlanan = 0
-    toplam_boyut = 0
-
-    with zipfile.ZipFile(zip_yolu, "r") as zf:
-        for uye in zf.infolist():
-            if uye.is_dir():
-                continue
-
-            # Güvenlik + klasör filtresi
-            if not _zip_guvenlimi(uye.filename):
-                atlanan += 1
-                continue
-
-            p = Path(uye.filename)
-            if p.suffix.lower() not in UI_UZANTILAR:
-                atlanan += 1
-                continue
-
-            # Boyut kontrolleri
-            if uye.file_size > ZIP_MAX_DOSYA_BOYUTU:
-                atlanan += 1
-                continue
-            if toplam_boyut + uye.file_size > ZIP_MAX_TOPLAM_BOYUT:
-                atlanan += 1
-                continue
-            # Zip bomb koruması: sıkıştırma oranı > 100 ise reddet
-            if uye.compress_size > 0 and uye.file_size / uye.compress_size > 100:
-                logger.warning(f"Zip bomb adayı atlandı: {uye.filename} (oran: {uye.file_size // max(uye.compress_size,1)}x)")
-                atlanan += 1
-                continue
-
-            # Hedef yolu hesapla — zip içindeki ilk ortak ön eki kır
-            hedef_yol = (hedef_dizin / uye.filename).resolve()
-            if not str(hedef_yol).startswith(str(hedef_dizin.resolve())):
-                atlanan += 1
-                continue
-
-            hedef_yol.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(uye) as src:
-                hedef_yol.write_bytes(src.read())
-
-            yuklenenler.append(str(p))
-            toplam_boyut += uye.file_size
-
-    return {"yuklenenler": yuklenenler, "atlananlar": atlanan, "toplam_boyut": toplam_boyut}
-
-
-@app.route("/api/upload-ui-project", methods=["POST"])
-def upload_ui_project():
-    """
-    Proje export zip dosyasını yükle, çıkart ve reference/ui-code/ içine kaydet.
-    mode: 'replace' (varsayılan) — mevcut dosyaları temizler, 'merge' — üzerine ekler.
-    """
-    if "file" not in request.files:
-        return jsonify({"error": "Dosya seçilmedi"}), 400
-
-    f = request.files["file"]
-    if not f.filename or Path(f.filename).suffix.lower() != ".zip":
-        return jsonify({"error": "Yalnızca .zip dosyası kabul edilir"}), 400
-
-    mode = request.form.get("mode", "replace")
-
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
-        f.save(tmp.name)
-        tmp_yol = tmp.name
-
-    try:
-        sonuc = _zip_cikart(tmp_yol, UI_CODE_DIR, temizle=(mode == "replace"))
-    except zipfile.BadZipFile:
-        return jsonify({"error": "Geçersiz zip dosyası"}), 400
-    except Exception as e:
-        logger.error(f"Zip çıkartma hatası: {e}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        try:
-            os.unlink(tmp_yol)
-        except Exception:
-            pass
-
-    logger.info(f"UI proje yüklendi: {len(sonuc['yuklenenler'])} dosya, {sonuc['atlananlar']} atlandı")
-    return jsonify({
-        "ok": True,
-        "dosya_sayisi": len(sonuc["yuklenenler"]),
-        "atlananlar": sonuc["atlananlar"],
-        "toplam_boyut": sonuc["toplam_boyut"],
-    })
-
-
-@app.route("/api/upload-ui-code", methods=["POST"])
-def upload_ui_code():
-    """Tekil UI kaynak dosyalarını yükle (webkitdirectory veya çoklu seçim)."""
-    dosyalar = request.files.getlist("files")
-    if not dosyalar:
-        return jsonify({"error": "Dosya seçilmedi"}), 400
-
-    yuklenenler = []
-    hatalar = []
-
-    for f in dosyalar:
-        if not f.filename:
-            continue
-        suffix = Path(f.filename).suffix.lower()
-        if suffix not in UI_UZANTILAR:
-            hatalar.append(f"{f.filename}: desteklenmeyen tür")
-            continue
-
-        # webkitdirectory ile gelen göreceli yolu koru
-        goreceli = f.filename.replace("\\", "/").lstrip("/")
-        if ".." in goreceli:
-            continue
-        hedef = UI_CODE_DIR / goreceli
-        # Path traversal koruması
-        if not str(hedef.resolve()).startswith(str(UI_CODE_DIR.resolve())):
-            continue
-        hedef.parent.mkdir(parents=True, exist_ok=True)
-        f.save(str(hedef))
-        yuklenenler.append(goreceli)
-
-    logger.info(f"UI kodu yüklendi: {len(yuklenenler)} dosya")
-    return jsonify({"ok": True, "yuklenenler": yuklenenler, "hatalar": hatalar})
-
-
-@app.route("/api/ui-files")
-def ui_files():
-    """Yüklü UI dosyalarını listele."""
-    from agent import ui_dosyalari_listele
-    return jsonify(ui_dosyalari_listele())
-
-
-@app.route("/api/ui-files/content", methods=["GET"])
-def ui_file_icerik():
-    """Göreceli yol ile UI dosyası içeriğini döndür. ?yol=src/components/Button.tsx"""
-    goreceli = request.args.get("yol", "")
-    if not goreceli or ".." in goreceli:
-        abort(400)
-    yol = (UI_CODE_DIR / goreceli).resolve()
-    if not str(yol).startswith(str(UI_CODE_DIR.resolve())):
-        abort(400)
-    if not yol.exists() or yol.suffix.lower() not in UI_UZANTILAR:
-        abort(404)
-    return yol.read_text(encoding="utf-8", errors="replace"), 200, {
-        "Content-Type": "text/plain; charset=utf-8"
-    }
-
-
-@app.route("/api/ui-files/delete", methods=["POST"])
-def ui_file_sil():
-    data = request.get_json(silent=True) or {}
-    goreceli = data.get("yol", "")
-    if not goreceli or ".." in goreceli:
-        abort(400)
-    yol = (UI_CODE_DIR / goreceli).resolve()
-    if not str(yol).startswith(str(UI_CODE_DIR.resolve())):
-        abort(400)
-    if yol.exists():
-        yol.unlink()
-        # Boş klasörleri temizle
-        try:
-            yol.parent.rmdir()
-        except Exception:
-            pass
-    return jsonify({"ok": True})
-
-
-@app.route("/api/ui-files/clear", methods=["POST"])
-def ui_files_temizle():
-    """Tüm UI dosyalarını sil."""
-    shutil.rmtree(UI_CODE_DIR, ignore_errors=True)
-    UI_CODE_DIR.mkdir(parents=True, exist_ok=True)
-    logger.info("UI kodu temizlendi.")
-    return jsonify({"ok": True})
-
-
 @app.route("/api/save-output", methods=["POST"])
 def save_output():
     """Kullanıcının UI'da düzenlediği çıktıyı kaydet."""
@@ -1762,6 +1552,7 @@ def reference_upload(kategori: str):
 
     izin_uzantilar = REFERANS_KATEGORILER[kategori]
     dizin = REFERANS_DIZINLER[kategori]
+    dizin.mkdir(parents=True, exist_ok=True)
     yuklenenler = []
     hatalar = []
 
@@ -1993,10 +1784,12 @@ def context_filter_oku():
     p = REF_DIR / "context_filter.json"
     if p.exists():
         try:
-            return jsonify(json.loads(p.read_text(encoding="utf-8")))
+            data = json.loads(p.read_text(encoding="utf-8"))
+            data.setdefault("live_app", {"target_url": "", "extra_urls": [], "use_as_sample": False})
+            return jsonify(data)
         except Exception:
             pass
-    return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": []})
+    return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [], "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False}})
 
 
 @app.route("/api/context-filter", methods=["POST"])
@@ -2020,10 +1813,37 @@ def context_filter_kaydet():
             sonuc.append(metin)
         return sonuc
 
+    def temiz_url_liste(degerler, limit=6):
+        sonuc = []
+        gorulen = set()
+        for deger in degerler or []:
+            url = str(deger).strip()
+            if not url or not re.match(r"^https?://", url, re.IGNORECASE):
+                continue
+            anahtar = url.rstrip("/").casefold()
+            if anahtar in gorulen:
+                continue
+            gorulen.add(anahtar)
+            sonuc.append(url)
+            if len(sonuc) >= limit:
+                break
+        return sonuc
+
+    live_app = data.get("live_app") if isinstance(data.get("live_app"), dict) else {}
+    extra_urls = live_app.get("extra_urls", [])
+    if not isinstance(extra_urls, list):
+        extra_urls = []
+    live_urls = temiz_url_liste([live_app.get("target_url", "")] + extra_urls, limit=6)
+
     filtre = {
         "keywords": temiz_liste(data.get("keywords", []), lower=True),
         "jira_keys": temiz_liste(data.get("jira_keys", []), upper=True),
         "confluence_pages": temiz_liste(data.get("confluence_pages", []), lower=True),
+        "live_app": {
+            "target_url": live_urls[0] if live_urls else "",
+            "extra_urls": live_urls[1:6],
+            "use_as_sample": bool(live_app.get("use_as_sample")),
+        },
     }
     p = REF_DIR / "context_filter.json"
     p.write_text(json.dumps(filtre, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -2669,7 +2489,10 @@ if __name__ == "__main__":
         _wf.sifirla()
 
     import socket
-    local_ip = socket.gethostbyname(socket.gethostname())
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+    except socket.gaierror:
+        local_ip = "127.0.0.1"
     if host == "0.0.0.0":
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
     else:
