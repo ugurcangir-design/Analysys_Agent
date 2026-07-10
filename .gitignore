@@ -56,3 +56,9 @@ reference/sources.json
 # ── Canlı uygulama (Chrome MCP): tarayıcı oturumu + üretilen MCP config ──
 .live-app-profile/
 .mcp.live-app.json
+
+# ── Agent araç artefaktları ──
+# @playwright/mcp sayfa snapshot çıktıları (runtime)
+.playwright-mcp/
+# .claude/skills ile birebir mükerrer (bkz. AGENTS.md)
+.agents/

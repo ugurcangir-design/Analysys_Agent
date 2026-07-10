@@ -9,10 +9,17 @@ import sys
 import base64
 import json
 import hashlib
+import logging
 import shutil
 import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
+
+# base.py 5 yerde logger.warning() çağırıyordu ama logger hiç tanımlı değildi
+# (ruff F821). O yollar çalıştığında graceful uyarı yerine NameError fırlıyordu:
+# npx yok → canlı uygulama çökmesi, CLI json parse fallback, stop_reason uyarısı,
+# max_tokens uyarısı, önbellek yazma hatası. atlassian.py ile aynı desen.
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 

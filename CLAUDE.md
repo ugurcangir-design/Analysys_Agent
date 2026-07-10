@@ -7,7 +7,7 @@ Flask + Python **3.10+** (`str|None`), tarayıcı SPA `http://localhost:5002`.
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
 - Çalışma GUI üzerinden (subprocess `run.py`); ayrı terminal test komutu yok.
-- Lint/test paketi yok — değişiklik sonrası `python -c "import ast; ast.parse(open('<dosya>').read())"` ile sözdizimi doğrula, app'i başlatıp boot logunu kontrol et.
+- Test paketi yok. **Lint: `venv/bin/ruff check <dosya>`** — commit öncesi çalıştır (F821 gibi gerçek bug'ları yakalar). Ayrıca app'i başlatıp boot logunu kontrol et.
 
 ## AI modu (KRİTİK — her analiz çağrısını etkiler)
 Pilot ekip **CLI modu**: `.env` `USE_CLAUDE_CLI=true` (Claude.ai aboneliği, per-token yok).
