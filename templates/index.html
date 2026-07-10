@@ -492,7 +492,7 @@ input[type="email"].field-input,
 /* ── Canlı uygulama (Chrome MCP) erişim durumu ── */
 .la-durum { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); }
 .la-satir { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.la-satir #la-metin { font-size: 12px; color: var(--text2); }
+.la-satir .la-metin { font-size: 12px; color: var(--text2); }
 .la-nokta { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
 .la-nokta.ok { background: var(--green); }
 .la-nokta.warn { background: var(--yellow); }
@@ -1935,7 +1935,7 @@ function temaDegistir() {
         <div class="la-durum" id="la-durum">
           <div class="la-satir">
             <span class="la-nokta" id="la-nokta"></span>
-            <span id="la-metin">Durum kontrol ediliyor…</span>
+            <span id="la-metin" class="la-metin">Durum kontrol ediliyor…</span>
             <span class="panel-spacer"></span>
             <button class="btn btn-outline btn-sm" type="button" id="la-login-btn" onclick="liveAppGiris()">
               Tarayıcıda Giriş Yap
@@ -2122,6 +2122,25 @@ function temaDegistir() {
             <svg class="ico"><use href="#i-filter"/></svg>
             <span><strong>Bağlam Filtresi aktif</strong> — <span id="jg-ctx-detay"></span> · Teknik Analiz Et bu filtreyi kullanır.</span>
             <button class="btn-link" onclick="switchTab('surec'); setTimeout(()=>document.getElementById('ctx-toggle').scrollIntoView({block:'center',behavior:'smooth'}),200)">Düzenle →</button>
+          </div>
+
+          <!-- Canlı Uygulama (Chrome MCP) — task bazlı Teknik Analiz Et bunu kullanır -->
+          <div class="ctx-field-label" style="margin-top:14px">Canlı Uygulama URL</div>
+          <div class="ctx-field-sub">Doluysa "Teknik Analiz Et" bu görev için Claude MCP/Chrome ile ekranı ve servisleri gezer</div>
+          <div class="jg-fetch-row">
+            <input class="ctx-input" id="jg-live-target" type="url" placeholder="https://dev.example.com/app" onchange="jgLiveAppKaydet(true)">
+          </div>
+          <div class="la-durum" id="jg-la-durum">
+            <div class="la-satir">
+              <span class="la-nokta" id="jg-la-nokta"></span>
+              <span id="jg-la-metin" class="la-metin">Durum kontrol ediliyor…</span>
+              <span class="panel-spacer"></span>
+              <button class="btn btn-outline btn-sm" type="button" id="jg-la-login-btn" onclick="jgLiveAppGiris()">
+                Tarayıcıda Giriş Yap
+              </button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="jgLiveAppDurumYenile()" title="Durumu yenile">↻</button>
+            </div>
+            <div class="la-ipucu" id="jg-la-ipucu"></div>
           </div>
         </div>
       </div>
@@ -2936,14 +2955,101 @@ async function jgCtxBilgiYukle() {
     if (ctx.jira_keys && ctx.jira_keys.length)          parcalar.push('Jira: ' + ctx.jira_keys.join(', '));
     if (ctx.confluence_pages && ctx.confluence_pages.length) parcalar.push('Confluence: ' + ctx.confluence_pages.join(', '));
     const bilgi = document.getElementById('jg-ctx-bilgi');
-    if (!bilgi) return;
-    if (parcalar.length) {
-      document.getElementById('jg-ctx-detay').textContent = parcalar.join(' · ');
-      bilgi.style.display = '';
-    } else {
-      bilgi.style.display = 'none';
+    if (bilgi) {
+      if (parcalar.length) {
+        document.getElementById('jg-ctx-detay').textContent = parcalar.join(' · ');
+        bilgi.style.display = '';
+      } else {
+        bilgi.style.display = 'none';
+      }
     }
+    const liveInput = document.getElementById('jg-live-target');
+    if (liveInput) liveInput.value = ctx.live_app?.target_url || '';
+    jgLiveAppDurumYenile();
   } catch {}
+}
+
+// ─── Canlı Uygulama (Chrome MCP) — Jira Görevleri'nden task bazlı erişim ─────
+// Aynı global context_filter.json'u kullanır (Bağlam Filtresi ile paylaşımlı);
+// keywords/jira_keys/confluence_pages alanlarını KAYBETMEMEK için önce mevcut
+// filtreyi okuyup sadece live_app.target_url'i güncelleyerek geri yazar.
+async function jgLiveAppKaydet(showToastMsg) {
+  const url = document.getElementById('jg-live-target').value.trim();
+  try {
+    const mevcut = await (await fetch('/api/context-filter')).json();
+    const govde = {
+      keywords: mevcut.keywords || [],
+      jira_keys: mevcut.jira_keys || [],
+      confluence_pages: mevcut.confluence_pages || [],
+      live_app: {
+        target_url: url,
+        extra_urls: (mevcut.live_app && mevcut.live_app.extra_urls) || [],
+        use_as_sample: !!(mevcut.live_app && mevcut.live_app.use_as_sample),
+      },
+    };
+    await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(govde)});
+    if (showToastMsg) toast('Canlı uygulama URL kaydedildi', 'info');
+    jgLiveAppDurumYenile();
+  } catch (e) {
+    toast('Kaydedilemedi: ' + e, 'error');
+  }
+}
+
+async function jgLiveAppDurumYenile() {
+  const nokta = document.getElementById('jg-la-nokta');
+  const metin = document.getElementById('jg-la-metin');
+  const ipucu = document.getElementById('jg-la-ipucu');
+  const btn   = document.getElementById('jg-la-login-btn');
+  if (!nokta) return;
+  try {
+    const d = await (await fetch('/api/live-app/status')).json();
+    if (!d.npx) {
+      nokta.className = 'la-nokta err';
+      metin.textContent = 'Node/npx bulunamadı — canlı uygulama devre dışı';
+      ipucu.textContent = 'Chrome MCP sunucusu npx ile çalışır. Node.js kurulu olmalı.';
+      btn.disabled = true; return;
+    }
+    btn.disabled = false;
+    if (!d.urls.length) {
+      nokta.className = 'la-nokta';
+      metin.textContent = 'Canlı uygulama kapalı';
+      ipucu.textContent = 'Bir URL girip kaydedin — bu görev için Teknik Analiz Et ekranı ve servisleri gezer.';
+      return;
+    }
+    if (!d.profil) {
+      nokta.className = 'la-nokta warn';
+      metin.textContent = 'Tarayıcı profili yok — giriş gerekli';
+      ipucu.textContent = 'Uygulama giriş istiyorsa "Tarayıcıda Giriş Yap" ile bir kez giriş yapın; oturum profile kaydedilir.';
+      return;
+    }
+    nokta.className = 'la-nokta ok';
+    metin.textContent = 'Profil hazır — analizde ekran + servisler gezilecek';
+    ipucu.textContent = `Hedef: ${d.hedef} · Not: profil hazır olması giriş yapıldığını garanti etmez.`;
+  } catch {
+    nokta.className = 'la-nokta err';
+    metin.textContent = 'Durum alınamadı';
+  }
+}
+
+async function jgLiveAppGiris() {
+  const btn = document.getElementById('jg-la-login-btn');
+  btn.disabled = true;
+  try {
+    await jgLiveAppKaydet(false);  // URL'i önce kaydet ki backend hedefi bilsin
+    const url = document.getElementById('jg-live-target').value.trim();
+    const d = await (await fetch('/api/live-app/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    })).json();
+    if (!d.ok) { toast(d.error || 'Giriş penceresi açılamadı', 'error'); return; }
+    toast('Chrome açıldı — giriş yapıp pencereyi kapatın', 'info');
+    document.getElementById('jg-la-ipucu').textContent = d.mesaj || '';
+  } catch (e) {
+    toast('Bağlantı hatası: ' + e, 'error');
+  } finally {
+    btn.disabled = false;
+    setTimeout(jgLiveAppDurumYenile, 1500);
+  }
 }
 
 // Benzer task linkine tıklayınca o karta götür (varsa açık grupta, yoksa açıp)

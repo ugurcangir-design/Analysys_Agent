@@ -181,6 +181,15 @@ noktası + "Tarayıcıda Giriş Yap" butonu. `live_app_profil_var_mi()` profil h
 
 **Kapalıyken:** live_app URL'i yoksa hiçbir ek argüman geçmez → normal analiz davranışı aynen korunur.
 
+**Jira Görevleri'nden erişim:** `_api_cagri_cli` her CLI çağrısında `_live_app_cli_argumanlari()`'nı
+koşulsuz çağırdığı için (`skills/base.py`), `gorev_analiz_et()` (Jira Görevleri → "Teknik Analiz Et",
+tek task için) de aynı global `context_filter.json`'daki live_app ayarını otomatik kullanır — ayrı bir
+kod yolu gerekmez. Yalnızca UI eksikti: Jira Görevleri sayfasına (`templates/index.html`, "Üst Görev"
+paneli) Bağlam Filtresi'yle aynı `.la-durum` bileşenini (`jg-live-target`/`jg-la-*` id'leriyle) ekleyen
+küçük bir widget var — `jgLiveAppKaydet()` her zaman ÖNCE mevcut filtreyi GET edip yalnızca
+`live_app.target_url`'i değiştirerek geri POST'lar (keywords/jira_keys/confluence_pages'i ezmemek
+için — `/api/context-filter` POST'u tam nesne bekler, kısmi gönderim diğer alanları siler).
+
 **Profil kilidi self-heal:** Chrome aynı `--user-data-dir`'i tek seferde yalnızca bir süreçte açabilir.
 Analist HEADED giriş penceresini kapatmayı unutursa hem yeni "Tarayıcıda Giriş Yap" tıklaması hem de
 analiz sırasındaki headless Playwright başlatması aynı kilide takılır (`claude -p` non-interactive
