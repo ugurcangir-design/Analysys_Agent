@@ -181,6 +181,16 @@ noktası + "Tarayıcıda Giriş Yap" butonu. `live_app_profil_var_mi()` profil h
 
 **Kapalıyken:** live_app URL'i yoksa hiçbir ek argüman geçmez → normal analiz davranışı aynen korunur.
 
+**Profil kilidi self-heal:** Chrome aynı `--user-data-dir`'i tek seferde yalnızca bir süreçte açabilir.
+Analist HEADED giriş penceresini kapatmayı unutursa hem yeni "Tarayıcıda Giriş Yap" tıklaması hem de
+analiz sırasındaki headless Playwright başlatması aynı kilide takılır (`claude -p` non-interactive
+çalıştığından, kilidi tutan yetim süreç bir insan/agent onayı olmadan sonlandırılamaz → analiz askıda
+kalır). `live_app_kilidi_temizle()` (`skills/base.py`) bunu otomatik çözer: `SingletonLock`
+symlink'inden PID'i okur, süreç yaşıyorsa SIGTERM/SIGKILL ile sonlandırır, `Singleton*` dosyalarını
+siler. Hem `POST /api/live-app/login`'de (her tıklama gerçekten temiz pencere açsın) hem
+`_live_app_cli_argumanlari()`'nde (her live-app'li analiz temiz başlasın) çağrılır — ayrı bir onay
+akışı gerektirmez, uygulama kendi kaynağını kendi temizler.
+
 ## Bilinen Kısıtlamalar
 - CLI modu görsel (PNG/JPG) analiz EDEMEZ (text-only); görsel BRD için API modu gerekir.
 - `markdown_to_adf` nested list'leri düzleştirir.

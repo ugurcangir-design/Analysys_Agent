@@ -11,7 +11,9 @@ import json
 import hashlib
 import logging
 import shutil
+import signal
 import subprocess
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -2024,6 +2026,41 @@ def live_app_profil_var_mi() -> bool:
     return (LIVE_APP_PROFILE_DIR / "Default" / "Cookies").exists()
 
 
+def live_app_kilidi_temizle() -> None:
+    """Kapatılmadan kalmış (yetim) Chrome sürecini sonlandırıp profil kilit
+    dosyalarını (`SingletonLock` vb.) temizler.
+
+    Chrome tek bir `--user-data-dir`'i aynı anda yalnızca bir süreçte açabilir.
+    Analist "Tarayıcıda Giriş Yap" penceresini kapatmayı unutursa hem yeni bir
+    giriş penceresi açılamaz hem de headless Playwright (analiz sırasında) aynı
+    profille başlayamaz — bu yüzden hem giriş hem analiz öncesi çağrılır, tıpkı
+    uygulamanın kendi sahip olduğu bir kaynağı temizlemesi gibi; ayrı bir
+    onay/izin akışı gerektirmez."""
+    lock = LIVE_APP_PROFILE_DIR / "SingletonLock"
+    if lock.is_symlink():
+        pid = None
+        try:
+            pid = int(os.readlink(lock).rsplit("-", 1)[-1])
+        except (OSError, ValueError):
+            pid = None
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                time.sleep(1)
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass  # zaten kapanmış
+            except PermissionError:
+                logger.warning(f"Canlı uygulama profil kilidi (PID {pid}) sonlandırılamadı — yetki yok.")
+    for ad in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+        p = LIVE_APP_PROFILE_DIR / ad
+        if p.is_symlink() or p.exists():
+            try:
+                p.unlink()
+            except OSError:
+                pass
+
+
 def live_app_mcp_config_yaz() -> Path | None:
     """Playwright MCP config'ini MUTLAK yollarla üretir (headless + kalıcı profil).
     npx yoksa None döner → canlı uygulama özelliği sessizce devre dışı kalır."""
@@ -2057,6 +2094,7 @@ def _live_app_cli_argumanlari() -> list[str]:
     ile yalnızca playwright sunucusu yüklenir (context7/jira gürültüsü girmez)."""
     if not live_app_urls():
         return []                       # canlı uygulama kapalı → normal analiz
+    live_app_kilidi_temizle()           # kapatılmamış giriş penceresi headless başlatmayı engellemesin
     cfg = live_app_mcp_config_yaz()
     if not cfg:
         return []

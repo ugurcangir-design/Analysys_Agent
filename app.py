@@ -1816,7 +1816,7 @@ def live_app_durum():
 def live_app_giris():
     """Kalıcı tarayıcı profiliyle HEADED Chrome açar; analist bir kez giriş yapar.
     Sonraki headless analiz çağrıları aynı oturumu (çerezleri) kullanır."""
-    from skills.base import LIVE_APP_PROFILE_DIR, live_app_urls
+    from skills.base import LIVE_APP_PROFILE_DIR, live_app_kilidi_temizle, live_app_urls
     data = request.get_json(silent=True) or {}
     hedef = (data.get("url") or "").strip()
     if not hedef:
@@ -1826,6 +1826,7 @@ def live_app_giris():
         return jsonify({"ok": False, "error": "Önce geçerli bir canlı uygulama URL'i girin."}), 400
 
     LIVE_APP_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    live_app_kilidi_temizle()  # önceki kapatılmamış pencere varsa temizle → her tıklama gerçekten yeni pencere açar
     try:
         # macOS: sistem Chrome'unu bu profille aç. MCP de --browser chrome + aynı
         # --user-data-dir kullandığı için oturum paylaşılır.
