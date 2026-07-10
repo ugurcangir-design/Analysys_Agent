@@ -52,3 +52,7 @@ _launcher_bin
 reference/context_filter.json
 reference/prompts.json
 reference/sources.json
+
+# ── Canlı uygulama (Chrome MCP): tarayıcı oturumu + üretilen MCP config ──
+.live-app-profile/
+.mcp.live-app.json

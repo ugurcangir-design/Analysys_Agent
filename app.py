@@ -1792,6 +1792,59 @@ def context_filter_oku():
     return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [], "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False}})
 
 
+# ─── Canlı Uygulama (Chrome MCP) — durum + tek seferlik giriş ────────────────
+
+@app.route("/api/live-app/status", methods=["GET"])
+def live_app_durum():
+    """Canlı uygulama özelliğinin çalışmaya hazır olup olmadığını raporlar.
+    Analist 'neden çalışmıyor' sorusunun cevabını ekranda görür."""
+    from skills.base import _npx_yolu_bul, live_app_urls, live_app_profil_var_mi
+    npx = bool(_npx_yolu_bul())
+    urls = live_app_urls()
+    profil = live_app_profil_var_mi()
+    return jsonify({
+        "ok": True,
+        "npx": npx,
+        "urls": urls,
+        "profil": profil,   # profil hazır (giriş yapıldığını KANITLAMAZ)
+        "hazir": bool(npx and urls and profil),
+        "hedef": urls[0] if urls else "",
+    })
+
+
+@app.route("/api/live-app/login", methods=["POST"])
+def live_app_giris():
+    """Kalıcı tarayıcı profiliyle HEADED Chrome açar; analist bir kez giriş yapar.
+    Sonraki headless analiz çağrıları aynı oturumu (çerezleri) kullanır."""
+    from skills.base import LIVE_APP_PROFILE_DIR, live_app_urls
+    data = request.get_json(silent=True) or {}
+    hedef = (data.get("url") or "").strip()
+    if not hedef:
+        urls = live_app_urls()
+        hedef = urls[0] if urls else ""
+    if not hedef.startswith(("http://", "https://")):
+        return jsonify({"ok": False, "error": "Önce geçerli bir canlı uygulama URL'i girin."}), 400
+
+    LIVE_APP_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        # macOS: sistem Chrome'unu bu profille aç. MCP de --browser chrome + aynı
+        # --user-data-dir kullandığı için oturum paylaşılır.
+        subprocess.Popen([
+            "open", "-na", "Google Chrome", "--args",
+            f"--user-data-dir={LIVE_APP_PROFILE_DIR}",
+            "--no-first-run", "--no-default-browser-check", hedef,
+        ], start_new_session=True)
+    except Exception as e:
+        logger.error(f"Canlı uygulama giriş penceresi açılamadı: {e}")
+        return jsonify({"ok": False, "error": f"Chrome açılamadı: {e}"}), 500
+
+    return jsonify({
+        "ok": True,
+        "mesaj": "Chrome açıldı. Uygulamaya giriş yapın, sonra bu pencereyi KAPATIN "
+                 "(profil kilidi analiz sırasında sorun çıkarmasın).",
+    })
+
+
 @app.route("/api/context-filter", methods=["POST"])
 def context_filter_kaydet():
     data = request.get_json(silent=True) or {}

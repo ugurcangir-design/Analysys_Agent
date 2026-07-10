@@ -49,6 +49,32 @@ SERVIS_DIR  = REF_DIR / "services"
 LIVE_APP_DIR = REF_DIR / "live-app"
 CONTEXT_FILTER_PATH = REF_DIR / "context_filter.json"
 
+# ─── Canlı Uygulama (Chrome MCP) — profil + MCP config ───────────────────────
+# Tarayıcı oturumu (login çerezleri) burada kalıcı tutulur → analist BİR KEZ giriş
+# yapar, sonraki headless analiz çağrıları aynı oturumu kullanır. gitignore'da.
+LIVE_APP_PROFILE_DIR = BASE_DIR / ".live-app-profile"
+LIVE_APP_MCP_CONFIG = BASE_DIR / ".mcp.live-app.json"
+
+# claude -p'ye açıkça izin verilen tarayıcı araçları. Listede OLMAYAN araç
+# headless modda REDDEDİLİR (permission_denials). browser_evaluate (keyfi JS)
+# ve dosya yükleme bilinçli olarak DIŞARIDA — gözlem + temel etkileşim yeter.
+LIVE_APP_ALLOWED_TOOLS = [
+    "mcp__playwright__browser_navigate",
+    "mcp__playwright__browser_navigate_back",
+    "mcp__playwright__browser_snapshot",        # DOM / erişilebilirlik ağacı
+    "mcp__playwright__browser_network_requests",  # BFF/servis çağrıları
+    "mcp__playwright__browser_console_messages",
+    "mcp__playwright__browser_click",
+    "mcp__playwright__browser_type",
+    "mcp__playwright__browser_press_key",
+    "mcp__playwright__browser_hover",
+    "mcp__playwright__browser_select_option",
+    "mcp__playwright__browser_wait_for",
+    "mcp__playwright__browser_handle_dialog",   # dialog'da takılıp kalmasın
+    "mcp__playwright__browser_tabs",
+    "mcp__playwright__browser_find",
+]
+
 # ─── Model & Limitler ────────────────────────────────────────────────────────
 
 MODEL_ANALIZ = "claude-sonnet-4-6"
@@ -1956,6 +1982,81 @@ def _claude_yolu_bul() -> str | None:
     return None
 
 
+def _npx_yolu_bul() -> str | None:
+    """npx binary'si — Playwright MCP sunucusunu spawn etmek için gerekli.
+    claude gibi PATH'e bağımlı değil (GUI minimal PATH sorunu)."""
+    import glob as _glob
+    yol = shutil.which("npx")
+    if yol:
+        return yol
+    ev = os.path.expanduser("~")
+    adaylar = sorted(_glob.glob(f"{ev}/.nvm/versions/node/*/bin/npx"), reverse=True)
+    adaylar += ["/opt/homebrew/bin/npx", "/usr/local/bin/npx", f"{ev}/.npm-global/bin/npx"]
+    for a in adaylar:
+        if os.path.isfile(a) and os.access(a, os.X_OK):
+            return a
+    return None
+
+
+def live_app_urls() -> list[str]:
+    """Bağlam filtresindeki canlı uygulama URL'leri (ana + ekstra). Boşsa []."""
+    ctx = load_context_filter() or {}
+    live_app = ctx.get("live_app") or {}
+    hedef = str(live_app.get("target_url", "")).strip()
+    ekstra_raw = live_app.get("extra_urls", [])
+    ekstra = [str(u).strip() for u in ekstra_raw if str(u).strip()] if isinstance(ekstra_raw, list) else []
+    return _benzersiz_liste([hedef] + ekstra)
+
+
+def live_app_profil_var_mi() -> bool:
+    """Kalıcı tarayıcı profili hazır mı (çerez deposu oluşmuş mu)?
+
+    DİKKAT: Bu, uygulamaya GERÇEKTEN giriş yapıldığını KANITLAMAZ — Chrome profili
+    girişsiz de çerez dosyası oluşturur. Analiz login sayfasına düşerse promptun
+    kuralı gereği bunu varsayım üretmeden bildirir."""
+    return (LIVE_APP_PROFILE_DIR / "Default" / "Cookies").exists()
+
+
+def live_app_mcp_config_yaz() -> Path | None:
+    """Playwright MCP config'ini MUTLAK yollarla üretir (headless + kalıcı profil).
+    npx yoksa None döner → canlı uygulama özelliği sessizce devre dışı kalır."""
+    npx = _npx_yolu_bul()
+    if not npx:
+        logger.warning("npx bulunamadı — canlı uygulama (Chrome MCP) devre dışı.")
+        return None
+    LIVE_APP_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    cfg = {
+        "mcpServers": {
+            "playwright": {
+                "command": npx,
+                "args": [
+                    "-y", "@playwright/mcp@latest",
+                    "--headless",
+                    "--browser", "chrome",
+                    "--user-data-dir", str(LIVE_APP_PROFILE_DIR),
+                ],
+            }
+        }
+    }
+    LIVE_APP_MCP_CONFIG.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return LIVE_APP_MCP_CONFIG
+
+
+def _live_app_cli_argumanlari() -> list[str]:
+    """Canlı uygulama URL'i tanımlıysa `claude -p`'ye MCP + izin argümanlarını ekler.
+
+    KRİTİK: --allowedTools verilmezse headless -p modunda tarayıcı araçları
+    REDDEDİLİR (izin sorulamaz) → özellik sessizce çalışmaz. --strict-mcp-config
+    ile yalnızca playwright sunucusu yüklenir (context7/jira gürültüsü girmez)."""
+    if not live_app_urls():
+        return []                       # canlı uygulama kapalı → normal analiz
+    cfg = live_app_mcp_config_yaz()
+    if not cfg:
+        return []
+    return ["--mcp-config", str(cfg), "--strict-mcp-config",
+            "--allowedTools", *LIVE_APP_ALLOWED_TOOLS]
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -1982,6 +2083,10 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
         os.path.dirname(claude_yolu), f"{_ev}/.local/bin",
         "/opt/homebrew/bin", "/usr/local/bin",
     ]
+    # Playwright MCP sunucusu npx ile spawn edilir; npx'in de node'u bulması gerekir.
+    _npx = _npx_yolu_bul()
+    if _npx:
+        _ek_path.insert(0, os.path.dirname(_npx))
     cli_env["PATH"] = os.pathsep.join(_ek_path) + os.pathsep + cli_env.get("PATH", "")
     # ÖNEMLİ: --output-format json kullanılıyor, text DEĞİL.
     # text formatı uzun / çok-turn yanıtlarda çıktının BAŞINI kaybediyordu
@@ -1993,8 +2098,13 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     # kırılımı) + büyük girdi → 10 dk yetmiyordu. CLI tam
     # çıktı (json result) üretirken uzun sürebiliyor. app.py _bekle bundan biraz
     # FAZLA bekler ki claude timeout'u önce tetiklensin ve net hata mesajı gelsin.
+    # Canlı uygulama (Chrome MCP) tanımlıysa MCP sunucusu + araç izinleri eklenir.
+    # Tanımlı değilse hiçbir ek argüman gitmez → mevcut davranış aynen korunur.
+    _live_args = _live_app_cli_argumanlari()
+    if _live_args:
+        print(f"  🌐 Canlı uygulama modu: Chrome MCP + {len(LIVE_APP_ALLOWED_TOOLS)} araç izni")
     proc = subprocess.run(
-        [claude_yolu, "-p", "--output-format", "json"],
+        [claude_yolu, "-p", "--output-format", "json", *_live_args],
         input=tam_prompt,
         capture_output=True,
         text=True,

@@ -489,6 +489,16 @@ input[type="email"].field-input,
   transition: border-color .12s, box-shadow .12s;
 }
 .field-input:focus,
+/* ── Canlı uygulama (Chrome MCP) erişim durumu ── */
+.la-durum { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); }
+.la-satir { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.la-satir #la-metin { font-size: 12px; color: var(--text2); }
+.la-nokta { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+.la-nokta.ok { background: var(--green); }
+.la-nokta.warn { background: var(--yellow); }
+.la-nokta.err { background: var(--red); }
+.la-ipucu { font-size: 11.5px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+
 .ctx-input:focus,
 .source-add-row input:focus,
 .form-group input:focus,
@@ -1919,6 +1929,20 @@ function temaDegistir() {
           <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
             Örnek ekran olarak kullan
           </button>
+        </div>
+
+        <!-- Canlı uygulama erişim/izin durumu — analist neden çalışmadığını burada görür -->
+        <div class="la-durum" id="la-durum">
+          <div class="la-satir">
+            <span class="la-nokta" id="la-nokta"></span>
+            <span id="la-metin">Durum kontrol ediliyor…</span>
+            <span class="panel-spacer"></span>
+            <button class="btn btn-outline btn-sm" type="button" id="la-login-btn" onclick="liveAppGiris()">
+              Tarayıcıda Giriş Yap
+            </button>
+            <button class="btn btn-outline btn-sm" type="button" onclick="liveAppDurumYenile()" title="Durumu yenile">↻</button>
+          </div>
+          <div class="la-ipucu" id="la-ipucu"></div>
         </div>
         <div>
           <div class="ctx-field-label">MCP Alt URL'ler</div>
@@ -3476,6 +3500,69 @@ function formatBytes(b) {
 function toggleCtx() {
   document.getElementById('ctx-toggle').classList.toggle('open');
   document.getElementById('ctx-fields').classList.toggle('open');
+  liveAppDurumYenile();   // panel açılınca canlı uygulama durumunu tazele
+}
+
+// ─── Canlı Uygulama (Chrome MCP) erişim/izin durumu ──────────────────────────
+// Analist "neden çalışmıyor" sorusunun cevabını burada görür ve tek tıkla giriş yapar.
+async function liveAppDurumYenile() {
+  const nokta = document.getElementById('la-nokta');
+  const metin = document.getElementById('la-metin');
+  const ipucu = document.getElementById('la-ipucu');
+  const btn   = document.getElementById('la-login-btn');
+  if (!nokta) return;
+  try {
+    const d = await (await fetch('/api/live-app/status')).json();
+    if (!d.npx) {
+      nokta.className = 'la-nokta err';
+      metin.textContent = 'Node/npx bulunamadı — canlı uygulama devre dışı';
+      ipucu.textContent = 'Chrome MCP sunucusu npx ile çalışır. Node.js kurulu olmalı.';
+      btn.disabled = true; return;
+    }
+    btn.disabled = false;
+    if (!d.urls.length) {
+      nokta.className = 'la-nokta';
+      metin.textContent = 'Canlı uygulama kapalı';
+      ipucu.textContent = 'Yukarıya bir URL girerseniz analiz sırasında ekran ve servisler gezilir.';
+      return;
+    }
+    if (!d.profil) {
+      nokta.className = 'la-nokta warn';
+      metin.textContent = 'Tarayıcı profili yok — giriş gerekli';
+      ipucu.textContent = 'Uygulama giriş istiyorsa "Tarayıcıda Giriş Yap" ile bir kez giriş yapın; oturum profile kaydedilir ve analizler onu kullanır.';
+      return;
+    }
+    nokta.className = 'la-nokta ok';
+    metin.textContent = 'Profil hazır — analizde ekran + servisler gezilecek';
+    ipucu.textContent = `Hedef: ${d.hedef} · Not: profil hazır olması giriş yapıldığını garanti etmez; `
+      + 'analiz login sayfasına düşerse bunu rapor eder (varsayım üretmez).';
+  } catch {
+    nokta.className = 'la-nokta err';
+    metin.textContent = 'Durum alınamadı';
+  }
+}
+
+async function liveAppGiris() {
+  const url = document.getElementById('ctx-live-target').value.trim();
+  const btn = document.getElementById('la-login-btn');
+  btn.disabled = true;
+  try {
+    // Girilen URL'i önce kaydet ki backend hedefi bilsin
+    await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(buildContextFilter())}).catch(()=>{});
+    const d = await (await fetch('/api/live-app/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    })).json();
+    if (!d.ok) { toast(d.error || 'Giriş penceresi açılamadı', 'error'); return; }
+    toast('Chrome açıldı — giriş yapıp pencereyi kapatın', 'info');
+    document.getElementById('la-ipucu').textContent = d.mesaj || '';
+  } catch (e) {
+    toast('Bağlantı hatası: ' + e, 'error');
+  } finally {
+    btn.disabled = false;
+    setTimeout(liveAppDurumYenile, 1500);
+  }
 }
 
 function splitCtx(val, mode) {

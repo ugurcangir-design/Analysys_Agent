@@ -155,6 +155,32 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
 
 Soru Defteri durumları: `acik / bekleniyor / cevaplandi / atlandi / varsayim` (kalıcı `output/sorular.json`, atomik).
 
+## Canlı Uygulama (Chrome MCP) — ekran + servis gözlemi
+Bağlam filtresinde `live_app.target_url` (+ en fazla 5 `extra_urls`) doluysa süreç/teknik analiz
+sırasında `claude -p` alt süreci gerçek uygulamayı gezip DOM + network (BFF) gözlemi toplar.
+
+**KRİTİK — izin/araç zinciri (`skills/base.py`):**
+- `_live_app_cli_argumanlari()` yalnızca live_app URL'i varsa şu argümanları ekler:
+  `--mcp-config .mcp.live-app.json --strict-mcp-config --allowedTools <14 tarayıcı aracı>`.
+- `--allowedTools` VERİLMEZSE headless `-p` modunda izin sorulamaz → tarayıcı araçları
+  **sessizce reddedilir** (`permission_denials`) ve özellik çalışmaz. Eski hata buydu.
+- `live_app_mcp_config_yaz()` MUTLAK yollarla config üretir: `npx -y @playwright/mcp@latest
+  --headless --browser chrome --user-data-dir .live-app-profile`.
+- `_npx_yolu_bul()` PATH'e bağımlı değil (GUI minimal PATH); npx'in dizini `cli_env["PATH"]`e eklenir.
+- `LIVE_APP_ALLOWED_TOOLS`: navigate/snapshot/**network_requests**/console/click/type/press_key/
+  hover/select_option/wait_for/handle_dialog/tabs/find. `browser_evaluate` (keyfi JS) ve dosya
+  yükleme bilinçli olarak DIŞARIDA.
+
+**Oturum/login:** `.live-app-profile/` kalıcı Chrome profili (gitignored, çerez içerir).
+`POST /api/live-app/login` sistem Chrome'unu bu profille HEADED açar → analist bir kez giriş yapar,
+pencereyi kapatır (profil kilidi). Sonraki headless analizler aynı çerezleri kullanır.
+`GET /api/live-app/status` → `{npx, urls, profil, hazir}`; UI'da Bağlam Filtresi altında durum
+noktası + "Tarayıcıda Giriş Yap" butonu. `live_app_profil_var_mi()` profil hazırlığını gösterir,
+**giriş yapıldığını KANITLAMAZ** — analiz login sayfasına düşerse prompt kuralı gereği varsayım
+üretmeden bildirir.
+
+**Kapalıyken:** live_app URL'i yoksa hiçbir ek argüman geçmez → normal analiz davranışı aynen korunur.
+
 ## Bilinen Kısıtlamalar
 - CLI modu görsel (PNG/JPG) analiz EDEMEZ (text-only); görsel BRD için API modu gerekir.
 - `markdown_to_adf` nested list'leri düzleştirir.
