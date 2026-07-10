@@ -1786,10 +1786,13 @@ def context_filter_oku():
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
             data.setdefault("live_app", {"target_url": "", "extra_urls": [], "use_as_sample": False})
+            data.setdefault("live_app_gorev", {"target_url": ""})
             return jsonify(data)
         except Exception:
             pass
-    return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [], "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False}})
+    return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [],
+                     "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False},
+                     "live_app_gorev": {"target_url": ""}})
 
 
 # ─── Canlı Uygulama (Chrome MCP) — durum + tek seferlik giriş ────────────────
@@ -1797,10 +1800,13 @@ def context_filter_oku():
 @app.route("/api/live-app/status", methods=["GET"])
 def live_app_durum():
     """Canlı uygulama özelliğinin çalışmaya hazır olup olmadığını raporlar.
-    Analist 'neden çalışmıyor' sorusunun cevabını ekranda görür."""
-    from skills.base import _npx_yolu_bul, live_app_urls, live_app_profil_var_mi
+    Analist 'neden çalışmıyor' sorusunun cevabını ekranda görür.
+    ?scope=gorev → Jira Görevleri'nin KENDİ hedefi (live_app_gorev) kontrol edilir;
+    varsayılan (scope yok) → Süreç/Teknik Analiz'in live_app'i. Profil/npx durumu
+    ikisi için de aynı Chrome profilini paylaştığından ortak, yalnızca urls/hedef değişir."""
+    from skills.base import _npx_yolu_bul, live_app_urls, gorev_live_app_urls, live_app_profil_var_mi
     npx = bool(_npx_yolu_bul())
-    urls = live_app_urls()
+    urls = gorev_live_app_urls() if request.args.get("scope") == "gorev" else live_app_urls()
     profil = live_app_profil_var_mi()
     return jsonify({
         "ok": True,
@@ -1889,6 +1895,11 @@ def context_filter_kaydet():
         extra_urls = []
     live_urls = temiz_url_liste([live_app.get("target_url", "")] + extra_urls, limit=6)
 
+    # live_app_gorev: Jira Görevleri (task bazlı) ekranının KENDİ hedefi — live_app'ten
+    # (Süreç/Teknik Analiz) bağımsız. Tek URL yeterli, alt-URL/örnek-ekran kavramı yok.
+    live_app_gorev = data.get("live_app_gorev") if isinstance(data.get("live_app_gorev"), dict) else {}
+    gorev_urls = temiz_url_liste([live_app_gorev.get("target_url", "")], limit=1)
+
     filtre = {
         "keywords": temiz_liste(data.get("keywords", []), lower=True),
         "jira_keys": temiz_liste(data.get("jira_keys", []), upper=True),
@@ -1897,6 +1908,9 @@ def context_filter_kaydet():
             "target_url": live_urls[0] if live_urls else "",
             "extra_urls": live_urls[1:6],
             "use_as_sample": bool(live_app.get("use_as_sample")),
+        },
+        "live_app_gorev": {
+            "target_url": gorev_urls[0] if gorev_urls else "",
         },
     }
     p = REF_DIR / "context_filter.json"

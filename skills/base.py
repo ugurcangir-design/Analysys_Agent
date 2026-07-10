@@ -1685,6 +1685,10 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
     if not isinstance(extra_urls, list):
         extra_urls = []
     live_urls = _url_liste_normalize([live_app.get("target_url", "")] + extra_urls)
+    # live_app_gorev: Jira Görevleri (task bazlı) ekranının KENDİ canlı uygulama hedefi.
+    # live_app'ten (Süreç/Teknik Analiz) tamamen bağımsızdır — iki akış birbirini ezmez.
+    live_app_gorev = ctx.get("live_app_gorev") if isinstance(ctx.get("live_app_gorev"), dict) else {}
+    gorev_urls = _url_liste_normalize([live_app_gorev.get("target_url", "")])
     return {
         "keywords": _benzersiz_liste(ctx.get("keywords", []), lower=True),
         "jira_keys": _benzersiz_liste(ctx.get("jira_keys", []), upper=True),
@@ -1694,11 +1698,19 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
             "extra_urls": live_urls[1:6],
             "use_as_sample": bool(live_app.get("use_as_sample")),
         },
+        "live_app_gorev": {
+            "target_url": gorev_urls[0] if gorev_urls else "",
+        },
     }
 
 
-def canli_uygulama_baglami_hazirla() -> str | None:
+def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
     """Bağlam filtresindeki canlı uygulama URL'lerinden Claude MCP/Chrome görevi üretir.
+
+    `gorev=True` → Jira Görevleri (task bazlı) ekranının KENDİ `live_app_gorev` hedefini
+    kullanır (tek URL, örnek-ekran modu yok). `gorev=False` (varsayılan) → Süreç/Teknik
+    Analiz ekranının `live_app` hedefini (+ alt URL'ler) kullanır. İki akış birbirinin
+    URL'ini KULLANMAZ — her ekran kendi girdiğini gezer.
 
     Bu fonksiyon Chrome'u kendisi çalıştırmaz. Claude Code CLI tarafında Chrome MCP
     araçları tanımlıysa modelin ekranı gezip network/DOM gözlemini analize kaynak
@@ -1706,11 +1718,15 @@ def canli_uygulama_baglami_hazirla() -> str | None:
     doğrulanmamış hedef sayılır; model varsayım üretmemelidir.
     """
     ctx = load_context_filter() or {}
-    live_app = ctx.get("live_app") or {}
-    target_url = str(live_app.get("target_url", "")).strip()
-    extra_urls_raw = live_app.get("extra_urls", [])
-    extra_urls = [u for u in extra_urls_raw if str(u).strip()] if isinstance(extra_urls_raw, list) else []
-    use_as_sample = bool(live_app.get("use_as_sample"))
+    if gorev:
+        target_url = str((ctx.get("live_app_gorev") or {}).get("target_url", "")).strip()
+        extra_urls, use_as_sample = [], False
+    else:
+        live_app = ctx.get("live_app") or {}
+        target_url = str(live_app.get("target_url", "")).strip()
+        extra_urls_raw = live_app.get("extra_urls", [])
+        extra_urls = [u for u in extra_urls_raw if str(u).strip()] if isinstance(extra_urls_raw, list) else []
+        use_as_sample = bool(live_app.get("use_as_sample"))
     urls = _benzersiz_liste([target_url] + extra_urls)
     if not urls:
         return None
@@ -2017,6 +2033,14 @@ def live_app_urls() -> list[str]:
     return _benzersiz_liste([hedef] + ekstra)
 
 
+def gorev_live_app_urls() -> list[str]:
+    """Jira Görevleri (task bazlı) ekranının KENDİ canlı uygulama hedefi.
+    `live_app_urls()`'tan bağımsızdır — iki ekran birbirinin URL'ini kullanmaz."""
+    ctx = load_context_filter() or {}
+    hedef = str((ctx.get("live_app_gorev") or {}).get("target_url", "")).strip()
+    return _benzersiz_liste([hedef])
+
+
 def live_app_profil_var_mi() -> bool:
     """Kalıcı tarayıcı profili hazır mı (çerez deposu oluşmuş mu)?
 
@@ -2086,13 +2110,17 @@ def live_app_mcp_config_yaz() -> Path | None:
     return LIVE_APP_MCP_CONFIG
 
 
-def _live_app_cli_argumanlari() -> list[str]:
+def _live_app_cli_argumanlari(gorev: bool = False) -> list[str]:
     """Canlı uygulama URL'i tanımlıysa `claude -p`'ye MCP + izin argümanlarını ekler.
+
+    `gorev=True` → Jira Görevleri ekranının KENDİ hedefi (`gorev_live_app_urls()`)
+    kontrol edilir; `gorev=False` → Süreç/Teknik Analiz'in `live_app_urls()`'ı.
+    İki akış birbirinden bağımsız açılıp kapanır.
 
     KRİTİK: --allowedTools verilmezse headless -p modunda tarayıcı araçları
     REDDEDİLİR (izin sorulamaz) → özellik sessizce çalışmaz. --strict-mcp-config
     ile yalnızca playwright sunucusu yüklenir (context7/jira gürültüsü girmez)."""
-    if not live_app_urls():
+    if not (gorev_live_app_urls() if gorev else live_app_urls()):
         return []                       # canlı uygulama kapalı → normal analiz
     live_app_kilidi_temizle()           # kapatılmamış giriş penceresi headless başlatmayı engellemesin
     cfg = live_app_mcp_config_yaz()
@@ -2102,7 +2130,7 @@ def _live_app_cli_argumanlari() -> list[str]:
             "--allowedTools", *LIVE_APP_ALLOWED_TOOLS]
 
 
-def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
+def _api_cagri_cli(sistem: str, mesajlar: list, live_app_gorev: bool = False) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
         raise EnvironmentError(
@@ -2145,7 +2173,7 @@ def _api_cagri_cli(sistem: str, mesajlar: list) -> str:
     # FAZLA bekler ki claude timeout'u önce tetiklensin ve net hata mesajı gelsin.
     # Canlı uygulama (Chrome MCP) tanımlıysa MCP sunucusu + araç izinleri eklenir.
     # Tanımlı değilse hiçbir ek argüman gitmez → mevcut davranış aynen korunur.
-    _live_args = _live_app_cli_argumanlari()
+    _live_args = _live_app_cli_argumanlari(gorev=live_app_gorev)
     if _live_args:
         print(f"  🌐 Canlı uygulama modu: Chrome MCP + {len(LIVE_APP_ALLOWED_TOOLS)} araç izni")
     proc = subprocess.run(
@@ -2357,10 +2385,14 @@ def _api_cagri(
     max_tokens: int = MAX_TOKENS_UZUN,
     thinking: bool = False,
     onbellek: bool = True,
+    live_app_gorev: bool = False,
 ) -> str:
     """onbellek=False → önbellek OKUMAZ (taze çağrı), ama sonucu yine YAZAR.
     Aynı prompt'la 'farklı sonuç bekleyen' retry'lar (örn. kesik çıktı yeniden
-    denemesi) bunu kullanmalı; aksi halde cache aynı kesik yanıtı döndürür."""
+    denemesi) bunu kullanmalı; aksi halde cache aynı kesik yanıtı döndürür.
+
+    live_app_gorev=True → CLI modunda canlı uygulama MCP izinleri Jira Görevleri
+    ekranının KENDİ hedefine göre açılır (bkz. `_live_app_cli_argumanlari`)."""
     key = _api_cache_key(sistem, mesajlar, model, max_tokens, thinking)
     if onbellek:
         kayit = _api_cache_oku(key)
@@ -2368,7 +2400,7 @@ def _api_cagri(
             print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
             return kayit
     if USE_CLAUDE_CLI:
-        sonuc = _api_cagri_cli(sistem, mesajlar)
+        sonuc = _api_cagri_cli(sistem, mesajlar, live_app_gorev=live_app_gorev)
     else:
         sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
     _api_cache_yaz(key, sonuc)  # taze sonucu yaz (kesik kayıt varsa üzerine yazar)

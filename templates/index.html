@@ -2964,15 +2964,17 @@ async function jgCtxBilgiYukle() {
       }
     }
     const liveInput = document.getElementById('jg-live-target');
-    if (liveInput) liveInput.value = ctx.live_app?.target_url || '';
+    if (liveInput) liveInput.value = ctx.live_app_gorev?.target_url || '';
     jgLiveAppDurumYenile();
   } catch {}
 }
 
 // ─── Canlı Uygulama (Chrome MCP) — Jira Görevleri'nden task bazlı erişim ─────
-// Aynı global context_filter.json'u kullanır (Bağlam Filtresi ile paylaşımlı);
-// keywords/jira_keys/confluence_pages alanlarını KAYBETMEMEK için önce mevcut
-// filtreyi okuyup sadece live_app.target_url'i güncelleyerek geri yazar.
+// Aynı global context_filter.json dosyasını paylaşır ama KENDİ live_app_gorev
+// alanını kullanır — Bağlam Filtresi'ndeki live_app'ten (Süreç/Teknik Analiz)
+// TAMAMEN bağımsızdır, iki akış birbirinin URL'ini ezmez. keywords/jira_keys/
+// confluence_pages VE live_app'i KAYBETMEMEK için önce mevcut filtreyi okuyup
+// sadece live_app_gorev.target_url'i güncelleyerek geri yazar.
 async function jgLiveAppKaydet(showToastMsg) {
   const url = document.getElementById('jg-live-target').value.trim();
   try {
@@ -2981,11 +2983,8 @@ async function jgLiveAppKaydet(showToastMsg) {
       keywords: mevcut.keywords || [],
       jira_keys: mevcut.jira_keys || [],
       confluence_pages: mevcut.confluence_pages || [],
-      live_app: {
-        target_url: url,
-        extra_urls: (mevcut.live_app && mevcut.live_app.extra_urls) || [],
-        use_as_sample: !!(mevcut.live_app && mevcut.live_app.use_as_sample),
-      },
+      live_app: mevcut.live_app || {target_url:'', extra_urls:[], use_as_sample:false},
+      live_app_gorev: { target_url: url },
     };
     await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(govde)});
     if (showToastMsg) toast('Canlı uygulama URL kaydedildi', 'info');
@@ -3002,7 +3001,7 @@ async function jgLiveAppDurumYenile() {
   const btn   = document.getElementById('jg-la-login-btn');
   if (!nokta) return;
   try {
-    const d = await (await fetch('/api/live-app/status')).json();
+    const d = await (await fetch('/api/live-app/status?scope=gorev')).json();
     if (!d.npx) {
       nokta.className = 'la-nokta err';
       metin.textContent = 'Node/npx bulunamadı — canlı uygulama devre dışı';
@@ -3032,11 +3031,14 @@ async function jgLiveAppDurumYenile() {
 }
 
 async function jgLiveAppGiris() {
+  const url = document.getElementById('jg-live-target').value.trim();
+  // Boşsa backend /api/live-app/login Süreç ekranının URL'ine düşer (fallback) —
+  // iki akış bağımsız kalsın diye burada engelliyoruz, o fallback'i hiç tetiklemiyoruz.
+  if (!url) { toast('Önce bu görev için bir URL girin', 'error'); return; }
   const btn = document.getElementById('jg-la-login-btn');
   btn.disabled = true;
   try {
     await jgLiveAppKaydet(false);  // URL'i önce kaydet ki backend hedefi bilsin
-    const url = document.getElementById('jg-live-target').value.trim();
     const d = await (await fetch('/api/live-app/login', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({url})

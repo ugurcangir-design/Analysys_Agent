@@ -181,14 +181,24 @@ noktası + "Tarayıcıda Giriş Yap" butonu. `live_app_profil_var_mi()` profil h
 
 **Kapalıyken:** live_app URL'i yoksa hiçbir ek argüman geçmez → normal analiz davranışı aynen korunur.
 
-**Jira Görevleri'nden erişim:** `_api_cagri_cli` her CLI çağrısında `_live_app_cli_argumanlari()`'nı
-koşulsuz çağırdığı için (`skills/base.py`), `gorev_analiz_et()` (Jira Görevleri → "Teknik Analiz Et",
-tek task için) de aynı global `context_filter.json`'daki live_app ayarını otomatik kullanır — ayrı bir
-kod yolu gerekmez. Yalnızca UI eksikti: Jira Görevleri sayfasına (`templates/index.html`, "Üst Görev"
-paneli) Bağlam Filtresi'yle aynı `.la-durum` bileşenini (`jg-live-target`/`jg-la-*` id'leriyle) ekleyen
-küçük bir widget var — `jgLiveAppKaydet()` her zaman ÖNCE mevcut filtreyi GET edip yalnızca
-`live_app.target_url`'i değiştirerek geri POST'lar (keywords/jira_keys/confluence_pages'i ezmemek
-için — `/api/context-filter` POST'u tam nesne bekler, kısmi gönderim diğer alanları siler).
+**Jira Görevleri'nden erişim — BAĞIMSIZ ikinci hedef (`live_app_gorev`):** Süreç/Teknik Analiz'in
+`live_app` alanından TAMAMEN ayrı, `context_filter.json`'da ikinci bir alan: `live_app_gorev`
+(yalnızca `target_url`; alt URL/örnek-ekran kavramı yok — task bazlı tek ekran içindir). İki akış
+birbirinin URL'ini asla kullanmaz:
+- `gorev_live_app_urls()` / `live_app_urls()` (`skills/base.py`) ayrı okuma fonksiyonları.
+- `canli_uygulama_baglami_hazirla(gorev: bool)`, `_live_app_cli_argumanlari(gorev: bool)`,
+  `_api_cagri_cli(..., live_app_gorev: bool)`, `_api_cagri(..., live_app_gorev: bool)` — hepsi bu
+  bayrağı taşır. `gorev_analiz_et()` (`skills/jira_gorevleri.py`) ve `_gorev_acik_sorular_uret()`
+  `live_app_gorev=True` geçer; süreç/teknik/brd/kapsam/sorular akışları hiçbir şey geçmez (varsayılan
+  `False` → eski davranış, `live_app` global hedefi, aynen korunur).
+- UI: Jira Görevleri sayfasında ("Üst Görev" paneli) Bağlam Filtresi'yle aynı `.la-durum` bileşenini
+  (`jg-live-target`/`jg-la-*` id'leriyle) kullanan ayrı bir widget. `jgLiveAppKaydet()` mevcut filtreyi
+  GET edip `live_app`'e DOKUNMADAN yalnızca `live_app_gorev.target_url`'i güncelleyip geri POST'lar
+  (`/api/context-filter` POST'u tam nesne bekler — kısmi gönderim diğer alanları silerdi).
+  `jgLiveAppGiris()` alan boşsa backend'in `live_app_urls()` fallback'ine (Süreç'in URL'i) düşmesin
+  diye istemci tarafında erken çıkar.
+- `GET /api/live-app/status?scope=gorev` → `gorev_live_app_urls()`; parametresiz → Süreç'in `live_app`'i.
+  Profil/npx durumu ortak (aynı `.live-app-profile` Chrome oturumu paylaşılır), yalnızca `urls`/`hedef` ayrışır.
 
 **Profil kilidi self-heal:** Chrome aynı `--user-data-dir`'i tek seferde yalnızca bir süreçte açabilir.
 Analist HEADED giriş penceresini kapatmayı unutursa hem yeni "Tarayıcıda Giriş Yap" tıklaması hem de

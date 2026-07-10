@@ -20,6 +20,7 @@ from .base import (
     _api_cagri, _xml_ayir, _metin_sikistir,
     prompt_yukle, extended_thinking_acik,
     referans_dosyalari_hazirla, _ref_bloklari_olustur, load_context_filter,
+    canli_uygulama_baglami_hazirla,
     yonetici_ozeti_olustur, yonetici_ozetini_cikar,
     MAX_TOKENS_KISA, MAX_TOKENS_COMBINED,
 )
@@ -441,6 +442,14 @@ def gorev_analiz_et(gorev: dict) -> dict:
             stable_bloklar.extend(ref_bloklari)
     except Exception as e:
         print(f"  ⚠ Referanslar dahil edilemedi: {e}")
+
+    # Canlı Uygulama (Chrome MCP) — Jira Görevleri ekranının KENDİ hedefi (live_app_gorev).
+    # Süreç/Teknik Analiz ekranının URL'inden bağımsızdır; iki akış birbirini ezmez.
+    canli_baglam = canli_uygulama_baglami_hazirla(gorev=True)
+    if canli_baglam:
+        print("  🌐 Canlı uygulama (görev bazlı) MCP/Chrome hedefi dahil ediliyor...")
+        stable_bloklar.append({"type": "text", "text": canli_baglam})
+
     if stable_bloklar:
         stable_bloklar[-1]["cache_control"] = {"type": "ephemeral"}
 
@@ -451,7 +460,8 @@ def gorev_analiz_et(gorev: dict) -> dict:
         {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."},
     ]
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
-                       max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
+                       max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik(),
+                       live_app_gorev=bool(canli_baglam))
     teknik = _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
 
     # Şeffaflık: editör ön-izlemesinde + history'de RAG durumu görünür.
@@ -503,8 +513,12 @@ def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
                                  f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
         {"type": "text", "text": "Yukarıdaki teknik analiz ve görevdeki tüm açık konuları soru olarak topla."},
     ]
+    # live_app_gorev=True: bu aşama browsing talimatı içermez ama Süreç/Teknik
+    # Analiz ekranının global live_app'ine YANLIŞLIKLA sızmasın diye scope'u
+    # Jira Görevleri'nin kendi (muhtemelen boş) hedefine sabitler.
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
-                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False)
+                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False,
+                       live_app_gorev=True)
     return _xml_ayir(_metin_sikistir(yanit), "acik_sorular")
 
 

@@ -6,5 +6,8 @@
     "target_url": "",
     "extra_urls": [],
     "use_as_sample": false
+  },
+  "live_app_gorev": {
+    "target_url": ""
   }
 }
