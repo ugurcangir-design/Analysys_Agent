@@ -461,7 +461,7 @@ def gorev_analiz_et(gorev: dict) -> dict:
     ]
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
                        max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik(),
-                       live_app_gorev=bool(canli_baglam))
+                       canli_uygulama_kapsami=("gorev" if canli_baglam else None))
     teknik = _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
 
     # Şeffaflık: editör ön-izlemesinde + history'de RAG durumu görünür.
@@ -513,12 +513,10 @@ def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
                                  f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
         {"type": "text", "text": "Yukarıdaki teknik analiz ve görevdeki tüm açık konuları soru olarak topla."},
     ]
-    # live_app_gorev=True: bu aşama browsing talimatı içermez ama Süreç/Teknik
-    # Analiz ekranının global live_app'ine YANLIŞLIKLA sızmasın diye scope'u
-    # Jira Görevleri'nin kendi (muhtemelen boş) hedefine sabitler.
+    # canli_uygulama_kapsami verilmiyor: bu aşama zaten üretilmiş teknik analiz
+    # metnini özetler, hiçbir browsing talimatı içermez — canlı uygulama hiç açılmaz.
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
-                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False,
-                       live_app_gorev=True)
+                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_KISA, thinking=False)
     return _xml_ayir(_metin_sikistir(yanit), "acik_sorular")
 
 

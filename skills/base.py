@@ -2110,17 +2110,30 @@ def live_app_mcp_config_yaz() -> Path | None:
     return LIVE_APP_MCP_CONFIG
 
 
-def _live_app_cli_argumanlari(gorev: bool = False) -> list[str]:
+def _live_app_cli_argumanlari(kapsam: str | None = None) -> list[str]:
     """Canlı uygulama URL'i tanımlıysa `claude -p`'ye MCP + izin argümanlarını ekler.
 
-    `gorev=True` → Jira Görevleri ekranının KENDİ hedefi (`gorev_live_app_urls()`)
-    kontrol edilir; `gorev=False` → Süreç/Teknik Analiz'in `live_app_urls()`'ı.
-    İki akış birbirinden bağımsız açılıp kapanır.
+    `kapsam` OPT-IN'dir — yalnızca çağıranın mesajlarına GERÇEKTEN bir browsing
+    talimatı (`canli_uygulama_baglami_hazirla()` çıktısı) eklediği durumda verilmeli:
+    - `kapsam="surec"` → Süreç/Teknik Analiz'in `live_app_urls()`'ı kontrol edilir.
+    - `kapsam="gorev"` → Jira Görevleri ekranının KENDİ hedefi (`gorev_live_app_urls()`).
+    - `kapsam=None` (varsayılan) → canlı uygulama HİÇ açılmaz, global URL tanımlı
+      olsa bile. Eskiden bu fonksiyon her zaman global `live_app_urls()`'a bakıyordu;
+      bu da browsing talimatı içermeyen HER çağrıda (BRD analizi, kapsam analizi,
+      Jira görev sınıflandırma/formatlama, teknik analizin denetçi/açık-sorular
+      aşamaları) gereksiz yere Playwright MCP sunucusu başlatıyordu — talimat
+      olmadığı için tarayıcı hiç kullanılmıyordu ama her çağrı yine de dakikalarca
+      npx/Chrome başlatma yüküne katlanıyordu. `kapsam` parametresi olmayan
+      çağrılar artık bu yükü hiç almaz.
+
+    İki akış (`surec`/`gorev`) birbirinden bağımsız açılıp kapanır.
 
     KRİTİK: --allowedTools verilmezse headless -p modunda tarayıcı araçları
     REDDEDİLİR (izin sorulamaz) → özellik sessizce çalışmaz. --strict-mcp-config
     ile yalnızca playwright sunucusu yüklenir (context7/jira gürültüsü girmez)."""
-    if not (gorev_live_app_urls() if gorev else live_app_urls()):
+    if kapsam is None:
+        return []                       # bu çağrıda browsing talimatı yok → hiç açma
+    if not (gorev_live_app_urls() if kapsam == "gorev" else live_app_urls()):
         return []                       # canlı uygulama kapalı → normal analiz
     live_app_kilidi_temizle()           # kapatılmamış giriş penceresi headless başlatmayı engellemesin
     cfg = live_app_mcp_config_yaz()
@@ -2130,7 +2143,7 @@ def _live_app_cli_argumanlari(gorev: bool = False) -> list[str]:
             "--allowedTools", *LIVE_APP_ALLOWED_TOOLS]
 
 
-def _api_cagri_cli(sistem: str, mesajlar: list, live_app_gorev: bool = False) -> str:
+def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
         raise EnvironmentError(
@@ -2171,9 +2184,10 @@ def _api_cagri_cli(sistem: str, mesajlar: list, live_app_gorev: bool = False) ->
     # kırılımı) + büyük girdi → 10 dk yetmiyordu. CLI tam
     # çıktı (json result) üretirken uzun sürebiliyor. app.py _bekle bundan biraz
     # FAZLA bekler ki claude timeout'u önce tetiklensin ve net hata mesajı gelsin.
-    # Canlı uygulama (Chrome MCP) tanımlıysa MCP sunucusu + araç izinleri eklenir.
-    # Tanımlı değilse hiçbir ek argüman gitmez → mevcut davranış aynen korunur.
-    _live_args = _live_app_cli_argumanlari(gorev=live_app_gorev)
+    # Canlı uygulama (Chrome MCP): yalnızca çağıran bu çağrının mesajlarına GERÇEKTEN
+    # bir browsing talimatı eklediyse (canli_uygulama_kapsami verildiyse) MCP sunucusu
+    # + araç izinleri eklenir. Aksi halde hiçbir ek argüman gitmez.
+    _live_args = _live_app_cli_argumanlari(kapsam=canli_uygulama_kapsami)
     if _live_args:
         print(f"  🌐 Canlı uygulama modu: Chrome MCP + {len(LIVE_APP_ALLOWED_TOOLS)} araç izni")
     proc = subprocess.run(
@@ -2385,14 +2399,17 @@ def _api_cagri(
     max_tokens: int = MAX_TOKENS_UZUN,
     thinking: bool = False,
     onbellek: bool = True,
-    live_app_gorev: bool = False,
+    canli_uygulama_kapsami: str | None = None,
 ) -> str:
     """onbellek=False → önbellek OKUMAZ (taze çağrı), ama sonucu yine YAZAR.
     Aynı prompt'la 'farklı sonuç bekleyen' retry'lar (örn. kesik çıktı yeniden
     denemesi) bunu kullanmalı; aksi halde cache aynı kesik yanıtı döndürür.
 
-    live_app_gorev=True → CLI modunda canlı uygulama MCP izinleri Jira Görevleri
-    ekranının KENDİ hedefine göre açılır (bkz. `_live_app_cli_argumanlari`)."""
+    canli_uygulama_kapsami: yalnızca `mesajlar` içine GERÇEKTEN bir browsing
+    talimatı (`canli_uygulama_baglami_hazirla()` çıktısı) eklendiyse "surec" veya
+    "gorev" ver. Varsayılan None → CLI modunda canlı uygulama MCP'si HİÇ açılmaz
+    (global URL tanımlı olsa bile) — talimatsız çağrılarda gereksiz Playwright
+    başlatma yükünü ve kullanılmayan tarayıcı araç erişimini önler."""
     key = _api_cache_key(sistem, mesajlar, model, max_tokens, thinking)
     if onbellek:
         kayit = _api_cache_oku(key)
@@ -2400,7 +2417,7 @@ def _api_cagri(
             print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
             return kayit
     if USE_CLAUDE_CLI:
-        sonuc = _api_cagri_cli(sistem, mesajlar, live_app_gorev=live_app_gorev)
+        sonuc = _api_cagri_cli(sistem, mesajlar, canli_uygulama_kapsami=canli_uygulama_kapsami)
     else:
         sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
     _api_cache_yaz(key, sonuc)  # taze sonucu yaz (kesik kayıt varsa üzerine yazar)

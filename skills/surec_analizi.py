@@ -50,7 +50,8 @@ def surec_analizi_yap() -> Path:
 
     sistem = _surec_prompt_olustur()
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
-    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_UZUN, thinking=extended_thinking_acik())
+    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_UZUN, thinking=extended_thinking_acik(),
+                       canli_uygulama_kapsami=("surec" if canli_baglam else None))
 
     if kullanilan_referanslar:
         meta = "<!--\nKULLANILAN REFERANSLAR:\n- " + "\n- ".join(kullanilan_referanslar) + "\n-->\n\n"

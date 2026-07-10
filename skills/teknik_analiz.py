@@ -65,7 +65,8 @@ def _acik_sorular_prompt_olustur() -> str:
     )
 
 
-def _teknik_uret_tam(sistem: str, mesajlar: list, max_deneme: int = 2) -> str:
+def _teknik_uret_tam(sistem: str, mesajlar: list, max_deneme: int = 2,
+                      canli_uygulama_kapsami: str | None = None) -> str:
     """Aşama 1 üretimi — kapanış </teknik_analiz> etiketi yoksa çıktı KESİLMİŞ
     demektir (özellikle CLI modu uzun analizde bazen erken biter; max_tokens CLI'de
     geçerli değil). Tam yanıt gelene kadar (en fazla max_deneme) yeniden dener;
@@ -76,7 +77,8 @@ def _teknik_uret_tam(sistem: str, mesajlar: list, max_deneme: int = 2) -> str:
         # 1. deneme önbelleği kullanabilir; kesik gelirse 2+ denemede önbelleği
         # BYPASS et (yoksa cache aynı kesik yanıtı döndürür → retry işlevsiz kalır).
         ham = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_COMBINED,
-                         thinking=extended_thinking_acik(), onbellek=(deneme == 1))
+                         thinking=extended_thinking_acik(), onbellek=(deneme == 1),
+                         canli_uygulama_kapsami=canli_uygulama_kapsami)
         if "</teknik_analiz>" in ham:
             if deneme > 1:
                 print(f"  ✓ {deneme}. denemede tam teknik analiz üretildi")
@@ -201,7 +203,8 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     # ── AŞAMA 1: Sadece teknik analiz ──
     sistem = _teknik_prompt_olustur(mockup_var=bool(mockup_icerik))
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
-    yanit = _teknik_uret_tam(sistem, mesajlar)
+    yanit = _teknik_uret_tam(sistem, mesajlar,
+                             canli_uygulama_kapsami=("surec" if canli_baglam else None))
     yanit = _metin_sikistir(yanit)
     teknik = _xml_ayir(yanit, "teknik_analiz")
 
