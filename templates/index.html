@@ -1953,6 +1953,12 @@ function temaDegistir() {
           <input class="ctx-input ctx-live-extra" type="url" placeholder="4. alt URL" oninput="updateCtxBadge()">
           <input class="ctx-input ctx-live-extra" type="url" placeholder="5. alt URL" oninput="updateCtxBadge()">
         </div>
+        <div>
+          <div class="ctx-field-label">Canlı Uygulama Giriş Bilgileri <span style="font-weight:400">(opsiyonel)</span></div>
+          <div class="ctx-field-sub">Doluysa MCP tarayıcısı login duvarına düştüğünde bu bilgilerle giriş yapıp devam eder. Bu ekran ve Jira Görevleri arasında PAYLAŞILIR (aynı test hesabı).</div>
+          <input class="ctx-input" id="ctx-live-username" type="text" placeholder="Kullanıcı adı / e-posta" autocomplete="off" oninput="updateCtxBadge()">
+          <input class="ctx-input" id="ctx-live-password" type="password" placeholder="Şifre" autocomplete="off" oninput="updateCtxBadge()">
+        </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-outline btn-sm" onclick="ctxFilterKaydet()">Kaydet</button>
           <button class="btn btn-outline btn-sm" onclick="ctxFilterTemizle()">Temizle</button>
@@ -2126,7 +2132,7 @@ function temaDegistir() {
 
           <!-- Canlı Uygulama (Chrome MCP) — task bazlı Teknik Analiz Et bunu kullanır -->
           <div class="ctx-field-label" style="margin-top:14px">Canlı Uygulama URL</div>
-          <div class="ctx-field-sub">Doluysa "Teknik Analiz Et" bu görev için Claude MCP/Chrome ile ekranı ve servisleri gezer</div>
+          <div class="ctx-field-sub">Doluysa "Teknik Analiz Et" bu görev için Claude MCP/Chrome ile ekranı ve servisleri gezer · Bağlam Filtresi'nde tanımlıysa giriş bilgisi otomatik kullanılır</div>
           <div class="jg-fetch-row">
             <input class="ctx-input" id="jg-live-target" type="url" placeholder="https://dev.example.com/app" onchange="jgLiveAppKaydet(true)">
           </div>
@@ -3713,6 +3719,13 @@ function buildContextFilter() {
       target_url: document.getElementById('ctx-live-target').value.trim(),
       extra_urls: splitCtx(liveExtras.join(',')),
       use_as_sample: _ctxUseAsSample,
+    },
+    // live_app_gorev buraya KASITLI olarak dahil edilmiyor — bu ekranda alanı yok.
+    // Backend /api/context-filter artık PATCH semantiği kullanıyor: bu anahtar
+    // gövdede yoksa mevcut kayıtlı değeri korur, silmez.
+    live_app_auth: {
+      username: document.getElementById('ctx-live-username').value.trim(),
+      password: document.getElementById('ctx-live-password').value,
     },
   };
 }
@@ -5472,6 +5485,8 @@ async function ctxFilterYukle() {
     document.querySelectorAll('.ctx-live-extra').forEach((el, i) => {
       el.value = (d.live_app?.extra_urls || [])[i] || '';
     });
+    document.getElementById('ctx-live-username').value = d.live_app_auth?.username || '';
+    document.getElementById('ctx-live-password').value = d.live_app_auth?.password || '';
     ctxSampleToggle(d.live_app?.use_as_sample === true);
     updateCtxBadge();
   } catch {}
@@ -5493,12 +5508,22 @@ async function ctxFilterKaydet() {
 }
 
 async function ctxFilterTemizle() {
+  // live_app_gorev KASITLI olarak gönderilmiyor (bu ekranda alanı yok) — backend
+  // PATCH semantiği sayesinde Jira Görevleri'nin hedefi bu temizlemeden etkilenmez.
+  // live_app_auth ise bu ekranda görünür bir alan olduğu için AÇIKÇA temizleniyor
+  // (aksi halde ekran boş görünür ama arka planda eski giriş bilgisi kullanılmaya
+  // devam ederdi).
   const r = await fetch('/api/context-filter', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({keywords:[], jira_keys:[], confluence_pages:[], live_app:{target_url:'', extra_urls:[], use_as_sample:false}})
+    body: JSON.stringify({
+      keywords:[], jira_keys:[], confluence_pages:[],
+      live_app:{target_url:'', extra_urls:[], use_as_sample:false},
+      live_app_auth:{username:'', password:''},
+    })
   });
   if (r.ok) {
-    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages','ctx-live-target'].forEach(id => document.getElementById(id).value='');
+    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages','ctx-live-target','ctx-live-username','ctx-live-password']
+      .forEach(id => document.getElementById(id).value='');
     document.querySelectorAll('.ctx-live-extra').forEach(el => { el.value = ''; });
     ctxSampleToggle(false);
     updateCtxBadge();

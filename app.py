@@ -1787,12 +1787,14 @@ def context_filter_oku():
             data = json.loads(p.read_text(encoding="utf-8"))
             data.setdefault("live_app", {"target_url": "", "extra_urls": [], "use_as_sample": False})
             data.setdefault("live_app_gorev", {"target_url": ""})
+            data.setdefault("live_app_auth", {"username": "", "password": ""})
             return jsonify(data)
         except Exception:
             pass
     return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [],
                      "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False},
-                     "live_app_gorev": {"target_url": ""}})
+                     "live_app_gorev": {"target_url": ""},
+                     "live_app_auth": {"username": "", "password": ""}})
 
 
 # ─── Canlı Uygulama (Chrome MCP) — durum + tek seferlik giriş ────────────────
@@ -1854,7 +1856,20 @@ def live_app_giris():
 
 @app.route("/api/context-filter", methods=["POST"])
 def context_filter_kaydet():
+    """PATCH semantiği: istek gövdesinde bulunmayan ÜST-DÜZEY alan mevcut dosyadaki
+    değerini korur (silinmez) — yalnızca gövdede geçen alan güncellenir. Süreç/Teknik
+    Analiz ve Jira Görevleri ekranları bu uç noktayı bağımsız olarak (yalnızca kendi
+    ilgilendiği alanla) çağırıyor; eskiden eksik alan sessizce boşaltılıyordu (örn.
+    Süreç ekranından kaydedince Jira Görevleri'nin live_app_gorev'i sıfırlanıyordu)."""
     data = request.get_json(silent=True) or {}
+    p = REF_DIR / "context_filter.json"
+    mevcut: dict = {}
+    if p.exists():
+        try:
+            mevcut = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            mevcut = {}
+
     def temiz_liste(degerler, *, upper=False, lower=False):
         sonuc = []
         gorulen = set()
@@ -1889,7 +1904,11 @@ def context_filter_kaydet():
                 break
         return sonuc
 
-    live_app = data.get("live_app") if isinstance(data.get("live_app"), dict) else {}
+    keywords_girdi = data["keywords"] if "keywords" in data else mevcut.get("keywords", [])
+    jira_keys_girdi = data["jira_keys"] if "jira_keys" in data else mevcut.get("jira_keys", [])
+    confluence_girdi = data["confluence_pages"] if "confluence_pages" in data else mevcut.get("confluence_pages", [])
+
+    live_app = data["live_app"] if "live_app" in data and isinstance(data["live_app"], dict) else mevcut.get("live_app", {})
     extra_urls = live_app.get("extra_urls", [])
     if not isinstance(extra_urls, list):
         extra_urls = []
@@ -1897,13 +1916,18 @@ def context_filter_kaydet():
 
     # live_app_gorev: Jira Görevleri (task bazlı) ekranının KENDİ hedefi — live_app'ten
     # (Süreç/Teknik Analiz) bağımsız. Tek URL yeterli, alt-URL/örnek-ekran kavramı yok.
-    live_app_gorev = data.get("live_app_gorev") if isinstance(data.get("live_app_gorev"), dict) else {}
+    live_app_gorev = data["live_app_gorev"] if "live_app_gorev" in data and isinstance(data["live_app_gorev"], dict) else mevcut.get("live_app_gorev", {})
     gorev_urls = temiz_url_liste([live_app_gorev.get("target_url", "")], limit=1)
 
+    # live_app_auth: iki akış da PAYLAŞIR (aynı test hesabı, aynı canlı uygulama).
+    # Şifre düz metin JSON'da tutulur — bu dosya zaten gitignore'da (hard kural #2);
+    # yine de dosya izni 600'e sıkılaştırılır (aşağıda).
+    live_app_auth = data["live_app_auth"] if "live_app_auth" in data and isinstance(data["live_app_auth"], dict) else mevcut.get("live_app_auth", {})
+
     filtre = {
-        "keywords": temiz_liste(data.get("keywords", []), lower=True),
-        "jira_keys": temiz_liste(data.get("jira_keys", []), upper=True),
-        "confluence_pages": temiz_liste(data.get("confluence_pages", []), lower=True),
+        "keywords": temiz_liste(keywords_girdi, lower=True),
+        "jira_keys": temiz_liste(jira_keys_girdi, upper=True),
+        "confluence_pages": temiz_liste(confluence_girdi, lower=True),
         "live_app": {
             "target_url": live_urls[0] if live_urls else "",
             "extra_urls": live_urls[1:6],
@@ -1912,9 +1936,16 @@ def context_filter_kaydet():
         "live_app_gorev": {
             "target_url": gorev_urls[0] if gorev_urls else "",
         },
+        "live_app_auth": {
+            "username": str(live_app_auth.get("username", "")).strip(),
+            "password": str(live_app_auth.get("password", "")).strip(),
+        },
     }
-    p = REF_DIR / "context_filter.json"
     p.write_text(json.dumps(filtre, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        os.chmod(p, 0o600)
+    except OSError:
+        pass
     logger.info("Bağlam filtresi güncellendi.")
     return jsonify({"ok": True, "filtre": filtre})
 

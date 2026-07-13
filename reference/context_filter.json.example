@@ -9,5 +9,9 @@
   },
   "live_app_gorev": {
     "target_url": ""
+  },
+  "live_app_auth": {
+    "username": "",
+    "password": ""
   }
 }

@@ -1695,6 +1695,10 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
     # live_app'ten (Süreç/Teknik Analiz) tamamen bağımsızdır — iki akış birbirini ezmez.
     live_app_gorev = ctx.get("live_app_gorev") if isinstance(ctx.get("live_app_gorev"), dict) else {}
     gorev_urls = _url_liste_normalize([live_app_gorev.get("target_url", "")])
+    # live_app_auth: iki akış (Süreç/Teknik Analiz + Jira Görevleri) PAYLAŞIR — aynı
+    # test hesabı, aynı canlı uygulama. Şifre burada düz metin tutulur (dosya
+    # gitignore'da + 600 izinli, bkz. app.py context_filter_kaydet).
+    live_app_auth = ctx.get("live_app_auth") if isinstance(ctx.get("live_app_auth"), dict) else {}
     return {
         "keywords": _benzersiz_liste(ctx.get("keywords", []), lower=True),
         "jira_keys": _benzersiz_liste(ctx.get("jira_keys", []), upper=True),
@@ -1706,6 +1710,10 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
         },
         "live_app_gorev": {
             "target_url": gorev_urls[0] if gorev_urls else "",
+        },
+        "live_app_auth": {
+            "username": str(live_app_auth.get("username", "")).strip(),
+            "password": str(live_app_auth.get("password", "")).strip(),
         },
     }
 
@@ -1737,6 +1745,26 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
     if not urls:
         return None
 
+    # live_app_auth: iki akış da PAYLAŞIR (aynı test hesabı). Doluysa modele login
+    # duvarında ne yapacağını söyle — aksi halde MCP tarayıcısı login sayfasına
+    # düşünce ilerleyemez ve gözlem "erişilemedi" diye açık soruya düşer.
+    auth = ctx.get("live_app_auth") or {}
+    kullanici_adi = str(auth.get("username", "")).strip()
+    sifre = str(auth.get("password", "")).strip()
+    giris_notu = ""
+    if kullanici_adi and sifre:
+        giris_notu = (
+            "\n### OTOMATİK GİRİŞ\n"
+            "Herhangi bir URL'de login/giriş formu (kullanıcı adı veya e-posta + şifre alanı) "
+            "görürsen, aşağıdaki test hesabıyla giriş yap ve ardından ana gözlem görevine devam et:\n"
+            f"- Kullanıcı adı / e-posta: {kullanici_adi}\n"
+            f"- Şifre: {sifre}\n"
+            "Formu snapshot ile bul, ilgili alanlara yaz, gönder/giriş butonuna tıkla, yönlendirmeyi "
+            "bekle. Giriş başarısız olursa (hatalı bilgi, captcha, 2FA, hesap kilidi vb.) varsayım "
+            "üretmeden bunu açık soru olarak bildir — tekrar deneme. ŞİFREYİ ÇIKTIYA/RAPORA ASLA "
+            "YAZMA veya tekrarlama; yalnızca formu doldurmak için kullan.\n"
+        )
+
     sirali = "\n".join(f"{i}. {url}" for i, url in enumerate(urls, start=1))
     ornek_ekran_notu = ""
     if use_as_sample:
@@ -1754,6 +1782,7 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "her URL'yi aç, ekranı tam kullanım senaryolarıyla simüle et ve gözlemlerini analizde kaynak göster.\n\n"
         f"{sirali}\n\n"
         f"{ornek_ekran_notu}"
+        f"{giris_notu}"
         "Toplanacak gözlem kapsamı:\n"
         "- Görünen ekran/route, başlıklar, tablar, tablolar, modal'lar ve form alanları\n"
         "- Butonlar, menüler, filtreler, arama, ekleme, düzenleme, silme, onay/iptal akışları\n"
@@ -1762,7 +1791,8 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "- Her kullanıcı aksiyonunun tetiklediği servisler: HTTP method, path, request payload özeti, "
         "response özeti, status code ve hata response'ları\n\n"
         "Güvenlik kuralları:\n"
-        "- Token, cookie, authorization header, session id, kişisel veri ve gizli değerleri MASKELE.\n"
+        "- Token, cookie, authorization header, session id, giriş şifresi, kişisel veri ve gizli "
+        "değerleri MASKELE.\n"
         "- Sadece gözlemlenen endpoint/alan/mesajları kullan; gözlemlenemeyenleri açık soru yap.\n"
         "- Ekran davranışı için `[K: Canlı UI:<route>]`, servis davranışı için "
         "`[K: Network:<METHOD> <path>]` kaynak etiketi kullan.\n"

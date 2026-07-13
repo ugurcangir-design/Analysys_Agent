@@ -240,6 +240,24 @@ sonuç: profil "hazır" görünür ama analiz yine login duvarına düşer (giri
 aslında geçerli oturum kaydedilmemiş olur). Artık süreç kendiliğinden kapanana kadar bekleniyor,
 yalnızca gerçekten yanıt vermiyorsa zorla kapatılıyor.
 
+**Otomatik giriş (opsiyonel):** Bağlam Filtresi panelinde (Süreç ekranı) `live_app_auth`
+(kullanıcı adı + şifre) girilirse, MCP tarayıcısı bir login/giriş formuna düşünce bu bilgilerle
+otomatik giriş yapıp devam eder — önceden yalnızca "login duvarına takıldı" diye açık soru
+üretilebiliyordu. `live_app_auth` **iki akış da (Süreç/Teknik Analiz + Jira Görevleri) paylaşır**
+(aynı test hesabı); `canli_uygulama_baglami_hazirla()` her iki `gorev` değeri için de bu bilgiyi
+ekler. Şifre `reference/context_filter.json`'da düz metin tutulur — dosya zaten gitignore'da
+(hard kural #2) ve `context_filter_kaydet()` yazımdan sonra dosya iznini 600'e sıkılaştırır.
+Prompt talimatı modele şifreyi ASLA çıktıya yazmamasını söyler (mevcut token/cookie maskeleme
+kuralına ek).
+
+**`/api/context-filter` POST artık PATCH semantiği kullanır (düzeltildi):** Eskiden istek
+gövdesinde eksik olan HER üst-düzey alan boş değere sıfırlanıyordu — bu yüzden Süreç ekranından
+kaydedince (`buildContextFilter()` `live_app_gorev` alanını hiç bilmez) Jira Görevleri'nin hedefi
+sessizce siliniyordu, ve tersi de geçerliydi. `context_filter_kaydet()` (`app.py`) artık önce
+mevcut dosyayı okur; istek gövdesinde bulunmayan alan (`"anahtar" in data` değilse) mevcut kayıtlı
+değerini korur. Yalnızca gövdede AÇIKÇA gönderilen alan güncellenir/silinir — `ctxFilterTemizle()`
+gibi "temizle" akışları hâlâ çalışır çünkü ilgili alanı açıkça boş gönderirler.
+
 ## Bilinen Kısıtlamalar
 - CLI modu görsel (PNG/JPG) analiz EDEMEZ (text-only); görsel BRD için API modu gerekir.
 - `markdown_to_adf` nested list'leri düzleştirir.
