@@ -226,10 +226,19 @@ Analist HEADED giriş penceresini kapatmayı unutursa hem yeni "Tarayıcıda Gir
 analiz sırasındaki headless Playwright başlatması aynı kilide takılır (`claude -p` non-interactive
 çalıştığından, kilidi tutan yetim süreç bir insan/agent onayı olmadan sonlandırılamaz → analiz askıda
 kalır). `live_app_kilidi_temizle()` (`skills/base.py`) bunu otomatik çözer: `SingletonLock`
-symlink'inden PID'i okur, süreç yaşıyorsa SIGTERM/SIGKILL ile sonlandırır, `Singleton*` dosyalarını
+symlink'inden PID'i okur, süreç yaşıyorsa SIGTERM gönderip **en fazla ~5 sn** (0.25 sn aralıklarla
+poll) kendiliğinden kapanmasını bekler, hâlâ yaşıyorsa SIGKILL'e düşer; `Singleton*` dosyalarını
 siler. Hem `POST /api/live-app/login`'de (her tıklama gerçekten temiz pencere açsın) hem
 `_live_app_cli_argumanlari()`'nde (her live-app'li analiz temiz başlasın) çağrılır — ayrı bir onay
 akışı gerektirmez, uygulama kendi kaynağını kendi temizler.
+
+**Neden 5 sn poll (sabit 1 sn değil):** Chrome SIGTERM'i normal kapanış sayar ve bu sırada
+çerezleri/oturum verisini diske yazar (flush) — ama bu anlık değil. İlk sürümde sabit 1 sn bekleyip
+koşulsuz SIGKILL atılıyordu; analist TAM O SIRADA giriş yapıp pencereyi henüz kapatmışsa (veya
+analiz otomatik başlayıp self-heal'i tetiklemişse) taze çerezler flush olmadan kesilme riski vardı —
+sonuç: profil "hazır" görünür ama analiz yine login duvarına düşer (giriş yapılmış gibi görünüp
+aslında geçerli oturum kaydedilmemiş olur). Artık süreç kendiliğinden kapanana kadar bekleniyor,
+yalnızca gerçekten yanıt vermiyorsa zorla kapatılıyor.
 
 ## Bilinen Kısıtlamalar
 - CLI modu görsel (PNG/JPG) analiz EDEMEZ (text-only); görsel BRD için API modu gerekir.

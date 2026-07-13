@@ -2076,8 +2076,21 @@ def live_app_kilidi_temizle() -> None:
         if pid:
             try:
                 os.kill(pid, signal.SIGTERM)
-                time.sleep(1)
-                os.kill(pid, signal.SIGKILL)
+                # Chrome SIGTERM'i "normal kapanış" sayar ve çerezleri/oturumu diske
+                # yazar (flush) — ama bu anlık değil. Sabit 1 sn + SIGKILL, analist
+                # TAM O SIRADA giriş yapıp pencereyi henüz kapatmışsa taze çerezlerin
+                # flush olmadan kesilmesi riskini taşıyordu (giriş yapılmış gibi
+                # görünüp analizde yine login duvarına düşme). En fazla ~5 sn poll
+                # ederek süreç kendiliğinden kapanana kadar bekle, ancak kapanmazsa
+                # SIGKILL'e düş.
+                for _ in range(20):
+                    time.sleep(0.25)
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        break
+                else:
+                    os.kill(pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass  # zaten kapanmış
             except PermissionError:
