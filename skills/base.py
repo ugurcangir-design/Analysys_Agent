@@ -71,7 +71,13 @@ LIVE_APP_ALLOWED_TOOLS = [
     "mcp__playwright__browser_navigate",
     "mcp__playwright__browser_navigate_back",
     "mcp__playwright__browser_snapshot",        # DOM / erişilebilirlik ağacı
-    "mcp__playwright__browser_network_requests",  # BFF/servis çağrıları
+    "mcp__playwright__browser_network_requests",  # BFF/servis çağrıları — numaralı liste
+    "mcp__playwright__browser_network_request",   # tek isteğin tam header/body detayı (yukarıdaki
+                                                   # listeden numarayla) — AYRI bir araç, çoğulun
+                                                   # eş anlamlısı DEĞİL. Eksik olunca headless modda
+                                                   # onay alamayıp analiz "Analist onayı bekleniyor"da
+                                                   # askıda kalıyordu (permission_denials'a bile
+                                                   # düşmüyor, sessizce timeout'a kadar bekliyordu).
     "mcp__playwright__browser_console_messages",
     "mcp__playwright__browser_click",
     "mcp__playwright__browser_type",

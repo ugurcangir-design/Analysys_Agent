@@ -163,7 +163,7 @@ sırasında `claude -p` alt süreci gerçek uygulamayı gezip DOM + network (BFF
 - `_live_app_cli_argumanlari(kapsam: str|None)` **OPT-IN**'dir: yalnızca çağıran, mesajlarına
   GERÇEKTEN bir browsing talimatı (`canli_uygulama_baglami_hazirla()` çıktısı) eklediyse
   `kapsam="surec"` veya `kapsam="gorev"` verir ve o zaman şu argümanlar eklenir:
-  `--mcp-config .mcp.live-app.json --strict-mcp-config --allowedTools <14 tarayıcı aracı>`.
+  `--mcp-config .mcp.live-app.json --strict-mcp-config --allowedTools <15 tarayıcı aracı>`.
   `kapsam=None` (varsayılan) → canlı uygulama HİÇ açılmaz, global URL tanımlı olsa bile.
 - **Geçmiş bug (düzeltildi):** Eskiden bu kontrol yalnızca "global URL tanımlı mı" bakıyordu —
   browsing talimatı içermeyen HER `_api_cagri()` çağrısı (BRD analizi, kapsam analizi, HTML
@@ -179,9 +179,18 @@ sırasında `claude -p` alt süreci gerçek uygulamayı gezip DOM + network (BFF
 - `live_app_mcp_config_yaz()` MUTLAK yollarla config üretir: `npx -y @playwright/mcp@latest
   --headless --browser chrome --user-data-dir .live-app-profile`.
 - `_npx_yolu_bul()` PATH'e bağımlı değil (GUI minimal PATH); npx'in dizini `cli_env["PATH"]`e eklenir.
-- `LIVE_APP_ALLOWED_TOOLS`: navigate/snapshot/**network_requests**/console/click/type/press_key/
-  hover/select_option/wait_for/handle_dialog/tabs/find. `browser_evaluate` (keyfi JS) ve dosya
-  yükleme bilinçli olarak DIŞARIDA.
+- `LIVE_APP_ALLOWED_TOOLS`: navigate/navigate_back/snapshot/**network_requests + network_request**/
+  console/click/type/press_key/hover/select_option/wait_for/handle_dialog/tabs/find.
+  `browser_evaluate` (keyfi JS), `browser_file_upload`, cookie/localStorage/sessionStorage
+  okuma-yazma, `browser_run_code_unsafe`, mouse-seviyesi kontrol, route interception, video/tracing
+  bilinçli olarak DIŞARIDA (paket 0.0.78'de bunlar dahil ~65 araç var; yalnızca gözlem için
+  gereken salt-okunur/dar kapsamlı 15 tanesi allowlist'te).
+- **Geçmiş bug (düzeltildi):** `browser_network_requests` (çoğul — numaralı liste döner) ile
+  `browser_network_request` (tekil — listedeki bir isteğin tam header/body detayını döner) PAKETTE
+  İKİ AYRI ARAÇ; eskiden yalnızca çoğul olan listede vardı. Model detay için tekili çağırınca
+  headless `-p` modunda onay alamıyor, `permission_denials`'a bile düşmeden "Analist onayı
+  bekleniyor" durumunda süresiz askıda kalıyordu (kullanıcı raporu: UI'da onaylayacak bir
+  modal/alan da yok — headless modda zaten hiç olamaz). Artık ikisi de allowlist'te.
 
 **Oturum/login:** `.live-app-profile/` kalıcı Chrome profili (gitignored, çerez içerir).
 `POST /api/live-app/login` sistem Chrome'unu bu profille HEADED açar → analist bir kez giriş yapar,
