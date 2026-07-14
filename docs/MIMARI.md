@@ -19,7 +19,13 @@ IDLE → SUREC_ANALIZI_CALISIYOR → ONAY_BEKLENIYOR
 ```
 **Otomatik kurtarma:** `baslat()`/`baslat_teknik()` yalnız CALISMA_DURUMLARI'nda reddeder;
 HATA/bekleme/tamamlanmış durumlardan temiz başlar. Stale CALISIYOR (state çalışıyor der ama
-subprocess yok): `_stale_workflow_kurtar()` run/run-teknik'te + startup'ta sıfırlar.
+subprocess yok — örn. uygulama analiz ortasında kapandı/çöktü): `_stale_workflow_kurtar()`
+`/api/run`, `/api/run-teknik` **ve** `GET /api/workflow-state`'te çağrılır. Üçüncüsü kritik:
+UI bu uç noktayı birkaç saniyede bir poll edip `busy` durumuna göre Başlat butonunu
+disable ediyor (`updateUI()` → `btn-surec.disabled = busy || !selectedFiles.surec`); yalnızca
+run/run-teknik'te temizlense stale durum kalıcı olurdu çünkü buton disabled kaldığı için
+kullanıcı hiç `/api/run`'a basamaz — kendini düzelten kod hiç tetiklenmezdi (tavuk-yumurta).
+Artık her poll'da kontrol edilip ilk fırsatta sıfırlanıyor.
 
 ## Sabitler / Limitler (`skills/base.py`)
 ```python

@@ -695,6 +695,12 @@ def shutdown():
 @app.route("/api/workflow-state")
 def workflow_state():
     import workflow as wf
+    # Stale durum (dosya 'çalışıyor' diyor ama gerçek subprocess yok — örn. uygulama
+    # analiz ortasında kapandı/çöktü) yalnızca /api/run'da temizleniyordu; ama frontend
+    # bu durumu "meşgul" sayıp Başlat butonunu DEVRE DIŞI bırakıyor, kullanıcı butona
+    # basamadığı için o temizlik hiç tetiklenmiyordu (tavuk-yumurta). Poll edilen bu
+    # uç noktada da çağırarak buton kalıcı şekilde inaktif kalmasın.
+    _stale_workflow_kurtar()
     ozet = wf.ozet()
     ozet["suspended"] = _suspended
     return jsonify(ozet)
