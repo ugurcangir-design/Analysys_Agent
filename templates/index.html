@@ -534,6 +534,16 @@ textarea.ctx-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 .ctx-toggle.open .ctx-toggle-arrow { transform: rotate(90deg); }
 .ctx-fields { display: none; flex-direction: column; gap: 10px; padding: 12px 14px 4px; }
 .ctx-fields.open { display: flex; }
+/* Kalabalık paneli sadeleştiren yerleşim yardımcıları (özellik/id değişmez) */
+.ctx-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+@media (max-width: 980px) { .ctx-grid2 { grid-template-columns: 1fr; } }
+.ctx-group { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface2); display: flex; flex-direction: column; gap: 10px; }
+.ctx-group-title { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.ctx-more { border: 1px dashed var(--border); border-radius: 6px; padding: 6px 10px; }
+.ctx-more summary { cursor: pointer; font-size: 12px; color: var(--text2); user-select: none; list-style: none; display: flex; align-items: center; gap: 6px; }
+.ctx-more summary::before { content: '▸'; font-size: 10px; transition: transform .12s; }
+.ctx-more[open] summary::before { transform: rotate(90deg); }
+.ctx-more .ctx-more-body { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
 .ctx-input { font-size: 12px; }
 .ctx-live-extra { margin-top: 6px; }
 .ctx-sample-btn {
@@ -1908,15 +1918,17 @@ function temaDegistir() {
         <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
       </div>
       <div class="ctx-fields" id="op-fields">
-        <div>
-          <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
-          <div class="ctx-field-sub">Doluysa süreç analizi varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
-          <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
-        </div>
-        <div>
-          <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
-          <div class="ctx-field-sub">Doluysa teknik analiz varsayılan prompt yerine BUNU kullanır; çıktı biçimi (XML bloğu) sistem tarafından otomatik korunur</div>
-          <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
+        <div class="ctx-grid2">
+          <div>
+            <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
+            <div class="ctx-field-sub">Doluysa varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
+            <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
+          </div>
+          <div>
+            <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
+            <div class="ctx-field-sub">Doluysa varsayılan prompt yerine BUNU kullanır; çıktı biçimi (XML) otomatik korunur</div>
+            <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
+          </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-outline btn-sm" onclick="ozelPromptKaydet()">Kaydet</button>
@@ -1934,63 +1946,85 @@ function temaDegistir() {
         <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
       </div>
       <div class="ctx-fields" id="ctx-fields">
-        <div>
-          <div class="ctx-field-label">Anahtar Kelimeler</div>
-          <div class="ctx-field-sub">Confluence sayfalarda ve Jira task'larda bu kelimeleri ara</div>
-          <input class="ctx-input" id="ctx-keywords" type="text" placeholder="örn: ödeme, payment, sipariş" oninput="updateCtxBadge()">
-        </div>
-        <div>
-          <div class="ctx-field-label">Jira Issue Keys</div>
-          <div class="ctx-field-sub">Sadece bu task'ları bağlama ekle</div>
-          <input class="ctx-input" id="ctx-jira-keys" type="text" placeholder="örn: PROJ-123, PROJ-456" oninput="updateCtxBadge()">
-        </div>
-        <div>
-          <div class="ctx-field-label">Confluence Sayfa Adları</div>
-          <div class="ctx-field-sub">Boş bırakılırsa içerik bazlı aranır</div>
-          <input class="ctx-input" id="ctx-conf-pages" type="text" placeholder="örn: Ödeme Entegrasyonu, Kullanıcı Yönetimi" oninput="updateCtxBadge()">
-        </div>
-        <div>
-          <div class="ctx-field-label">MCP Ana Uygulama URL</div>
-          <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler</div>
-          <input class="ctx-input" id="ctx-live-target" type="url" placeholder="https://dev.example.com/app" oninput="updateCtxBadge()">
-          <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
-            Örnek ekran olarak kullan
-          </button>
-        </div>
-        <div>
-          <div class="ctx-field-label">MCP Gözlem Kapsamı <span style="font-weight:400">(opsiyonel)</span></div>
-          <div class="ctx-field-sub">Doluysa tüm ekran taranmaz; yalnızca burada tarif edilen bölüm/akış derinlemesine incelenir. Boşsa tüm tablar + bileşenler sistematik taranır.</div>
-          <textarea class="ctx-input" id="ctx-live-scope" rows="3" placeholder="örn: Tablodan bir satır seç, Güncelle butonuna bas, formdaki alanları değiştir, kaydet ve tetiklenen servis istek/yanıtını yakala" oninput="updateCtxBadge()"></textarea>
+
+        <!-- Grup 1: Referans filtreleri (RAG) -->
+        <div class="ctx-group">
+          <div class="ctx-group-title"><svg class="ico ico-sm"><use href="#i-filter"/></svg> Referans Filtreleri</div>
+          <div class="ctx-grid2">
+            <div>
+              <div class="ctx-field-label">Anahtar Kelimeler</div>
+              <div class="ctx-field-sub">Confluence sayfalarda ve Jira task'larda bu kelimeleri ara</div>
+              <input class="ctx-input" id="ctx-keywords" type="text" placeholder="örn: ödeme, payment, sipariş" oninput="updateCtxBadge()">
+            </div>
+            <div>
+              <div class="ctx-field-label">Jira Issue Keys</div>
+              <div class="ctx-field-sub">Sadece bu task'ları bağlama ekle</div>
+              <input class="ctx-input" id="ctx-jira-keys" type="text" placeholder="örn: PROJ-123, PROJ-456" oninput="updateCtxBadge()">
+            </div>
+          </div>
+          <div>
+            <div class="ctx-field-label">Confluence Sayfa Adları</div>
+            <div class="ctx-field-sub">Boş bırakılırsa içerik bazlı aranır</div>
+            <input class="ctx-input" id="ctx-conf-pages" type="text" placeholder="örn: Ödeme Entegrasyonu, Kullanıcı Yönetimi" oninput="updateCtxBadge()">
+          </div>
         </div>
 
-        <!-- Canlı uygulama erişim/izin durumu — analist neden çalışmadığını burada görür -->
-        <div class="la-durum" id="la-durum">
-          <div class="la-satir">
-            <span class="la-nokta" id="la-nokta"></span>
-            <span id="la-metin" class="la-metin">Durum kontrol ediliyor…</span>
-            <span class="panel-spacer"></span>
-            <button class="btn btn-outline btn-sm" type="button" id="la-login-btn" onclick="liveAppGiris()">
-              Tarayıcıda Giriş Yap
+        <!-- Grup 2: Canlı uygulama (Chrome MCP) -->
+        <div class="ctx-group">
+          <div class="ctx-group-title"><svg class="ico ico-sm"><use href="#i-monitor"/></svg> Canlı Uygulama (Chrome MCP)</div>
+          <div>
+            <div class="ctx-field-label">Ana Uygulama URL</div>
+            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler</div>
+            <input class="ctx-input" id="ctx-live-target" type="url" placeholder="https://dev.example.com/app" oninput="updateCtxBadge()">
+            <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
+              Örnek ekran olarak kullan
             </button>
-            <button class="btn btn-outline btn-sm" type="button" onclick="liveAppDurumYenile()" title="Durumu yenile">↻</button>
           </div>
-          <div class="la-ipucu" id="la-ipucu"></div>
+
+          <!-- Erişim/izin durumu — analist neden çalışmadığını burada görür -->
+          <div class="la-durum" id="la-durum">
+            <div class="la-satir">
+              <span class="la-nokta" id="la-nokta"></span>
+              <span id="la-metin" class="la-metin">Durum kontrol ediliyor…</span>
+              <span class="panel-spacer"></span>
+              <button class="btn btn-outline btn-sm" type="button" id="la-login-btn" onclick="liveAppGiris()">
+                Tarayıcıda Giriş Yap
+              </button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="liveAppDurumYenile()" title="Durumu yenile">↻</button>
+            </div>
+            <div class="la-ipucu" id="la-ipucu"></div>
+          </div>
+
+          <div>
+            <div class="ctx-field-label">Gözlem Kapsamı <span style="font-weight:400">(opsiyonel)</span></div>
+            <div class="ctx-field-sub">Doluysa tüm ekran taranmaz; yalnızca tarif edilen bölüm/akış derinlemesine incelenir. Boşsa tüm tablar + bileşenler sistematik taranır.</div>
+            <textarea class="ctx-input" id="ctx-live-scope" rows="2" placeholder="örn: Tablodan bir satır seç, Güncelle butonuna bas, kaydet ve tetiklenen servis istek/yanıtını yakala" oninput="updateCtxBadge()"></textarea>
+          </div>
+
+          <details class="ctx-more" id="ctx-more-urls">
+            <summary>Alt URL'ler <span class="mono-meta">(sırayla gezilecek ek ekranlar, en fazla 5)</span></summary>
+            <div class="ctx-more-body">
+              <div class="ctx-grid2">
+                <input class="ctx-input ctx-live-extra" type="url" placeholder="1. alt URL" oninput="updateCtxBadge()">
+                <input class="ctx-input ctx-live-extra" type="url" placeholder="2. alt URL" oninput="updateCtxBadge()">
+                <input class="ctx-input ctx-live-extra" type="url" placeholder="3. alt URL" oninput="updateCtxBadge()">
+                <input class="ctx-input ctx-live-extra" type="url" placeholder="4. alt URL" oninput="updateCtxBadge()">
+                <input class="ctx-input ctx-live-extra" type="url" placeholder="5. alt URL" oninput="updateCtxBadge()">
+              </div>
+            </div>
+          </details>
+
+          <details class="ctx-more" id="ctx-more-auth">
+            <summary>Giriş Bilgileri <span class="mono-meta">(login duvarında otomatik giriş — Jira Görevleri ile paylaşılır)</span></summary>
+            <div class="ctx-more-body">
+              <div class="ctx-grid2">
+                <input class="ctx-input" id="ctx-live-username" type="text" placeholder="Kullanıcı adı / e-posta" autocomplete="off" oninput="updateCtxBadge()">
+                <input class="ctx-input" id="ctx-live-password" type="password" placeholder="Şifre" autocomplete="off" oninput="updateCtxBadge()">
+              </div>
+            </div>
+          </details>
         </div>
-        <div>
-          <div class="ctx-field-label">MCP Alt URL'ler</div>
-          <div class="ctx-field-sub">Sırayla gezilecek ek ekranlar; boş bırakılanlar atlanır</div>
-          <input class="ctx-input ctx-live-extra" type="url" placeholder="1. alt URL" oninput="updateCtxBadge()">
-          <input class="ctx-input ctx-live-extra" type="url" placeholder="2. alt URL" oninput="updateCtxBadge()">
-          <input class="ctx-input ctx-live-extra" type="url" placeholder="3. alt URL" oninput="updateCtxBadge()">
-          <input class="ctx-input ctx-live-extra" type="url" placeholder="4. alt URL" oninput="updateCtxBadge()">
-          <input class="ctx-input ctx-live-extra" type="url" placeholder="5. alt URL" oninput="updateCtxBadge()">
-        </div>
-        <div>
-          <div class="ctx-field-label">Canlı Uygulama Giriş Bilgileri <span style="font-weight:400">(opsiyonel)</span></div>
-          <div class="ctx-field-sub">Doluysa MCP tarayıcısı login duvarına düştüğünde bu bilgilerle giriş yapıp devam eder. Bu ekran ve Jira Görevleri arasında PAYLAŞILIR (aynı test hesabı).</div>
-          <input class="ctx-input" id="ctx-live-username" type="text" placeholder="Kullanıcı adı / e-posta" autocomplete="off" oninput="updateCtxBadge()">
-          <input class="ctx-input" id="ctx-live-password" type="password" placeholder="Şifre" autocomplete="off" oninput="updateCtxBadge()">
-        </div>
+
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-outline btn-sm" onclick="ctxFilterKaydet()">Kaydet</button>
           <button class="btn btn-outline btn-sm" onclick="ctxFilterTemizle()">Temizle</button>
@@ -5591,6 +5625,12 @@ async function ctxFilterYukle() {
     });
     document.getElementById('ctx-live-username').value = d.live_app_auth?.username || '';
     document.getElementById('ctx-live-password').value = d.live_app_auth?.password || '';
+    // Katlanmış bölümler: içlerinde kayıtlı değer varsa otomatik AÇIK gelsin —
+    // dolu alan gizli kalırsa analist "kayboldu" sanır (özellik kaybı algısı).
+    const urlsDetails = document.getElementById('ctx-more-urls');
+    if (urlsDetails && (d.live_app?.extra_urls || []).length) urlsDetails.open = true;
+    const authDetails = document.getElementById('ctx-more-auth');
+    if (authDetails && (d.live_app_auth?.username || d.live_app_auth?.password)) authDetails.open = true;
     ctxSampleToggle(d.live_app?.use_as_sample === true);
     updateCtxBadge();
   } catch {}
