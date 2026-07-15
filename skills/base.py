@@ -1724,9 +1724,13 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
             "target_url": live_urls[0] if live_urls else "",
             "extra_urls": live_urls[1:6],
             "use_as_sample": bool(live_app.get("use_as_sample")),
+            # gozlem_kapsami: doluysa MCP tüm ekranı taramaz — yalnızca bu akış(lar)
+            # derinlemesine incelenir (örn. "Güncelle butonu akışı"). Boş = tam tarama.
+            "gozlem_kapsami": str(live_app.get("gozlem_kapsami", "")).strip(),
         },
         "live_app_gorev": {
             "target_url": gorev_urls[0] if gorev_urls else "",
+            "gozlem_kapsami": str(live_app_gorev.get("gozlem_kapsami", "")).strip(),
         },
         "live_app_auth": {
             "username": str(live_app_auth.get("username", "")).strip(),
@@ -1754,14 +1758,17 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
     """
     ctx = load_context_filter() or {}
     if gorev:
-        target_url = str((ctx.get("live_app_gorev") or {}).get("target_url", "")).strip()
+        la_gorev = ctx.get("live_app_gorev") or {}
+        target_url = str(la_gorev.get("target_url", "")).strip()
         extra_urls, use_as_sample = [], False
+        gozlem_kapsami = str(la_gorev.get("gozlem_kapsami", "")).strip()
     else:
         live_app = ctx.get("live_app") or {}
         target_url = str(live_app.get("target_url", "")).strip()
         extra_urls_raw = live_app.get("extra_urls", [])
         extra_urls = [u for u in extra_urls_raw if str(u).strip()] if isinstance(extra_urls_raw, list) else []
         use_as_sample = bool(live_app.get("use_as_sample"))
+        gozlem_kapsami = str(live_app.get("gozlem_kapsami", "")).strip()
     urls = _benzersiz_liste([target_url] + extra_urls)
     if not urls:
         return None
@@ -1796,6 +1803,66 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
             "üzerinden gereksinimleri somutlaştır. Ana dokümanda olmayan ama ekrandan gözlemlenen davranışları "
             "kaynak etiketiyle yaz; belirsiz veya gözlemlenemeyen noktaları Açık Sorular'a taşı.\n"
         )
+    # CRUD kuralları — iki modda da ortak. Test ortamı linkleri verildiği için yazma
+    # işlemleri GERÇEKTEN uygulanır; hedef, yazma servislerinin istek/yanıtını birebir
+    # gözlemlemek. Ekip verisini korumak için isimlendirme + silme kısıtı var.
+    crud_kurallari = (
+        "CRUD KURALLARI (test ortamı — yazma işlemleri GERÇEKTEN uygulanır):\n"
+        "- Create/Update işlemlerini uçtan uca yap: formu doldur, KAYDET/GÜNCELLE'ye bas, tetiklenen "
+        "isteğin method/path/request payload'ını VE response'unu (status + gövde özeti) "
+        "`browser_network_request` ile yakala — bug-fix/CR analizleri bu gerçek istek/yanıt "
+        "çiftlerine dayanacak.\n"
+        "- Oluşturduğun test kayıtlarında ada/koda `AI-TEST` öneki koy — ekip senin verini ayırt edebilsin.\n"
+        "- SİLME'yi yalnızca BU oturumda kendi oluşturduğun (`AI-TEST` önekli) kayıtlarda yap; "
+        "başkasının test verisini silme.\n"
+        "- GERİ ALINAMAZ süreç aksiyonlarını (ödeme, rollback, publish, onaya gönderme, dış sisteme "
+        "iletim) UYGULAMA — endpoint'i benzer isteklerden türet, `[K: 🔍 Türetilmiş]` etiketle ve "
+        "açık soru bırak.\n"
+        "- Yaptığın TÜM yazma işlemlerini (ne oluşturdun/güncelledin/sildin) Gözlem Kapsamı "
+        "raporunda listele.\n\n"
+    )
+    kayit_formati = (
+        "GÖZLEM KAYIT FORMATI (test senaryosu türetilebilir somutlukta):\n"
+        "- Her davranışı 'adım → beklenen/gözlenen sonuç' netliğinde yaz (örn. 'Sport seçilmeden "
+        "Category combobox disabled → Sport seçilince enable olur ve GET /bff/.../categories tetiklenir').\n"
+        "- Ekran davranışı için `[K: Canlı UI:<route>]`, servis davranışı için "
+        "`[K: Network:<METHOD> <path>]` kaynak etiketi kullan.\n\n"
+        "GÖZLEM KAPSAMI RAPORU (zorunlu): Analiz çıktının sonuna 'Canlı Gözlem Kapsamı' başlığıyla "
+        "kısa bir liste ekle — gezilen tablar/modallar/bileşenler, YAPILAN yazma işlemleri ve "
+        "GEZİLEMEYENLER (nedeniyle: login duvarı, hata, zaman kısıtı). Analist neyin gerçek gözlem, "
+        "neyin türetme olduğunu buradan görür.\n\n"
+        "Güvenlik kuralları:\n"
+        "- Token, cookie, authorization header, session id, giriş şifresi, kişisel veri ve gizli "
+        "değerleri MASKELE.\n"
+        "- Sadece gözlemlenen endpoint/alan/mesajları kullan; gözlemlenemeyenleri açık soru yap.\n"
+        "- Chrome MCP erişilemiyorsa bunu varsayım üretmeden belirt; bu URL'leri yalnızca hedef bağlam say.\n"
+    )
+
+    if gozlem_kapsami:
+        # ODAKLI MOD: analist ekranın tamamını değil, belirli bir bölümü/akışı istiyor.
+        # Tam tarama planı YERİNE tarif edilen kapsam derinlemesine incelenir — daha
+        # hızlı, daha az token, hedefe daha isabetli (bug-fix/CR senaryosu).
+        return (
+            "### CANLI UYGULAMA MCP/CHROME GÖREVİ — ODAKLI GÖZLEM\n\n"
+            "Aşağıdaki URL'leri gerçek uygulama referansı olarak kullan. Bu koşuda ekranın "
+            "TAMAMINI taramak ZORUNDA DEĞİLSİN — analist aşağıda belirli bir kapsam tanımladı; "
+            "önceliğin bu kapsamı UÇTAN UCA ve DERİNLEMESİNE incelemek. Kapsam dışı bölümleri "
+            "yalnızca bu akışı doğrudan etkilediği kadar gözle.\n\n"
+            f"{sirali}\n\n"
+            f"{giris_notu}"
+            "ODAKLI GÖZLEM KAPSAMI (analist tanımladı):\n"
+            f"{gozlem_kapsami}\n\n"
+            "Uygulama adımları:\n"
+            "1. Hedef URL'yi aç, `browser_snapshot` ile kapsamdaki bölümü/kontrolleri bul.\n"
+            "2. Tarif edilen akışı gerçek kullanıcı gibi adım adım uygula; her adımda snapshot + "
+            "`browser_network_requests` ile tetiklenen istekleri yakala, kritik isteklerin tam "
+            "detayını `browser_network_request` ile al.\n"
+            "3. Akışın validasyon/hata/edge-case davranışlarını da dene (boş alan, geçersiz değer, "
+            "iptal etme) — bug-fix analizi için asıl değer bunlarda.\n\n"
+            f"{crud_kurallari}"
+            f"{kayit_formati}"
+        )
+
     return (
         "### CANLI UYGULAMA MCP/CHROME GÖREVİ\n\n"
         "Aşağıdaki URL'leri sırayla gerçek uygulama referansı olarak kullan. "
@@ -1816,33 +1883,18 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "3. Her ana aksiyon kontrolünü keşfet: ekleme/düzenleme/detay/kopyalama butonlarına tıkla, "
         "açılan modal/form/drawer'ı gözle — alan listesi, tip (text/combobox/switch/date), zorunluluk "
         "(`*`, disabled Create butonu), default değerler, cascade davranışı (X seçilmeden Y disabled), "
-        "auto-fill alanlar. Modalı İPTAL/KAPAT ile kapat.\n"
+        "auto-fill alanlar.\n"
         "4. Filtre, arama ve sayfalama kontrollerini en az bir kez kullan; tetiklenen isteklerin "
         "query parametrelerini kaydet.\n"
-        "5. CRUD gözlemi — GÜVENLİ MOD: Okuma (listeleme/detay/filtreleme) serbest. Create/Update "
-        "formlarını doldurup alan validasyonlarını ve buton enable/disable geçişlerini gözle, ama "
-        "KAYDETME/SİL/ONAYLA gibi kalıcı yazma butonlarına BASMA — test ortamındaki veriyi bozma. "
-        "Yazma endpoint'lerini network geçmişindeki benzer isteklerden veya sayfanın önceki "
-        "çağrılarından türet ve `[K: 🔍 Türetilmiş]` etiketle; doğrudan gözlemleyemediğini açık soru yap.\n"
+        "5. CRUD akışlarını aşağıdaki CRUD KURALLARI'na göre GERÇEKTEN uygula ve servis "
+        "istek/yanıtlarını yakala.\n"
         "6. Her kullanıcı aksiyonundan SONRA `browser_network_requests` ile yeni istekleri yakala; "
         "analiz için kritik isteklerin tam detayını (payload/response gövdesi) `browser_network_request` "
         "ile al — gizli değerleri maskeleyerek özetle.\n"
         "7. Boş liste, loading, hata durumu, yetki kısıtı (görünmeyen/disabled menüler) gibi "
         "edge-case'leri not et.\n\n"
-        "GÖZLEM KAYIT FORMATI (test senaryosu türetilebilir somutlukta):\n"
-        "- Her davranışı 'adım → beklenen/gözlenen sonuç' netliğinde yaz (örn. 'Sport seçilmeden "
-        "Category combobox disabled → Sport seçilince enable olur ve GET /bff/.../categories tetiklenir').\n"
-        "- Ekran davranışı için `[K: Canlı UI:<route>]`, servis davranışı için "
-        "`[K: Network:<METHOD> <path>]` kaynak etiketi kullan.\n\n"
-        "GÖZLEM KAPSAMI RAPORU (zorunlu): Analiz çıktının sonuna 'Canlı Gözlem Kapsamı' başlığıyla "
-        "kısa bir liste ekle — gezilen tablar/modallar/bileşenler ve GEZİLEMEYENLER (nedeniyle: "
-        "login duvarı, hata, zaman kısıtı). Analist neyin gerçek gözlem, neyin türetme olduğunu "
-        "buradan görür.\n\n"
-        "Güvenlik kuralları:\n"
-        "- Token, cookie, authorization header, session id, giriş şifresi, kişisel veri ve gizli "
-        "değerleri MASKELE.\n"
-        "- Sadece gözlemlenen endpoint/alan/mesajları kullan; gözlemlenemeyenleri açık soru yap.\n"
-        "- Chrome MCP erişilemiyorsa bunu varsayım üretmeden belirt; bu URL'leri yalnızca hedef bağlam say.\n"
+        f"{crud_kurallari}"
+        f"{kayit_formati}"
     )
 
 

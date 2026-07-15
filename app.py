@@ -1943,9 +1943,11 @@ def context_filter_kaydet():
             "target_url": live_urls[0] if live_urls else "",
             "extra_urls": live_urls[1:6],
             "use_as_sample": bool(live_app.get("use_as_sample")),
+            "gozlem_kapsami": str(live_app.get("gozlem_kapsami", "")).strip(),
         },
         "live_app_gorev": {
             "target_url": gorev_urls[0] if gorev_urls else "",
+            "gozlem_kapsami": str(live_app_gorev.get("gozlem_kapsami", "")).strip(),
         },
         "live_app_auth": {
             "username": str(live_app_auth.get("username", "")).strip(),

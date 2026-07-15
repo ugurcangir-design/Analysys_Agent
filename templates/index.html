@@ -1957,6 +1957,11 @@ function temaDegistir() {
             Örnek ekran olarak kullan
           </button>
         </div>
+        <div>
+          <div class="ctx-field-label">MCP Gözlem Kapsamı <span style="font-weight:400">(opsiyonel)</span></div>
+          <div class="ctx-field-sub">Doluysa tüm ekran taranmaz; yalnızca burada tarif edilen bölüm/akış derinlemesine incelenir. Boşsa tüm tablar + bileşenler sistematik taranır.</div>
+          <textarea class="ctx-input" id="ctx-live-scope" rows="3" placeholder="örn: Tablodan bir satır seç, Güncelle butonuna bas, formdaki alanları değiştir, kaydet ve tetiklenen servis istek/yanıtını yakala" oninput="updateCtxBadge()"></textarea>
+        </div>
 
         <!-- Canlı uygulama erişim/izin durumu — analist neden çalışmadığını burada görür -->
         <div class="la-durum" id="la-durum">
@@ -2163,6 +2168,8 @@ function temaDegistir() {
           <div class="jg-fetch-row">
             <input class="ctx-input" id="jg-live-target" type="url" placeholder="https://dev.example.com/app" onchange="jgLiveAppKaydet(true)">
           </div>
+          <div class="ctx-field-sub" style="margin-top:8px">Gözlem kapsamı (opsiyonel) — doluysa tüm ekran taranmaz, yalnızca bu akış incelenir</div>
+          <textarea class="ctx-input" id="jg-live-scope" rows="2" placeholder="örn: Güncelle butonu akışını uçtan uca uygula ve servis istek/yanıtını yakala" onchange="jgLiveAppKaydet(false)"></textarea>
           <div class="la-durum" id="jg-la-durum">
             <div class="la-satir">
               <span class="la-nokta" id="jg-la-nokta"></span>
@@ -2998,6 +3005,8 @@ async function jgCtxBilgiYukle() {
     }
     const liveInput = document.getElementById('jg-live-target');
     if (liveInput) liveInput.value = ctx.live_app_gorev?.target_url || '';
+    const scopeInput = document.getElementById('jg-live-scope');
+    if (scopeInput) scopeInput.value = ctx.live_app_gorev?.gozlem_kapsami || '';
     jgLiveAppDurumYenile();
   } catch {}
 }
@@ -3010,6 +3019,7 @@ async function jgCtxBilgiYukle() {
 // sadece live_app_gorev.target_url'i güncelleyerek geri yazar.
 async function jgLiveAppKaydet(showToastMsg) {
   const url = document.getElementById('jg-live-target').value.trim();
+  const kapsam = document.getElementById('jg-live-scope').value.trim();
   try {
     const mevcut = await (await fetch('/api/context-filter')).json();
     const govde = {
@@ -3017,7 +3027,7 @@ async function jgLiveAppKaydet(showToastMsg) {
       jira_keys: mevcut.jira_keys || [],
       confluence_pages: mevcut.confluence_pages || [],
       live_app: mevcut.live_app || {target_url:'', extra_urls:[], use_as_sample:false},
-      live_app_gorev: { target_url: url },
+      live_app_gorev: { target_url: url, gozlem_kapsami: kapsam },
     };
     await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(govde)});
     if (showToastMsg) toast('Canlı uygulama URL kaydedildi', 'info');
@@ -3805,6 +3815,7 @@ function buildContextFilter() {
       target_url: document.getElementById('ctx-live-target').value.trim(),
       extra_urls: splitCtx(liveExtras.join(',')),
       use_as_sample: _ctxUseAsSample,
+      gozlem_kapsami: document.getElementById('ctx-live-scope').value.trim(),
     },
     // live_app_gorev buraya KASITLI olarak dahil edilmiyor — bu ekranda alanı yok.
     // Backend /api/context-filter artık PATCH semantiği kullanıyor: bu anahtar
@@ -5574,6 +5585,7 @@ async function ctxFilterYukle() {
     document.getElementById('ctx-jira-keys').value   = (d.jira_keys||[]).join(', ');
     document.getElementById('ctx-conf-pages').value  = (d.confluence_pages||[]).join(', ');
     document.getElementById('ctx-live-target').value = d.live_app?.target_url || '';
+    document.getElementById('ctx-live-scope').value  = d.live_app?.gozlem_kapsami || '';
     document.querySelectorAll('.ctx-live-extra').forEach((el, i) => {
       el.value = (d.live_app?.extra_urls || [])[i] || '';
     });
@@ -5609,12 +5621,12 @@ async function ctxFilterTemizle() {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       keywords:[], jira_keys:[], confluence_pages:[],
-      live_app:{target_url:'', extra_urls:[], use_as_sample:false},
+      live_app:{target_url:'', extra_urls:[], use_as_sample:false, gozlem_kapsami:''},
       live_app_auth:{username:'', password:''},
     })
   });
   if (r.ok) {
-    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages','ctx-live-target','ctx-live-username','ctx-live-password']
+    ['ctx-keywords','ctx-jira-keys','ctx-conf-pages','ctx-live-target','ctx-live-scope','ctx-live-username','ctx-live-password']
       .forEach(id => document.getElementById(id).value='');
     document.querySelectorAll('.ctx-live-extra').forEach(el => { el.value = ''; });
     ctxSampleToggle(false);

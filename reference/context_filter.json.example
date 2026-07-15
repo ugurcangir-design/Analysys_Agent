@@ -5,10 +5,12 @@
   "live_app": {
     "target_url": "",
     "extra_urls": [],
-    "use_as_sample": false
+    "use_as_sample": false,
+    "gozlem_kapsami": ""
   },
   "live_app_gorev": {
-    "target_url": ""
+    "target_url": "",
+    "gozlem_kapsami": ""
   },
   "live_app_auth": {
     "username": "",

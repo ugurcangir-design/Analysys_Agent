@@ -226,14 +226,27 @@ noktası + "Tarayıcıda Giriş Yap" butonu. `live_app_profil_var_mi()` profil h
 **Sistematik tarama planı (`canli_uygulama_baglami_hazirla`):** MCP görevi serbest "gez ve gözle"
 değil, zorunlu sıralı bir plandır: (1) açılış snapshot + network, (2) TÜM tablar/segment kontrolleri
 (`?tab=` yalnızca başlangıç), (3) her aksiyon butonunun modal/formu — alan tipi/zorunluluk/default/
-cascade, İPTAL ile kapat, (4) filtre/arama/sayfalama + query parametreleri, (5) **CRUD güvenli mod**:
-okuma serbest; create/update formu doldurulup validasyon gözlenir ama KAYDET/SİL/ONAYLA'ya basılmaz
-(test ortamı verisi bozulmaz) — yazma endpoint'leri `[K: 🔍 Türetilmiş]` etiketiyle türetilir,
+cascade, (4) filtre/arama/sayfalama + query parametreleri, (5) CRUD (aşağıdaki kurallara göre GERÇEK),
 (6) her aksiyondan sonra `browser_network_requests`, kritik isteklerin detayı `browser_network_request`,
 (7) edge-case'ler (boş liste/loading/hata/yetki). Gözlemler "adım → beklenen/gözlenen sonuç" (test
 senaryosu türetilebilir) formatında; çıktı sonuna **"Canlı Gözlem Kapsamı" raporu zorunlu** (gezilen +
-gezilemeyen ve nedeni). NOT: derin tarama uzun sürer — CLI timeout 20 dk; alt URL sayısını sınırlı tut,
-gerekirse HIZLI_MOD ile denetçi aşamasından süre kazan.
+YAPILAN yazma işlemleri + gezilemeyen ve nedeni). NOT: derin tarama uzun sürer — CLI timeout 20 dk;
+alt URL sayısını sınırlı tut, gerekirse HIZLI_MOD ile denetçi aşamasından süre kazan.
+
+**CRUD kuralları (test ortamı — yazma GERÇEKTEN uygulanır):** Test ortamı linkleri verildiği için
+create/update uçtan uca yapılır ve yazma servislerinin gerçek istek/yanıt çiftleri (method, path,
+payload, status, gövde özeti) yakalanır — bug-fix/CR analizlerinin dayanağı budur. Koruma sınırları:
+oluşturulan kayıtlara `AI-TEST` öneki; SİLME yalnızca bu oturumda kendi oluşturduğu kayıtlarda;
+GERİ ALINAMAZ süreç aksiyonları (ödeme, rollback, publish, onaya gönderme) UYGULANMAZ —
+`[K: 🔍 Türetilmiş]` + açık soru. Yapılan tüm yazmalar Gözlem Kapsamı raporunda listelenir.
+
+**Odaklı gözlem (`gozlem_kapsami`):** `live_app.gozlem_kapsami` / `live_app_gorev.gozlem_kapsami`
+(her ekran KENDİ alanını kullanır) doluysa tam tarama planı YERİNE analistin tarif ettiği bölüm/akış
+uçtan uca ve derinlemesine incelenir ("ekranın tamamını taramak zorunda değilsin" + validasyon/hata
+edge-case'leri dahil) — daha hızlı, daha az token, bug-fix/CR hedefine isabetli. UI: Bağlam
+Filtresi'nde "MCP Gözlem Kapsamı" textarea'sı (`ctx-live-scope`), Jira Görevleri widget'ında
+`jg-live-scope`. CRUD kuralları ve kayıt formatı iki modda da ortaktır. Belirli bir akışı hedeflemek
+için doğru araç BUDUR — Özel Prompt değil (o sistem promptunu değiştirir, gezinme görevine dokunmaz).
 
 **Özel Prompt ile ilişki:** MCP görevi SİSTEM promptunda değil, kullanıcı mesajı bloğunda
 (`stable_bloklar`) taşınır — ekrandaki Özel Prompt varsayılan sistem promptunun yerine geçse bile
