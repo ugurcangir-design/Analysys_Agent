@@ -223,6 +223,23 @@ noktası + "Tarayıcıda Giriş Yap" butonu. `live_app_profil_var_mi()` profil h
 
 **Kapalıyken:** live_app URL'i yoksa hiçbir ek argüman geçmez → normal analiz davranışı aynen korunur.
 
+**Sistematik tarama planı (`canli_uygulama_baglami_hazirla`):** MCP görevi serbest "gez ve gözle"
+değil, zorunlu sıralı bir plandır: (1) açılış snapshot + network, (2) TÜM tablar/segment kontrolleri
+(`?tab=` yalnızca başlangıç), (3) her aksiyon butonunun modal/formu — alan tipi/zorunluluk/default/
+cascade, İPTAL ile kapat, (4) filtre/arama/sayfalama + query parametreleri, (5) **CRUD güvenli mod**:
+okuma serbest; create/update formu doldurulup validasyon gözlenir ama KAYDET/SİL/ONAYLA'ya basılmaz
+(test ortamı verisi bozulmaz) — yazma endpoint'leri `[K: 🔍 Türetilmiş]` etiketiyle türetilir,
+(6) her aksiyondan sonra `browser_network_requests`, kritik isteklerin detayı `browser_network_request`,
+(7) edge-case'ler (boş liste/loading/hata/yetki). Gözlemler "adım → beklenen/gözlenen sonuç" (test
+senaryosu türetilebilir) formatında; çıktı sonuna **"Canlı Gözlem Kapsamı" raporu zorunlu** (gezilen +
+gezilemeyen ve nedeni). NOT: derin tarama uzun sürer — CLI timeout 20 dk; alt URL sayısını sınırlı tut,
+gerekirse HIZLI_MOD ile denetçi aşamasından süre kazan.
+
+**Özel Prompt ile ilişki:** MCP görevi SİSTEM promptunda değil, kullanıcı mesajı bloğunda
+(`stable_bloklar`) taşınır — ekrandaki Özel Prompt varsayılan sistem promptunun yerine geçse bile
+canlı uygulama görevi + araç izinleri AYNEN gider; gözlem etiket kuralları görev bloğunun içinde
+olduğundan özel promptta tekrar yazılması gerekmez.
+
 **Jira Görevleri'nden erişim — BAĞIMSIZ ikinci hedef (`live_app_gorev`):** Süreç/Teknik Analiz'in
 `live_app` alanından TAMAMEN ayrı, `context_filter.json`'da ikinci bir alan: `live_app_gorev`
 (yalnızca `target_url`; alt URL/örnek-ekran kavramı yok — task bazlı tek ekran içindir). İki akış
