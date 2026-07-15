@@ -498,6 +498,7 @@ input[type="email"].field-input,
 .la-nokta.warn { background: var(--yellow); }
 .la-nokta.err { background: var(--red); }
 .la-ipucu { font-size: 11.5px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+textarea.ctx-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 
 .ctx-input:focus,
 .source-add-row input:focus,
@@ -1895,6 +1896,32 @@ function temaDegistir() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Özel Prompt (opsiyonel — varsayılan promptların YERİNE geçer) -->
+      <div class="ctx-toggle" id="op-toggle" onclick="toggleOzelPrompt()">
+        <svg class="ico"><use href="#i-edit"/></svg>
+        <span class="ctx-toggle-label">Özel Prompt</span>
+        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Doldurursanız ilgili analiz VARSAYILAN sistem promptu yerine buradaki promptla çalışır. Boş bırakılan alan için mevcut prompt kullanılır. Kalıcı prompt düzenlemesi için Sistem Promptları ekranını kullanın.">?</span>
+        <span id="op-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
+        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div class="ctx-fields" id="op-fields">
+        <div>
+          <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
+          <div class="ctx-field-sub">Doluysa süreç analizi varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
+          <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
+        </div>
+        <div>
+          <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
+          <div class="ctx-field-sub">Doluysa teknik analiz varsayılan prompt yerine BUNU kullanır; çıktı biçimi (XML bloğu) sistem tarafından otomatik korunur</div>
+          <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="ozelPromptKaydet()">Kaydet</button>
+          <button class="btn btn-outline btn-sm" onclick="ozelPromptTemizle()">Temizle</button>
+          <span id="op-save-status" class="mono-meta"></span>
         </div>
       </div>
 
@@ -3617,6 +3644,65 @@ function toggleCtx() {
   liveAppDurumYenile();   // panel açılınca canlı uygulama durumunu tazele
 }
 
+// ─── Özel Prompt (Run ekranı) ────────────────────────────────────────────────
+// Analiz-bazlı geçici prompt: doluysa varsayılan sistem promptunun YERİNE geçer.
+// context_filter.json'da ozel_prompt alanında saklanır (PATCH semantiği —
+// yalnızca bu alan gönderilir, diğer filtre alanları korunur).
+function toggleOzelPrompt() {
+  document.getElementById('op-toggle').classList.toggle('open');
+  document.getElementById('op-fields').classList.toggle('open');
+}
+
+function updateOzelPromptBadge() {
+  const dolu = document.getElementById('op-surec').value.trim() || document.getElementById('op-teknik').value.trim();
+  document.getElementById('op-active-badge').style.display = dolu ? 'inline-flex' : 'none';
+}
+
+async function ozelPromptKaydet() {
+  const govde = { ozel_prompt: {
+    surec:  document.getElementById('op-surec').value.trim(),
+    teknik: document.getElementById('op-teknik').value.trim(),
+  }};
+  const r = await fetch('/api/context-filter', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(govde)
+  });
+  const st = document.getElementById('op-save-status');
+  if (r.ok) {
+    st.textContent = '✓ Kaydedildi'; st.style.color = 'var(--green)';
+    toast('Özel prompt kaydedildi', 'success');
+    setTimeout(() => { st.textContent = ''; }, 2500);
+  } else {
+    const d = await r.json().catch(() => ({}));
+    toast(d.error || 'Kaydedilemedi', 'error');
+  }
+  updateOzelPromptBadge();
+}
+
+async function ozelPromptTemizle() {
+  const r = await fetch('/api/context-filter', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ ozel_prompt: { surec:'', teknik:'' } })
+  });
+  if (r.ok) {
+    document.getElementById('op-surec').value = '';
+    document.getElementById('op-teknik').value = '';
+    updateOzelPromptBadge();
+    toast('Özel prompt temizlendi — varsayılan promptlar kullanılacak', 'info');
+  }
+}
+
+async function ozelPromptYukle() {
+  try {
+    const r = await fetch('/api/context-filter');
+    if (!r.ok) return;
+    const d = await r.json();
+    document.getElementById('op-surec').value  = d.ozel_prompt?.surec  || '';
+    document.getElementById('op-teknik').value = d.ozel_prompt?.teknik || '';
+    updateOzelPromptBadge();
+  } catch {}
+}
+
 // ─── Canlı Uygulama (Chrome MCP) erişim/izin durumu ──────────────────────────
 // Analist "neden çalışmıyor" sorusunun cevabını burada görür ve tek tıkla giriş yapar.
 async function liveAppDurumYenile() {
@@ -3726,6 +3812,12 @@ function buildContextFilter() {
     live_app_auth: {
       username: document.getElementById('ctx-live-username').value.trim(),
       password: document.getElementById('ctx-live-password').value,
+    },
+    // Özel Prompt paneli aynı ekranda — Başlat'a basıldığında ekranda ne
+    // görünüyorsa o kaydedilir (Kaydet'e basmayı unutmak sürpriz yaratmasın).
+    ozel_prompt: {
+      surec:  document.getElementById('op-surec').value.trim(),
+      teknik: document.getElementById('op-teknik').value.trim(),
     },
   };
 }
@@ -5682,6 +5774,7 @@ async function confluenceDiagnose() {
   switchTab('surec');
   await refreshOutputTabs();
   await ctxFilterYukle();
+  await ozelPromptYukle();
   const r = await fetch('/api/workflow-state');
   const s = await r.json();
   // Aktif pipeline'ı duruma göre tespit et

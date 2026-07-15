@@ -7,7 +7,7 @@ Flask + Python **3.10+** (`str|None`), tarayıcı SPA `http://localhost:5002`.
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
 - Çalışma GUI üzerinden (subprocess `run.py`); ayrı terminal test komutu yok.
-- Test paketi yok. **Lint: `venv/bin/ruff check <dosya>`** — commit öncesi çalıştır (F821 gibi gerçek bug'ları yakalar). Ayrıca app'i başlatıp boot logunu kontrol et.
+- Test paketi yok. **Lint: `venv/bin/ruff check .`** — commit öncesi çalıştır, TEMİZ çıkmalı (F821 gibi gerçek bug'ları yakalar; legacy stil istisnaları `ruff.toml`'da). Ayrıca app'i başlatıp boot logunu kontrol et.
 
 ## AI modu (KRİTİK — her analiz çağrısını etkiler)
 Pilot ekip **CLI modu**: `.env` `USE_CLAUDE_CLI=true` (Claude.ai aboneliği, per-token yok).
@@ -25,7 +25,7 @@ CLI **görsel BRD analiz EDEMEZ** (PDF/DOCX/TXT/MD olmalı). API modu (`ANTHROPI
 2. Asla commit etme: `.env` (chmod 600) + makineye özel `reference/{context_filter,prompts,sources}.json` (gitignore'da; `*.json.example` izlenir, açılışta `_runtime_config_seed()` ile seed).
 3. Atlassian helper → her zaman `skills/atlassian.py`'den import (duplicate tanım yok).
 4. Yeni output dosyası → `IZIN_VERILEN_CIKTILAR` (app.py). Yeni Jira field → `jira_agent.py` + `skills/jira_tasks.py`.
-5. Prompt değişikliği → `VARSAYILAN_PROMPTLAR` (base.py) veya `reference/prompts.json` (override öncelikli).
+5. Prompt önceliği: ekrandaki **Özel Prompt** (`context_filter.json → ozel_prompt`, analiz-bazlı, varsayılanın YERİNE geçer) > `reference/prompts.json` (kalıcı override) > `VARSAYILAN_PROMPTLAR` (base.py).
 6. `sys.executable` kullan, Python yolu hard-code etme. `env_oku()` tırnakları strip eder.
 
 ## İlgili dosyalar — TÜM REPOYU TARAMA

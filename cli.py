@@ -190,7 +190,7 @@ def cmd_ui(args) -> None:
         hata(f"Kaynak bulunamadı: {kaynak}")
         sys.exit(1)
 
-    from agent import UI_UZANTILAR, UI_CODE_DIR, _metin_kes
+    from agent import UI_UZANTILAR, UI_CODE_DIR
 
     ui_dir = UI_CODE_DIR
     ui_dir.mkdir(parents=True, exist_ok=True)

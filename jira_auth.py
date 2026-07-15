@@ -4,10 +4,9 @@ Web app callback: http://localhost:5002/api/jira/callback
 """
 
 import os
-import json
 import requests
 from pathlib import Path
-from urllib.parse import urlencode, urlparse, parse_qs
+from urllib.parse import urlencode
 from dotenv import load_dotenv
 
 ENV_PATH = Path(__file__).parent / ".env"

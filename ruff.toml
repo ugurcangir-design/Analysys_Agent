@@ -1,0 +1,19 @@
+# Lint yapılandırması — amaç: `venv/bin/ruff check .` TEMİZ çıksın ki gerçek
+# hatalar (F821 tanımsız isim gibi — geçmişte 5 NameError'ı bu yakaladı) stil
+# gürültüsünde kaybolmasın.
+#
+# Aşağıdaki per-file izinler YENİ kod için geçerli değildir; yalnızca mevcut
+# dosyalardaki bilinçli kompakt idiomları (örn. jira_agent.py markdown_to_adf
+# parser'ındaki `pos += m.end(); continue`) kabul eder. Bunları mekanik olarak
+# bölmek Jira yazma yolunda regresyon riski taşır, çalışma zamanı faydası yoktur.
+
+[lint.per-file-ignores]
+# markdown_to_adf parser'ı — kompakt `stmt; continue` idiomu bilinçli
+"jira_agent.py" = ["E701", "E702"]
+# _boyut() gibi hizalı kısa guard'lar
+"cli.py" = ["E701", "E702"]
+"manage_users.py" = ["E701", "E702"]
+# sys.path.insert import'lardan önce gelmek ZORUNDA (BASE_DIR modül çözümü)
+"run.py" = ["E402"]
+# yonetici_ozeti hizalı guard'ları (skills/base.py:1312 civarı düzeltildi;
+# kalan tekil durumlar için dosya-geneli izin YOK — yeni E701 yine yakalanır)

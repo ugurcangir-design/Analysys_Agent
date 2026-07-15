@@ -425,9 +425,12 @@ def gorev_analiz_et(gorev: dict) -> dict:
     # log ve çıktı meta yorumu için yakalıyoruz (analist şeffaflığı).
     ctx = load_context_filter() or {}
     aktif_filtreler = []
-    if ctx.get("keywords"):         aktif_filtreler.append(f"kelime:{','.join(ctx['keywords'])}")
-    if ctx.get("jira_keys"):        aktif_filtreler.append(f"jira:{','.join(ctx['jira_keys'])}")
-    if ctx.get("confluence_pages"): aktif_filtreler.append(f"conf:{','.join(ctx['confluence_pages'])}")
+    if ctx.get("keywords"):
+        aktif_filtreler.append(f"kelime:{','.join(ctx['keywords'])}")
+    if ctx.get("jira_keys"):
+        aktif_filtreler.append(f"jira:{','.join(ctx['jira_keys'])}")
+    if ctx.get("confluence_pages"):
+        aktif_filtreler.append(f"conf:{','.join(ctx['confluence_pages'])}")
 
     stable_bloklar: list[dict] = []
     referans_sayisi = 0

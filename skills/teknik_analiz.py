@@ -13,7 +13,8 @@ from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur,
-    canli_uygulama_baglami_hazirla, prompt_yukle, extended_thinking_acik, surec_id_kapsam,
+    canli_uygulama_baglami_hazirla, prompt_yukle, ozel_prompt_oku,
+    extended_thinking_acik, hizli_mod_acik, surec_id_kapsam,
     yonetici_ozeti_olustur,
     OUTPUT_DIR,
     MAX_CHARS_GENEL,
@@ -24,6 +25,18 @@ from .html_mockup import mockup_oku_kontekst
 
 def _teknik_prompt_olustur(mockup_var: bool = False) -> str:
     """Aşama 1 sistem promptu — SADECE teknik analiz (açık sorular ayrı aşamada)."""
+    # Analistin ekrandan girdiği özel prompt VARSA varsayılanın (rol + bölümler)
+    # YERİNE geçer. Çıktının <teknik_analiz> XML bloğunda gelmesi zorunluluğu
+    # yine de eklenir — pipeline (_xml_ayir, kesik-çıktı retry'ı, denetçi) bu
+    # bloğa bağımlı; özel prompt bunu bilmek zorunda kalmasın.
+    ozel = ozel_prompt_oku("teknik")
+    if ozel:
+        print("  ✏️ Özel teknik analiz promptu kullanılıyor (varsayılan atlandı).")
+        return (
+            ozel + "\n\n"
+            "ÇIKTI BİÇİMİ (zorunlu): Raporun tamamını TEK bir <teknik_analiz> XML bloğu "
+            "içinde ver: <teknik_analiz> ... </teknik_analiz>. Blok dışına metin yazma."
+        )
     rol = prompt_yukle("teknik_analiz_rol")
     bolumler = prompt_yukle("teknik_analiz_bolumler")
     # Güvenlik ağı: "Açık Sorular / Karar Bekleyen Konular" başlığı prompta
@@ -224,14 +237,23 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         print(f"  ⚠ Karşılanmayan süreç ID'leri: {', '.join(kapsam['eksik'])}")
 
     # ── AŞAMA 3: Otomatik denetçi (AI) — ham teknik analize denetim bölümü ekle ──
+    # HIZLI_MOD=true → atlanır: denetçi, teknik+süreç metninin TAMAMINI ikinci kez
+    # gönderen en pahalı ikinci çağrıdır (token/429 tasarrufu). Deterministik kapsam
+    # denetimi (yukarıda) her durumda çalışır.
     teknik_final = teknik_ham
-    try:
-        denetim_notlari = _teknik_denetle(teknik_ham, surec_metni)
-        teknik_final = teknik_ham + _denetim_bolumu_olustur(kapsam, denetim_notlari)
+    if hizli_mod_acik():
+        print("  ⚡ HIZLI_MOD açık — AI denetçi aşaması atlandı (deterministik kapsam denetimi yapıldı).")
+        teknik_final = teknik_ham + _denetim_bolumu_olustur(
+            kapsam, "_AI denetçi HIZLI_MOD nedeniyle atlandı (.env'de HIZLI_MOD=false ile tekrar açılır)._")
         teknik_yol = _kaydet("teknik-analiz.md", teknik_final)
-    except Exception as e:
-        # Denetçi başarısız olsa bile ham teknik analiz zaten kayıtlı.
-        print(f"  ⚠ Otomatik denetçi çalışmadı (ham teknik analiz korundu): {e}")
+    else:
+        try:
+            denetim_notlari = _teknik_denetle(teknik_ham, surec_metni)
+            teknik_final = teknik_ham + _denetim_bolumu_olustur(kapsam, denetim_notlari)
+            teknik_yol = _kaydet("teknik-analiz.md", teknik_final)
+        except Exception as e:
+            # Denetçi başarısız olsa bile ham teknik analiz zaten kayıtlı.
+            print(f"  ⚠ Otomatik denetçi çalışmadı (ham teknik analiz korundu): {e}")
 
     # ── AŞAMA 2: Açık sorular (ayrı çağrı; karşılanmayan ID'ler garantili eklenir) ──
     try:

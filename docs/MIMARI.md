@@ -80,6 +80,8 @@ yazma yolunda (jira_tasks hiyerarşi + gorev_jiraya_yaz) çağrılır.
   detaylandırılır. Ham UI kaynak kodu okuma/yükleme arayüzü kaldırılmıştır.
 - **Prompt caching:** system prompt → `cache_control: ephemeral`; stable user blocks (ref+MCP hedefleri+mockup) son
   bloğa cache breakpoint; `anthropic-beta: prompt-caching-2024-07-31`. 5 dk içi tekrar ~%90 tasarruf.
+  THINKING yolunda da aktif (`_api_cagri_direct`) — eskiden yalnızca non-thinking yol cache'liyordu,
+  EXTENDED_THINKING açıkken her çağrı tam input token maliyeti ödüyordu.
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
   → `referans_dosyalari_hazirla()` + `_ref_bloklari_olustur()`.
 
@@ -98,6 +100,16 @@ html_mockup_base   jira_tasks   refine   confluence_publisher
   `jira_tasks` (`_EK_KURAL_SKILL_IDS`). `_ORTAK_EK_KURALLAR` 4 bölüm: Kaynak Önceliği, Kaynak İzleme
   `[K: ...]`, Halüsinasyon Koruması (Entity Whitelist), İzlenebilirlik (aşama bazlı ID tablosu).
 - **Override:** `reference/prompts.json` (UI'dan düzenlenince); `prompt_yukle()` önce override, yoksa varsayılan.
+- **Özel Prompt (analiz-bazlı, EN YÜKSEK öncelik):** Süreç/Teknik Analiz ekranındaki "Özel Prompt"
+  paneli (`op-surec`/`op-teknik` textarea'ları) → `context_filter.json → ozel_prompt.{surec,teknik}`.
+  Dolu alan, ilgili analizde varsayılan promptun (rol + bölümler + `_ORTAK_EK_KURALLAR`) **tamamen
+  yerine geçer** (`ozel_prompt_oku()`, `skills/base.py`); boş alan → mevcut zincir aynen çalışır.
+  Teknik analizde `<teknik_analiz>` XML çıktı zorunluluğu özel prompta OTOMATİK eklenir — pipeline
+  (`_xml_ayir`, kesik-çıktı retry'ı, denetçi) bu bloğa bağımlı, analist bunu bilmek zorunda değil.
+  `buildContextFilter()` bu alanları içerir → Başlat'a basınca ekranda görünen otomatik kaydedilir.
+  DİKKAT: Özel prompt kullanılınca `_ORTAK_EK_KURALLAR` (kaynak etiketi, halüsinasyon koruması,
+  ID izlenebilirlik) da atlanır — kalite güvenceleri isteniyorsa analist kendi promptuna yazmalı;
+  UI ipucunda kalıcı düzenleme için Sistem Promptları ekranına yönlendirilir.
 
 ## ID Şeması (aşamalar arası izlenebilirlik)
 ```
@@ -122,6 +134,9 @@ Tek tip`. FE+BE Jira görevlerinin ayrı ama ilişkili açılmasını sağlar.
    referans edilmiş mi. Ardından `_teknik_denetle()` (prompt `teknik_analiz_denetci`) AI denetçi: kaynaksız
    iddia, §5↔§7 validasyon drift'i, uydurma endpoint/tablo, hata tutarsızlığı. Kapsam özeti + bulgular
    `## 🔍 Otomatik Denetim Notları` olarak teknik-analiz.md SONUNA eklenir (try/except — denetçi çökerse ham korunur).
+   **`HIZLI_MOD=true` (.env) → AI denetçi ATLANIR** (`hizli_mod_acik()`, base.py): denetçi, teknik+süreç
+   metninin tamamını İKİNCİ kez gönderen en pahalı ikinci çağrıdır — 429 limitine takılan ekipler için
+   token tasarrufu. Deterministik kapsam denetimi her durumda çalışır; denetim bölümüne atlandı notu yazılır.
 3. **Aşama 2:** ayrı `_api_cagri` — ham Aşama 1 + süreç analizi → açık sorular → `acik-sorular.md`
    (`### Q-T-NNN:` blok). Kapsamda karşılanmayan ID'ler Aşama 2'ye verilip GARANTİLİ soruya dönüşür.
 - **Boş bölüm kuralı:** kapsam yoksa bölüm uydurulmaz; başlık + tek satır not.

@@ -13,5 +13,9 @@
   "live_app_auth": {
     "username": "",
     "password": ""
+  },
+  "ozel_prompt": {
+    "surec": "",
+    "teknik": ""
   }
 }

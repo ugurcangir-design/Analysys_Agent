@@ -1235,6 +1235,17 @@ def prompt_sifirla(skill_id: str) -> None:
 def extended_thinking_acik() -> bool:
     return os.getenv("EXTENDED_THINKING", "false").lower() in ("1", "true", "yes")
 
+
+def hizli_mod_acik() -> bool:
+    """HIZLI_MOD=true → teknik analizin AI denetçi aşaması (Aşama 3) atlanır.
+
+    Denetçi, teknik analiz + süreç analizinin TAMAMINI ikinci kez modele gönderir —
+    teknik analiz koşusunun en pahalı ikinci çağrısıdır (429 limitinin baş
+    tetikleyicilerinden). Deterministik kapsam denetimi (surec_id_kapsam) her
+    durumda çalışmaya devam eder; atlanan yalnızca AI denetçi bulgularıdır.
+    Varsayılan false → davranış değişmez."""
+    return os.getenv("HIZLI_MOD", "false").lower() in ("1", "true", "yes")
+
 # ─── Metin Yardımcıları ───────────────────────────────────────────────────────
 
 def _xml_ayir(text: str, tag: str) -> str:
@@ -1299,9 +1310,12 @@ def yonetici_ozeti_olustur(markdown: str, kapsam: dict | None = None,
     kritik = say(r"^-?\s*\**\s*Önem\s*\**\s*:\s*Kritik", soru_kaynak)
 
     kapsam_parca = []
-    if endpoint: kapsam_parca.append(f"{endpoint} endpoint")
-    if tablo:    kapsam_parca.append(f"{tablo} tablo")
-    if bolum:    kapsam_parca.append(f"{bolum} bölüm")
+    if endpoint:
+        kapsam_parca.append(f"{endpoint} endpoint")
+    if tablo:
+        kapsam_parca.append(f"{tablo} tablo")
+    if bolum:
+        kapsam_parca.append(f"{bolum} bölüm")
 
     satirlar = [YONETICI_OZETI_BASLIK,
                 "*(Hızlı tarama için — Jira'ya yazılmaz, düzenlenebilir.)*", ""]
@@ -1699,6 +1713,9 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
     # test hesabı, aynı canlı uygulama. Şifre burada düz metin tutulur (dosya
     # gitignore'da + 600 izinli, bkz. app.py context_filter_kaydet).
     live_app_auth = ctx.get("live_app_auth") if isinstance(ctx.get("live_app_auth"), dict) else {}
+    # ozel_prompt: analistin ekrandan girdiği, VARSAYILAN promptun YERİNE geçen
+    # çalışma-zamanı promptu. Boş alan → o aşama varsayılan promptla çalışır.
+    ozel_prompt = ctx.get("ozel_prompt") if isinstance(ctx.get("ozel_prompt"), dict) else {}
     return {
         "keywords": _benzersiz_liste(ctx.get("keywords", []), lower=True),
         "jira_keys": _benzersiz_liste(ctx.get("jira_keys", []), upper=True),
@@ -1714,6 +1731,10 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
         "live_app_auth": {
             "username": str(live_app_auth.get("username", "")).strip(),
             "password": str(live_app_auth.get("password", "")).strip(),
+        },
+        "ozel_prompt": {
+            "surec": str(ozel_prompt.get("surec", "")).strip(),
+            "teknik": str(ozel_prompt.get("teknik", "")).strip(),
         },
     }
 
@@ -2077,6 +2098,17 @@ def gorev_live_app_urls() -> list[str]:
     return _benzersiz_liste([hedef])
 
 
+def ozel_prompt_oku(alan: str) -> str:
+    """Analistin ekrandan girdiği çalışma-zamanı özel promptu döndürür (boşsa "").
+
+    alan: "surec" | "teknik". Doluysa ilgili analiz VARSAYILAN prompt yerine bunu
+    kullanır (bkz. surec_analizi.py / teknik_analiz.py). reference/prompts.json'daki
+    kalıcı override'lardan (Sistem Promptları ekranı) FARKLIDIR — bu, tek ekrandan
+    hızlıca denenen, analiz-bazlı geçici prompt içindir."""
+    ctx = load_context_filter() or {}
+    return str((ctx.get("ozel_prompt") or {}).get(alan, "")).strip()
+
+
 def live_app_profil_var_mi() -> bool:
     """Kalıcı tarayıcı profili hazır mı (çerez deposu oluşmuş mu)?
 
@@ -2344,12 +2376,17 @@ def _api_cagri_direct(
 
     if thinking:
         budget = min(max_tokens // 2, 10_000)
+        # Prompt caching thinking yolunda da aktif — sistem promptu (16 prompt +
+        # RAG talimatları) çağrılar arasında değişmez; cache'lenmemesi her
+        # thinking çağrısında tam input token maliyeti demekti (non-thinking
+        # yol zaten cache'liyordu, buradaki eksikti).
         yanit = client.messages.create(
             model=model,
             max_tokens=max_tokens,
             thinking={"type": "enabled", "budget_tokens": budget},
-            system=sistem,
+            system=[{"type": "text", "text": sistem, "cache_control": {"type": "ephemeral"}}],
             messages=mesajlar,
+            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
         )
         _api_kesilme_uyar(yanit, max_tokens)
         return "\n".join(b.text for b in yanit.content if b.type == "text")

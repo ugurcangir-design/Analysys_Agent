@@ -4,7 +4,6 @@ OAuth 2.0 token yönetimi, task oluşturma/güncelleme, Markdown→ADF dönüş�
 """
 
 import re
-import json
 import os
 import time
 import requests

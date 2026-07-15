@@ -1794,13 +1794,15 @@ def context_filter_oku():
             data.setdefault("live_app", {"target_url": "", "extra_urls": [], "use_as_sample": False})
             data.setdefault("live_app_gorev", {"target_url": ""})
             data.setdefault("live_app_auth", {"username": "", "password": ""})
+            data.setdefault("ozel_prompt", {"surec": "", "teknik": ""})
             return jsonify(data)
         except Exception:
             pass
     return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [],
                      "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False},
                      "live_app_gorev": {"target_url": ""},
-                     "live_app_auth": {"username": "", "password": ""}})
+                     "live_app_auth": {"username": "", "password": ""},
+                     "ozel_prompt": {"surec": "", "teknik": ""}})
 
 
 # ─── Canlı Uygulama (Chrome MCP) — durum + tek seferlik giriş ────────────────
@@ -1930,6 +1932,9 @@ def context_filter_kaydet():
     # yine de dosya izni 600'e sıkılaştırılır (aşağıda).
     live_app_auth = data["live_app_auth"] if "live_app_auth" in data and isinstance(data["live_app_auth"], dict) else mevcut.get("live_app_auth", {})
 
+    # ozel_prompt: analiz-bazlı geçici prompt (varsayılanın yerine geçer; boş = varsayılan).
+    ozel_prompt = data["ozel_prompt"] if "ozel_prompt" in data and isinstance(data["ozel_prompt"], dict) else mevcut.get("ozel_prompt", {})
+
     filtre = {
         "keywords": temiz_liste(keywords_girdi, lower=True),
         "jira_keys": temiz_liste(jira_keys_girdi, upper=True),
@@ -1945,6 +1950,10 @@ def context_filter_kaydet():
         "live_app_auth": {
             "username": str(live_app_auth.get("username", "")).strip(),
             "password": str(live_app_auth.get("password", "")).strip(),
+        },
+        "ozel_prompt": {
+            "surec": str(ozel_prompt.get("surec", "")).strip(),
+            "teknik": str(ozel_prompt.get("teknik", "")).strip(),
         },
     }
     p.write_text(json.dumps(filtre, ensure_ascii=False, indent=2), encoding="utf-8")
