@@ -14,6 +14,7 @@ from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur,
     canli_uygulama_baglami_hazirla, prompt_yukle, ozel_prompt_oku,
+    OZEL_PROMPT_DOGRULUK_EKI,
     extended_thinking_acik, hizli_mod_acik, surec_id_kapsam,
     yonetici_ozeti_olustur,
     OUTPUT_DIR,
@@ -33,7 +34,7 @@ def _teknik_prompt_olustur(mockup_var: bool = False) -> str:
     if ozel:
         print("  ✏️ Özel teknik analiz promptu kullanılıyor (varsayılan atlandı).")
         return (
-            ozel + "\n\n"
+            ozel + OZEL_PROMPT_DOGRULUK_EKI + "\n"
             "ÇIKTI BİÇİMİ (zorunlu): Raporun tamamını TEK bir <teknik_analiz> XML bloğu "
             "içinde ver: <teknik_analiz> ... </teknik_analiz>. Blok dışına metin yazma."
         )
@@ -200,17 +201,26 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         stable_bloklar[-1]["cache_control"] = {"type": "ephemeral"}
         icerik_parcalari.extend(stable_bloklar)
 
-    icerik_parcalari.append({
-        "type": "text",
-        "text": (
+    # Özel prompt kullanılıyorsa varsayılan şablonun ID/bölüm şemasını DAYATMA —
+    # analist "sadece özel prompta göre" istedi; süreç analizi çıktısı da özel
+    # promptla üretilmişse ID'ler zaten olmayabilir. Varsayılan promptta eski
+    # davranış aynen korunur.
+    ozel_teknik = bool(ozel_prompt_oku("teknik"))
+    if ozel_teknik:
+        surec_girdi_talimati = (
+            "### Süreç Analizi\n"
+            "Aşağıdaki süreç analizini teknik analizin GİRDİSİ olarak kullan; kapsamı ve "
+            "kararları buna dayandır.\n\n"
+        )
+    else:
+        surec_girdi_talimati = (
             "### Süreç Analizi\n"
             "Aşağıdaki süreç analizindeki BR-XXX, AC-XXX, PA-XXX, EF-XXX, AF-XXX, EK-XXX "
             "ID'lerini teknik analizdeki ilgili bölümlerde (İş Gereksinimleri, API, "
             "Veritabanı, Kabul Kriterleri) MUTLAKA referans al — her teknik karar bir "
             "süreç ID'sini karşılamalı.\n\n"
-            f"{surec_metni}"
-        ),
-    })
+        )
+    icerik_parcalari.append({"type": "text", "text": surec_girdi_talimati + surec_metni})
     icerik_parcalari.append({"type": "text", "text": "Teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda)."})
 
     # ── AŞAMA 1: Sadece teknik analiz ──
@@ -241,7 +251,15 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     # gönderen en pahalı ikinci çağrıdır (token/429 tasarrufu). Deterministik kapsam
     # denetimi (yukarıda) her durumda çalışır.
     teknik_final = teknik_ham
-    if hizli_mod_acik():
+    if ozel_teknik:
+        # Denetçi promptu VARSAYILAN 11-bölümlük şablona göre denetler — özel promptla
+        # üretilen çıktıda "eksik bölüm / şablon dışı" gibi YANLIŞ bulgular üretir ve
+        # analiste "varsayılan prompta bakılıyor" izlenimi verirdi. Özel promptta atla.
+        print("  ✏️ Özel prompt kullanıldı — varsayılan şablona göre çalışan AI denetçi atlandı.")
+        teknik_final = teknik_ham + _denetim_bolumu_olustur(
+            kapsam, "_AI denetçi atlandı: özel prompt kullanıldı (denetçi varsayılan şablona göre denetler)._")
+        teknik_yol = _kaydet("teknik-analiz.md", teknik_final)
+    elif hizli_mod_acik():
         print("  ⚡ HIZLI_MOD açık — AI denetçi aşaması atlandı (deterministik kapsam denetimi yapıldı).")
         teknik_final = teknik_ham + _denetim_bolumu_olustur(
             kapsam, "_AI denetçi HIZLI_MOD nedeniyle atlandı (.env'de HIZLI_MOD=false ile tekrar açılır)._")

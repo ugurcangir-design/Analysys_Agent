@@ -2186,6 +2186,24 @@ def ozel_prompt_oku(alan: str) -> str:
     return str((ctx.get("ozel_prompt") or {}).get(alan, "")).strip()
 
 
+# Özel prompt kullanılırken bile ASLA atlanmayan minimal doğruluk çekirdeği.
+# Varsayılan rol/bölüm promptlarına DÖNMEZ (o istenmedi) — yalnızca kaynak
+# kullanımı ve uydurmama güvencelerini korur: referanslar (Jira task içerikleri
+# dahil) aktif kullanılmalı, ekran ↔ servis eşleştirilmeli, kaynağı olmayan
+# hiçbir şey yazılmamalı.
+OZEL_PROMPT_DOGRULUK_EKI = (
+    "\n\n--- DOĞRULUK KURALLARI (özel prompttan bağımsız, her zaman geçerli) ---\n"
+    "- Sana bağlam olarak verilen HER kaynağı (referans dokümanlar, Jira task içerikleri, "
+    "Confluence sayfaları, Swagger/servis tanımları, canlı uygulama ekran + network gözlemi) "
+    "AKTİF olarak kullan; iddiaları bu kaynaklara dayandır.\n"
+    "- UYDURMA YASAK: kaynaklarda veya ekran/servis gözleminde OLMAYAN endpoint, alan, tablo, "
+    "kural, statü veya değer YAZMA. Bilgi yoksa bunu açıkça belirt ya da açık soru olarak işaretle.\n"
+    "- Ekran davranışları ile servis çağrılarını EŞLEŞTİR ve kaynak göster: "
+    "`[K: Canlı UI:<route>]`, `[K: Network:<METHOD> <path>]`, `[K: Jira:KEY-123]`, "
+    "`[K: Confluence:<sayfa>]`; dolaylı çıkarımlar için `[K: 🔍 Türetilmiş]`.\n"
+)
+
+
 def live_app_profil_var_mi() -> bool:
     """Kalıcı tarayıcı profili hazır mı (çerez deposu oluşmuş mu)?
 

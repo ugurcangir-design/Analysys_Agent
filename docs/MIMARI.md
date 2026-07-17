@@ -105,11 +105,21 @@ html_mockup_base   jira_tasks   refine   confluence_publisher
   Dolu alan, ilgili analizde varsayılan promptun (rol + bölümler + `_ORTAK_EK_KURALLAR`) **tamamen
   yerine geçer** (`ozel_prompt_oku()`, `skills/base.py`); boş alan → mevcut zincir aynen çalışır.
   Teknik analizde `<teknik_analiz>` XML çıktı zorunluluğu özel prompta OTOMATİK eklenir — pipeline
-  (`_xml_ayir`, kesik-çıktı retry'ı, denetçi) bu bloğa bağımlı, analist bunu bilmek zorunda değil.
-  `buildContextFilter()` bu alanları içerir → Başlat'a basınca ekranda görünen otomatik kaydedilir.
-  DİKKAT: Özel prompt kullanılınca `_ORTAK_EK_KURALLAR` (kaynak etiketi, halüsinasyon koruması,
-  ID izlenebilirlik) da atlanır — kalite güvenceleri isteniyorsa analist kendi promptuna yazmalı;
-  UI ipucunda kalıcı düzenleme için Sistem Promptları ekranına yönlendirilir.
+  (`_xml_ayir`, kesik-çıktı retry'ı) bu bloğa bağımlı, analist bunu bilmek zorunda değil.
+  **Kaydetme — ÜÇ başlatma yolu da ekrandaki değeri kaydeder:** `runPipeline` (Başlat),
+  `sadeceTeknikBaslat` (Sadece Teknik Analiz) ve `onayla` (Devam Et — Teknik Analiz Başlat) önce
+  `buildContextFilter()`'ı POST'lar. (Geçmiş bug: son ikisi kaydetmiyordu → analist promptu yazıp
+  bu yollardan başlatınca alt süreç eski/boş değeri okuyup VARSAYILAN prompta düşüyordu —
+  "özel prompt çalışmıyor" algısının kaynağı.)
+  **Doğruluk çekirdeği (`OZEL_PROMPT_DOGRULUK_EKI`, base.py):** Özel prompt varsayılan rol/bölüm
+  promptlarının yerine geçer ama bu kompakt ek HER ZAMAN eklenir: verilen bağlamı (referanslar,
+  Jira task içerikleri, Confluence, Swagger, canlı gözlem) aktif kullan; UYDURMA YASAK; ekran ↔
+  servis eşleştir; `[K: ...]` kaynak etiketi kullan. Referans blokları + canlı uygulama MCP görevi
+  kullanıcı-mesajı bloklarında taşındığından özel prompttan BAĞIMSIZ olarak aynen gider.
+  **Özel promptta şablon dayatması YOK:** teknik analizin kullanıcı-mesajındaki "BR/AC/PA ID'lerini
+  MUTLAKA referans al" talimatı nötr girdi talimatına döner; AI denetçi (varsayılan 11-bölümlük
+  şablona göre denetler → yanlış bulgu üretirdi) atlanır ve denetim bölümüne not yazılır.
+  Deterministik `surec_id_kapsam` çalışmaya devam eder (ID yoksa skor 1.0 — zarar vermez).
 
 ## ID Şeması (aşamalar arası izlenebilirlik)
 ```

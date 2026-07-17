@@ -3903,6 +3903,12 @@ async function runPipeline(pipeline) {
 }
 
 async function sadeceTeknikBaslat() {
+  // Ekrandaki özel prompt + bağlam filtresini ÖNCE kaydet — runPipeline bunu
+  // yapıyordu ama bu yol yapmıyordu: analist teknik özel promptu yazıp bu
+  // butona basınca alt süreç eski (boş) değeri okuyup VARSAYILAN prompta
+  // düşüyordu ("özel prompt çalışmıyor" algısının kaynağı).
+  await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(buildContextFilter())}).catch(() => {});
   const file = selectedFiles['surec'];
   if (file) {
     const fd = new FormData(); fd.append('file', file);
@@ -3934,6 +3940,11 @@ async function surecleriSifirla() {
 
 // ─── Approval ────────────────────────────────────────────────────────────────
 async function onayla() {
+  // Onay → teknik analiz otomatik başlar; analist süreç analizi beklerken
+  // özel promptu/filtreyi değiştirmiş olabilir — ekrandaki son hali kaydet
+  // (aksi halde teknik analiz eski değerle, örn. boş özel promptla çalışır).
+  await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(buildContextFilter())}).catch(() => {});
   const r = await fetch('/api/approve', {method:'POST'});
   const d = await r.json();
   if (!r.ok) { toast(d.error, 'error'); return; }
