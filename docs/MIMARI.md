@@ -103,7 +103,10 @@ html_mockup_base   jira_tasks   refine   confluence_publisher
 - **Özel Prompt (analiz-bazlı, EN YÜKSEK öncelik):** Süreç/Teknik Analiz ekranındaki "Özel Prompt"
   paneli (`op-surec`/`op-teknik` textarea'ları) → `context_filter.json → ozel_prompt.{surec,teknik}`.
   Dolu alan, ilgili analizde varsayılan promptun (rol + bölümler + `_ORTAK_EK_KURALLAR`) **tamamen
-  yerine geçer** (`ozel_prompt_oku()`, `skills/base.py`); boş alan → mevcut zincir aynen çalışır.
+  yerine geçer** (`ozel_prompt_oku()`, `skills/base.py`).
+  **Miras kuralı (`teknik_ozel_prompt_oku()`):** teknik alan boşsa SÜREÇ özel promptu teknik
+  analize de taşınır — analist tek prompt girdiğinde tüm pipeline onu baz alır, teknik aşama
+  sessizce varsayılana dönmez. İki alan da boşsa mevcut zincir aynen çalışır.
   Teknik analizde `<teknik_analiz>` XML çıktı zorunluluğu özel prompta OTOMATİK eklenir — pipeline
   (`_xml_ayir`, kesik-çıktı retry'ı) bu bloğa bağımlı, analist bunu bilmek zorunda değil.
   **Kaydetme — ÜÇ başlatma yolu da ekrandaki değeri kaydeder:** `runPipeline` (Başlat),

@@ -13,7 +13,7 @@ from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur,
-    canli_uygulama_baglami_hazirla, prompt_yukle, ozel_prompt_oku,
+    canli_uygulama_baglami_hazirla, prompt_yukle, teknik_ozel_prompt_oku,
     OZEL_PROMPT_DOGRULUK_EKI,
     extended_thinking_acik, hizli_mod_acik, surec_id_kapsam,
     yonetici_ozeti_olustur,
@@ -27,12 +27,13 @@ from .html_mockup import mockup_oku_kontekst
 def _teknik_prompt_olustur(mockup_var: bool = False) -> str:
     """Aşama 1 sistem promptu — SADECE teknik analiz (açık sorular ayrı aşamada)."""
     # Analistin ekrandan girdiği özel prompt VARSA varsayılanın (rol + bölümler)
-    # YERİNE geçer. Çıktının <teknik_analiz> XML bloğunda gelmesi zorunluluğu
-    # yine de eklenir — pipeline (_xml_ayir, kesik-çıktı retry'ı, denetçi) bu
-    # bloğa bağımlı; özel prompt bunu bilmek zorunda kalmasın.
-    ozel = ozel_prompt_oku("teknik")
+    # YERİNE geçer. Miras: teknik alan boşsa süreç özel promptu teknik analizde
+    # de kullanılır (teknik_ozel_prompt_oku) — tek prompt tüm pipeline'ı yönetir.
+    # Çıktının <teknik_analiz> XML bloğunda gelmesi zorunluluğu yine de eklenir —
+    # pipeline (_xml_ayir, kesik-çıktı retry'ı) bu bloğa bağımlı.
+    ozel = teknik_ozel_prompt_oku()
     if ozel:
-        print("  ✏️ Özel teknik analiz promptu kullanılıyor (varsayılan atlandı).")
+        print("  ✏️ Özel prompt teknik analizde kullanılıyor (varsayılan atlandı).")
         return (
             ozel + OZEL_PROMPT_DOGRULUK_EKI + "\n"
             "ÇIKTI BİÇİMİ (zorunlu): Raporun tamamını TEK bir <teknik_analiz> XML bloğu "
@@ -205,7 +206,7 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     # analist "sadece özel prompta göre" istedi; süreç analizi çıktısı da özel
     # promptla üretilmişse ID'ler zaten olmayabilir. Varsayılan promptta eski
     # davranış aynen korunur.
-    ozel_teknik = bool(ozel_prompt_oku("teknik"))
+    ozel_teknik = bool(teknik_ozel_prompt_oku())
     if ozel_teknik:
         surec_girdi_talimati = (
             "### Süreç Analizi\n"

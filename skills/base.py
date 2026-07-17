@@ -2186,6 +2186,16 @@ def ozel_prompt_oku(alan: str) -> str:
     return str((ctx.get("ozel_prompt") or {}).get(alan, "")).strip()
 
 
+def teknik_ozel_prompt_oku() -> str:
+    """Teknik analiz için ETKİN özel promptu döndürür (boşsa "").
+
+    Miras kuralı: teknik alanı doluysa o; boşsa SÜREÇ özel promptu teknik analize
+    de taşınır — analist tek prompt girdiğinde tüm pipeline (süreç + teknik) onu
+    baz alır, teknik aşama sessizce varsayılana dönmez. İkisi de boşsa varsayılan
+    prompt zinciri geçerli."""
+    return ozel_prompt_oku("teknik") or ozel_prompt_oku("surec")
+
+
 # Özel prompt kullanılırken bile ASLA atlanmayan minimal doğruluk çekirdeği.
 # Varsayılan rol/bölüm promptlarına DÖNMEZ (o istenmedi) — yalnızca kaynak
 # kullanımı ve uydurmama güvencelerini korur: referanslar (Jira task içerikleri
