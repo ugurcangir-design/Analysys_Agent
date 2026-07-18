@@ -249,6 +249,9 @@ IZIN_VERILEN_CIKTILAR = {
     "jira-sonuc.txt",
     "mockup.html",
     "sorular.json",
+    "test-senaryolari.md",        # Gherkin (Given/When/Then) — teknik analiz sonrası Haiku pass'i
+    "izlenebilirlik-matrisi.md",  # RTM — deterministik (0 token), süreç ID ↔ teknik bölüm eşlemesi
+    "delta-analizi.md",           # CR/Delta modu — mevcut analiz + değişiklik isteği → delta rapor
 }
 
 # Referans kategorileri ve izin verilen uzantılar
@@ -810,6 +813,32 @@ def run_teknik():
     _surec_calistir("teknik_analiz")
     logger.info("Sadece teknik analiz başlatıldı.")
     return jsonify({"ok": True})
+
+
+@app.route("/api/delta-analiz", methods=["POST"])
+def delta_analiz():
+    """CR / Delta Analizi — mevcut teknik analiz + değişiklik isteği → delta-analizi.md.
+    Senkron çalışır (jira_gorev_analiz deseni): workflow durum makinesine girmez,
+    süreç/teknik pipeline'ını kilitlemez. AI çağrısı uzun sürebilir (özellikle
+    canlı gözlem açıksa)."""
+    import workflow as wf
+    if wf.ozet()["calisiyor"]:
+        return jsonify({"ok": False, "error": "Bir analiz zaten çalışıyor — bitmesini bekleyin."}), 409
+    data = request.get_json(silent=True) or {}
+    cr_metni = (data.get("cr_metni") or "").strip()
+    if not cr_metni:
+        return jsonify({"ok": False, "error": "Değişiklik isteği (CR) metni boş olamaz."}), 400
+    try:
+        from skills.delta_analizi import delta_analizi_yap
+        yol = delta_analizi_yap(cr_metni)
+        return jsonify({"ok": True, "dosya": yol.name})
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Delta analizi hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/approve", methods=["POST"])

@@ -93,6 +93,9 @@ LIVE_APP_ALLOWED_TOOLS = [
 # ─── Model & Limitler ────────────────────────────────────────────────────────
 
 MODEL_ANALIZ = "claude-sonnet-4-6"
+# Hafif model — ucuz/hızlı pass'ler için (test senaryoları, formatlama).
+# jira_gorevleri.py'deki MODEL_HAFIF ile aynı sürüm tutulmalı.
+MODEL_HAFIF = "claude-haiku-4-5-20251001"
 
 MAX_CHARS_BRD     = 100_000
 MAX_CHARS_GENEL   =  30_000
@@ -1186,6 +1189,60 @@ added / updated / removed olabilir."""
             "- İçeriğe orchestrator için yorum eklemek — temiz XHTML üret"
         ),
     },
+    "test_senaryolari": {
+        "ad": "Test Senaryoları (Gherkin)",
+        "aciklama": "Teknik analizdeki kabul kriterlerinden ve canlı gözlem adımlarından Given/When/Then test senaryoları üretir (Haiku — ucuz pass).",
+        "icerik": (
+            "# ROL\n"
+            "Kıdemli QA mühendisisin. Kabul kriterlerini ve gözlemlenmiş ekran/servis "
+            "davranışlarını Gherkin (Given/When/Then) test senaryolarına çevirirsin.\n\n"
+            "# KURALLAR\n"
+            "1. YALNIZCA verilen teknik analizdeki kabul kriterleri, iş kuralları (BR-XXX) ve "
+            "canlı gözlem kayıtlarından senaryo üret — YENİ davranış UYDURMA.\n"
+            "2. Her senaryo tek bir davranışı test etmeli; başlıkta ilgili ID'yi ver "
+            "(örn. 'Senaryo TS-001 [BR-004]: ...').\n"
+            "3. Türkçe Gherkin anahtar kelimeleri: Diyelim ki / Eğer ki / O zaman "
+            "(parantezde Given/When/Then de yazılabilir).\n"
+            "4. Mutlu yol + en az bir negatif/sınır senaryosu (validasyon hatası, boş değer, "
+            "yetkisiz erişim) — teknik analizde karşılığı VARSA.\n"
+            "5. Gözlemlenen servis çağrısı biliniyorsa 'O zaman' adımında doğrulanacak "
+            "istek/yanıtı belirt (method, path, beklenen status).\n\n"
+            "Çıktıyı TEK bir XML bloğu içinde Türkçe Markdown olarak ver:\n\n"
+            "<test_senaryolari>\n"
+            "# Test Senaryoları\n\n"
+            "## Senaryo TS-001 [BR-XXX]: [başlık]\n"
+            "- **Diyelim ki (Given):** ...\n"
+            "- **Eğer ki (When):** ...\n"
+            "- **O zaman (Then):** ...\n"
+            "</test_senaryolari>"
+        ),
+    },
+    "delta_analizi": {
+        "ad": "CR / Delta Analizi",
+        "aciklama": "Mevcut teknik analiz + değişiklik isteği (CR/bug-fix) → yalnızca DELTA raporu: etkilenen bölümler, değişen gereksinimler, regresyon riski.",
+        "icerik": (
+            "# ROL\n"
+            "Kıdemli yazılım mimarısın. Yayında/testte olan bir özelliğin MEVCUT teknik analizi "
+            "ile yeni gelen değişiklik isteğini (CR veya bug-fix talebi) karşılaştırıp yalnızca "
+            "DELTA analizi üretirsin — tam analiz tekrarı DEĞİL.\n\n"
+            "# KURALLAR\n"
+            "1. Mevcut analizde OLMAYAN hiçbir davranışı 'mevcut' sayma; CR'de istenmeyen hiçbir "
+            "değişikliği ekleme. Kaynağı olmayan bilgi UYDURMA.\n"
+            "2. Değişiklikleri mevcut analizin bölüm/ID şemasına bağla (hangi BR/AC/bölüm etkileniyor).\n"
+            "3. Regresyon riskini SOMUT yaz: hangi mevcut davranış bozulabilir, hangi testler koşulmalı.\n"
+            "4. Belirsiz noktaları Açık Sorular'a taşı — varsayım üretme.\n\n"
+            "Çıktıyı TEK bir XML bloğu içinde Türkçe Markdown olarak ver:\n\n"
+            "<delta_analizi>\n"
+            "# Delta Analizi\n\n"
+            "## 1. Değişiklik Özeti\n[CR'nin 2-3 cümlelik özeti + tipi (CR / bug-fix)]\n\n"
+            "## 2. Etkilenen Bölümler\n[Mevcut analizin hangi bölümleri/ID'leri etkileniyor — tablo]\n\n"
+            "## 3. Değişen / Yeni Gereksinimler\n[DBR-XXX ID'leriyle, her biri kaynak etiketli]\n\n"
+            "## 4. Teknik Değişiklikler\n[API/DB/FE etkisi — yalnızca değişenler]\n\n"
+            "## 5. Regresyon Riski\n[Bozulabilecek mevcut davranışlar + koşulması gereken testler]\n\n"
+            "## 6. Açık Sorular\n[Varsa]\n"
+            "</delta_analizi>"
+        ),
+    },
 }
 
 
@@ -1285,6 +1342,97 @@ def surec_id_kapsam(surec_metni: str, teknik_metni: str) -> dict:
         "eksik": eksik,
         "skor": round(len(karsilanan) / toplam, 2) if toplam else 1.0,
     }
+
+
+# ─── Belirsizlik Denetimi — deterministik, 0 token ───────────────────────────
+# AmbiTRUS/QVscribe tarzı gereksinim-kalite lint'i: çıktıdaki muğlak/ölçülemez
+# ifadeleri satır referansıyla yakalar. AI çağrısı YOK — saf regex taraması.
+_BELIRSIZ_IFADELER = [
+    # (desen, neden sorunlu)
+    (r"\bh[ıi]zl[ıi](?:ca)?\b", "ölçülemez performans hedefi — süre/eşik belirtilmeli"),
+    (r"\bkolay(?:ca)?\b", "öznel kullanılabilirlik iddiası — ölçüt belirtilmeli"),
+    (r"\bkullan[ıi]c[ıi] dostu\b", "öznel — somut UX ölçütü belirtilmeli"),
+    (r"\bgerekti[ğg]inde\b", "koşul tanımsız — NE ZAMAN gerektiği belirtilmeli"),
+    (r"\buygun (?:şekilde|bi[çc]imde|olarak)\b", "'uygun' tanımsız — kural/ölçüt belirtilmeli"),
+    (r"\bvb\.|\bvs\.|\bve benzeri\b", "liste ucu açık — kapsam sınırı belirsiz"),
+    (r"\bm[üu]mk[üu]nse\b", "zorunluluk derecesi belirsiz — MoSCoW netleştirilmeli"),
+    (r"\bgenellikle\b|\bço[ğg]unlukla\b", "istisnalar tanımsız — hangi durumlar hariç?"),
+    (r"\bmakul\b", "öznel eşik — sayısal sınır belirtilmeli"),
+    (r"\bperformansl[ıi]\b|\by[üu]ksek performans\b", "ölçülemez — hedef değer (ms/RPS) belirtilmeli"),
+    (r"\bes[ns]ek\b", "'esnek' tanımsız — hangi varyasyonlar destekleniyor?"),
+    (r"\bopsiyonel olabilir\b|\bolabilir\b(?=\s*[.\n])", "kararsız ifade — kesinleştirilmeli"),
+]
+_BELIRSIZ_DERLENMIS = [(re.compile(d, re.IGNORECASE), n) for d, n in _BELIRSIZ_IFADELER]
+_BELIRSIZLIK_MAX_BULGU = 20  # rapor şişmesin
+
+
+def belirsizlik_denetimi(metin: str) -> str:
+    """Muğlak ifadeleri satır numarasıyla raporlar; bulgu yoksa '' döner.
+    Kod blokları ve HTML yorumları atlanır (etiket/örnek kod yanlış pozitif üretmesin)."""
+    bulgular: list[str] = []
+    kod_blogunda = False
+    for i, satir in enumerate(metin.splitlines(), start=1):
+        s = satir.strip()
+        if s.startswith("```"):
+            kod_blogunda = not kod_blogunda
+            continue
+        if kod_blogunda or s.startswith("<!--"):
+            continue
+        for desen, neden in _BELIRSIZ_DERLENMIS:
+            m = desen.search(satir)
+            if m:
+                bulgular.append(f"| {i} | `{m.group(0)}` | {neden} |")
+                break  # satır başına tek bulgu yeter
+        if len(bulgular) >= _BELIRSIZLIK_MAX_BULGU:
+            break
+    if not bulgular:
+        return ""
+    return (
+        "\n\n---\n\n## 🔎 Belirsizlik Denetimi\n\n"
+        "_Deterministik tarama (0 token) — muğlak/ölçülemez ifadeler. "
+        "Her satır netleştirilmeli ya da bilinçliyse yok sayılabilir._\n\n"
+        "| Satır | İfade | Neden sorunlu |\n|---|---|---|\n"
+        + "\n".join(bulgular) + "\n"
+    )
+
+
+# ─── İzlenebilirlik Matrisi (RTM) — deterministik, 0 token ───────────────────
+
+def izlenebilirlik_matrisi_olustur(surec_metni: str, teknik_metni: str) -> str:
+    """BMAD tarzı gereksinim→teknik izlenebilirlik matrisi üretir (markdown).
+    Her süreç ID'si için teknik analizde geçtiği bölüm başlıklarını bulur.
+    Süreç metninde hiç ID yoksa (örn. özel promptla üretilmiş) '' döner."""
+    surec_idler = sorted(set(_SUREC_ID_DESENI.findall(surec_metni)))
+    if not surec_idler:
+        return ""
+    # Teknik metni bölümlere ayır: '## Başlık' altındaki içerik o bölüme aittir
+    bolumler: list[tuple[str, str]] = []  # (başlık, içerik)
+    mevcut_baslik, mevcut_icerik = "(giriş)", []
+    for satir in teknik_metni.splitlines():
+        m = re.match(r"^#{1,3}\s+(.+)$", satir)
+        if m:
+            bolumler.append((mevcut_baslik, "\n".join(mevcut_icerik)))
+            mevcut_baslik, mevcut_icerik = m.group(1).strip(), []
+        else:
+            mevcut_icerik.append(satir)
+    bolumler.append((mevcut_baslik, "\n".join(mevcut_icerik)))
+
+    satirlar = []
+    karsilanan = 0
+    for sid in surec_idler:
+        gecen = [b for b, icerik in bolumler if sid in icerik]
+        if gecen:
+            karsilanan += 1
+            satirlar.append(f"| {sid} | ✅ | {' · '.join(gecen[:4])} |")
+        else:
+            satirlar.append(f"| {sid} | ⚠ KARŞILANMADI | — |")
+    return (
+        "# İzlenebilirlik Matrisi (RTM)\n\n"
+        f"_Deterministik üretim (0 token) — süreç gereksinimi ↔ teknik analiz bölümü eşlemesi. "
+        f"Kapsam: {karsilanan}/{len(surec_idler)} ID._\n\n"
+        "| Süreç ID | Durum | Teknik analizde geçtiği bölüm(ler) |\n|---|---|---|\n"
+        + "\n".join(satirlar) + "\n"
+    )
 
 
 # ─── Yönetici Özeti (TL;DR) — deterministik, 0 token; Jira'ya YAZILMAZ ────────

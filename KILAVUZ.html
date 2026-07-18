@@ -194,9 +194,10 @@
       <a href="#a-yukle"   class="h2">6.1 Doküman yükle</a>
       <a href="#a-surec"   class="h2">6.2 Süreç analizi</a>
       <a href="#a-teknik"  class="h2">6.3 Teknik analiz</a>
-      <a href="#a-mockup"  class="h2">6.4 HTML prototip</a>
-      <a href="#a-jira"    class="h2">6.5 Jira (FE/BE seçim)</a>
-      <a href="#a-gorevler" class="h2">6.6 Jira görevleri triyajı</a>
+      <a href="#a-delta"   class="h2">6.4 CR / Delta analizi</a>
+      <a href="#a-mockup"  class="h2">6.5 HTML prototip</a>
+      <a href="#a-jira"    class="h2">6.6 Jira (FE/BE seçim)</a>
+      <a href="#a-gorevler" class="h2">6.7 Jira görevleri triyajı</a>
       <a href="#akis-brd"  class="h1">7. BRD Akışı</a>
       <a href="#sorular"   class="h1">8. Soru Defteri</a>
       <a href="#s-banner"  class="h2">8.1 Banner ve sekme</a>
@@ -681,7 +682,35 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
       <em>Not: Buton yalnızca <code>.md</code>/<code>.txt</code> dosya yüklendiğinde aktiftir (PDF/DOCX için önce tam pipeline gerekir). Uygulamada zaten üretilmiş bir süreç analizi varsa buton sekmeye girince de görünür.</em>
     </div>
 
-    <h3 id="a-mockup">6.4 HTML Prototip <span class="pill opt">opsiyonel</span> <span class="meta">⏱ 30-60 sn</span></h3>
+    <div class="box info">
+      <strong>Analizle birlikte otomatik üretilenler <span class="pill new">Yeni</span></strong>
+      <ul style="margin:6px 0 0 0">
+        <li><strong>Test Senaryoları</strong> (<code>test-senaryolari.md</code>) — kabul kriterlerinden ve
+          canlı gözlem kayıtlarından Gherkin (Diyelim ki / Eğer ki / O zaman) senaryoları; QA'ya devredilebilir.</li>
+        <li><strong>İzlenebilirlik Matrisi</strong> (<code>izlenebilirlik-matrisi.md</code>) — her süreç
+          gereksiniminin (BR/AC/PA) teknik analizin hangi bölümünde karşılandığını gösteren tablo (0 token).</li>
+        <li><strong>Belirsizlik Denetimi</strong> — analiz sonunda muğlak ifadeler ("hızlı", "vb.",
+          "gerektiğinde") satır referansıyla listelenir; netleştirilmesi gereken yerleri gösterir (0 token).</li>
+        <li><strong>Süreç akış diyagramı</strong> — süreç analizinde ana akışın mermaid diyagramı; Çıktılar
+          sekmesinde görsel olarak render edilir.</li>
+      </ul>
+    </div>
+
+    <h3 id="a-delta">6.4 CR / Delta Analizi <span class="pill new">Yeni</span></h3>
+    <p>Test ortamına çıkmış bir özellik için değişiklik isteği (CR) veya bug-fix talebi geldiğinde
+    tam analizi tekrarlamayın: <strong>Süreç/Teknik Analiz</strong> ekranındaki
+    <em>CR / Delta Analizi</em> panelini açın, değişiklik isteğini yazın ve
+    <strong>Delta Analizi Üret</strong>'e basın.</p>
+    <ul>
+      <li>Mevcut <code>teknik-analiz.md</code> ile karşılaştırılır; yalnızca <strong>delta</strong> üretilir:
+        etkilenen bölümler, değişen/yeni gereksinimler (DBR-XXX), teknik değişiklikler, <strong>regresyon riski</strong></li>
+      <li>Bağlam Filtresi (referanslar + canlı uygulama gözlemi) delta analizinde de geçerlidir —
+        CR'nin hedeflediği ekran canlı gezilebilir</li>
+      <li>Çıktı: <code>delta-analizi.md</code> (Çıktılar sekmesi); tam analize göre belirgin token tasarrufu</li>
+      <li>Mevcut teknik analiz yoksa panel hata verir — önce tam analiz üretin</li>
+    </ul>
+
+    <h3 id="a-mockup">6.5 HTML Prototip <span class="pill opt">opsiyonel</span> <span class="meta">⏱ 30-60 sn</span></h3>
     <div class="step">
       <div class="num">1</div>
       <h4>Onay ekranında HTML Prototip Oluştur</h4>
@@ -689,7 +718,7 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
       <p>Canlı uygulama gözlemi varsa ekrandaki alan, mesaj ve akışlar prototip ve analiz kararlarında kaynak olarak kullanılır.</p>
     </div>
 
-    <h3 id="a-jira">6.5 Jira görev hiyerarşisi — FE/BE seçimi <span class="pill new">Yeni</span></h3>
+    <h3 id="a-jira">6.6 Jira görev hiyerarşisi — FE/BE seçimi <span class="pill new">Yeni</span></h3>
     <p>
       Teknik analiz onaylandıktan sonra Çıktılar sekmesinde <code>teknik-analiz.md</code>
       seçili iken <strong>Hiyerarşik Task Oluştur</strong> butonu görünür.
@@ -752,7 +781,7 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     </div>
 
     <!-- ============== 6.6 JIRA GÖREVLERİ ============== -->
-    <h3 id="a-gorevler">6.6 Jira görevleri triyajı <span class="pill new">Yeni</span></h3>
+    <h3 id="a-gorevler">6.7 Jira görevleri triyajı <span class="pill new">Yeni</span></h3>
     <p>Doküman yüklemeden, <strong>mevcut</strong> bir Jira Epic/Story altındaki görevleri çekip iki gruba ayırır:
        <em>hızlı işleme alınacaklar</em> ve <em>detaylı analiz gerekenler</em>. Sol menü → <strong>Jira Görevleri</strong>.
        (Jira bağlantısı gerekir — bkz. 4.2.)</p>

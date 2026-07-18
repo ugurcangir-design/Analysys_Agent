@@ -1937,6 +1937,27 @@ function temaDegistir() {
         </div>
       </div>
 
+      <!-- CR / Delta Analizi — mevcut teknik analizin üzerine değişiklik isteği -->
+      <div class="ctx-toggle" id="da-toggle" onclick="toggleDeltaAnaliz()">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="ctx-toggle-label">CR / Delta Analizi</span>
+        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Test ortamına çıkmış bir özellik için gelen değişiklik isteğini (CR) veya bug-fix talebini mevcut teknik analizin ÜZERİNE delta olarak işler — tam analiz tekrarı yapılmaz. Mevcut teknik-analiz.md gerekir. Bağlam Filtresi (referanslar + canlı uygulama) delta analizinde de geçerlidir.">?</span>
+        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div class="ctx-fields" id="da-fields">
+        <div>
+          <div class="ctx-field-label">Değişiklik İsteği (CR / bug-fix tarifi)</div>
+          <div class="ctx-field-sub">Mevcut teknik analizle karşılaştırılır; yalnızca DELTA raporu üretilir: etkilenen bölümler, değişen gereksinimler, regresyon riski → delta-analizi.md</div>
+          <textarea class="ctx-input" id="da-cr-metni" rows="5" placeholder="örn: Tournament Market ekranındaki hiyerarşik görünüme kategori seviyesinde toplam market sayısı kolonu eklenecek; mevcut filtreler bu kolonu da etkilemeli."></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-primary btn-sm" id="da-baslat-btn" onclick="deltaAnaliziBaslat()">
+            <svg class="ico"><use href="#i-play"/></svg> Delta Analizi Üret
+          </button>
+          <span id="da-status" class="mono-meta"></span>
+        </div>
+      </div>
+
       <!-- Bağlam Filtresi -->
       <div class="ctx-toggle" id="ctx-toggle" onclick="toggleCtx()">
         <svg class="ico"><use href="#i-filter"/></svg>
@@ -2868,6 +2889,23 @@ python cli.py ui ~/export.zip</pre>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+// Mermaid: otomatik başlatma kapalı — markdown render'dan SONRA elle tetiklenir
+// (mermaidRender). Süreç analizi artık akış diyagramı içeriyor.
+if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+function mermaidRender(container) {
+  if (!window.mermaid || !container) return;
+  // marked, ```mermaid bloklarını <pre><code class="language-mermaid"> yapar → dönüştür
+  container.querySelectorAll('pre code.language-mermaid').forEach((code, i) => {
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    code.closest('pre').replaceWith(div);
+  });
+  try { mermaid.run({ nodes: container.querySelectorAll('.mermaid') }); } catch (e) { /* bozuk diyagram metin olarak kalır */ }
+}
+</script>
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let selectedFiles = { surec: null, brd: null };
@@ -3747,6 +3785,42 @@ async function ozelPromptYukle() {
   } catch {}
 }
 
+// ─── CR / Delta Analizi ──────────────────────────────────────────────────────
+function toggleDeltaAnaliz() {
+  document.getElementById('da-toggle').classList.toggle('open');
+  document.getElementById('da-fields').classList.toggle('open');
+}
+
+async function deltaAnaliziBaslat() {
+  const cr = document.getElementById('da-cr-metni').value.trim();
+  if (!cr) { toast('Önce değişiklik isteğini yazın', 'error'); return; }
+  const btn = document.getElementById('da-baslat-btn');
+  const st = document.getElementById('da-status');
+  btn.disabled = true;
+  st.textContent = '⏳ Delta analizi üretiliyor — birkaç dakika sürebilir…';
+  try {
+    // Bağlam filtresi + özel prompt ekrandaki haliyle geçerli olsun
+    await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(buildContextFilter())}).catch(() => {});
+    const r = await fetch('/api/delta-analiz', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cr_metni: cr})
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) { toast(d.error || 'Delta analizi başarısız', 'error'); st.textContent = ''; return; }
+    st.textContent = '✓ delta-analizi.md üretildi';
+    toast('Delta analizi hazır — Çıktılar sekmesinde', 'success');
+    await refreshOutputTabs();
+    switchTab('output');
+    outputTabHazirla('delta-analizi.md');
+  } catch (e) {
+    toast('Hata: ' + e, 'error');
+    st.textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ─── Canlı Uygulama (Chrome MCP) erişim/izin durumu ──────────────────────────
 // Analist "neden çalışmıyor" sorusunun cevabını burada görür ve tek tıkla giriş yapar.
 async function liveAppDurumYenile() {
@@ -4087,6 +4161,7 @@ async function outputSec(tab) {
   content.style.display = '';
   content.className = 'output-content';
   content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
+  mermaidRender(content);
   actions.style.display = 'flex';
 
   // Jira hiyerarşi satırını göster (sadece teknik-analiz.md için)
@@ -4877,6 +4952,7 @@ async function editKaydet() {
     content.style.display = '';
     content.className = 'output-content';
     content.innerHTML = `<div class="md-body">${marked.parse(icerik)}</div>`;
+    mermaidRender(content);
   }
   document.getElementById('output-actions').style.display = 'flex';
 }
@@ -4947,6 +5023,7 @@ async function kontolEtRerun(eskiMtime) {
       const content = document.getElementById('output-content');
       content.className = 'output-content';
       content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
+      mermaidRender(content);
     }
     refreshOutputTabs();
   }
@@ -4986,6 +5063,7 @@ async function historyDosyaGoster(id, dosya) {
   if (!r.ok) { toast('Dosya bulunamadı', 'error'); return; }
   const md = await r.text();
   content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
+  mermaidRender(content);
 }
 
 function formatDate(ts) {
@@ -5251,7 +5329,7 @@ async function promptlariYukle() {
 const _PROMPT_GRUPLARI = [
   {
     baslik: 'Süreç / Teknik Analiz',
-    anahtarlar: ['surec_analizi_rol', 'surec_analizi', 'teknik_analiz_rol', 'teknik_analiz_bolumler', 'teknik_analiz_sorular', 'teknik_analiz_denetci'],
+    anahtarlar: ['surec_analizi_rol', 'surec_analizi', 'teknik_analiz_rol', 'teknik_analiz_bolumler', 'teknik_analiz_sorular', 'teknik_analiz_denetci', 'test_senaryolari', 'delta_analizi'],
   },
   {
     baslik: 'BRD Analizi',

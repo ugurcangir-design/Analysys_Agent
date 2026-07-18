@@ -14,7 +14,8 @@ from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur,
     canli_uygulama_baglami_hazirla, prompt_yukle, teknik_ozel_prompt_oku,
-    OZEL_PROMPT_DOGRULUK_EKI,
+    OZEL_PROMPT_DOGRULUK_EKI, MODEL_HAFIF,
+    belirsizlik_denetimi, izlenebilirlik_matrisi_olustur,
     extended_thinking_acik, hizli_mod_acik, surec_id_kapsam,
     yonetici_ozeti_olustur,
     OUTPUT_DIR,
@@ -289,9 +290,42 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
         )
     sorular_yol = _kaydet("acik-sorular.md", sorular)
 
+    # ── Belirsizlik Denetimi — deterministik, 0 token: muğlak ifadeler raporu ──
+    belirsizlik = belirsizlik_denetimi(teknik_ham)
+    if belirsizlik:
+        print("  🔎 Belirsizlik denetimi: muğlak ifadeler bulundu — rapora eklendi.")
+        teknik_final = teknik_final + belirsizlik
+
+    # ── İzlenebilirlik Matrisi (RTM) — deterministik, 0 token ──
+    rtm = izlenebilirlik_matrisi_olustur(surec_metni, teknik_ham)
+    if rtm:
+        _kaydet("izlenebilirlik-matrisi.md", rtm)
+
+    # ── Test Senaryoları (Gherkin) — Haiku pass'i; hata pipeline'ı BOZMAZ ──
+    try:
+        senaryolar = _test_senaryolari_uret(teknik_ham)
+        if senaryolar:
+            _kaydet("test-senaryolari.md", senaryolar)
+    except Exception as e:
+        print(f"  ⚠ Test senaryoları üretilemedi (teknik analiz etkilenmedi): {e}")
+
     # ── Yönetici Özeti (TL;DR) — deterministik, 0 token; EN ÜSTE ekle.
     # Jira'ya YAZILMAZ (jira_tasks + gorev_jiraya_yaz yonetici_ozetini_cikar çağırır).
     ozet = yonetici_ozeti_olustur(teknik_ham, kapsam=kapsam, acik_sorular=sorular)
     teknik_yol = _kaydet("teknik-analiz.md", ozet + teknik_final)
 
     return teknik_yol, sorular_yol
+
+
+def _test_senaryolari_uret(teknik_metni: str) -> str:
+    """Kabul kriterleri + gözlemlenmiş davranışlardan Gherkin test senaryoları
+    (Copilot4DevOps benzeri). Haiku — ucuz; CLI modunda model parametresi etkisizdir."""
+    print("  🧪 Test senaryoları (Gherkin) üretiliyor...")
+    sistem = prompt_yukle("test_senaryolari")
+    icerik = [
+        {"type": "text", "text": f"### Teknik Analiz\n\n{teknik_metni}"},
+        {"type": "text", "text": "Kabul kriterlerinden ve gözlemlenen davranışlardan test senaryolarını üret."},
+    ]
+    yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
+                       model=MODEL_HAFIF, max_tokens=MAX_TOKENS_UZUN, thinking=False)
+    return _xml_ayir(_metin_sikistir(yanit), "test_senaryolari")

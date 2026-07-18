@@ -7,8 +7,30 @@
 surec-analizi.md   teknik-analiz.md   acik-sorular.md
 brd-analizi.md     brd-sorular.md     kapsam-analizi.md   alternatif-surecler.md
 mockup.html        workflow-state.json   sorular.json
+test-senaryolari.md   izlenebilirlik-matrisi.md   delta-analizi.md
 ```
 Yeni output dosyası → `app.py` `IZIN_VERILEN_CIKTILAR` set'ine ekle.
+
+## Analiz Zenginleştirmeleri (benzer-agent araştırmasından; Kiro/BMAD/Copilot4DevOps esinli)
+- **Belirsizlik Denetimi** (`belirsizlik_denetimi`, base.py — 0 token, deterministik regex):
+  muğlak Türkçe ifadeleri ("hızlı", "kolay", "vb.", "gerektiğinde"…) satır no + nedenle raporlar;
+  kod blokları/HTML yorumları atlanır, max 20 bulgu. Süreç + teknik + delta çıktılarının sonuna
+  "🔎 Belirsizlik Denetimi" bölümü olarak eklenir.
+- **İzlenebilirlik Matrisi / RTM** (`izlenebilirlik_matrisi_olustur`, base.py — 0 token):
+  süreç ID'si ↔ teknik analizde geçtiği bölüm başlıkları tablosu → `izlenebilirlik-matrisi.md`.
+  Süreç metninde ID yoksa (özel prompt çıktısı) üretilmez.
+- **Test Senaryoları / Gherkin** (`_test_senaryolari_uret`, teknik_analiz.py — MODEL_HAFIF/Haiku):
+  kabul kriterleri + canlı gözlem kayıtlarından Diyelim ki/Eğer ki/O zaman senaryoları →
+  `test-senaryolari.md`. Prompt: `test_senaryolari`. Hata pipeline'ı bozmaz (try/except).
+- **CR / Delta Analizi** (`skills/delta_analizi.py` + `POST /api/delta-analiz` + UI paneli):
+  mevcut teknik-analiz.md (zorunlu) + CR metni → yalnızca DELTA raporu (etkilenen bölümler,
+  DBR-XXX değişen gereksinimler, regresyon riski) → `delta-analizi.md`. SENKRON çalışır
+  (jira_gorev_analiz deseni — workflow durum makinesine girmez; çalışan analiz varsa 409).
+  Referanslar + canlı gözlem (Bağlam Filtresi) delta'da da geçerli. Prompt: `delta_analizi`.
+- **Mermaid süreç diyagramı**: süreç analizi promptuna otomatik ek talimat (varsayılan yolda) —
+  Süreç Adımları sonuna `flowchart TD` bloğu (≤12 düğüm, PA-XXX etiketli). SPA'da mermaid@10 CDN +
+  `mermaidRender()` tüm markdown görüntüleyicilerde (çıktı/önizleme/history) SVG render eder;
+  bozuk diyagram metin olarak kalır (try/catch).
 
 ## Workflow Durumları (`workflow.py → Durum`)
 ```
@@ -85,13 +107,13 @@ yazma yolunda (jira_tasks hiyerarşi + gorev_jiraya_yaz) çağrılır.
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
   → `referans_dosyalari_hazirla()` + `_ref_bloklari_olustur()`.
 
-## Sistem Promptları (16) — `VARSAYILAN_PROMPTLAR` (`skills/base.py`)
+## Sistem Promptları (18) — `VARSAYILAN_PROMPTLAR` (`skills/base.py`)
 Tutarlı yapı: `# ROL → GÖREV → ÇIKTININ AMACI → ÇALIŞMA YÖNTEMİ → RAG İLKESİ → BAĞLAM KULLANIMI → KALİTE ÖLÇÜTÜ`.
 ```
 surec_analizi_rol   surec_analizi          teknik_analiz_rol   teknik_analiz_bolumler
 teknik_analiz_sorular  teknik_analiz_denetci   brd_analizi_rol   brd_analizi_bolumler
 brd_analizi_sorular   kapsam_analizi_rol   kapsam_analizi_bolumler   kapsam_analizi_alternatifler
-html_mockup_base   jira_tasks   refine   confluence_publisher
+html_mockup_base   jira_tasks   refine   confluence_publisher   test_senaryolari   delta_analizi
 ```
 - `teknik_analiz_denetci` (Aşama 3 denetçi): `_ORTAK_EK_KURALLAR` ALMAZ; sadece sorun tespit eder.
   UI prompt editöründe `_PROMPT_GRUPLARI` (index.html) "Süreç / Teknik Analiz" grubunda.
