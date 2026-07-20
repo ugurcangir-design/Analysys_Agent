@@ -1988,6 +1988,10 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "değerleri MASKELE.\n"
         "- Sadece gözlemlenen endpoint/alan/mesajları kullan; gözlemlenemeyenleri açık soru yap.\n"
         "- Chrome MCP erişilemiyorsa bunu varsayım üretmeden belirt; bu URL'leri yalnızca hedef bağlam say.\n"
+        "- Bir tarayıcı aracı reddedilirse veya erişilebilir değilse İZİN İSTEME (bu oturumda izin "
+        "verilemez — kimse onaylayamaz); eşdeğer İZİNLİ araçla devam et (örn. form doldurmada "
+        "browser_fill_form yerine alan alan browser_type + browser_click). Hiçbir alternatif yoksa "
+        "o adımı atla ve raporda 'Canlı Gözlem Kapsamı' altında nedeniyle belirt.\n"
     )
 
     if gozlem_kapsami:
