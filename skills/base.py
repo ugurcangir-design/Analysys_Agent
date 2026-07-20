@@ -81,6 +81,10 @@ LIVE_APP_ALLOWED_TOOLS = [
     "mcp__playwright__browser_console_messages",
     "mcp__playwright__browser_click",
     "mcp__playwright__browser_type",
+    "mcp__playwright__browser_fill_form",       # çoklu form alanını tek çağrıda doldurur —
+                                                 # login + CRUD formları için model bunu tercih
+                                                 # ediyor; eksikken headless modda onay
+                                                 # soramayıp "izin verin" çıktısıyla takılıyordu
     "mcp__playwright__browser_press_key",
     "mcp__playwright__browser_hover",
     "mcp__playwright__browser_select_option",
