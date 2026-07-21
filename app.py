@@ -2227,28 +2227,44 @@ def jira_gorevler_siniflandir():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# Tek batch'te AI ile incelenecek MAKSİMUM görev — timeout güvenliği. Frontend
+# görevleri bu boyutta parçalayıp arka arkaya gönderir (ilerleme + kısmi sonuç).
+SADECE_CLIENT_BATCH_LIMIT = 25
+
+
 @app.route("/api/jira/gorevler/sadece-client", methods=["POST"])
 def jira_gorevler_sadece_client():
-    """Board'dan çekilen görevleri AI ile inceleyip YALNIZCA client (frontend)
+    """Bir GÖREV PARÇASINI (batch) AI ile inceleyip YALNIZCA client (frontend)
     tarafında yapılacak olanları ayırır. Bağlı BE task'ları dikkate alır: bir
     görevin bağlı BE task'ı varsa isterin sunucu tarafı da geliştirilecek demektir
-    → 'sadece client' değildir. Analist tetikler (opt-in, token harcar). Jira'ya YAZMAZ."""
+    → 'sadece client' değildir.
+
+    PARÇALI TASARIM: frontend tüm görevleri SADECE_CLIENT_BATCH_LIMIT'lik gruplara
+    bölüp bu uç noktayı arka arkaya çağırır. Her istek SINIRLI sürer (tek AI çağrısı)
+    → çok görevde timeout/askıda kalma olmaz; bir grup hata alsa öncekiler korunur;
+    frontend ilerlemeyi gösterir. Analist tetikler (opt-in, token harcar). Jira'ya YAZMAZ.
+
+    Görev nesneleri client'tan gelir (mevcut /formatla, /analiz deseniyle aynı) —
+    'Görevleri Çek' zaten baglantililar dahil tüm veriyi getirdiğinden Jira'dan
+    yeniden çekmeye gerek yok."""
     data = request.get_json(silent=True) or {}
-    parent_key = (data.get("parent_key") or "").strip()
-    if not parent_key:
-        return jsonify({"ok": False, "error": "Epic/Story anahtarı gerekli"}), 400
-    hata = _jira_baglanti_eksik()
-    if hata:
-        return jsonify({"ok": False, "error": hata}), 400
+    gorevler = data.get("gorevler")
+    if not isinstance(gorevler, list) or not gorevler:
+        return jsonify({"ok": False, "error": "İncelenecek görev listesi (batch) gerekli"}), 400
+    if len(gorevler) > SADECE_CLIENT_BATCH_LIMIT:
+        return jsonify({"ok": False,
+                        "error": f"Tek istekte en fazla {SADECE_CLIENT_BATCH_LIMIT} görev incelenebilir "
+                                 f"(gönderilen: {len(gorevler)}). Frontend parçalayarak göndermeli."}), 400
+    gecerli = [g for g in gorevler if isinstance(g, dict) and g.get("key")]
+    if not gecerli:
+        return jsonify({"ok": False, "error": "Geçerli görev bulunamadı (key zorunlu)"}), 400
     try:
-        from skills.jira_gorevleri import alt_gorevleri_cek, sadece_client_ayikla
-        gorevler = alt_gorevleri_cek(parent_key)
-        sonuc = sadece_client_ayikla(gorevler)
-        return jsonify({"ok": True, "parent_key": parent_key.upper(), **sonuc})
-    except ValueError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
+        from skills.jira_gorevleri import sadece_client_ayikla
+        sonuc = sadece_client_ayikla(gecerli)
+        logger.info(f"Sadece-client batch: {len(gecerli)} görev → {len(sonuc['sadece_client'])} sadece-client")
+        return jsonify({"ok": True, **sonuc})
     except Exception as e:
-        logger.error(f"Sadece-client ayıklama hatası: {e}")
+        logger.error(f"Sadece-client batch hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 

@@ -210,6 +210,14 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   görev "sadece client" DEĞİLDİR (isterin sunucu tarafı ayrı task'ta geliştiriliyor). Emin olunamayan
   görevler güvenlik gereği `diger`e düşer (false-negatif, false-pozitiften güvenli). AI çağıramazsa
   (`_sadece_client_ai` boş dönerse) hiçbir görev "sadece client" KESİNLEŞTİRİLMEZ (fallback → hepsi `diger`).
+  **PARÇALI TASARIM (çok görevde timeout/askıda kalma önlemi):** Endpoint tek batch alır
+  (`{gorevler: [...]}`, en fazla `SADECE_CLIENT_BATCH_LIMIT=25`; Jira'dan yeniden çekmez, görevler
+  client'tan gelir — `/formatla`, `/analiz` deseniyle aynı). Frontend tüm görevleri `SC_BATCH=20`'lik
+  gruplara bölüp arka arkaya çağırır (`jgSadeceClient` döngüsü): her istek SINIRLI sürer (tek AI çağrısı),
+  kısmi sonuçlar her grup sonrası birikip render edilir, ilerleme gösterilir (`n/toplam`), bir grup hata
+  alsa öncekiler korunur. Buton çalışırken "Durdur"a döner (`_jgScDurdur` → mevcut grup bitince durur).
+  **Eski tek-istek tasarımı KALDIRILDI** — 200+ görevde tek HTTP isteği dakikalarca sürüp tarayıcıda
+  timeout olurken sunucu arka planda öğütmeye (token harcamaya) devam ediyordu.
   UI: mevcut iki grubu bozmadan 3. grup `#jg-sc-group` (varsayılan gizli, butonla üretilir); yeniden
   çekmede bayat sonuç gizlenir.
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.

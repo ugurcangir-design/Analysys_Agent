@@ -3054,36 +3054,73 @@ function _jgYerlestir(d) {
   jgFiltrele();
 }
 
-// Sadece Client İşleri — görevleri tek tek incele, YALNIZCA frontend tarafında
-// yapılacak (bağlı BE task'ı olmayan, BFF/BE değişikliği gerektirmeyen) olanları ayır.
+// Sadece Client İşleri — görevleri PARÇALAYARAK incele, YALNIZCA frontend
+// tarafında yapılacak (bağlı BE task'ı olmayan, BFF/BE değişikliği gerektirmeyen)
+// olanları ayır. Çok görevde tek dev istek timeout/askıda kalmasın diye görevler
+// SC_BATCH'lik gruplara bölünür; her grup ayrı istekle işlenir, sonuçlar birikir,
+// ilerleme gösterilir. Bir grup hata alsa öncekiler korunur; durdurulabilir.
 let _jgScData = [];
+const SC_BATCH = 20;          // sunucu limiti 25; altında güvenli pay
+let _jgScCalisiyor = false;
+let _jgScDurdur = false;
+
 async function jgSadeceClient() {
-  if (!_jgParentKey) { _jgMsg('jg-fetch-msg', 'Önce görevleri çekin.', 'err'); return; }
+  if (_jgScCalisiyor) {        // ikinci tık → durdur
+    _jgScDurdur = true;
+    _jgMsg('jg-fetch-msg', 'Durduruluyor… (mevcut grup bitince duracak)');
+    return;
+  }
+  // Tüm görevleri al (baglantililar dahil — 'Görevleri Çek' bunları getirdi)
+  const tumu = [...(_jgData.hazir || []), ...(_jgData.detay || [])];
+  if (!tumu.length) { _jgMsg('jg-fetch-msg', 'Önce görevleri çekin.', 'err'); return; }
+
   const btn = document.getElementById('jg-sc-btn');
-  btn.disabled = true;
-  _jgMsg('jg-fetch-msg', 'Görevler tek tek inceleniyor (sadece client işleri ayrılıyor)…');
-  _jgTopbar('Sadece client işleri ayrılıyor…', true);
+  _jgScCalisiyor = true; _jgScDurdur = false;
+  _jgScData = [];
+  const grp = document.getElementById('jg-sc-group');
+  grp.style.display = ''; grp.classList.remove('kapali');
+  jgScListeCiz();
+  document.getElementById('jg-sc-count').textContent = '0';
+  btn.innerHTML = '<svg class="ico"><use href="#i-stop"/></svg> Durdur';
+  grp.scrollIntoView({ block: 'start', behavior: 'smooth' });
+
+  const toplam = tumu.length;
+  let islenen = 0, hataliGrup = 0;
   try {
-    const r = await fetch('/api/jira/gorevler/sadece-client', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parent_key: _jgParentKey })
-    });
-    const d = await r.json();
-    if (!d.ok) { _jgMsg('jg-fetch-msg', d.error || 'Hata', 'err'); _jgTopbar('Hazır', false); return; }
-    _jgScData = d.sadece_client || [];
-    // Bu görevleri de aksiyon (Formatla/Analiz) için erişilebilir yap
-    [...(d.sadece_client || []), ...(d.diger || [])].forEach(g => { _jgGorevler[g.key] = g; });
-    const grp = document.getElementById('jg-sc-group');
-    grp.style.display = '';
-    grp.classList.remove('kapali');
-    jgScListeCiz();
-    document.getElementById('jg-sc-count').textContent = _jgScData.length;
-    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görevden ${_jgScData.length} tanesi YALNIZCA client tarafında (bağlı BE task'ı ve BFF/BE ihtiyacı olmayanlar). Emin olunamayanlar güvenlik gereği dahil edilmedi.`, 'ok');
+    for (let i = 0; i < toplam; i += SC_BATCH) {
+      if (_jgScDurdur) break;
+      const batch = tumu.slice(i, i + SC_BATCH);
+      const grupNo = Math.floor(i / SC_BATCH) + 1;
+      const grupToplam = Math.ceil(toplam / SC_BATCH);
+      _jgMsg('jg-fetch-msg', `İnceleniyor: ${islenen}/${toplam} görev (grup ${grupNo}/${grupToplam})… her grup birkaç dk sürebilir.`);
+      _jgTopbar(`Sadece client: ${islenen}/${toplam}`, true);
+      try {
+        const r = await fetch('/api/jira/gorevler/sadece-client', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gorevler: batch })
+        });
+        const d = await r.json();
+        if (!d.ok) { hataliGrup++; console.warn('SC grup hatası:', d.error); }
+        else {
+          (d.sadece_client || []).forEach(g => { _jgScData.push(g); _jgGorevler[g.key] = g; });
+          (d.diger || []).forEach(g => { _jgGorevler[g.key] = g; });
+        }
+      } catch (e) {
+        hataliGrup++; console.warn('SC grup bağlantı hatası:', e);
+      }
+      islenen += batch.length;
+      jgScListeCiz();                                            // kısmi sonuçları göster
+      document.getElementById('jg-sc-count').textContent = _jgScData.length;
+    }
+    const durum = _jgScDurdur ? 'durduruldu' : 'tamamlandı';
+    const hataNot = hataliGrup ? ` (${hataliGrup} grup hata aldı — o görevler atlandı, tekrar deneyebilirsiniz)` : '';
+    _jgMsg('jg-fetch-msg', `Sadece client ${durum}: ${islenen}/${toplam} görev incelendi → ${_jgScData.length} tanesi YALNIZCA client tarafında. Emin olunamayanlar güvenlik gereği dahil edilmedi${hataNot}.`, hataliGrup ? 'err' : 'ok');
     _jgTopbar(`${_jgScData.length} sadece-client işi`, false);
-    grp.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  } catch (e) {
-    _jgMsg('jg-fetch-msg', 'Bağlantı hatası: ' + e, 'err'); _jgTopbar('Hazır', false);
-  } finally { btn.disabled = false; }
+  } finally {
+    _jgScCalisiyor = false; _jgScDurdur = false;
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="ico"><use href="#i-monitor"/></svg> Sadece Client İşleri';
+  }
 }
 
 function jgScListeCiz() {
