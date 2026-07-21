@@ -1500,6 +1500,18 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-sub { font-size: 11.5px; color: var(--text3); }
 .jg-group-head { cursor: pointer; user-select: none; gap: 8px; }
 .jg-group-head:hover { background: var(--surface2); }
+/* Grup başlığındaki export kontrolleri — başlığa tıklayınca grup katlanır,
+   bu yüzden butonlar event.stopPropagation() kullanır. */
+.jg-export {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex: none;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-xs);
+  color: var(--text3); cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.jg-export:hover { background: var(--surface); border-color: var(--border); color: var(--accent); }
+.jg-export:focus-visible { outline: none; box-shadow: var(--focus-ring); color: var(--accent); }
+.jg-export .ico-sm { width: 13px; height: 13px; }
 .jg-caret { width: 14px; height: 14px; color: var(--text3); transition: transform .15s; }
 .jg-group.kapali .jg-caret { transform: rotate(-90deg); }
 .jg-group.kapali .panel-body { display: none; }
@@ -2288,6 +2300,12 @@ function temaDegistir() {
             <span class="badge" id="jg-hazir-count">0</span>
             <span class="panel-spacer"></span>
             <span class="jg-sub">Formatla/düzenle → ekibe gönder</span>
+            <button class="jg-export" onclick="event.stopPropagation();jgKopyala('hazir')" title="Listeyi panoya kopyala (anahtar + başlık) — sohbete/e-postaya yapıştırın">
+              <svg class="ico ico-sm"><use href="#i-clipboard"/></svg>
+            </button>
+            <button class="jg-export" onclick="event.stopPropagation();jgCsvIndir('hazir')" title="CSV indir (Excel'de açılır)">
+              <svg class="ico ico-sm"><use href="#i-download"/></svg>
+            </button>
             <svg class="ico jg-caret" id="jg-caret-hazir"><use href="#i-chevron-down"/></svg>
           </div>
           <div class="panel-body" id="jg-hazir-body">
@@ -2303,6 +2321,12 @@ function temaDegistir() {
             <span class="badge" id="jg-detay-count">0</span>
             <span class="panel-spacer"></span>
             <span class="jg-sub">Teknik Analiz Et → detaylandır → ekibe gönder</span>
+            <button class="jg-export" onclick="event.stopPropagation();jgKopyala('detay')" title="Listeyi panoya kopyala (anahtar + başlık) — sohbete/e-postaya yapıştırın">
+              <svg class="ico ico-sm"><use href="#i-clipboard"/></svg>
+            </button>
+            <button class="jg-export" onclick="event.stopPropagation();jgCsvIndir('detay')" title="CSV indir (Excel'de açılır)">
+              <svg class="ico ico-sm"><use href="#i-download"/></svg>
+            </button>
             <svg class="ico jg-caret" id="jg-caret-detay"><use href="#i-chevron-down"/></svg>
           </div>
           <div class="panel-body" id="jg-detay-body">
@@ -2318,6 +2342,12 @@ function temaDegistir() {
             <span class="badge" id="jg-sc-count">0</span>
             <span class="panel-spacer"></span>
             <span class="jg-sub">BFF/BE değişikliği gerektirmeyen; bağlı BE task'ı olmayan görevler</span>
+            <button class="jg-export" onclick="event.stopPropagation();jgKopyala('sc')" title="Listeyi panoya kopyala (anahtar + başlık) — sohbete/e-postaya yapıştırın">
+              <svg class="ico ico-sm"><use href="#i-clipboard"/></svg>
+            </button>
+            <button class="jg-export" onclick="event.stopPropagation();jgCsvIndir('sc')" title="CSV indir (Excel'de açılır)">
+              <svg class="ico ico-sm"><use href="#i-download"/></svg>
+            </button>
             <svg class="ico jg-caret" id="jg-caret-sc"><use href="#i-chevron-down"/></svg>
           </div>
           <div class="panel-body" id="jg-sc-body">
@@ -3205,6 +3235,115 @@ function jgFiltrele() {
 function jgGrupAc(grup) {
   const caret = document.getElementById('jg-caret-' + grup);
   if (caret) caret.closest('.jg-group').classList.toggle('kapali');
+}
+
+// ─── Export: görev listesini paylaş (anahtar + başlık) ───────────────────────
+// Üç grup da dışa aktarılabilir. Aramada filtre uygulanmışsa EKRANDA GÖRÜNEN
+// liste dışa aktarılır (analist ne görüyorsa onu paylaşır).
+const _JG_GRUP_ADI = {
+  hazir: 'Hızlı İşleme Alınacak',
+  detay: 'Detaylı Analiz Gerekir',
+  sc:    'Sadece Client (Frontend) İşleri',
+};
+
+function _jgGrupListesi(grup) {
+  if (grup === 'sc') return _jgScData || [];
+  const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
+  const tumu = (grup === 'hazir' ? _jgData.hazir : _jgData.detay) || [];
+  return q ? tumu.filter(g => (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q)) : tumu;
+}
+
+function _jgDosyaAdi(grup, uzanti) {
+  const slug = {hazir: 'hizli-isleme', detay: 'detayli-analiz', sc: 'sadece-client'}[grup] || grup;
+  const anahtar = (_jgParentKey || 'gorevler').toLowerCase();
+  const tarih = new Date().toISOString().slice(0, 10);
+  return `${anahtar}-${slug}-${tarih}.${uzanti}`;
+}
+
+async function jgKopyala(grup) {
+  const liste = _jgGrupListesi(grup);
+  if (!liste.length) { toast('Bu grupta kopyalanacak görev yok', 'error'); return; }
+  // Başlık satırı + TAB ayraç: sohbete/e-postaya okunaklı yapışır,
+  // Excel'e yapıştırıldığında da iki sütuna ayrılır.
+  const baslik = `${_JG_GRUP_ADI[grup] || grup}${_jgParentKey ? ' — ' + _jgParentKey : ''} (${liste.length} görev)`;
+  const metin = baslik + '\n' + liste.map(g => `${g.key}\t${g.summary || ''}`).join('\n');
+  try {
+    await navigator.clipboard.writeText(metin);
+    toast(`${liste.length} görev panoya kopyalandı`, 'success');
+    return;
+  } catch { /* izin yok / güvensiz bağlam — aşağıdaki yollara düş */ }
+  // 2. yol: eski execCommand (kullanıcı hareketi varsa çalışır)
+  const ta = document.createElement('textarea');
+  ta.value = metin;
+  ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand && document.execCommand('copy'); } catch { ok = false; }
+  document.body.removeChild(ta);
+  if (ok) { toast(`${liste.length} görev panoya kopyalandı`, 'success'); return; }
+  // 3. yol: otomatik kopyalama engellendi → kullanıcıyı çıkmazda bırakma,
+  // metni seçili halde göster ki Cmd/Ctrl+C ile kendisi kopyalayabilsin.
+  _jgKopyaKutusu(metin, liste.length);
+}
+
+// Otomatik kopyalama mümkün olmadığında açılan seçilebilir metin kutusu.
+function _jgKopyaKutusu(metin, adet) {
+  document.getElementById('jg-kopya-kutu')?.remove();
+  const kap = document.createElement('div');
+  kap.id = 'jg-kopya-kutu';
+  kap.className = 'jg-modal';
+  kap.style.display = 'flex';
+  kap.innerHTML = `
+    <div class="jg-modal-icerik" style="max-width:720px" onclick="event.stopPropagation()">
+      <div class="jg-modal-head">
+        <div class="jg-modal-baslik">
+          <span class="panel-title">${adet} görev — elle kopyalayın</span>
+          <span class="jg-sub">Tarayıcı otomatik kopyalamaya izin vermedi. Metin seçili: <strong>Cmd/Ctrl + C</strong></span>
+        </div>
+        <button class="jg-modal-kapat" title="Kapat">✕</button>
+      </div>
+      <div style="padding:14px 22px 22px">
+        <textarea class="jg-editor" style="width:100%;min-height:220px" spellcheck="false"></textarea>
+      </div>
+    </div>`;
+  const kapat = () => kap.remove();
+  kap.addEventListener('click', (e) => { if (e.target === kap) kapat(); });
+  kap.querySelector('.jg-modal-kapat').addEventListener('click', kapat);
+  document.addEventListener('keydown', function esc(e){
+    if (e.key === 'Escape') { kapat(); document.removeEventListener('keydown', esc); }
+  });
+  document.body.appendChild(kap);
+  const ta = kap.querySelector('textarea');
+  ta.value = metin;
+  ta.focus();
+  ta.select();
+}
+
+function jgCsvIndir(grup) {
+  const liste = _jgGrupListesi(grup);
+  if (!liste.length) { toast('Bu grupta dışa aktarılacak görev yok', 'error'); return; }
+  // RFC-4180 alan kaçışı: tırnak ikile, ayraç/tırnak/satırsonu içeren alanı tırnakla.
+  const alan = (v) => {
+    const s = String(v ?? '');
+    return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const satirlar = [['Anahtar', 'Başlık'], ...liste.map(g => [g.key, g.summary || ''])];
+  // Ayraç ';' + UTF-8 BOM: Türkçe Excel'de çift tıkla açıldığında sütunlara
+  // düzgün ayrılsın ve Türkçe karakterler bozulmasın.
+  const csv = '﻿' + satirlar.map(r => r.map(alan).join(';')).join('\r\n');
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = _jgDosyaAdi(grup, 'csv');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // revoke'u click'ten HEMEN sonra yapma — bazı tarayıcılarda indirme henüz
+  // başlamadan URL geçersizleşip dosya boş/iptal olabiliyor.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(`${liste.length} görev CSV olarak indirildi`, 'success');
 }
 
 // Bağlam Filtresi şeridi: Süreç ekranında girilen filtreyi Jira sekmesinde göster
