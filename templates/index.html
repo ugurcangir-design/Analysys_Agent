@@ -59,19 +59,24 @@
 }
 
 html[data-theme="light"] {
-  --bg:           #F5F7FA;
+  /* Okunaklılık: metin jetonları WCAG AA (4.5:1) eşiğine göre seçildi.
+     Eski --text3 (#8A93A2) beyaz üzerinde yalnızca 3.1:1 veriyordu → menü
+     başlıkları, panel etiketleri, alan açıklamaları ve placeholder'lar
+     soluk kalıyordu. Ölçülen yeni değerler (beyaz zemin):
+       --text 17.8:1 · --text2 8.1:1 · --text3 5.3:1 */
+  --bg:           #F7F9FC;
   --surface:      #FFFFFF;
-  --surface2:     #F0F3F7;
-  --surface3:     #E8ECF2;
-  --border:       #E1E6ED;
-  --border-strong:#CDD4DE;
+  --surface2:     #EEF2F7;
+  --surface3:     #E3E9F1;
+  --border:       #D8E0EA;
+  --border-strong:#BAC5D3;
 
-  --text:         #1A2233;
-  --text2:        #586375;
-  --text3:        #8A93A2;
+  --text:         #0F1829;
+  --text2:        #44506A;
+  --text3:        #616C80;
 
   --sidebar-bg:   #FFFFFF;
-  --sidebar-bd:   #E1E6ED;
+  --sidebar-bd:   #D8E0EA;
 
   --accent:       #0F766E;
   --accent2:      #115E59;
@@ -95,6 +100,24 @@ html[data-theme="light"] {
 
   --focus-ring:   0 0 0 3px rgba(15,118,110,.15);
 }
+
+/* Açık temada optik telafi: koyu yazı açık zeminde, açık yazının koyu zeminde
+   göründüğünden daha İNCE görünür. Renk düzeltmesi tek başına yetmiyor — en
+   küçük etiketler biraz büyütülüp ikincil metinler bir kademe kalınlaştırıldı.
+   Yazı tipi (Geist) DEĞİŞMEDİ; yalnızca boyut/ağırlık. Koyu tema etkilenmez. */
+html[data-theme="light"] .nav-section,
+html[data-theme="light"] .panel-tag {
+  font-size: 10.5px;
+  letter-spacing: .07em;
+  font-weight: 650;
+}
+html[data-theme="light"] .nav-item { font-weight: 500; }
+html[data-theme="light"] .ph p,
+html[data-theme="light"] .ctx-field-sub,
+html[data-theme="light"] .jg-sub,
+html[data-theme="light"] .mono-meta { font-weight: 450; }
+/* Placeholder'lar tarayıcı varsayılanıyla ekstra soluklaşmasın */
+html[data-theme="light"] ::placeholder { color: var(--text3); opacity: 1; }
 
 /* ── Base ──────────────────────────────────────────────────────── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
