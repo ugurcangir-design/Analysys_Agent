@@ -198,14 +198,24 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip triyaj eder.
 - **Çekme:** `alt_gorevleri_cek` üç bağ modelini birleştirir (tekrarsız): `parent = KEY` (sub-task),
   `"Epic Link" = KEY` (epic), `issue in linkedIssues(KEY)` (Relates — bazı ekipler hiyerarşi yerine kullanır).
-  Görev yorumları (ADF→metin) da çekilir. `parent_key` JQL'e girmeden `_ID_DESENI` ile doğrulanır (enjeksiyon engeli).
+  Görev yorumları (ADF→metin) VE her görevin `issuelinks` alanı (`_issuelink_ayikla` → `baglantililar`:
+  bağlı task key/summary/tip/ilişki + kaba `katman` tahmini be/fe/belirsiz `_katman_tahmin` ile) da çekilir.
+  `parent_key` JQL'e girmeden `_ID_DESENI` ile doğrulanır (enjeksiyon engeli).
 - **İki fazlı sınıflandırma:** FAZ 1 (`/cek`, `ai_kullan=False`) yapısal ön-tarama (`_yapisal_skor`),
   anında 0 token, `kaynak=yapisal`. FAZ 2 (`/siniflandir`, "AI ile Sınıflandır") AI her görevi içerikten
   okur (parçalı), `kaynak=ai`, opt-in.
+- **Sadece Client ayıklama** (`/gorevler/sadece-client`, "Sadece Client İşleri" butonu — opt-in): AI her
+  görevi + BAĞLI task'larını inceleyip HİÇBİR BFF/BE değişikliği gerektirmeden yalnızca frontend'de
+  tamamlanabilecekleri ayırır (`sadece_client_ayikla` → `{sadece_client, diger}`). Bağlı BE task'ı olan
+  görev "sadece client" DEĞİLDİR (isterin sunucu tarafı ayrı task'ta geliştiriliyor). Emin olunamayan
+  görevler güvenlik gereği `diger`e düşer (false-negatif, false-pozitiften güvenli). AI çağıramazsa
+  (`_sadece_client_ai` boş dönerse) hiçbir görev "sadece client" KESİNLEŞTİRİLMEZ (fallback → hepsi `diger`).
+  UI: mevcut iki grubu bozmadan 3. grup `#jg-sc-group` (varsayılan gizli, butonla üretilir); yeniden
+  çekmede bayat sonuç gizlenir.
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.
 - **İki aksiyon:** *Hızlı İşleme Alınacak* → **Standart Formatla** (4 başlık, Haiku); *Detaylı Analiz
   Gerekir* → **Teknik Analiz Et** (Sonnet teknik analiz [RAG + bağlam filtresi dahil] + ayrı Haiku açık-sorular;
-  modal'da 2. sekme, Jira'ya yazılmaz).
+  modal'da 2. sekme, Jira'ya yazılmaz). Sadece-client görevlerinde de aynı iki aksiyon kullanılabilir.
 - **UI:** arama/filtre, katlanabilir gruplar, tam ekran modal (`.jg-modal`, Esc), `_jgTabAktif` üst-bar guard.
   **Onayla** → `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf; HTML yorumları silinir).
 

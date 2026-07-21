@@ -2251,6 +2251,9 @@ function temaDegistir() {
             <button class="btn btn-outline" id="jg-ai-btn" onclick="jgSiniflandir()" title="AI her görevin başlık+açıklamasını okur ve içeriğe göre sınıflandırır (gerekçeli). Uzun listede birkaç dk sürebilir.">
               <svg class="ico"><use href="#i-sparkles"/></svg> AI ile Sınıflandır
             </button>
+            <button class="btn btn-outline" id="jg-sc-btn" onclick="jgSadeceClient()" title="Görevleri tek tek inceler ve HİÇBİR BFF/BE değişikliği gerektirmeden yalnızca client (frontend) tarafında yapılacak olanları ayrı liste olarak verir. Bağlı BE task'ları dikkate alınır. Token harcar.">
+              <svg class="ico"><use href="#i-monitor"/></svg> Sadece Client İşleri
+            </button>
           </div>
         </div>
 
@@ -2281,6 +2284,21 @@ function temaDegistir() {
           </div>
           <div class="panel-body" id="jg-detay-body">
             <div id="jg-detay-list" class="jg-list"></div>
+          </div>
+        </div>
+
+        <!-- Grup 3: Sadece Client (frontend-only) — butonla üretilir, varsayılan gizli -->
+        <div class="panel jg-group" id="jg-sc-group" style="margin-bottom:14px;display:none">
+          <div class="panel-head jg-group-head" onclick="jgGrupAc('sc')">
+            <span class="jg-dot" style="background:var(--accent)"></span>
+            <span class="panel-title">Sadece Client (Frontend) İşleri</span>
+            <span class="badge" id="jg-sc-count">0</span>
+            <span class="panel-spacer"></span>
+            <span class="jg-sub">BFF/BE değişikliği gerektirmeyen; bağlı BE task'ı olmayan görevler</span>
+            <svg class="ico jg-caret" id="jg-caret-sc"><use href="#i-chevron-down"/></svg>
+          </div>
+          <div class="panel-body" id="jg-sc-body">
+            <div id="jg-sc-list" class="jg-list"></div>
           </div>
         </div>
       </div>
@@ -3028,8 +3046,82 @@ function _jgYerlestir(d) {
   _jgGorevler = {};
   [..._jgData.hazir, ..._jgData.detay].forEach(g => { _jgGorevler[g.key] = g; });
   document.getElementById('jg-results').style.display = 'block';
+  // Yeniden çekme yapıldığında eski "sadece client" sonucunu gizle (bayat olmasın)
+  const scGrp = document.getElementById('jg-sc-group');
+  if (scGrp) scGrp.style.display = 'none';
+  _jgScData = [];
   jgPreviewKapat();
   jgFiltrele();
+}
+
+// Sadece Client İşleri — görevleri tek tek incele, YALNIZCA frontend tarafında
+// yapılacak (bağlı BE task'ı olmayan, BFF/BE değişikliği gerektirmeyen) olanları ayır.
+let _jgScData = [];
+async function jgSadeceClient() {
+  if (!_jgParentKey) { _jgMsg('jg-fetch-msg', 'Önce görevleri çekin.', 'err'); return; }
+  const btn = document.getElementById('jg-sc-btn');
+  btn.disabled = true;
+  _jgMsg('jg-fetch-msg', 'Görevler tek tek inceleniyor (sadece client işleri ayrılıyor)…');
+  _jgTopbar('Sadece client işleri ayrılıyor…', true);
+  try {
+    const r = await fetch('/api/jira/gorevler/sadece-client', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_key: _jgParentKey })
+    });
+    const d = await r.json();
+    if (!d.ok) { _jgMsg('jg-fetch-msg', d.error || 'Hata', 'err'); _jgTopbar('Hazır', false); return; }
+    _jgScData = d.sadece_client || [];
+    // Bu görevleri de aksiyon (Formatla/Analiz) için erişilebilir yap
+    [...(d.sadece_client || []), ...(d.diger || [])].forEach(g => { _jgGorevler[g.key] = g; });
+    const grp = document.getElementById('jg-sc-group');
+    grp.style.display = '';
+    grp.classList.remove('kapali');
+    jgScListeCiz();
+    document.getElementById('jg-sc-count').textContent = _jgScData.length;
+    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görevden ${_jgScData.length} tanesi YALNIZCA client tarafında (bağlı BE task'ı ve BFF/BE ihtiyacı olmayanlar). Emin olunamayanlar güvenlik gereği dahil edilmedi.`, 'ok');
+    _jgTopbar(`${_jgScData.length} sadece-client işi`, false);
+    grp.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } catch (e) {
+    _jgMsg('jg-fetch-msg', 'Bağlantı hatası: ' + e, 'err'); _jgTopbar('Hazır', false);
+  } finally { btn.disabled = false; }
+}
+
+function jgScListeCiz() {
+  const kap = document.getElementById('jg-sc-list');
+  if (!_jgScData.length) {
+    kap.innerHTML = '<div class="jg-empty">Yalnızca client tarafında yapılacak görev bulunamadı (tüm görevler BFF/BE işi içeriyor veya emin olunamadı).</div>';
+    return;
+  }
+  kap.innerHTML = _jgScData.map(g => {
+    const bagliBe = (g.baglantililar || []).filter(b => b.katman === 'be');
+    const bagliHtml = (g.baglantililar && g.baglantililar.length)
+      ? `<div class="jg-benzer">Bağlı: ${g.baglantililar.map(b =>
+          `<span title="${escHtml(b.summary)}">${escHtml(b.key)}${b.katman === 'be' ? ' <span class="jg-benzer-skor">BE</span>' : (b.katman === 'fe' ? ' <span class="jg-benzer-skor">FE</span>' : '')}</span>`
+        ).join(' · ')}</div>`
+      : '';
+    const gerekce = g.sc_gerekce ? `<span class="jg-gerekce">${escHtml(g.sc_gerekce)}</span>` : '';
+    const kaynak = g.sc_kaynak === 'ai'
+      ? '<span class="jg-kaynak ai" title="AI görevin içeriğini + bağlı task\'larını inceledi">AI incelendi</span>'
+      : '<span class="jg-kaynak yapisal" title="AI çalışmadı — güvenli fallback">fallback</span>';
+    return `<div class="jg-item hazir" id="jg-sccard-${escHtml(g.key)}" style="border-left-color:var(--accent)">
+      <div class="jg-item-top">
+        <span class="jg-key">${escHtml(g.key)}</span>
+        <span class="jg-summary">${escHtml(g.summary || '')}</span>
+        ${g.type ? `<span class="jg-pill type">${escHtml(g.type)}</span>` : ''}
+        ${g.status ? `<span class="jg-pill status">${escHtml(g.status)}</span>` : ''}
+      </div>
+      <div class="jg-gerekce-row">${kaynak}${gerekce}</div>
+      ${bagliHtml}
+      <details class="jg-detay-ac">
+        <summary>İçeriği gör</summary>
+        <div class="jg-icerik">${g.description ? escHtml(g.description) : '(Jira görevinde açıklama yok)'}</div>
+      </details>
+      <div class="jg-item-actions">
+        <button onclick="jgFormatla('${escHtml(g.key)}')">Standart Formatla</button>
+        <button onclick="jgAnaliz('${escHtml(g.key)}')">Teknik Analiz Et</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // Uzun listede arama: her iki grubu canlı filtreler. Aramada içi boş grubu TAMAMEN

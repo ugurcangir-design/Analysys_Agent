@@ -2227,6 +2227,31 @@ def jira_gorevler_siniflandir():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/jira/gorevler/sadece-client", methods=["POST"])
+def jira_gorevler_sadece_client():
+    """Board'dan çekilen görevleri AI ile inceleyip YALNIZCA client (frontend)
+    tarafında yapılacak olanları ayırır. Bağlı BE task'ları dikkate alır: bir
+    görevin bağlı BE task'ı varsa isterin sunucu tarafı da geliştirilecek demektir
+    → 'sadece client' değildir. Analist tetikler (opt-in, token harcar). Jira'ya YAZMAZ."""
+    data = request.get_json(silent=True) or {}
+    parent_key = (data.get("parent_key") or "").strip()
+    if not parent_key:
+        return jsonify({"ok": False, "error": "Epic/Story anahtarı gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    try:
+        from skills.jira_gorevleri import alt_gorevleri_cek, sadece_client_ayikla
+        gorevler = alt_gorevleri_cek(parent_key)
+        sonuc = sadece_client_ayikla(gorevler)
+        return jsonify({"ok": True, "parent_key": parent_key.upper(), **sonuc})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Sadece-client ayıklama hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/jira/gorev/formatla", methods=["POST"])
 def jira_gorev_formatla():
     """Özellik 1 — görevi standart formata çevirir (önizleme; Jira'ya YAZMAZ)."""

@@ -115,6 +115,65 @@ def _adf_to_text(node) -> str:
 
 _ID_DESENI = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 
+# Bir bağlı task'ın BE/BFF (sunucu) tarafı olduğuna dair deterministik sinyaller.
+# summary + issuetype üzerinde aranır; "sadece client" değerlendirmesinde AI'a
+# ipucu olarak verilir (kesin karar AI'da, ama bu ön-tarama şeffaflık sağlar).
+_BE_SINYAL_DESENI = re.compile(
+    r"\b(be|backend|back-?end|bff|api|endpoint|servis|service|micro-?service|"
+    r"veritaban[ıi]|database|db|migration|migrasyon|repository|entity|"
+    r"consumer|producer|kafka|queue|job|scheduler|cron)\b",
+    re.IGNORECASE,
+)
+_FE_SINYAL_DESENI = re.compile(
+    r"\b(fe|frontend|front-?end|ui|ux|client|react|component|bile[şs]en|"
+    r"ekran|screen|sayfa|page|css|style|stil|i18n|çeviri|translation)\b",
+    re.IGNORECASE,
+)
+
+
+def _katman_tahmin(metin: str) -> str:
+    """summary/type metninden kaba katman tahmini: 'be' | 'fe' | 'belirsiz'.
+    Yalnızca ipucu — nihai kararı AI içerik incelemesiyle verir."""
+    be = bool(_BE_SINYAL_DESENI.search(metin))
+    fe = bool(_FE_SINYAL_DESENI.search(metin))
+    if be and not fe:
+        return "be"
+    if fe and not be:
+        return "fe"
+    return "belirsiz"
+
+
+def _issuelink_ayikla(issuelinks: list) -> list[dict]:
+    """Jira `issuelinks` alanını sade bağlı-task listesine çevirir.
+    Her link'in in/out tarafındaki issue'yu, ilişki metnini ve kaba katman
+    tahminini (be/fe/belirsiz) döndürür. Bozuk/eksik link sessizce atlanır."""
+    sonuc = []
+    for link in issuelinks or []:
+        if not isinstance(link, dict):
+            continue
+        tip = link.get("type") or {}
+        # Bir link ya inwardIssue ya outwardIssue taşır (biri dolu olur).
+        if link.get("outwardIssue"):
+            issue = link["outwardIssue"]
+            iliski = tip.get("outward", "ilişkili")
+        elif link.get("inwardIssue"):
+            issue = link["inwardIssue"]
+            iliski = tip.get("inward", "ilişkili")
+        else:
+            continue
+        lf = issue.get("fields", {}) or {}
+        summary = lf.get("summary", "")
+        issuetype = (lf.get("issuetype") or {}).get("name", "")
+        sonuc.append({
+            "key": issue.get("key", ""),
+            "summary": summary,
+            "type": issuetype,
+            "iliski": iliski,
+            "durum": (lf.get("status") or {}).get("name", ""),
+            "katman": _katman_tahmin(f"{summary} {issuetype}"),
+        })
+    return sonuc
+
 
 def alt_gorevleri_cek(parent_key: str) -> list[dict]:
     """Verilen Epic/Story KEY'inin BİR SEVİYE altındaki görevleri çeker. Üç bağ
@@ -127,7 +186,8 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
         raise ValueError(f"Geçersiz Jira anahtarı: '{parent_key}' (örn. PROJ-123 olmalı)")
 
     cloud_id = _cloud_id()
-    alanlar = ["summary", "description", "status", "issuetype", "priority", "assignee", "parent", "comment"]
+    alanlar = ["summary", "description", "status", "issuetype", "priority",
+               "assignee", "parent", "comment", "issuelinks"]
 
     def _ara(jql: str) -> list[dict]:
         gorevler, next_token = [], None
@@ -157,6 +217,10 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
                     "assignee": (f.get("assignee") or {}).get("displayName", ""),
                     "description": desc_metin.strip(),
                     "comments": comments,
+                    # Bağlı task'lar (FE/BE ayrımı için kritik): her issue-link'in
+                    # in/out tarafındaki issue + tipi + ilişki. "Sadece client"
+                    # değerlendirmesi bir task'ın BAĞLI BE task'ını dikkate almalı.
+                    "baglantililar": _issuelink_ayikla(f.get("issuelinks") or []),
                 })
             next_token = data.get("nextPageToken")
             if not next_token:
@@ -361,6 +425,113 @@ def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
         g.pop("yapisal", None)
 
     return {"hazir": hazir, "detay": detay}
+
+
+# ─── Sadece Client (Frontend-only) Ayıklama ──────────────────────────────────
+# Board'dan çekilen task'ların hangileri HİÇBİR BFF/BE değişikliği gerektirmeden,
+# YALNIZCA client (frontend) tarafında tamamlanabilir olduğunu ayırır. Bağlı BE
+# task'ları dikkate alınır: bir task'ın bağlı bir BE task'ı varsa, isterin sunucu
+# tarafı da geliştirilmeli demektir → "sadece client" DEĞİLDİR.
+
+def _sadece_client_prompt() -> str:
+    return (
+        "Kıdemli teknik analistsin. Bir bahis/trade panelinin (Trade Panel) Jira "
+        "görevlerini inceliyorsun. Mimari: React tabanlı CLIENT (frontend) + BFF katmanı "
+        "+ backend (BE) mikroservisleri. Sana görevler ve her görevin BAĞLI task'ları "
+        "verilecek. Görevi tamamlamak için GEREKEN işin YALNIZCA client (frontend) tarafında "
+        "olup olmadığına karar ver.\n\n"
+        "'sadece_client' = true KOŞULLARI (HEPSİ sağlanmalı):\n"
+        "- Yeni/değişen BFF veya BE endpoint'i GEREKMEZ.\n"
+        "- Servis request/response sözleşmesinde (yeni alan, yeni parametre) değişiklik GEREKMEZ.\n"
+        "- Yeni DB kolonu/tablosu, migration, sunucu-tarafı iş kuralı/hesaplama GEREKMEZ.\n"
+        "- İhtiyaç duyulan TÜM veri client'a ZATEN geliyor (mevcut API'lerle karşılanıyor).\n"
+        "- İş tamamen client: UI yerleşimi, stil, client-side validasyon, formatlama, i18n, "
+        "zaten çekilmiş veriyi client'ta filtreleme/sıralama, bileşen refactor, client state, "
+        "navigasyon, görsel/etkileşim değişiklikleri.\n\n"
+        "'sadece_client' = false YAPAN sinyaller (BİRİ bile varsa false):\n"
+        "- Görev metni yeni endpoint, response'a yeni alan, servis/BFF değişikliği, DB, migration "
+        "veya backend hesaplama ima ediyor.\n"
+        "- Görevin BAĞLI bir BE task'ı var (aynı isterin sunucu tarafı ayrı task'ta geliştiriliyor). "
+        "Bu, isterin backend geliştirme İÇERDİĞİNİN güçlü kanıtıdır → sadece_client = false.\n"
+        "- İhtiyaç duyulan veri client'ta mevcut değil, yeni bir servisten gelmeli.\n\n"
+        "KRİTİK KURAL: Emin değilsen 'sadece_client' = FALSE ver. Yanlışlıkla bir görevi "
+        "'sadece client' işaretlemek teslimatı bozar (backend eksik kalır); tersi güvenlidir. "
+        "Backend ihtiyacı gördüğünde 'backend_ihtiyaci' alanında NE gerektiğini tek cümleyle yaz.\n\n"
+        "SADECE şu JSON formatında yanıt ver, başka metin yazma:\n"
+        '{"sonuclar":[{"key":"PROJ-1","sadece_client":true,'
+        '"gerekce":"içeriğe özgü tek cümle — neden yalnızca client / neden değil",'
+        '"backend_ihtiyaci":"false ise gereken sunucu işi; true ise boş string"}]}'
+    )
+
+
+def _sadece_client_ai(gorevler: list[dict], parca_boyu: int = 20) -> dict:
+    """Görevleri AI ile 'sadece client mi' diye sınıflandırır (parçalı).
+    Her görevin açıklaması + bağlı task özetleri AI'a verilir.
+    key → {sadece_client, gerekce, backend_ihtiyaci}."""
+    ai_map: dict[str, dict] = {}
+    sistem = _sadece_client_prompt()
+    for i in range(0, len(gorevler), parca_boyu):
+        parca = gorevler[i:i + parca_boyu]
+        ozet = []
+        for g in parca:
+            bagli = [
+                {"key": b["key"], "summary": b["summary"], "type": b["type"],
+                 "iliski": b["iliski"], "tahmini_katman": b["katman"]}
+                for b in (g.get("baglantililar") or [])
+            ]
+            ozet.append({
+                "key": g["key"],
+                "summary": g["summary"],
+                "description": (g.get("description") or "")[:1100],
+                "bagli_tasklar": bagli,
+            })
+        mesajlar = [{"role": "user", "content": [
+            {"type": "text", "text": "Görevler ve bağlı task'ları:\n\n" + json.dumps(ozet, ensure_ascii=False, indent=2)},
+            {"type": "text", "text": "Her görev için YALNIZCA client tarafında mı yapılacağına karar ver ve belirtilen JSON formatında dön."},
+        ]}]
+        try:
+            yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_KISA, thinking=False)
+            for s in _json_ayikla(_metin_sikistir(yanit)).get("sonuclar", []):
+                ai_map[s.get("key", "")] = s
+        except Exception as e:
+            print(f"  ⚠ Sadece-client sınıflandırma parçası başarısız ({i}-{i+len(parca)}): {e}")
+    return ai_map
+
+
+def sadece_client_ayikla(gorevler: list[dict]) -> dict:
+    """Board task'larından YALNIZCA client (frontend) tarafında yapılacak olanları
+    ayırır. Bağlı BE task'ları dikkate alır. Döner:
+      {"sadece_client": [...], "diger": [...], "toplam": n}
+    Her görevde 'sc_gerekce' ve 'sc_backend_ihtiyaci' alanları set edilir.
+
+    AI hiç sonuç veremezse (429/hata) deterministik fallback: bağlı BE task'ı olan
+    VEYA açıklamasında güçlü BE sinyali olan görevler 'diger'e, kalanlar — güvenli
+    olması için — yine 'diger'e düşer (AI'sız 'sadece client' KESİNLEŞTİRİLMEZ)."""
+    if not gorevler:
+        return {"sadece_client": [], "diger": [], "toplam": 0}
+
+    ai_map = _sadece_client_ai(gorevler)
+    sadece_client, diger = [], []
+    for g in gorevler:
+        ai = ai_map.get(g["key"])
+        bagli_be = [b for b in (g.get("baglantililar") or []) if b.get("katman") == "be"]
+        if ai is not None:
+            karar = bool(ai.get("sadece_client"))
+            g["sc_gerekce"] = ai.get("gerekce", "") or ""
+            g["sc_backend_ihtiyaci"] = ai.get("backend_ihtiyaci", "") or ""
+            g["sc_kaynak"] = "ai"
+        else:
+            # AI yok → güvenli taraf: kesin 'sadece client' deme.
+            karar = False
+            g["sc_gerekce"] = (
+                "AI sınıflandırması yapılamadı — güvenlik gereği 'sadece client' kesinleştirilmedi"
+                + (f"; ayrıca bağlı BE task(lar): {', '.join(b['key'] for b in bagli_be)}" if bagli_be else "")
+            )
+            g["sc_backend_ihtiyaci"] = ""
+            g["sc_kaynak"] = "fallback"
+        (sadece_client if karar else diger).append(g)
+
+    return {"sadece_client": sadece_client, "diger": diger, "toplam": len(gorevler)}
 
 
 # ─── Özellik 1: Standart Formata Çevir ───────────────────────────────────────
