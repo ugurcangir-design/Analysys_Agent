@@ -3,7 +3,7 @@
 from pathlib import Path
 from .base import (
     _api_cagri, _kaydet, input_hazirla, prompt_yukle, ozel_prompt_oku,
-    OZEL_PROMPT_DOGRULUK_EKI, belirsizlik_denetimi,
+    OZEL_PROMPT_DOGRULUK_EKI, belirsizlik_denetimi, ai_ara_sozleri_temizle,
     referans_dosyalari_hazirla, _ref_bloklari_olustur,
     canli_uygulama_baglami_hazirla,
     yonetici_ozeti_olustur,
@@ -69,6 +69,8 @@ def surec_analizi_yap() -> Path:
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
     yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_UZUN, thinking=extended_thinking_acik(),
                        canli_uygulama_kapsami=("surec" if canli_baglam else None))
+    # AI'ın süreç anlatımı ara sözlerini ("Şimdi raporu yazıyorum." vb.) çıkar.
+    yanit = ai_ara_sozleri_temizle(yanit)
 
     if kullanilan_referanslar:
         meta = "<!--\nKULLANILAN REFERANSLAR:\n- " + "\n- ".join(kullanilan_referanslar) + "\n-->\n\n"

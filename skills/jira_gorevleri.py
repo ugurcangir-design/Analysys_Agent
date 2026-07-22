@@ -22,6 +22,7 @@ from .base import (
     referans_dosyalari_hazirla, _ref_bloklari_olustur, load_context_filter,
     canli_uygulama_baglami_hazirla,
     yonetici_ozeti_olustur, yonetici_ozetini_cikar, canli_gozlem_kapsamini_cikar,
+    ai_ara_sozleri_temizle,
     MAX_TOKENS_KISA, MAX_TOKENS_COMBINED,
 )
 
@@ -48,9 +49,11 @@ _META_NOT_DESENLERI = [
 def _meta_notlari_temizle(metin: str) -> str:
     """Üretilen markdown çıktısındaki içsel/yönlendirme notlarını siler.
     Bunlar promptta yasak olmasına rağmen bazen çıkıyor; Jira description'a
-    gitmeden burada kesilir. Birden çok arka arkaya boş satır da sıkıştırılır."""
+    gitmeden burada kesilir. Birden çok arka arkaya boş satır da sıkıştırılır.
+    AI'ın süreç anlatımı ara sözleri ("Şimdi raporu yazıyorum." vb.) de temizlenir."""
     for desen in _META_NOT_DESENLERI:
         metin = desen.sub("", metin)
+    metin = ai_ara_sozleri_temizle(metin)
     return re.sub(r"\n{3,}", "\n\n", metin).strip()
 
 # markdown_to_adf — jira_agent.py'den (teknik analiz task'ı açarkenki format)

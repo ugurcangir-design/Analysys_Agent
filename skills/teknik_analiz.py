@@ -14,7 +14,7 @@ from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, referans_dosyalari_hazirla, _ref_bloklari_olustur,
     canli_uygulama_baglami_hazirla, prompt_yukle, teknik_ozel_prompt_oku,
-    OZEL_PROMPT_DOGRULUK_EKI, MODEL_HAFIF,
+    OZEL_PROMPT_DOGRULUK_EKI, MODEL_HAFIF, ai_ara_sozleri_temizle,
     belirsizlik_denetimi, izlenebilirlik_matrisi_olustur,
     extended_thinking_acik, hizli_mod_acik, surec_id_kapsam,
     yonetici_ozeti_olustur,
@@ -231,7 +231,9 @@ def teknik_analiz_yap() -> tuple[Path, Path]:
     yanit = _teknik_uret_tam(sistem, mesajlar,
                              canli_uygulama_kapsami=("surec" if canli_baglam else None))
     yanit = _metin_sikistir(yanit)
-    teknik = _xml_ayir(yanit, "teknik_analiz")
+    # AI'ın süreç anlatımı ara sözlerini ("Şimdi raporu yazıyorum." vb.) çıkar —
+    # gereksinim değil, gürültü; hiçbir yerde değeri yok.
+    teknik = ai_ara_sozleri_temizle(_xml_ayir(yanit, "teknik_analiz"))
 
     if kullanilan_referanslar:
         meta = "<!--\nKULLANILAN REFERANSLAR:\n- " + "\n- ".join(kullanilan_referanslar) + "\n-->\n\n"

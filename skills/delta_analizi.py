@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .base import (
     _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
-    dosya_oku, prompt_yukle, belirsizlik_denetimi,
+    dosya_oku, prompt_yukle, belirsizlik_denetimi, ai_ara_sozleri_temizle,
     referans_dosyalari_hazirla, _ref_bloklari_olustur,
     canli_uygulama_baglami_hazirla,
     OUTPUT_DIR, MAX_CHARS_GENEL, MAX_TOKENS_UZUN,
@@ -77,7 +77,8 @@ def delta_analizi_yap(cr_metni: str) -> Path:
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik_parcalari}],
                        max_tokens=MAX_TOKENS_UZUN, thinking=extended_thinking_acik(),
                        canli_uygulama_kapsami=("surec" if canli_baglam else None))
-    delta = _xml_ayir(_metin_sikistir(yanit), "delta_analizi")
+    # AI'ın süreç anlatımı ara sözlerini ("Şimdi raporu yazıyorum." vb.) çıkar.
+    delta = ai_ara_sozleri_temizle(_xml_ayir(_metin_sikistir(yanit), "delta_analizi"))
 
     belirsizlik = belirsizlik_denetimi(delta)
     if belirsizlik:

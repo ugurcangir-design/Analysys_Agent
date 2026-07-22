@@ -1498,6 +1498,43 @@ def yonetici_ozetini_cikar(markdown: str) -> str:
     return desen.sub("", markdown, count=1).lstrip()
 
 
+# AI'ın kendi çalışma sürecini anlatan ARA SÖZLER — "Tüm gözlemlerimi topladım.
+# Şimdi teknik analiz raporunu yazıyorum." gibi. Bunlar gereksinim değil, saf
+# gürültüdür; Canlı Gözlem Kapsamı'nın aksine analist için de bir değeri yoktur
+# → analiz çıktısının KENDİSİNDEN silinir (Jira'ya özel değil).
+#
+# CERRAHİ OLMAK ZORUNDA: yanlış eşleşme gerçek analiz içeriğini siler. Bu yüzden
+# üç koşul BİRLİKTE aranır: (1) satır kısa, (2) süreç ismi geçiyor (rapor/analiz/
+# gözlem…), (3) BİRİNCİ TEKİL ŞAHIS süreç fiili var (yazıyorum/topladım…).
+# Başlık (#), tablo (|) ve kod satırlarına dokunulmaz — gerçek gereksinimler
+# birinci tekil şahısla "rapor yazıyorum" demez.
+_AI_SUREC_FIILLERI = (
+    r"yaz(?:ıyorum|acağım|maya\s+başlıyorum)|hazırl(?:ıyorum|ayacağım)|"
+    r"üret(?:iyorum|eceğim)|oluştur(?:uyorum|acağım)|sun(?:uyorum|acağım)|"
+    r"topla(?:dım|mış\s+oldum)|tamamla(?:dım|mış\s+oldum)|bitir(?:dim)|"
+    r"incele(?:dim|meye\s+başlıyorum)|gez(?:dim)|geç(?:iyorum)|"
+    r"başlıyorum|devam\s+ediyorum"
+)
+_AI_SUREC_ISIMLERI = r"rapor\w*|analiz\w*|g[öo]zlem\w*|inceleme\w*|çıktı\w*|dok[üu]man\w*"
+_AI_ARA_SOZ = re.compile(
+    r"(?im)^[ \t]*[>*_\-]{0,3}[ \t]*"                    # opsiyonel alıntı/vurgu işareti
+    r"(?![#|`])"                                          # başlık/tablo/kod satırı DEĞİL
+    rf"(?=[^\n]{{0,240}}$)"                               # yalnızca KISA satır
+    rf"(?=[^\n]*\b(?:{_AI_SUREC_ISIMLERI})\b)"            # süreç ismi geçiyor
+    rf"[^\n]*\b(?:{_AI_SUREC_FIILLERI})\b[^\n]*\n?"       # + 1. tekil şahıs süreç fiili
+)
+
+
+def ai_ara_sozleri_temizle(metin: str) -> str:
+    """AI'ın süreç anlatımı ara sözlerini siler ('Şimdi raporu yazıyorum.' vb.).
+    Analiz çıktısının kendisine uygulanır — bu satırların hiçbir yerde değeri yok.
+    Ardışık boş satırlar sıkıştırılır."""
+    if not metin:
+        return metin
+    temiz = _AI_ARA_SOZ.sub("", metin)
+    return re.sub(r"\n{3,}", "\n\n", temiz).strip() + "\n"
+
+
 # "Canlı Gözlem Kapsamı": MCP/Chrome gözleminde NEREYE bakıldığını (gezilen
 # tablar, yapılan yazma işlemleri, gezilemeyenler ve nedeni) raporlayan bölüm.
 # Analist için değerlidir — analiz çıktısında KALIR; ancak geliştiricinin Jira
@@ -2018,6 +2055,9 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "kısa bir liste ekle — gezilen tablar/modallar/bileşenler, YAPILAN yazma işlemleri ve "
         "GEZİLEMEYENLER (nedeniyle: login duvarı, hata, zaman kısıtı). Analist neyin gerçek gözlem, "
         "neyin türetme olduğunu buradan görür.\n\n"
+        "SÜREÇ ANLATIMI YASAK: Kendi çalışma adımlarını ANLATMA. 'Tüm gözlemlerimi topladım.', "
+        "'Şimdi teknik analiz raporunu yazıyorum.', 'Gözlem aşamasını bitirdim, rapora geçiyorum.' "
+        "gibi birinci tekil şahıs ara sözler YAZMA — doğrudan raporun kendisini üret.\n\n"
         "Güvenlik kuralları:\n"
         "- Token, cookie, authorization header, session id, giriş şifresi, kişisel veri ve gizli "
         "değerleri MASKELE.\n"
