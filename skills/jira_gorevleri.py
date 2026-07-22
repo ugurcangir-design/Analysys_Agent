@@ -175,53 +175,96 @@ def _issuelink_ayikla(issuelinks: list) -> list[dict]:
     return sonuc
 
 
+_ISSUE_ALANLARI = ["summary", "description", "status", "issuetype", "priority",
+                   "assignee", "parent", "comment", "issuelinks"]
+# bulkfetch tek istekte en fazla 100 issue kabul eder (150 denendi → 400).
+_BULKFETCH_LIMIT = 100
+
+
+def _issue_ayrıstir(issue: dict) -> dict:
+    """Ham Jira issue nesnesini uygulamanın görev sözlüğüne çevirir.
+    Hem arama (search) hem doğrudan okuma (bulkfetch) sonuçları için ORTAK."""
+    f = issue.get("fields", {}) or {}
+    desc = f.get("description")
+    desc_metin = _adf_to_text(desc) if isinstance(desc, dict) else (desc or "")
+    # Comment'ler: ADF→metin + yazar/tarih (analist task detayında görsün)
+    comments = []
+    cdata = f.get("comment") or {}
+    for c in (cdata.get("comments") if isinstance(cdata, dict) else cdata) or []:
+        body_metin = _adf_to_text(c.get("body")) if isinstance(c.get("body"), dict) else (c.get("body") or "")
+        yazar = (c.get("author") or {}).get("displayName", "")
+        tarih = (c.get("created") or "")[:10]  # YYYY-MM-DD
+        comments.append({"yazar": yazar, "tarih": tarih, "metin": body_metin.strip()})
+    return {
+        "key": issue["key"],
+        "summary": f.get("summary", ""),
+        "status": (f.get("status") or {}).get("name", ""),
+        "type": (f.get("issuetype") or {}).get("name", ""),
+        "priority": (f.get("priority") or {}).get("name", ""),
+        "assignee": (f.get("assignee") or {}).get("displayName", ""),
+        "description": desc_metin.strip(),
+        "comments": comments,
+        # Bağlı task'lar (FE/BE ayrımı için kritik): her issue-link'in
+        # in/out tarafındaki issue + tipi + ilişki. "Sadece client"
+        # değerlendirmesi bir task'ın BAĞLI BE task'ını dikkate almalı.
+        "baglantililar": _issuelink_ayikla(f.get("issuelinks") or []),
+    }
+
+
+def _taze_issue_oku(keys: list[str], cloud_id: str) -> dict[str, dict]:
+    """Verilen anahtarların GÜNCEL içeriğini doğrudan okur → {key: görev}.
+
+    NEDEN GEREKLİ: `/rest/api/3/search/jql` sonuçları arama İNDEKSİNDEN gelir ve
+    indeks eventually-consistent'tır — Atlassian dokümanı: "Recent updates might
+    not be immediately visible in the returned search results." Jira'da bir task'ın
+    başlığı/açıklaması güncellendikten sonra arama ESKİ değeri döndürebiliyordu;
+    analist görevleri yeniden çekince güncellemeyi göremiyordu. `issue/bulkfetch`
+    indeksten değil doğrudan issue'dan okur → her zaman güncel.
+
+    Hata durumunda (yetki/endpoint yok) boş dict döner; çağıran arama sonucuna
+    düşer (bayat olabilir ama akış kırılmaz)."""
+    taze: dict[str, dict] = {}
+    for i in range(0, len(keys), _BULKFETCH_LIMIT):
+        parca = keys[i:i + _BULKFETCH_LIMIT]
+        try:
+            data = atlassian_post(
+                "/rest/api/3/issue/bulkfetch",
+                body={"issueIdsOrKeys": parca, "fields": _ISSUE_ALANLARI},
+                cloud_id=cloud_id,
+            )
+            for issue in data.get("issues", []) or []:
+                if issue.get("key"):
+                    taze[issue["key"]] = _issue_ayrıstir(issue)
+        except Exception as e:
+            print(f"  ⚠ Taze issue okuma başarısız ({len(parca)} görev), arama sonucu kullanılacak: {e}")
+    return taze
+
+
 def alt_gorevleri_cek(parent_key: str) -> list[dict]:
     """Verilen Epic/Story KEY'inin BİR SEVİYE altındaki görevleri çeker. Üç bağ
     modelini BİRLEŞTİRİR (tekrarsız): `parent = KEY` (sub-task/team-managed çocuk),
     `"Epic Link" = KEY` (company-managed epic çocuğu) ve `issue in linkedIssues(KEY)`
     (Relates vb. issue-link — bazı ekipler hiyerarşi yerine bunu kullanır). Projede
-    olmayan alan/JQL sessizce atlanır."""
+    olmayan alan/JQL sessizce atlanır.
+
+    İKİ AŞAMA: (1) arama = KEŞİF (hangi issue'lar bağlı), (2) bulkfetch = TAZE İÇERİK.
+    Arama indeksi gecikmeli olduğundan içerik doğrudan issue'dan okunur; böylece
+    Jira'da yapılan güncellemeler yeniden çekmede ANINDA görünür."""
     parent_key = (parent_key or "").strip().upper()
     if not _ID_DESENI.match(parent_key):
         raise ValueError(f"Geçersiz Jira anahtarı: '{parent_key}' (örn. PROJ-123 olmalı)")
 
     cloud_id = _cloud_id()
-    alanlar = ["summary", "description", "status", "issuetype", "priority",
-               "assignee", "parent", "comment", "issuelinks"]
 
     def _ara(jql: str) -> list[dict]:
         gorevler, next_token = [], None
         while True:
-            body = {"jql": jql, "fields": alanlar, "maxResults": 100}
+            body = {"jql": jql, "fields": _ISSUE_ALANLARI, "maxResults": 100}
             if next_token:
                 body["nextPageToken"] = next_token
             data = atlassian_post("/rest/api/3/search/jql", body=body, cloud_id=cloud_id)
             for issue in data.get("issues", []):
-                f = issue.get("fields", {})
-                desc = f.get("description")
-                desc_metin = _adf_to_text(desc) if isinstance(desc, dict) else (desc or "")
-                # Comment'ler: ADF→metin + yazar/tarih (analist task detayında görsün)
-                comments = []
-                cdata = f.get("comment") or {}
-                for c in (cdata.get("comments") if isinstance(cdata, dict) else cdata) or []:
-                    body_metin = _adf_to_text(c.get("body")) if isinstance(c.get("body"), dict) else (c.get("body") or "")
-                    yazar = (c.get("author") or {}).get("displayName", "")
-                    tarih = (c.get("created") or "")[:10]  # YYYY-MM-DD
-                    comments.append({"yazar": yazar, "tarih": tarih, "metin": body_metin.strip()})
-                gorevler.append({
-                    "key": issue["key"],
-                    "summary": f.get("summary", ""),
-                    "status": (f.get("status") or {}).get("name", ""),
-                    "type": (f.get("issuetype") or {}).get("name", ""),
-                    "priority": (f.get("priority") or {}).get("name", ""),
-                    "assignee": (f.get("assignee") or {}).get("displayName", ""),
-                    "description": desc_metin.strip(),
-                    "comments": comments,
-                    # Bağlı task'lar (FE/BE ayrımı için kritik): her issue-link'in
-                    # in/out tarafındaki issue + tipi + ilişki. "Sadece client"
-                    # değerlendirmesi bir task'ın BAĞLI BE task'ını dikkate almalı.
-                    "baglantililar": _issuelink_ayikla(f.get("issuelinks") or []),
-                })
+                gorevler.append(_issue_ayrıstir(issue))
             next_token = data.get("nextPageToken")
             if not next_token:
                 break
@@ -237,15 +280,26 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
         f'"Epic Link" = {parent_key}',
         f'issue in linkedIssues("{parent_key}")',
     ]
-    birlesik: dict[str, dict] = {}
+    # AŞAMA 1 — KEŞİF: hangi issue'lar bu üst göreve bağlı? (arama indeksi)
+    birlesik: dict[str, dict] = {}   # key → arama sonucu (bulkfetch başarısız olursa yedek)
+    sirali_keys: list[str] = []      # keşif sırasını koru (ORDER BY created ASC)
     for jql in jql_adaylari:
         try:
             for g in _ara(f"{jql} ORDER BY created ASC"):
-                if g["key"] != parent_key:
-                    birlesik.setdefault(g["key"], g)  # ilk gelen kazanır, tekrarı önle
+                if g["key"] != parent_key and g["key"] not in birlesik:
+                    birlesik[g["key"]] = g   # ilk gelen kazanır, tekrarı önle
+                    sirali_keys.append(g["key"])
         except Exception:
             continue  # alan/JQL projede yoksa sessizce geç
-    return list(birlesik.values())
+
+    if not sirali_keys:
+        return []
+
+    # AŞAMA 2 — TAZE İÇERİK: başlık/açıklama/yorum/bağlantıları doğrudan issue'dan
+    # oku. Arama indeksi gecikmeli olduğu için Jira'daki güncellemeler aksi hâlde
+    # yeniden çekmede görünmüyordu.
+    taze = _taze_issue_oku(sirali_keys, cloud_id)
+    return [taze.get(k) or birlesik[k] for k in sirali_keys]
 
 
 # ─── Sınıflandırma: Yapısal + AI ─────────────────────────────────────────────

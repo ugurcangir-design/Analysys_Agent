@@ -196,11 +196,22 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 
 ## Jira Görevleri Özelliği (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`)
 Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip triyaj eder.
-- **Çekme:** `alt_gorevleri_cek` üç bağ modelini birleştirir (tekrarsız): `parent = KEY` (sub-task),
-  `"Epic Link" = KEY` (epic), `issue in linkedIssues(KEY)` (Relates — bazı ekipler hiyerarşi yerine kullanır).
-  Görev yorumları (ADF→metin) VE her görevin `issuelinks` alanı (`_issuelink_ayikla` → `baglantililar`:
-  bağlı task key/summary/tip/ilişki + kaba `katman` tahmini be/fe/belirsiz `_katman_tahmin` ile) da çekilir.
-  `parent_key` JQL'e girmeden `_ID_DESENI` ile doğrulanır (enjeksiyon engeli).
+- **Çekme — İKİ AŞAMALI (keşif + taze okuma):**
+  1. **Keşif (arama):** `alt_gorevleri_cek` üç bağ modelini birleştirir (tekrarsız):
+     `parent = KEY` (sub-task), `"Epic Link" = KEY` (epic), `issue in linkedIssues(KEY)`
+     (Relates — bazı ekipler hiyerarşi yerine kullanır). Bu aşama yalnızca HANGİ issue'ların
+     bağlı olduğunu belirler. `parent_key` JQL'e girmeden `_ID_DESENI` ile doğrulanır (enjeksiyon engeli).
+  2. **Taze içerik (`_taze_issue_oku` → `POST /rest/api/3/issue/bulkfetch`, 100'lük parçalar):**
+     başlık/açıklama/yorum/bağlantılar DOĞRUDAN issue'dan okunur.
+     **NEDEN:** `/rest/api/3/search/jql` sonuçları arama İNDEKSİNDEN gelir ve indeks
+     eventually-consistent'tır — Atlassian dokümanı: *"Recent updates might not be immediately
+     visible in the returned search results."* Bu yüzden Jira'da bir task'ın başlığı/açıklaması
+     güncellendikten sonra görevler yeniden çekilse bile ESKİ içerik dönebiliyordu. bulkfetch
+     indeksi atlar → güncellemeler anında görünür. bulkfetch başarısız olursa (yetki/endpoint)
+     arama sonucuna düşülür — akış kırılmaz, yalnızca bayat olabilir.
+  Ortak ayrıştırma `_issue_ayrıstir` (arama + bulkfetch aynı fonksiyonu kullanır): yorumlar
+  (ADF→metin) ve `issuelinks` (`_issuelink_ayikla` → `baglantililar`: bağlı task key/summary/tip/
+  ilişki + kaba `katman` tahmini be/fe/belirsiz `_katman_tahmin` ile).
 - **İki fazlı sınıflandırma:** FAZ 1 (`/cek`, `ai_kullan=False`) yapısal ön-tarama (`_yapisal_skor`),
   anında 0 token, `kaynak=yapisal`. FAZ 2 (`/siniflandir`, "AI ile Sınıflandır") AI her görevi içerikten
   okur (parçalı), `kaynak=ai`, opt-in.
