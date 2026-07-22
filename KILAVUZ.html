@@ -789,8 +789,11 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     <div class="step">
       <div class="num">1</div>
       <h4>Görevleri çek <span class="meta">⏱ &lt; 5 sn</span></h4>
-      <p>Açık bir Epic/Story anahtarı gir (örn. <code>MBSTRADE-1133</code>) → <strong>Görevleri Çek</strong>.
+      <p>Bir Epic/Story <em>veya</em> tek bir Görev anahtarı gir (örn. <code>MBSTRADE-1133</code>) → <strong>Görevleri Çek</strong>.
          Bir-seviye-alt görevler gelir: <em>parent</em>, <em>Epic Link</em> veya <em>Relates</em> issue-link'leriyle bağlı olanlar (üçü birleştirilir).
+         <strong>Epic/Story girerseniz</strong> yalnızca altındaki/bağlı görevler listelenir;
+         <strong>Görev (task) girerseniz</strong> <em>o görevin kendisi de</em> listenin en üstünde yer alır
+         (kendisi + bağlı task'ları) — böylece tek bir task'ı da doğrudan inceleyebilirsiniz. <span class="pill new">Yeni</span>
          Bu adım <strong>anında</strong> ve <strong>0 token</strong>: yalnızca <em>yapısal ön-tarama</em>
          (başlık/açıklamada Amaç, Değişiklik, Kabul Kriteri, dosya referansı var mı). Her kartta
          <span class="pill">YAPISAL ÖN-TARAMA</span> rozeti + neye bakıldığı yazar.</p>

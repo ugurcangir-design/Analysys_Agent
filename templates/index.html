@@ -2226,7 +2226,7 @@ function temaDegistir() {
       <div class="ph">
         <div class="ph-text">
           <h1>Jira Görevleri</h1>
-          <p>Epic/Story altındaki görevleri çek ve iki gruba ayır: hızlı işleme alınacaklar vs. detaylı analiz gerekenler.</p>
+          <p>Epic/Story altındaki görevleri veya tek bir görevi (kendisi + bağlı task'ları) çek ve iki gruba ayır: hızlı işleme alınacaklar vs. detaylı analiz gerekenler.</p>
         </div>
       </div>
 
@@ -2240,7 +2240,7 @@ function temaDegistir() {
         <div class="panel-body">
           <div class="jg-fetch-row">
             <label class="jg-arama-lbl" for="jg-parent-key">Anahtar</label>
-            <input type="text" id="jg-parent-key" class="setting-input" placeholder="Açık Epic / Story (örn. MBSTRADE-1133)" autocomplete="off" onkeydown="if(event.key==='Enter')jgGorevleriCek()">
+            <input type="text" id="jg-parent-key" class="setting-input" placeholder="Epic / Story / Görev (örn. MBSTRADE-1133)" autocomplete="off" onkeydown="if(event.key==='Enter')jgGorevleriCek()">
             <button class="btn btn-primary" id="jg-fetch-btn" onclick="jgGorevleriCek()">
               <svg class="ico"><use href="#i-search"/></svg> Görevleri Çek
             </button>

@@ -211,6 +211,45 @@ def _issue_ayrıstir(issue: dict) -> dict:
     }
 
 
+# KAPSAYICI tipler: girilen anahtar bunlardan biriyse listede KENDİSİ gösterilmez
+# (analist altındaki/bağlı görevleri ister). Görev/Bug gibi yaprak iş kalemlerinde
+# ise analistin asıl incelemek istediği şey o task'ın KENDİSİdir → listeye eklenir.
+# NOT: Jira'da Story ve Task AYNI hierarchyLevel'a (0) sahiptir — gerçek Jira'da
+# doğrulandı (Hikaye=0, Görev=0). Bu yüzden ayrım tip ADIna göre yapılır;
+# hierarchyLevel >= 1 (Epic ve üstü) her hâlükârda kapsayıcı sayılır.
+_KAPSAYICI_TIP_ADLARI = {
+    "epic", "epik", "story", "hikaye", "initiative", "girişim", "girisim",
+}
+
+
+def _kapsayici_mi(issuetype: dict | None) -> bool:
+    """Issue tipi 'kapsayıcı' mı (Epic/Story) yoksa yaprak iş kalemi mi (Görev/Bug)?"""
+    it = issuetype or {}
+    try:
+        if int(it.get("hierarchyLevel", 0)) >= 1:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return str(it.get("name", "")).strip().lower() in _KAPSAYICI_TIP_ADLARI
+
+
+def _tek_issue_ham(key: str, cloud_id: str) -> dict | None:
+    """Tek issue'yu HAM olarak doğrudan okur (tip kontrolü + ayrıştırma için).
+    Bulunamazsa/hata olursa None."""
+    try:
+        data = atlassian_post(
+            "/rest/api/3/issue/bulkfetch",
+            body={"issueIdsOrKeys": [key], "fields": _ISSUE_ALANLARI},
+            cloud_id=cloud_id,
+        )
+        for issue in data.get("issues", []) or []:
+            if issue.get("key") == key:
+                return issue
+    except Exception as e:
+        print(f"  ⚠ '{key}' okunamadı: {e}")
+    return None
+
+
 def _taze_issue_oku(keys: list[str], cloud_id: str) -> dict[str, dict]:
     """Verilen anahtarların GÜNCEL içeriğini doğrudan okur → {key: görev}.
 
@@ -292,14 +331,21 @@ def alt_gorevleri_cek(parent_key: str) -> list[dict]:
         except Exception:
             continue  # alan/JQL projede yoksa sessizce geç
 
-    if not sirali_keys:
-        return []
-
     # AŞAMA 2 — TAZE İÇERİK: başlık/açıklama/yorum/bağlantıları doğrudan issue'dan
     # oku. Arama indeksi gecikmeli olduğu için Jira'daki güncellemeler aksi hâlde
     # yeniden çekmede görünmüyordu.
-    taze = _taze_issue_oku(sirali_keys, cloud_id)
-    return [taze.get(k) or birlesik[k] for k in sirali_keys]
+    taze = _taze_issue_oku(sirali_keys, cloud_id) if sirali_keys else {}
+    sonuc = [taze.get(k) or birlesik[k] for k in sirali_keys]
+
+    # AŞAMA 3 — GİRİLEN ANAHTARIN KENDİSİ: Epic/Story ise kapsayıcıdır, listede
+    # yer almaz (altındaki görevler istenir). Görev/Bug gibi yaprak iş kaleminde
+    # ise analistin asıl incelemek istediği şey odur → EN ÜSTE eklenir.
+    kendi_ham = _tek_issue_ham(parent_key, cloud_id)
+    if kendi_ham is not None:
+        tip = (kendi_ham.get("fields") or {}).get("issuetype")
+        if not _kapsayici_mi(tip):
+            sonuc.insert(0, _issue_ayrıstir(kendi_ham))
+    return sonuc
 
 
 # ─── Sınıflandırma: Yapısal + AI ─────────────────────────────────────────────

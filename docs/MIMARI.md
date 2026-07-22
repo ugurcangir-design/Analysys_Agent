@@ -209,6 +209,13 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
      güncellendikten sonra görevler yeniden çekilse bile ESKİ içerik dönebiliyordu. bulkfetch
      indeksi atlar → güncellemeler anında görünür. bulkfetch başarısız olursa (yetki/endpoint)
      arama sonucuna düşülür — akış kırılmaz, yalnızca bayat olabilir.
+  3. **Girilen anahtarın KENDİSİ (`_kapsayici_mi`):** Epic/Story ise *kapsayıcı* sayılır ve
+     listede yer almaz (analist altındaki görevleri ister — eski davranış). Görev/Bug gibi
+     *yaprak* iş kaleminde ise analistin asıl incelemek istediği şey odur → listenin EN ÜSTÜNE
+     eklenir (kendisi + bağlı task'ları). **DİKKAT:** Jira'da Story ve Task AYNI
+     `hierarchyLevel`'a (0) sahiptir — gerçek Jira'da doğrulandı (Hikaye=0, Görev=0) — bu yüzden
+     ayrım tip ADIna göre yapılır (`_KAPSAYICI_TIP_ADLARI`: epic/epik/story/hikaye/initiative);
+     `hierarchyLevel >= 1` her hâlükârda kapsayıcıdır (özel epic adlarını da kapsar).
   Ortak ayrıştırma `_issue_ayrıstir` (arama + bulkfetch aynı fonksiyonu kullanır): yorumlar
   (ADF→metin) ve `issuelinks` (`_issuelink_ayikla` → `baglantililar`: bağlı task key/summary/tip/
   ilişki + kaba `katman` tahmini be/fe/belirsiz `_katman_tahmin` ile).
