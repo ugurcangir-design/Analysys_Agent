@@ -21,7 +21,7 @@ from .base import (
     prompt_yukle, extended_thinking_acik,
     referans_dosyalari_hazirla, _ref_bloklari_olustur, load_context_filter,
     canli_uygulama_baglami_hazirla,
-    yonetici_ozeti_olustur, yonetici_ozetini_cikar,
+    yonetici_ozeti_olustur, yonetici_ozetini_cikar, canli_gozlem_kapsamini_cikar,
     MAX_TOKENS_KISA, MAX_TOKENS_COMBINED,
 )
 
@@ -807,8 +807,11 @@ def gorev_jiraya_yaz(task_key: str, markdown: str, summary: str | None = None) -
     task_key = (task_key or "").strip().upper()
     if not _ID_DESENI.match(task_key):
         raise ValueError(f"Geçersiz Jira anahtarı: '{task_key}'")
-    # Yönetici Özeti (TL;DR) Jira'ya gitmez — onaylanan içerikte varsa kes.
+    # Yönetici Özeti (TL;DR) ve Canlı Gözlem Kapsamı Jira'ya GİTMEZ — ikisi de
+    # analistin doğrulama/şeffaflık bilgisidir, geliştiricinin task'ında işi yok.
+    # Analiz çıktısındaki hâlleri korunur; yalnızca Jira'ya yazılan kopya temizlenir.
     markdown = yonetici_ozetini_cikar(markdown)
+    markdown = canli_gozlem_kapsamini_cikar(markdown)
     adf_content = markdown_to_adf(markdown)
     if not adf_content:
         # İçerik yalnızca HTML yorumu/boşluktan ibaretse ADF boş kalır — Jira 400 verir.

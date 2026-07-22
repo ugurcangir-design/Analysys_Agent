@@ -1498,6 +1498,41 @@ def yonetici_ozetini_cikar(markdown: str) -> str:
     return desen.sub("", markdown, count=1).lstrip()
 
 
+# "Canlı Gözlem Kapsamı": MCP/Chrome gözleminde NEREYE bakıldığını (gezilen
+# tablar, yapılan yazma işlemleri, gezilemeyenler ve nedeni) raporlayan bölüm.
+# Analist için değerlidir — analiz çıktısında KALIR; ancak geliştiricinin Jira
+# task'ında işi yoktur (gereksinim değil, analiz sürecinin meta bilgisi).
+# Yönetici Özeti'nden farkı: sabit bir '---' ile bitmez → bölüm sonu, aynı veya
+# daha üst seviyedeki bir sonraki başlıkla belirlenir.
+_CANLI_GOZLEM_BASLIK = re.compile(
+    # İsteğe bağlı emoji/işaret + "Canlı Gözlem Kapsamı" (diakritiksiz yazım da kabul)
+    r"^(?P<h>#{1,4})[ \t]*[^\w\n]{0,4}[ \t]*Canl[ıi][ \t]+G[öo]zlem[ \t]+Kapsam[ıi]\b[^\n]*\n",
+    re.IGNORECASE | re.MULTILINE,
+)
+# Bölümün hemen ÖNÜNDEKİ yatay çizgi — bölüm silinince sarkan ayırıcı kalmasın
+_ONCEKI_AYIRICI = re.compile(r"\n[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*\n\s*$")
+
+
+def canli_gozlem_kapsamini_cikar(markdown: str) -> str:
+    """'Canlı Gözlem Kapsamı' bölümünü (başlık + içeriği) siler.
+    Jira'ya yazan yollar bunu çağırır; analiz dosyasındaki hâli korunur.
+    Bölüm birden fazla kez geçerse hepsi temizlenir."""
+    if not markdown:
+        return markdown
+    for _ in range(5):  # savunma: patolojik tekrar durumunda sonsuz döngü olmasın
+        m = _CANLI_GOZLEM_BASLIK.search(markdown)
+        if not m:
+            break
+        seviye = len(m.group("h"))
+        # Bölüm sonu: aynı ya da daha ÜST seviyede sonraki başlık (yoksa doküman sonu)
+        sonraki = re.compile(rf"^#{{1,{seviye}}}[ \t]+", re.MULTILINE)
+        son_m = sonraki.search(markdown, m.end())
+        kalan = markdown[son_m.start():] if son_m else ""
+        onceki = _ONCEKI_AYIRICI.sub("\n", markdown[:m.start()])
+        markdown = onceki.rstrip() + ("\n\n" + kalan.lstrip() if kalan.strip() else "\n")
+    return markdown
+
+
 def _metin_kes(metin: str, limit: int, dosya_adi: str) -> str:
     if len(metin) <= limit:
         return metin

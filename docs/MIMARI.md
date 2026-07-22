@@ -85,6 +85,18 @@ Süreç & teknik analiz çıktısının EN ÜSTÜne deterministik (0 token) öze
 süreç kapsam %'si, açık soru (kritik) sayısı. **Jira'ya YAZILMAZ** — `yonetici_ozetini_cikar()` her Jira
 yazma yolunda (jira_tasks hiyerarşi + gorev_jiraya_yaz) çağrılır.
 
+### Jira'ya YAZILMAYAN bölümler — analist bilgisi vs. geliştirici task'ı
+Analiz çıktısında KALIP Jira description'ına GİTMEYEN iki bölüm var; ikisi de analistin
+doğrulama/şeffaflık bilgisidir, gereksinim değildir. Her Jira yazma yolu ikisini de çıkarır
+(`gorev_jiraya_yaz` + `jira_tasks` hiyerarşi üretimi):
+1. **Yönetici Özeti** → `yonetici_ozetini_cikar()` (başlıktan ilk `---` ayırıcıya kadar).
+2. **Canlı Gözlem Kapsamı** → `canli_gozlem_kapsamini_cikar()`. MCP gözleminde nereye bakıldığını
+   (gezilen tablar/modallar, YAPILAN yazma işlemleri, gezilemeyenler + nedeni) raporlar.
+   Yönetici Özeti'nden farkı: sabit `---` ile bitmez → bölüm sonu **başlık seviyesine göre**
+   belirlenir (aynı ya da daha üst seviyedeki sonraki başlık; yoksa doküman sonu). Başlıktaki
+   emoji ve diakritiksiz yazım ("Canli Gozlem Kapsami") da yakalanır; bölüm silinince sarkan
+   `---` ayırıcı da temizlenir. Modal önizlemede analist bölümü GÖRÜR (yalnızca yazılan kopya temizlenir).
+
 ## RAG Mimarisi (`skills/base.py`)
 - **Bağlam blokları:** `_ref_bloklari_olustur(ref_dosyalar)` tipine göre gruplar — `### CONFLUENCE
   DOKÜMANTASYONU` (md), `### JİRA TASK GEÇMİŞİ` (`_jira_json_to_md` kompakt md), `### API / SWAGGER
