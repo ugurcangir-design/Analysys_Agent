@@ -2560,6 +2560,36 @@ def _live_app_cli_argumanlari(kapsam: str | None = None) -> list[str]:
             "--allowedTools", *LIVE_APP_ALLOWED_TOOLS]
 
 
+# Claude CLI'nin Claude.ai OAuth oturumu dolduğunda dönen hata (returncode!=0
+# ya da is_error). Ham İngilizce mesaj yerine analiste NE YAPACAĞINI söyle.
+_CLI_OTURUM_MESAJI = (
+    "Claude CLI oturumunun süresi doldu (401 — OAuth token expired). "
+    "Çözüm: bir terminalde `claude` komutunu çalıştırıp Claude.ai hesabınızla "
+    "yeniden giriş yapın (açılınca `/login`), ardından uygulamayı yeniden "
+    "başlatıp analizi tekrar deneyin. Alternatif: .env'de ANTHROPIC_API_KEY "
+    "tanımlayıp API moduna geçin."
+)
+# Oturum süresi dolma izleri — İngilizce CLI mesajı, dil bağımsız yakalama.
+_CLI_OTURUM_DESENI = re.compile(
+    r"(?:\b401\b.*(?:oauth|token|authenticat|expired))"
+    r"|(?:oauth\s+access\s+token\s+has\s+expired)"
+    r"|(?:re-?authenticate\s+to\s+continue)"
+    r"|(?:failed\s+to\s+authenticate)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _cli_oturum_hatasi_mi(status, mesaj: str | None) -> bool:
+    """CLI hatası, oturum süresi dolmasından mı kaynaklanıyor?
+    status (api_error_status) 401 ise ya da mesaj metni izi taşıyorsa True."""
+    try:
+        if int(status) == 401:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return bool(mesaj and _CLI_OTURUM_DESENI.search(str(mesaj)))
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -2627,9 +2657,14 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
                     "Reset zamanından sonra tekrar deneyin veya .env'de ANTHROPIC_API_KEY ile API moduna geçin."
                 )
             mesaj = v.get("result") or v.get("subtype") or "bilinmeyen hata"
+            if _cli_oturum_hatasi_mi(v.get("api_error_status"), mesaj):
+                raise RuntimeError(_CLI_OTURUM_MESAJI)
             raise RuntimeError(f"claude CLI hatası: {mesaj}")
         except (ValueError, KeyError, TypeError):
             pass  # JSON değilse alttaki ham mesaja düş
+        # JSON değil ama metinde oturum-süresi-doldu izi varsa yine net yönerge ver
+        if _cli_oturum_hatasi_mi(None, ham_err):
+            raise RuntimeError(_CLI_OTURUM_MESAJI)
         raise RuntimeError(f"claude CLI hatası (kod {proc.returncode}): {ham_err[:300]}")
 
     ham = proc.stdout.strip()
@@ -2644,7 +2679,10 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
         return ham
 
     if veri.get("is_error"):
-        raise RuntimeError(f"claude CLI hata bildirdi: {veri.get('result') or veri.get('subtype') or 'bilinmeyen'}")
+        _hata_metni = veri.get("result") or veri.get("subtype") or "bilinmeyen"
+        if _cli_oturum_hatasi_mi(veri.get("api_error_status"), _hata_metni):
+            raise RuntimeError(_CLI_OTURUM_MESAJI)
+        raise RuntimeError(f"claude CLI hata bildirdi: {_hata_metni}")
 
     yanit = (veri.get("result") or "").strip()
     if not yanit:
