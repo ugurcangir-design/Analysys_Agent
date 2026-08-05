@@ -345,6 +345,13 @@ Filtresi'nde "MCP Gözlem Kapsamı" textarea'sı (`ctx-live-scope`), Jira Görev
 `jg-live-scope`. CRUD kuralları ve kayıt formatı iki modda da ortaktır. Belirli bir akışı hedeflemek
 için doğru araç BUDUR — Özel Prompt değil (o sistem promptunu değiştirir, gezinme görevine dokunmaz).
 
+**Verimlilik kuralları (`verimlilik_kurallari`, iki modda da ortak):** tur/token maliyetini düşürmek
+için MCP görev metnine eklenir — önce planla + tek geçişte uygula (aynı ekranı tekrar gözlemleme);
+snapshot ekonomisi (tam `browser_snapshot` yalnızca DOM anlamlı değişince, öğe bulmak için
+`browser_find`); network ekonomisi (liste yalnızca yeni istek tetiklenince, tam detay sadece kritik
+istek için); bitiş koşulu (çekirdek gözlem — giriş → aksiyon → istek+yanıt → sonuç → hata — tamamsa
+DUR ve raporu yaz). Doğruluk kuralları (CRUD, kayıt formatı, spekülasyon yasağı) aynen geçerlidir.
+
 **Özel Prompt ile ilişki:** MCP görevi SİSTEM promptunda değil, kullanıcı mesajı bloğunda
 (`stable_bloklar`) taşınır — ekrandaki Özel Prompt varsayılan sistem promptunun yerine geçse bile
 canlı uygulama görevi + araç izinleri AYNEN gider; gözlem etiket kuralları görev bloğunun içinde
