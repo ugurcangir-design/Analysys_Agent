@@ -669,29 +669,17 @@ def gorev_standart_formatla(gorev: dict) -> str:
 # ─── Özellik 2: Teknik Analiz ile Detaylandır ────────────────────────────────
 
 def gorev_analiz_et(gorev: dict) -> dict:
-    """Görevi teknik analiz motoruyla (teknik_analiz_rol + _bolumler promptları)
-    detaylandırır. İki aşama: (1) Sonnet ile detaylı teknik analiz (RAG dahil),
+    """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
+    görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
+    tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
     (2) Haiku ile kısa açık-sorular pass'i. Çıktı:
         {"markdown": "<teknik analiz markdown>", "acik_sorular": "<varsa>"}.
-    Açık sorular Jira'ya YAZILMAZ — UI'da ayrı sekmede gösterilir."""
-    rol = prompt_yukle("teknik_analiz_rol")
-    bolumler = prompt_yukle("teknik_analiz_bolumler")
-    # Açık sorular bölümünü Aşama-2 mantığıyla burada da çıkar (tek görev için sade tut)
-    bolumler = re.sub(
-        r"(?ims)^#{1,3}\s*\d+\.\s*(?:Açık Sorular|Karar Bekleyen Konular).*?(?=^#{1,3}\s|\Z)",
-        "", bolumler,
-    ).strip()
-    sistem = (
-        rol + "\n\n"
-        "Sana TEK bir Jira görevi verildi; SADECE bu görevin kapsamı için teknik analiz "
-        "üret. Kapsam dışı bölümlerde boş bölüm kuralını uygula.\n\n"
-        "ÖNEMLİ — KENDİ KENDİNE YETEN ÇIKTI:\n"
-        "Açık sorular AYRI bir adımda üretilecek. Bu çıktıda 'Açık Sorular ayrı çıktıda "
-        "detaylandırılmalıdır', 'detaylandırma gerekir', '[K: ❓ Belirsiz] olarak işaretlenen "
-        "maddeler ayrı çıktıda...' türü meta-uyarı/yönlendirme NOTLARI YAZMA. Belirsizlik "
-        "varsa metin içinde '[K: ❓ Belirsiz]' işaretle ve geç; ayrı bölüm/uyarı oluşturma.\n\n"
-        f"<teknik_analiz>\n{bolumler}\n</teknik_analiz>"
-    )
+    Açık sorular Jira'ya YAZILMAZ — UI'da ayrı sekmede gösterilir.
+
+    NOT: Ağır 11-bölümlük şablon (teknik_analiz_bolumler) yerine görev-bazlı yalın
+    prompt kullanılır. Basit görevler artık koca bir 'kapsam dışı' başlık dizisiyle
+    dolmaz; sadece gerçekten dokunulan konular kısa yazılır."""
+    sistem = prompt_yukle("gorev_teknik_analiz")
 
     # RAG: bağlam filtresi (Süreç Analizi ekranındaki filtre) ile filtrelenmiş
     # referansları topla. referans_dosyalari_hazirla() zaten load_context_filter()

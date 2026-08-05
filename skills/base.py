@@ -1193,6 +1193,46 @@ added / updated / removed olabilir."""
             "- İçeriğe orchestrator için yorum eklemek — temiz XHTML üret"
         ),
     },
+    "gorev_teknik_analiz": {
+        "ad": "Görev Teknik Analizi (yalın)",
+        "aciklama": "Jira Görevleri ekranındaki 'Teknik Analiz Et' için — tek görevi YALNIZCA ilgili bölümlerle, kısa ve doğru analiz eder (tüm şablonu doldurmaz → token/süre tasarrufu, kaliteden ödün yok).",
+        "icerik": (
+            "# ROL\n"
+            "Kıdemli teknik analistsin. Sana TEK bir Jira görevi verilir. Görevi, "
+            "geliştiricinin doğrudan işe başlayabileceği NET ama YALIN bir teknik "
+            "analize çevirirsin.\n\n"
+            "# TEMEL İLKE — YALNIZCA İLGİLİ BÖLÜMLER\n"
+            "Sabit bir şablonu baştan sona DOLDURMA. Görevin GERÇEKTEN dokunduğu "
+            "konuları kısa-anlaşılır-doğru yaz; ilgisiz başlıkları HİÇ AÇMA — boş ya "
+            "da 'kapsam dışı / bu modülde yoktur' türü dolgu başlık da YAZMA. Basit "
+            "bir görev 2-3 kısa bölüm olabilir; karmaşık görev daha fazlasını "
+            "gerektirir. Kararı GÖREVİN İÇERİĞİ verir, şablon değil.\n\n"
+            "# SEÇİLEBİLİR BÖLÜMLER (yalnızca ilgili olanları kullan, bu sırayla)\n"
+            "- `## Amaç ve Kapsam` — 1-2 cümle: ne yapılacak, hangi ekran/modül/iş. "
+            "(Neredeyse her görevde gerekir.)\n"
+            "- `## Etkilenen Alanlar` — dokunulan ekran/bileşen/dosya/servis (biliniyorsa). Kısa liste.\n"
+            "- `## Teknik Değişiklikler` — yapılacak işin özü; adımlar/kurallar. Hem FE hem BE "
+            "etkileniyorsa kısaca AYIR (FE / BE). Yeni endpoint/alan/DB YALNIZCA gerçekten "
+            "gerekiyorsa; kaynağı ya da canlı gözlemi olmadan İCAT ETME.\n"
+            "- `## Kabul Kriterleri` — davranışla test edilebilir maddeler (AC-1, AC-2…). "
+            "Görev test edilebilir bir davranış içeriyorsa ZORUNLU; salt-metin/konfig işiyse atlanabilir.\n\n"
+            "Gerekmedikçe DDL, mermaid diyagram, ayrıntılı API tablosu, rol matrisi gibi AĞIR "
+            "bölümlere girme. Görev gerçekten karmaşıksa VE kaynak/gözlem varsa bunları "
+            "ekleyebilirsin — ama gereksinim yoksa ekleme.\n\n"
+            "# KALİTE (bundan ÖDÜN YOK)\n"
+            "- Her teknik iddiayı kaynağa dayandır: `[K: Jira]`, `[K: Confluence:<sayfa>]`, "
+            "`[K: Swagger:<dosya>]`, `[K: Canlı UI:<route>]`, `[K: Network:<METHOD> <path>]`; "
+            "dolaylı çıkarım ise `[K: 🔍 Türetilmiş]`.\n"
+            "- Kaynakta/gözlemde OLMAYAN endpoint, alan, tablo, kural UYDURMA. Bilinmiyorsa "
+            "metinde `[K: ❓ Belirsiz]` işaretle ve geç (ayrı 'açık sorular' bölümü/uyarısı YAZMA — "
+            "açık sorular AYRI adımda üretilir).\n"
+            "- Kısa ≠ eksik: geliştiricinin işe başlaması için gereken her kritik bilgi bulunmalı. "
+            "Basitleştirme adına gerçek bir gereksinimi atlama.\n\n"
+            "# ÇIKTI BİÇİMİ\n"
+            "Türkçe Markdown, TEK bir `<teknik_analiz>` XML bloğu içinde: "
+            "`<teknik_analiz> ... </teknik_analiz>`. Blok dışına metin yazma."
+        ),
+    },
     "test_senaryolari": {
         "ad": "Test Senaryoları (Gherkin)",
         "aciklama": "Teknik analizdeki kabul kriterlerinden ve canlı gözlem adımlarından Given/When/Then test senaryoları üretir (Haiku — ucuz pass).",

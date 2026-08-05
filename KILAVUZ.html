@@ -879,9 +879,12 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
         <li><strong>Standart Formatla</strong> — mevcut içeriği 4 başlıklı standart şablona
             (Amaç / Değişiklikler / Referans / Kabul Kriteri) çevirir. <em>Haiku</em> kullanır
             (Sonnet'in ~%10 maliyeti, hızlı). Kapsam UYDURMAZ; bilgi yoksa "(belirtilmemiş)" yazar.</li>
-        <li><strong>Teknik Analiz Et</strong> — teknik analiz motoruyla görevi detaylandırır
-            (11 başlıklı şablon, RAG referansları dahil). İki pass:
-            <em>Sonnet</em> ile teknik analiz + <em>Haiku</em> ile ayrı bir açık sorular pass'i.</li>
+        <li><strong>Teknik Analiz Et</strong> — görevi geliştiricinin başlayabileceği teknik analize
+            çevirir (RAG referansları dahil). <span class="pill new">Yalın</span> Tek görev için
+            <em>yalnızca ilgili bölümler</em> kısa-anlaşılır-doğru yazılır (Amaç/Kapsam, Etkilenen
+            Alanlar, Teknik Değişiklikler, Kabul Kriterleri); ilgisiz başlıklar açılmaz — basit
+            görev 2-3 kısa bölüm olur. Bu, kaliteden ödün vermeden süre ve token tasarrufu sağlar.
+            İki pass: <em>Sonnet</em> ile analiz + <em>Haiku</em> ile ayrı açık sorular pass'i.</li>
       </ul>
       <div class="box info">
         <strong>RAG ve bağlam filtresi</strong>

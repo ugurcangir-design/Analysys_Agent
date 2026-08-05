@@ -119,13 +119,14 @@ doğrulama/şeffaflık bilgisidir, gereksinim değildir. Her Jira yazma yolu iki
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
   → `referans_dosyalari_hazirla()` + `_ref_bloklari_olustur()`.
 
-## Sistem Promptları (18) — `VARSAYILAN_PROMPTLAR` (`skills/base.py`)
+## Sistem Promptları (19) — `VARSAYILAN_PROMPTLAR` (`skills/base.py`)
 Tutarlı yapı: `# ROL → GÖREV → ÇIKTININ AMACI → ÇALIŞMA YÖNTEMİ → RAG İLKESİ → BAĞLAM KULLANIMI → KALİTE ÖLÇÜTÜ`.
 ```
 surec_analizi_rol   surec_analizi          teknik_analiz_rol   teknik_analiz_bolumler
 teknik_analiz_sorular  teknik_analiz_denetci   brd_analizi_rol   brd_analizi_bolumler
 brd_analizi_sorular   kapsam_analizi_rol   kapsam_analizi_bolumler   kapsam_analizi_alternatifler
-html_mockup_base   jira_tasks   refine   confluence_publisher   test_senaryolari   delta_analizi
+html_mockup_base   jira_tasks   refine   confluence_publisher
+gorev_teknik_analiz   test_senaryolari   delta_analizi
 ```
 - `teknik_analiz_denetci` (Aşama 3 denetçi): `_ORTAK_EK_KURALLAR` ALMAZ; sadece sorun tespit eder.
   UI prompt editöründe `_PROMPT_GRUPLARI` (index.html) "Süreç / Teknik Analiz" grubunda.
@@ -252,8 +253,16 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   çekmede bayat sonuç gizlenir.
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.
 - **İki aksiyon:** *Hızlı İşleme Alınacak* → **Standart Formatla** (4 başlık, Haiku); *Detaylı Analiz
-  Gerekir* → **Teknik Analiz Et** (Sonnet teknik analiz [RAG + bağlam filtresi dahil] + ayrı Haiku açık-sorular;
-  modal'da 2. sekme, Jira'ya yazılmaz). Sadece-client görevlerinde de aynı iki aksiyon kullanılabilir.
+  Gerekir* → **Teknik Analiz Et** (Sonnet + RAG/bağlam filtresi + ayrı Haiku açık-sorular; modal'da
+  2. sekme, Jira'ya yazılmaz). Sadece-client görevlerinde de aynı iki aksiyon kullanılabilir.
+  **YALIN PROMPT (`gorev_teknik_analiz`):** `gorev_analiz_et` artık ağır 11-bölümlük
+  `teknik_analiz_bolumler` şablonunu KULLANMAZ (o, süreç→teknik ana pipeline'a özgüdür). Görev-bazlı
+  analiz uyarlanabilir yalın bir prompt kullanır: yalnızca görevin GERÇEKTEN dokunduğu bölümler
+  (Amaç/Kapsam · Etkilenen Alanlar · Teknik Değişiklikler · Kabul Kriterleri) kısa yazılır, ilgisiz
+  başlıklar HİÇ açılmaz ('kapsam dışı' dolgu yok). Basit görev 2-3 kısa bölüm olur → sistem promptu
+  ~16K→~2K krk (~%87 girdi tasarrufu) + çok daha kısa çıktı. Kalite güvenceleri korunur (kaynak
+  etiketleri `[K:...]`, uydurma yasağı, belirsizde `[K: ❓ Belirsiz]`, davranış testi varsa AC zorunlu).
+  Sistem Promptları'ndan düzenlenebilir.
 - **UI:** arama/filtre, katlanabilir gruplar, tam ekran modal (`.jg-modal`, Esc), `_jgTabAktif` üst-bar guard.
   **Onayla** → `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf; HTML yorumları silinir).
 
