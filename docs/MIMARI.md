@@ -262,7 +262,12 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   başlıklar HİÇ açılmaz ('kapsam dışı' dolgu yok). Basit görev 2-3 kısa bölüm olur → sistem promptu
   ~16K→~2K krk (~%87 girdi tasarrufu) + çok daha kısa çıktı. Kalite güvenceleri korunur (kaynak
   etiketleri `[K:...]`, uydurma yasağı, belirsizde `[K: ❓ Belirsiz]`, davranış testi varsa AC zorunlu).
-  Sistem Promptları'ndan düzenlenebilir.
+  **SPEKÜLASYON YASAĞI:** gözleyemediği sunucu-içi nedeni tahmin etmez ('backend karşılığı ör.
+  eksik provider config… olabilir', 'sunucu loglarından bakılmalı', '…gözlemlenemez' gibi olası-neden
+  dizisi/gözlem-sınırı meta-notu YASAK); yalnızca gözlemlenen gerçeği yazar (ör. aksiyon→errorCode),
+  gerisini kısa açık soruya bırakır. Canlı uygulama (MCP) promptunda da aynı kural
+  (`canli_uygulama_baglami_hazirla` → "gözlemlenemeyenleri tahmin etme/sıralama"). Görev-dışı genel
+  yorum/'incelenmeli' notu da yazmaz. Sistem Promptları'ndan düzenlenebilir.
 - **UI:** arama/filtre, katlanabilir gruplar, tam ekran modal (`.jg-modal`, Esc), `_jgTabAktif` üst-bar guard.
   **Onayla** → `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf; HTML yorumları silinir).
 
