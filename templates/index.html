@@ -2030,7 +2030,7 @@ function temaDegistir() {
           <div class="ctx-group-title"><svg class="ico ico-sm"><use href="#i-monitor"/></svg> Canlı Uygulama (Chrome MCP)</div>
           <div>
             <div class="ctx-field-label">Ana Uygulama URL</div>
-            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler</div>
+            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler · <strong>Yalnızca bu ekran (Süreç/Teknik Analiz) içindir</strong> — Jira Görevleri ekranının kendi ayrı URL'i vardır, oraya yansımaz</div>
             <input class="ctx-input" id="ctx-live-target" type="url" placeholder="https://dev.example.com/app" oninput="updateCtxBadge()">
             <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
               Örnek ekran olarak kullan
@@ -2252,9 +2252,10 @@ function temaDegistir() {
             <button class="btn-link" onclick="switchTab('surec'); setTimeout(()=>document.getElementById('ctx-toggle').scrollIntoView({block:'center',behavior:'smooth'}),200)">Düzenle →</button>
           </div>
 
-          <!-- Canlı Uygulama (Chrome MCP) — task bazlı Teknik Analiz Et bunu kullanır -->
-          <div class="ctx-field-label" style="margin-top:14px">Canlı Uygulama URL</div>
-          <div class="ctx-field-sub">Doluysa "Teknik Analiz Et" bu görev için Claude MCP/Chrome ile ekranı ve servisleri gezer · Bağlam Filtresi'nde tanımlıysa giriş bilgisi otomatik kullanılır</div>
+          <!-- Canlı Uygulama (Chrome MCP) — task bazlı Teknik Analiz Et bunu kullanır.
+               Süreç/Teknik Analiz ekranının "Ana Uygulama URL"inden BAĞIMSIZ (live_app_gorev). -->
+          <div class="ctx-field-label" style="margin-top:14px">Canlı Uygulama URL <span style="font-weight:400;color:var(--text3)">— bu ekrana özel</span></div>
+          <div class="ctx-field-sub">Bu alan <strong>Süreç/Teknik Analiz ekranındaki "Ana Uygulama URL"den AYRIDIR</strong> — orayı değiştirmek burayı etkilemez, ikisini ayrı yönetirsiniz. Doluysa "Teknik Analiz Et" bu görev için Claude MCP/Chrome ile ekranı ve servisleri gezer · Bağlam Filtresi'nde tanımlıysa giriş bilgisi otomatik kullanılır</div>
           <div class="jg-fetch-row">
             <input class="ctx-input" id="jg-live-target" type="url" placeholder="https://dev.example.com/app" onchange="jgLiveAppKaydet(true)">
           </div>
