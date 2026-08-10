@@ -311,6 +311,11 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   kurallarını GEVŞETMEZ"). Boşsa hiç eklenmez (token yok). YALNIZCA "Teknik Analiz Et"i etkiler
   (Formatla/Sınıflandır/Sadece Client değişmez). Not: `_context_filter_normalize` (base.py) ve
   `context_filter_kaydet`/`_oku` (app.py) bu anahtarı açıkça taşır — sabit-şema rebuild'i düşürmesin diye.
+- **İptal edilenler hariç:** görev çekiminde (`/cek` ve `/siniflandir`) `iptal_ayikla` iptal statülü
+  görevleri listeden çıkarır (`_iptal_statusu_mu` — İptal Edildi / İPTAL EDİLDİ / Cancelled / Canceled;
+  `upper()` ile, Türkçe İ casefold sorununu atlar). Bağlı task'lara dokunulmaz. Yanıt `iptal_haric`
+  sayısını taşır; UI'da kalıcı bilgi notu ("İptal edilmiş biletler listeye dahil edilmemiştir" +
+  varsa "N iptal edilen görev çıkarıldı", `#jg-iptal-not`).
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.
 - **İki aksiyon:** *Hızlı İşleme Alınacak* → **Standart Formatla** (4 başlık, Haiku); *Detaylı Analiz
   Gerekir* → **Teknik Analiz Et** (Sonnet + RAG/bağlam filtresi + ayrı Haiku açık-sorular; modal'da

@@ -2248,11 +2248,11 @@ def jira_gorevler_cek():
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
     try:
-        from skills.jira_gorevleri import alt_gorevleri_cek, gorevleri_siniflandir
-        gorevler = alt_gorevleri_cek(parent_key)
+        from skills.jira_gorevleri import alt_gorevleri_cek, gorevleri_siniflandir, iptal_ayikla
+        gorevler, iptal_haric = iptal_ayikla(alt_gorevleri_cek(parent_key))
         sonuc = gorevleri_siniflandir(gorevler, ai_kullan=False)
         return jsonify({"ok": True, "parent_key": parent_key.upper(),
-                        "toplam": len(gorevler), "ai": False, **sonuc})
+                        "toplam": len(gorevler), "iptal_haric": iptal_haric, "ai": False, **sonuc})
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
@@ -2273,11 +2273,11 @@ def jira_gorevler_siniflandir():
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
     try:
-        from skills.jira_gorevleri import alt_gorevleri_cek, gorevleri_siniflandir
-        gorevler = alt_gorevleri_cek(parent_key)
+        from skills.jira_gorevleri import alt_gorevleri_cek, gorevleri_siniflandir, iptal_ayikla
+        gorevler, iptal_haric = iptal_ayikla(alt_gorevleri_cek(parent_key))
         sonuc = gorevleri_siniflandir(gorevler, ai_kullan=True)
         return jsonify({"ok": True, "parent_key": parent_key.upper(),
-                        "toplam": len(gorevler), "ai": True, **sonuc})
+                        "toplam": len(gorevler), "iptal_haric": iptal_haric, "ai": True, **sonuc})
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:

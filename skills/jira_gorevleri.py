@@ -225,6 +225,22 @@ _KAPSAYICI_TIP_ADLARI = {
 }
 
 
+def _iptal_statusu_mu(status: str) -> bool:
+    """Durum 'iptal edilmiş' anlamına mı geliyor? Türkçe (İptal Edildi / İPTAL
+    EDİLDİ / İptal) ve İngilizce (Cancelled / Canceled) varyantları yakalar.
+    upper() kullanılır — casefold Türkçe 'İ'de birleşik noktalı harf üretip
+    substring aramasını bozabiliyor."""
+    u = (status or "").upper()
+    return "İPTAL" in u or "IPTAL" in u or "CANCEL" in u
+
+
+def iptal_ayikla(gorevler: list[dict]) -> tuple[list[dict], int]:
+    """İptal edilmiş görevleri listeden çıkarır. (kalan_liste, çıkarılan_sayı) döndürür.
+    Bağlı task'lar (baglantililar) DOKUNULMAZ — yalnızca üst-düzey görev kartları elenir."""
+    kalan = [g for g in gorevler if not _iptal_statusu_mu(g.get("status", ""))]
+    return kalan, len(gorevler) - len(kalan)
+
+
 def _kapsayici_mi(issuetype: dict | None) -> bool:
     """Issue tipi 'kapsayıcı' mı (Epic/Story) yoksa yaprak iş kalemi mi (Görev/Bug)?"""
     it = issuetype or {}

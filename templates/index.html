@@ -2313,6 +2313,11 @@ function temaDegistir() {
       </div>
 
       <div id="jg-results" style="display:none">
+        <!-- İptal edilen görevler listeden hariç tutulur (bilgi notu) -->
+        <div id="jg-iptal-not" class="jg-ctx-bilgi" style="display:none">
+          <svg class="ico"><use href="#i-filter"/></svg>
+          <span id="jg-iptal-not-metin"></span>
+        </div>
         <!-- Araç çubuğu: arama + AI sınıflandırma -->
         <div class="panel" style="margin-bottom:14px">
           <div class="panel-body jg-toolbar">
@@ -3208,6 +3213,16 @@ function _jgYerlestir(d) {
   _jgScData = [];
   _jgStatusSecili.clear();          // yeni çekimde statü filtresini sıfırla
   _jgAssigneeSecili = '';           // atanan filtresini de sıfırla
+  // İptal edilen görevler listeye dahil edilmez — bilgi notu (sayıyla)
+  const iptalNot = document.getElementById('jg-iptal-not');
+  if (iptalNot) {
+    const n = d.iptal_haric || 0;
+    document.getElementById('jg-iptal-not-metin').innerHTML =
+      n > 0
+        ? `<strong>İptal edilmiş biletler listeye dahil edilmemiştir</strong> — ${n} iptal edilen görev çekimden çıkarıldı.`
+        : `<strong>İptal edilmiş biletler listeye dahil edilmemiştir.</strong>`;
+    iptalNot.style.display = '';
+  }
   jgPreviewKapat();
   jgStatusChipCiz();
   jgAssigneeCiz();
