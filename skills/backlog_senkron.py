@@ -6,20 +6,26 @@ işlemek; task durumlarını güncel tutmak. Analist her gün ekrandan tek tıkl
 çalıştırır, güncel Excel'i indirir.
 
 TASARIM İLKELERİ (kullanıcı talebi):
-- **0 LLM tokenı.** Bu iş tamamen DETERMİNİSTİK veri eşleme — `claude -p`/MCP
-  ÇAĞRILMAZ. Sadece Jira REST okuması + Excel yazımı. Saniyeler sürer.
-- **Değişmeyene iş yapma.** Her satırın Jira `updated` damgası, yan durum
-  dosyasındaki son değerle kıyaslanır; DEĞİŞMEMİŞSE o satıra tek hücre yazılmaz.
-- **Manuel notlara dokunma.** Yalnızca Jira'dan gelen kolonlar (Özet, Konu Türü,
-  Durum, Öncelik, Oluşturulan, Güncellendi, Etiketler) ve agent'a ait yeni UAT
-  kolonları yazılır. Diğer TÜM kolonlar (İlgili Analist, Priority, UAT BOARD
-  [kolon Q], Status, Product Onayı, Bağımlılık/Not, Eski Task Ekran Görüntüsü …)
-  hiç okunmaz/yazılmaz.
-- **Dosyayı BOZMA.** Excel'de hücre-içi görseller (richData), Excel Tablosu,
-  hyperlink'ler ve gizli sayfalar var. openpyxl bunları kaydederken DÜŞÜRÜR.
-  Bu yüzden yazım CERRAHİDİR: zip içinde YALNIZCA hedef sayfanın XML'i değişir,
-  medya/richData/diğer sayfalar/tablo bit-bit korunur. Orijinalin üstüne yazılmaz;
-  zaman damgalı KOPYA üretilir.
+- **0 LLM tokenı.** Tamamen DETERMİNİSTİK veri eşleme — `claude -p`/MCP ÇAĞRILMAZ.
+  Sadece Jira REST okuması + Excel yazımı. Saniyeler sürer.
+- **Değişmeyene iş yapma.** Yan durum dosyasında her key'in son `updated`+`uat_key`
+  değeri tutulur; değişmemiş satıra tek hücre yazılmaz. Hiç değişiklik yoksa dosya
+  yalnızca kopyalanır.
+- **Manuel notlara dokunma.** Yalnızca Jira kolonları (Özet, Konu Türü, Durum,
+  Öncelik, Oluşturulan, Güncellendi, Etiketler) + agent'a ait UAT kolonları yazılır.
+  Diğer TÜM kolonlar (İlgili Analist, Priority, Öncelik Grubu, Efor Skoru, UAT BOARD
+  [kolon Q], Status, Product Onayı, Bağımlılık/Not, Açıklama Kısa, Eski Task Ekran
+  Görüntüsü) hiç okunmaz/yazılmaz.
+- **EXCEL FORMUNU KORU (KRİTİK).** Excel'de hücre-içi görseller (richData/`vm=`),
+  Excel Tablosu (ListObject — renk bandı + filtre), hyperlink'ler ve gizli sayfalar
+  var. openpyxl kaydederken bunları DÜŞÜRÜR. Bu yüzden:
+    * Yazım `lxml` ile CERRAHİDİR: zip içinde YALNIZCA hedef sayfa + tablo XML'i
+      değişir; medya/richData/metadata/diğer sayfalar bit-bit korunur.
+    * Yeni satırlar/kolonlar TABLONUN İÇİNE alınır: UAT kolonları tabloya bitişik
+      (W'den sonra) eklenir, yeni satırlar önce boş rezerve slotlara yerleşir sonra
+      alta eklenir, tablo `ref`+`autoFilter` genişletilir → renk bandı ve filtre
+      yeni satır/kolonları da kapsar (yönetilebilir liste).
+  Orijinalin üstüne yazılmaz; zaman damgalı KOPYA üretilir.
 
 Bağ mekanizması (Jira ile doğrulandı): UAT taskı --"relates to"--> TRADE/OPS taskı.
 Bir UAT birden çok TRADE/OPS taskına bağlanabilir; her TRADE/OPS taskı = bir satır.
@@ -28,6 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
+import posixpath
 import re
 import shutil
 import zipfile
@@ -36,6 +43,7 @@ from pathlib import Path
 
 from lxml import etree
 from openpyxl import load_workbook
+from openpyxl.utils import range_boundaries
 
 from .atlassian import atlassian_post
 from .jira_gorevleri import _cloud_id
@@ -43,13 +51,12 @@ from .jira_gorevleri import _cloud_id
 logger = logging.getLogger("analyst.backlog_senkron")
 
 # ─── Sabitler ──────────────────────────────────────────────────────────────────
-KAYNAK_SHEET = "Excel Maddeleri"   # ana takip sayfası
-HEADER_SATIR = 3                    # başlıklar bu satırda; veri HEADER_SATIR+1'den
+KAYNAK_SHEET = "Excel Maddeleri"
+HEADER_SATIR = 3
 KEY_BASLIK = "TRADE/OPERATION BOARD"
 SIRA_BASLIK = "Sıra"
-ALAN_BASLIK = "Alan"               # FE/BE — yalnızca boşsa doldurulur
+ALAN_BASLIK = "Alan"
 
-# Jira'dan gelen kolonlar: {Excel başlığı → issue alan anahtarı}. Agent bunları yazar.
 JIRA_KOLON_ESLEME = {
     "Özet": "summary",
     "Konu Türü": "issuetype",
@@ -59,7 +66,6 @@ JIRA_KOLON_ESLEME = {
     "Güncellendi": "updated",
     "Etiketler": "labels",
 }
-# Agent'a ait UAT kolonları (yoksa sağa eklenir; başlık adından tanınır → idempotent).
 UAT_KEY_BASLIK = "UAT Key"
 UAT_DURUM_BASLIK = "UAT Durum"
 UAT_OZET_BASLIK = "UAT Özet"
@@ -92,7 +98,6 @@ def _tarih_tr(iso: str) -> str:
 
 
 def _alan_turet(summary: str) -> str:
-    """Özet önekinden FE/BE türetir ('FE — ...' → 'FE'). Belirsizse boş."""
     s = (summary or "").lstrip()
     if s[:2].upper() == "FE":
         return "FE"
@@ -102,7 +107,6 @@ def _alan_turet(summary: str) -> str:
 
 
 def _issue_alanlari(f: dict) -> dict:
-    """Ham Jira issue.fields → Excel'e yazılacak sade sözlük."""
     labels = f.get("labels") or []
     return {
         "summary": f.get("summary") or "",
@@ -117,7 +121,7 @@ def _issue_alanlari(f: dict) -> dict:
 
 
 def _uat_board_tara(cloud_id: str) -> dict[str, dict]:
-    """UAT board'unu (MBSUATEAM) tarar; TRADE/OPS key → UAT bilgisi eşlemesi döndürür."""
+    """UAT board'unu (MBSUATEAM) tarar; TRADE/OPS key → UAT bilgisi eşlemesi."""
     eslesme: dict[str, dict] = {}
     page_token = None
     sayfa = 0
@@ -177,16 +181,6 @@ def _calisma_tasklari_getir(keys: list[str], cloud_id: str) -> dict[str, dict]:
     return sonuc
 
 
-# ─── Excel okuma (openpyxl, salt-okuma) ─────────────────────────────────────────
-def _baslik_haritasi(ws) -> dict[str, int]:
-    harita = {}
-    for c in range(1, ws.max_column + 1):
-        v = ws.cell(HEADER_SATIR, c).value
-        if v is not None and str(v).strip():
-            harita[str(v).strip()] = c
-    return harita
-
-
 # ─── Kolon harfi <-> indeks ─────────────────────────────────────────────────────
 def _kolon_harf(idx: int) -> str:
     s = ""
@@ -197,16 +191,23 @@ def _kolon_harf(idx: int) -> str:
 
 
 def _harf_kolon(ref: str) -> int:
-    harf = re.match(r"[A-Z]+", ref).group(0)
     n = 0
-    for ch in harf:
+    for ch in re.match(r"[A-Z]+", ref).group(0):
         n = n * 26 + (ord(ch) - 64)
     return n
 
 
-# ─── Cerrahi XML yazımı ─────────────────────────────────────────────────────────
+def _baslik_haritasi(ws) -> dict[str, int]:
+    harita = {}
+    for c in range(1, ws.max_column + 1):
+        v = ws.cell(HEADER_SATIR, c).value
+        if v is not None and str(v).strip():
+            harita[str(v).strip()] = c
+    return harita
+
+
+# ─── Zip / XML cerrahi yazım ────────────────────────────────────────────────────
 def _sheet_part_bul(zf: zipfile.ZipFile, sheet_adi: str) -> str:
-    """workbook.xml + rels üzerinden sayfa adına karşılık gelen part yolunu bulur."""
     wb = etree.fromstring(zf.read("xl/workbook.xml"))
     rid = None
     for s in wb.find(f"{{{_NS}}}sheets"):
@@ -218,18 +219,59 @@ def _sheet_part_bul(zf: zipfile.ZipFile, sheet_adi: str) -> str:
     rels = etree.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
     for rel in rels:
         if rel.get("Id") == rid:
-            target = rel.get("Target")
-            return "xl/" + target.lstrip("/") if not target.startswith("xl/") else target
+            t = rel.get("Target")
+            return "xl/" + t.lstrip("/") if not t.startswith("xl/") else t
     raise ValueError(f"{rid} için rels hedefi bulunamadı")
 
 
+def _tablo_part_bul(zf: zipfile.ZipFile, sheet_part: str) -> str | None:
+    """Sayfaya bağlı ilk Excel Tablosu (ListObject) part yolunu döndürür (yoksa None)."""
+    root = etree.fromstring(zf.read(sheet_part))
+    tps = root.find(f"{{{_NS}}}tableParts")
+    if tps is None or len(tps) == 0:
+        return None
+    rid = tps[0].get(f"{{{_NS_R}}}id")
+    rels_yol = posixpath.join(posixpath.dirname(sheet_part), "_rels",
+                              posixpath.basename(sheet_part) + ".rels")
+    rels = etree.fromstring(zf.read(rels_yol))
+    for rel in rels:
+        if rel.get("Id") == rid:
+            hedef = rel.get("Target")
+            return posixpath.normpath(posixpath.join(posixpath.dirname(sheet_part), hedef))
+    return None
+
+
+def _tablo_xml_uygula(tablo_bytes: bytes, yeni_ref: str, yeni_kolon_adlari: list[str]) -> bytes:
+    """Tablo XML'inde ref+autoFilter'ı genişletir ve eksik tableColumn'ları ekler."""
+    root = etree.fromstring(tablo_bytes)
+    root.set("ref", yeni_ref)
+    af = root.find(f"{{{_NS}}}autoFilter")
+    if af is not None:
+        af.set("ref", yeni_ref)
+    tcs = root.find(f"{{{_NS}}}tableColumns")
+    mevcut_adlar = {tc.get("name") for tc in tcs.findall(f"{{{_NS}}}tableColumn")}
+    max_id = max(int(tc.get("id")) for tc in tcs.findall(f"{{{_NS}}}tableColumn"))
+    for ad in yeni_kolon_adlari:
+        if ad not in mevcut_adlar:
+            max_id += 1
+            tc = etree.SubElement(tcs, f"{{{_NS}}}tableColumn")
+            tc.set("id", str(max_id))
+            tc.set("name", ad)
+            mevcut_adlar.add(ad)
+    tcs.set("count", str(len(tcs.findall(f"{{{_NS}}}tableColumn"))))
+    return etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+
+
 def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
-                  yazimlar: dict[tuple[int, int], str]) -> None:
-    """`yazimlar` = {(satir, kolon_idx): metin}. YALNIZCA hedef sayfanın XML'i
-    değişir; medya, richData, tablo, hyperlink'ler, diğer sayfalar korunur."""
+                  yazimlar: dict[tuple[int, int], str],
+                  tablo_ref: str | None = None,
+                  tablo_yeni_kolonlar: list[str] | None = None) -> None:
+    """`yazimlar` = {(satir, kolon_idx): metin}. YALNIZCA hedef sayfa (+ varsa tablo)
+    XML'i değişir; medya, richData, tablo görselleri, diğer sayfalar korunur."""
     with zipfile.ZipFile(kaynak) as zf:
         part = _sheet_part_bul(zf, sheet_adi)
         sheet_xml = zf.read(part)
+        tablo_part = _tablo_part_bul(zf, part) if tablo_ref else None
         infolist = zf.infolist()
         icerikler = {i.filename: zf.read(i.filename) for i in infolist}
 
@@ -254,7 +296,6 @@ def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
         return yeni
 
     def ust_stil(col_idx: int, satir: int) -> str | None:
-        """Yeni hücreye üstteki (aynı kolon) hücrenin stilini kopyala — biçim tutarlılığı."""
         for r in range(satir - 1, HEADER_SATIR, -1):
             re_el = row_map.get(r)
             if re_el is None:
@@ -274,8 +315,7 @@ def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
             if c.get("r") == ref:
                 hedef = c
                 break
-        created = hedef is None
-        if created:
+        if hedef is None:
             hedef = etree.Element(f"{{{_NS}}}c")
             hedef.set("r", ref)
             yerlesti = False
@@ -289,7 +329,6 @@ def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
             stil = ust_stil(col_idx, satir)
             if stil:
                 hedef.set("s", stil)
-        # İçeriği temizle (<v>, <f>, eski <is>) ve inlineStr olarak yaz.
         for ch in list(hedef):
             hedef.remove(ch)
         hedef.set("t", "inlineStr")
@@ -305,17 +344,19 @@ def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
     if yazimlar:
         max_row = max(max(row_map), max(s for s, _ in yazimlar))
         max_col = max((c for _, c in yazimlar), default=1)
-        # mevcut dimension'daki kolonu da hesaba kat
         dim = root.find(f"{{{_NS}}}dimension")
         if dim is not None:
-            eski = dim.get("ref", "A1")
-            son = eski.split(":")[-1]
+            son = dim.get("ref", "A1").split(":")[-1]
             max_col = max(max_col, _harf_kolon(son))
             max_row = max(max_row, int(re.search(r"\d+", son).group(0)))
             dim.set("ref", f"A1:{_kolon_harf(max_col)}{max_row}")
 
-    yeni_sheet = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
-    icerikler[part] = yeni_sheet
+    icerikler[part] = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+
+    # Tabloyu genişlet (renk bandı + filtre yeni satır/kolonları kapsasın)
+    if tablo_ref and tablo_part and tablo_part in icerikler:
+        icerikler[tablo_part] = _tablo_xml_uygula(
+            icerikler[tablo_part], tablo_ref, tablo_yeni_kolonlar or [])
 
     with zipfile.ZipFile(cikti, "w", zipfile.ZIP_DEFLATED) as zf:
         for info in infolist:
@@ -347,7 +388,6 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
         state_path = cikti_dir / "backlog_senkron_state.json"
     state_path = Path(state_path)
 
-    # ── Okuma (openpyxl salt-okuma; ASLA save edilmez) ──
     wb = load_workbook(excel_path, data_only=True)
     if KAYNAK_SHEET not in wb.sheetnames:
         raise ValueError(f"Excel'de '{KAYNAK_SHEET}' sayfası yok. Sayfalar: {wb.sheetnames}")
@@ -359,32 +399,42 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     uyarilar = [f"'{b}' kolonu Excel'de yok — güncellenmeyecek."
                 for b in JIRA_KOLON_ESLEME if b not in basliklar]
 
-    # UAT kolonları: varsa yeniden kullan, yoksa GERÇEK son kolonun ötesine yeni
-    # indeks ata. ws.max_column'u da hesaba kat — başlıksız ama dolu kolonların
-    # (ör. X'teki serbest veriler) üstüne yazmayı önler.
-    max_col = max(max(basliklar.values()), ws.max_column)
+    # ── Excel Tablosu geometrisi ──
+    tablo = next(iter(ws.tables.values()), None) if ws.tables else None
+    if tablo is not None:
+        t_c1, t_r1, t_c2, t_r2 = range_boundaries(tablo.ref)   # min_col,min_row,max_col,max_row
+    else:
+        t_c1, t_r1, t_c2, t_r2 = 1, HEADER_SATIR, max(basliklar.values()), ws.max_row
+
+    # ── UAT kolonları: varsa yeniden kullan (başlıktan), yoksa TABLOYA BİTİŞİK ekle ──
+    sonraki_kol = t_c2
     for b in UAT_BASLIKLAR:
-        if b not in basliklar:
-            max_col += 1
-            basliklar[b] = max_col
+        if b in basliklar:
+            sonraki_kol = max(sonraki_kol, basliklar[b])
+        else:
+            sonraki_kol += 1
+            basliklar[b] = sonraki_kol
+    uat_son_kol = max(basliklar[b] for b in UAT_BASLIKLAR)
 
     key_c = basliklar[KEY_BASLIK]
     sira_c = basliklar.get(SIRA_BASLIK)
     alan_c = basliklar.get(ALAN_BASLIK)
 
+    # ── Mevcut satırlar + boş rezerve slotlar ──
     key_satir: dict[str, int] = {}
-    son_veri_satir = HEADER_SATIR
-    en_yuksek_sira = 0
     alan_bos: dict[str, bool] = {}
-    for r in range(HEADER_SATIR + 1, ws.max_row + 1):
-        dolu = any(ws.cell(r, c).value not in (None, "") for c in range(1, ws.max_column + 1))
-        if dolu:
-            son_veri_satir = r
+    en_yuksek_sira = 0
+    bos_slotlar: list[int] = []
+    for r in range(HEADER_SATIR + 1, max(t_r2, ws.max_row) + 1):
         k = ws.cell(r, key_c).value
         if k is not None and str(k).strip():
             key = str(k).strip()
             key_satir[key] = r
             alan_bos[key] = (alan_c is not None and ws.cell(r, alan_c).value in (None, ""))
+        elif r <= t_r2:
+            # Tablo içi, key'siz VE (Sıra hariç) tamamen boş satır → doldurulabilir slot
+            if all(ws.cell(r, c).value in (None, "") for c in range(1, t_c2 + 1) if c != sira_c):
+                bos_slotlar.append(r)
         if sira_c:
             try:
                 en_yuksek_sira = max(en_yuksek_sira, int(ws.cell(r, sira_c).value))
@@ -401,12 +451,11 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     guncellenen = eklenen = degismeyen = yeni_uat = 0
     yazimlar: dict[tuple[int, int], str] = {}
 
-    # Eksik UAT başlıklarını yaz (yeni eklenen kolonların başlığı)
+    # UAT başlık hücreleri (idempotent: zaten varsa aynı metin)
     for b in UAT_BASLIKLAR:
-        # her zaman garanti et (idempotent): başlık hücresi zaten varsa aynı metin yazılır
         yazimlar[(HEADER_SATIR, basliklar[b])] = b
 
-    def _satir_hucreleri(satir: int, key: str, alanlar: dict, uat: dict | None, alan_bos_mu: bool):
+    def _satir_hucreleri(satir: int, alanlar: dict, uat: dict | None, alan_bos_mu: bool):
         for baslik, alan in JIRA_KOLON_ESLEME.items():
             c = basliklar.get(baslik)
             if c:
@@ -415,10 +464,10 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
             t = _alan_turet(alanlar.get("summary", ""))
             if t:
                 yazimlar[(satir, alan_c)] = t
-        if uat:
-            yazimlar[(satir, basliklar[UAT_KEY_BASLIK])] = uat.get("uat_key", "")
-            yazimlar[(satir, basliklar[UAT_DURUM_BASLIK])] = uat.get("uat_durum", "")
-            yazimlar[(satir, basliklar[UAT_OZET_BASLIK])] = uat.get("uat_ozet", "")
+        # UAT kolonları HER ZAMAN yazılır (eşleşme yoksa boş → eski/çöp değer temizlenir)
+        yazimlar[(satir, basliklar[UAT_KEY_BASLIK])] = uat.get("uat_key", "") if uat else ""
+        yazimlar[(satir, basliklar[UAT_DURUM_BASLIK])] = uat.get("uat_durum", "") if uat else ""
+        yazimlar[(satir, basliklar[UAT_OZET_BASLIK])] = uat.get("uat_ozet", "") if uat else ""
 
     # Mevcut satırlar — yalnızca değişenler
     for key, r in key_satir.items():
@@ -433,22 +482,28 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
         if yeni_iso and yeni_iso == onceki.get("updated") and not uat_degisti:
             degismeyen += 1
             continue
-        _satir_hucreleri(r, key, alanlar, uat, alan_bos.get(key, False))
+        _satir_hucreleri(r, alanlar, uat, alan_bos.get(key, False))
         durum[key] = {"updated": yeni_iso, "uat_key": uat_key_str}
         guncellenen += 1
         if uat_degisti and uat_key_str:
             yeni_uat += 1
 
-    # Yeni satırlar (UAT'tan keşfedilip Excel'de olmayanlar)
+    # Yeni satırlar — önce boş rezerve slotlar, sonra tablonun altına ekle
     yeni_keys = sorted(k for k in uat_eslesme if k not in key_satir and k in jira)
+    slot_iter = iter(bos_slotlar)
+    ek_satir = t_r2   # tablonun mevcut son satırı; altına eklemeye buradan devam
     for key in yeni_keys:
-        son_veri_satir += 1
-        r = son_veri_satir
-        en_yuksek_sira += 1
-        if sira_c:
+        r = next(slot_iter, None)
+        if r is None:
+            ek_satir += 1
+            r = ek_satir
+        # Sıra: slotta varsa koru, yoksa sıradaki numarayı ata
+        mevcut_sira = ws.cell(r, sira_c).value if (sira_c and r <= ws.max_row) else None
+        if sira_c and (mevcut_sira in (None, "")):
+            en_yuksek_sira += 1
             yazimlar[(r, sira_c)] = str(en_yuksek_sira)
         yazimlar[(r, key_c)] = key
-        _satir_hucreleri(r, key, jira[key], uat_eslesme.get(key), True)
+        _satir_hucreleri(r, jira[key], uat_eslesme.get(key), True)
         durum[key] = {"updated": jira[key].get("_updated_iso", ""),
                       "uat_key": uat_eslesme.get(key, {}).get("uat_key", "")}
         eklenen += 1
@@ -456,20 +511,26 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     # ── Yazım ──
     damga = datetime.now().strftime("%Y-%m-%d_%H%M")
     taban = re.sub(r"_\d{4}-\d{2}-\d{2}_\d{4}$", "", excel_path.stem)
-    cikti_ad = f"{taban}_{damga}.xlsx"
-    cikti_yol = cikti_dir / cikti_ad
+    cikti_yol = cikti_dir / f"{taban}_{damga}.xlsx"
 
     if guncellenen == 0 and eklenen == 0:
-        # Hiç değişiklik yok → sadece orijinali kopyala (yazma bile yapma)
-        shutil.copyfile(excel_path, cikti_yol)
+        shutil.copyfile(excel_path, cikti_yol)      # hiç değişiklik yok → sadece kopyala
     else:
-        _surgical_yaz(excel_path, cikti_yol, KAYNAK_SHEET, yazimlar)
+        # Tabloyu yeni son satır/kolonu kapsayacak şekilde genişlet
+        yeni_son_satir = max(t_r2, max((r for r, _ in yazimlar), default=t_r2))
+        yeni_son_kol = max(t_c2, uat_son_kol)
+        tablo_ref = None
+        if tablo is not None:
+            tablo_ref = (f"{_kolon_harf(t_c1)}{t_r1}:"
+                         f"{_kolon_harf(yeni_son_kol)}{yeni_son_satir}")
+        _surgical_yaz(excel_path, cikti_yol, KAYNAK_SHEET, yazimlar,
+                      tablo_ref=tablo_ref, tablo_yeni_kolonlar=UAT_BASLIKLAR)
 
     _durum_yaz(state_path, durum)
 
     return {
         "ok": True,
-        "cikti_dosya": cikti_ad,
+        "cikti_dosya": cikti_yol.name,
         "guncellenen": guncellenen,
         "eklenen": eklenen,
         "degismeyen": degismeyen,
