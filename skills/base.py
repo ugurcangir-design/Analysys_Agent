@@ -2013,6 +2013,9 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
             "surec": str(ozel_prompt.get("surec", "")).strip(),
             "teknik": str(ozel_prompt.get("teknik", "")).strip(),
         },
+        # gorev_analist_notu: Jira Görevleri ekranındaki opsiyonel analist notu.
+        # Doluysa gorev_analiz_et bunu mevcut promptla BİRLİKTE dikkate alır.
+        "gorev_analist_notu": str(ctx.get("gorev_analist_notu", "") or "").strip(),
     }
 
 

@@ -722,8 +722,25 @@ def gorev_analiz_et(gorev: dict) -> dict:
         {"type": "text", "text": f"### Analiz Edilecek Jira Görevi: {gorev.get('key','')}\n\n"
                                  f"**Başlık:** {gorev.get('summary','')}\n\n"
                                  f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
-        {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."},
     ]
+
+    # Analist Notu (opsiyonel) — Jira Görevleri ekranından girilir (context_filter.json).
+    # Doluysa mevcut sistem promptuyla BİRLİKTE dikkate alınır; boşsa hiç eklenmez (token yok).
+    analist_notu = str(ctx.get("gorev_analist_notu", "") or "").strip()
+    if analist_notu:
+        print("  📝 Analist notu dikkate alınıyor (teknik analize dahil).")
+        icerik.append({"type": "text", "text": (
+            "### ANALİST NOTU (bu göreve özel — DİKKATE AL)\n"
+            "Analist bu görev için özel bir yorum/odak/akış belirtti. Teknik analizi üretirken bu notu "
+            "MUTLAKA dikkate al; belirtilen kısma veya akışa özellikle eğil. Bu not mevcut sistem "
+            "promptunun YERİNE geçmez — onunla BİRLİKTE çalışır ve doğruluk, gözlemlenebilirlik ve "
+            "spekülasyon-yasağı kurallarını GEVŞETMEZ (nota dayanarak gözleyemediğin şeyi uydurma).\n\n"
+            f"Not:\n{analist_notu}"
+        )})
+
+    icerik.append(
+        {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."}
+    )
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],
                        max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik(),
                        canli_uygulama_kapsami=("gorev" if canli_baglam else None))

@@ -2292,6 +2292,17 @@ function temaDegistir() {
             </div>
             <div class="la-ipucu" id="jg-la-ipucu"></div>
           </div>
+
+          <!-- Analist Notu — Teknik Analiz Et içeriğini yönlendirir (canlı uygulamadan BAĞIMSIZ) -->
+          <div style="border-top:1px dashed var(--border);margin-top:16px;padding-top:14px">
+            <div class="ctx-field-label" style="display:flex;align-items:center;gap:8px">
+              Analist Notu <span style="font-weight:400;color:var(--text3)">— opsiyonel, Teknik Analiz Et'e özel</span>
+              <span class="panel-spacer"></span>
+              <button class="btn-link" id="jg-not-temizle" onclick="jgAnalistNotuTemizle()" style="display:none">Temizle</button>
+            </div>
+            <div class="ctx-field-sub">Bu göreve özel bir yorum, odak noktası veya detaylı bakılması gereken bir akış varsa yazın. Doluysa <strong>"Teknik Analiz Et"</strong> bunu mevcut promptlarla <strong>birlikte</strong> dikkate alır (doğruluk kurallarını gevşetmeden). Boşsa yok sayılır.</div>
+            <textarea class="ctx-input" id="jg-analist-notu" rows="2" placeholder="örn: Bu görevde 'Add User' modalındaki rol atama akışına ve validasyon mesajlarına özellikle odaklan; kaydet sonrası yetki tazeleme davranışını değerlendir." onchange="jgAnalistNotuKaydet()"></textarea>
+          </div>
         </div>
       </div>
 
@@ -3515,8 +3526,35 @@ async function jgCtxBilgiYukle() {
     if (liveInput) liveInput.value = ctx.live_app_gorev?.target_url || '';
     const scopeInput = document.getElementById('jg-live-scope');
     if (scopeInput) scopeInput.value = ctx.live_app_gorev?.gozlem_kapsami || '';
+    const notInput = document.getElementById('jg-analist-notu');
+    if (notInput) { notInput.value = ctx.gorev_analist_notu || ''; jgAnalistNotuGorunum(); }
     jgLiveAppDurumYenile();
   } catch {}
+}
+
+// ─── Analist Notu — Teknik Analiz Et içeriğini yönlendirir (kalıcı, config'te) ──
+// Boşsa yok sayılır. Aynı context_filter.json'u paylaşır; PATCH semantiği sayesinde
+// yalnızca gorev_analist_notu'nu gönderir, diğer alanlar korunur.
+function jgAnalistNotuGorunum() {
+  const notInput = document.getElementById('jg-analist-notu');
+  const temizleBtn = document.getElementById('jg-not-temizle');
+  if (temizleBtn) temizleBtn.style.display = (notInput && notInput.value.trim()) ? '' : 'none';
+}
+
+async function jgAnalistNotuKaydet() {
+  const not = document.getElementById('jg-analist-notu').value.trim();
+  jgAnalistNotuGorunum();
+  try {
+    await fetch('/api/context-filter', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ gorev_analist_notu: not })});
+    toast(not ? 'Analist notu kaydedildi — Teknik Analiz Et bunu dikkate alacak' : 'Analist notu temizlendi', 'info');
+  } catch (e) {
+    toast('Not kaydedilemedi: ' + e, 'error');
+  }
+}
+
+function jgAnalistNotuTemizle() {
+  document.getElementById('jg-analist-notu').value = '';
+  jgAnalistNotuKaydet();
 }
 
 // ─── Canlı Uygulama (Chrome MCP) — Jira Görevleri'nden task bazlı erişim ─────

@@ -299,6 +299,13 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   YALNIZCA bu başlığı süzer; mevcut arama (`jgFiltrele`) ile birlikte çalışır. Kartlar ortak
   `_jgKartHtml(g, sinif)` ile çizilir (her görev `_grup` etiketiyle hazir/detay sol-kenar rengini korur).
   Export ('tum') aktif filtreye göre. Mevcut iki grup + Sadece Client + aksiyonlar aynen korunur.
+- **Analist Notu (opsiyonel, `context_filter.json → gorev_analist_notu`):** Jira Görevleri ekranındaki
+  textarea (`jg-analist-notu`, canlı-uygulamadan bağımsız; `jgAnalistNotuKaydet`/`jgAnalistNotuTemizle`,
+  PATCH ile yalnızca kendi anahtarını yazar). Doluysa `gorev_analiz_et` bunu analiz kullanıcı-mesajına
+  belirgin bir talimat bloğu olarak ekler ("mevcut promptla BİRLİKTE çalışır, doğruluk/spekülasyon
+  kurallarını GEVŞETMEZ"). Boşsa hiç eklenmez (token yok). YALNIZCA "Teknik Analiz Et"i etkiler
+  (Formatla/Sınıflandır/Sadece Client değişmez). Not: `_context_filter_normalize` (base.py) ve
+  `context_filter_kaydet`/`_oku` (app.py) bu anahtarı açıkça taşır — sabit-şema rebuild'i düşürmesin diye.
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.
 - **İki aksiyon:** *Hızlı İşleme Alınacak* → **Standart Formatla** (4 başlık, Haiku); *Detaylı Analiz
   Gerekir* → **Teknik Analiz Et** (Sonnet + RAG/bağlam filtresi + ayrı Haiku açık-sorular; modal'da

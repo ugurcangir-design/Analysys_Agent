@@ -1876,6 +1876,7 @@ def context_filter_oku():
             data.setdefault("live_app_gorev", {"target_url": ""})
             data.setdefault("live_app_auth", {"username": "", "password": ""})
             data.setdefault("ozel_prompt", {"surec": "", "teknik": ""})
+            data.setdefault("gorev_analist_notu", "")
             return jsonify(data)
         except Exception:
             pass
@@ -2016,6 +2017,10 @@ def context_filter_kaydet():
     # ozel_prompt: analiz-bazlı geçici prompt (varsayılanın yerine geçer; boş = varsayılan).
     ozel_prompt = data["ozel_prompt"] if "ozel_prompt" in data and isinstance(data["ozel_prompt"], dict) else mevcut.get("ozel_prompt", {})
 
+    # gorev_analist_notu: Jira Görevleri ekranında analistin girdiği opsiyonel not.
+    # Doluysa "Teknik Analiz Et" bunu mevcut promptlarla BİRLİKTE dikkate alır (boş = yok say).
+    gorev_analist_notu = data["gorev_analist_notu"] if "gorev_analist_notu" in data else mevcut.get("gorev_analist_notu", "")
+
     filtre = {
         "keywords": temiz_liste(keywords_girdi, lower=True),
         "jira_keys": temiz_liste(jira_keys_girdi, upper=True),
@@ -2038,6 +2043,7 @@ def context_filter_kaydet():
             "surec": str(ozel_prompt.get("surec", "")).strip(),
             "teknik": str(ozel_prompt.get("teknik", "")).strip(),
         },
+        "gorev_analist_notu": str(gorev_analist_notu or "").strip(),
     }
     p.write_text(json.dumps(filtre, ensure_ascii=False, indent=2), encoding="utf-8")
     try:
