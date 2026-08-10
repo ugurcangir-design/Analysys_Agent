@@ -1534,9 +1534,15 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-pill.type { background: var(--surface2); color: var(--text2); }
 .jg-pill.status { background: var(--accent-soft); color: var(--accent); }
 /* Statü filtre çubuğu (Tüm Görevler) */
-.jg-status-filtre { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px dashed var(--border); }
+.jg-status-filtre { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .jg-status-filtre:empty { display: none; }
+.jg-assignee-filtre { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px dashed var(--border); }
+.jg-assignee-filtre:empty { display: none; }
+.jg-assignee-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer; max-width: 340px; }
+.jg-assignee-select:hover { border-color: var(--text3); }
 .jg-fltr-lbl { font-size: 12px; color: var(--text3); margin-right: 2px; }
+.jg-pill.assignee { background: var(--surface2); color: var(--text2); text-transform: none; letter-spacing: 0; display: inline-flex; align-items: center; gap: 4px; }
+.jg-pill.assignee.yok { color: var(--text3); font-style: italic; }
 .jg-chip { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; user-select: none; }
 .jg-chip:hover { border-color: var(--text3); color: var(--text); }
 .jg-chip .jg-chip-cnt { background: var(--surface3); color: var(--text3); border-radius: 20px; padding: 0 7px; font-size: 11px; }
@@ -2341,6 +2347,7 @@ function temaDegistir() {
           </div>
           <div class="panel-body" id="jg-tum-body">
             <div class="jg-status-filtre" id="jg-status-filtre"></div>
+            <div class="jg-assignee-filtre" id="jg-assignee-filtre"></div>
             <div id="jg-tum-list" class="jg-list"></div>
           </div>
         </div>
@@ -3200,16 +3207,61 @@ function _jgYerlestir(d) {
   if (scGrp) scGrp.style.display = 'none';
   _jgScData = [];
   _jgStatusSecili.clear();          // yeni çekimde statü filtresini sıfırla
+  _jgAssigneeSecili = '';           // atanan filtresini de sıfırla
   jgPreviewKapat();
   jgStatusChipCiz();
+  jgAssigneeCiz();
   jgFiltrele();
 }
 
-// ─── Tüm Görevler: statü filtresi (çoklu seçim) ──────────────────────────────
+// ─── Tüm Görevler: statü (çoklu chip) + atanan kişi (dropdown) filtreleri ─────
 const _jgStatusSecili = new Set();   // boş = tümü
+let _jgAssigneeSecili = '';          // '' = tümü, JG_ATANMAMIS = atanmamış, veya isim
+const JG_ATANMAMIS = '__atanmamis__';
 
 function _jgTumGorevler() {
   return [...(_jgData.hazir || []), ...(_jgData.detay || [])];
+}
+
+// Çekilen görevlerdeki atanan kişilerden dropdown üret (sayaçlı, ATANMAMIŞ dahil).
+function jgAssigneeCiz() {
+  const kap = document.getElementById('jg-assignee-filtre');
+  if (!kap) return;
+  const tumu = _jgTumGorevler();
+  const say = {};
+  let atanmamis = 0;
+  tumu.forEach(g => {
+    const a = (g.assignee || '').trim();
+    if (a) say[a] = (say[a] || 0) + 1; else atanmamis++;
+  });
+  const isimler = Object.keys(say).sort((a, b) => a.localeCompare(b, 'tr'));
+  if (!isimler.length && !atanmamis) { kap.innerHTML = ''; return; }
+  let opt = `<option value="">Tümü (${tumu.length})</option>`;
+  opt += isimler.map(n =>
+    `<option value="${escHtml(n)}">${escHtml(n)} (${say[n]})</option>`).join('');
+  if (atanmamis) opt += `<option value="${JG_ATANMAMIS}">ATANMAMIŞ (${atanmamis})</option>`;
+  kap.innerHTML = `<span class="jg-fltr-lbl">Atanan:</span>`
+    + `<select class="jg-assignee-select" id="jg-assignee-select" onchange="jgAssigneeDegis(this.value)">${opt}</select>`;
+  const sel = document.getElementById('jg-assignee-select');
+  if (sel) sel.value = _jgAssigneeSecili;   // yeniden çizimde seçimi koru
+}
+
+function jgAssigneeDegis(val) {
+  _jgAssigneeSecili = val || '';
+  jgTumFiltrele();
+}
+
+// Statü + atanan + arama filtrelerini birlikte uygulayıp listeyi döndürür (ortak).
+function _jgTumFiltreliListe() {
+  const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
+  return _jgTumGorevler().filter(g => {
+    const statuOk = _jgStatusSecili.size === 0 || _jgStatusSecili.has(g.status || '—');
+    const asg = (g.assignee || '').trim();
+    const asgOk = !_jgAssigneeSecili
+      || (_jgAssigneeSecili === JG_ATANMAMIS ? asg === '' : asg === _jgAssigneeSecili);
+    const aramaOk = !q || (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q);
+    return statuOk && asgOk && aramaOk;
+  });
 }
 
 // Çekilen görevlerdeki distinct statülerden sayaçlı chip'ler üret.
@@ -3238,14 +3290,9 @@ function jgStatusToggle(status) {
   jgTumFiltrele();
 }
 
-// "Tüm Görevler" listesini statü + arama ile süz ve çiz (yalnızca bu başlığı etkiler).
+// "Tüm Görevler" listesini statü + atanan + arama ile süz ve çiz (yalnızca bu başlığı etkiler).
 function jgTumFiltrele() {
-  const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
-  const liste = _jgTumGorevler().filter(g => {
-    const statuOk = _jgStatusSecili.size === 0 || _jgStatusSecili.has(g.status || '—');
-    const aramaOk = !q || (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q);
-    return statuOk && aramaOk;
-  });
+  const liste = _jgTumFiltreliListe();
   const kap = document.getElementById('jg-tum-list');
   kap.innerHTML = liste.length
     ? liste.map(g => _jgKartHtml(g, g._grup || 'hazir')).join('')
@@ -3398,12 +3445,7 @@ function _jgGrupListesi(grup) {
   if (grup === 'sc') return _jgScData || [];
   const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
   if (grup === 'tum') {
-    // Ekranda görünen (statü + arama filtreli) liste dışa aktarılır
-    return _jgTumGorevler().filter(g => {
-      const statuOk = _jgStatusSecili.size === 0 || _jgStatusSecili.has(g.status || '—');
-      const aramaOk = !q || (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q);
-      return statuOk && aramaOk;
-    });
+    return _jgTumFiltreliListe();   // ekranda görünen (statü + atanan + arama) liste
   }
   const tumu = (grup === 'hazir' ? _jgData.hazir : _jgData.detay) || [];
   return q ? tumu.filter(g => (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q)) : tumu;
@@ -3680,6 +3722,9 @@ function _jgKartHtml(g, sinif) {
       <span class="jg-summary">${escHtml(g.summary || '')}</span>
       ${g.type ? `<span class="jg-pill type">${escHtml(g.type)}</span>` : ''}
       ${g.status ? `<span class="jg-pill status">${escHtml(g.status)}</span>` : ''}
+      ${g.assignee
+        ? `<span class="jg-pill assignee" title="Atanan kişi">👤 ${escHtml(g.assignee)}</span>`
+        : `<span class="jg-pill assignee yok" title="Atanmamış">ATANMAMIŞ</span>`}
     </div>
     <div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>
     ${eksik}

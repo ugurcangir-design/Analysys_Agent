@@ -299,6 +299,11 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   YALNIZCA bu başlığı süzer; mevcut arama (`jgFiltrele`) ile birlikte çalışır. Kartlar ortak
   `_jgKartHtml(g, sinif)` ile çizilir (her görev `_grup` etiketiyle hazir/detay sol-kenar rengini korur).
   Export ('tum') aktif filtreye göre. Mevcut iki grup + Sadece Client + aksiyonlar aynen korunur.
+  **Atanan kişi:** her kartta atanan rozeti (`assignee` displayName; boşsa italik `ATANMAMIŞ`) +
+  filtre çubuğunda **dropdown** (`jg-assignee-select`: Tümü / her isim sayaçlı / ATANMAMIŞ).
+  `_jgAssigneeSecili` (`''`=tümü, `JG_ATANMAMIS`=atanmamış, veya isim). Statü chip'leri + arama ile
+  birlikte `_jgTumFiltreliListe()` üzerinden AND'lenir; yalnızca "Tüm Görevler"i süzer. `assignee`
+  alanı Jira'dan zaten `_issue_ayrıstir` ile geliyor → 0 token, tamamen frontend.
 - **Analist Notu (opsiyonel, `context_filter.json → gorev_analist_notu`):** Jira Görevleri ekranındaki
   textarea (`jg-analist-notu`, canlı-uygulamadan bağımsız; `jgAnalistNotuKaydet`/`jgAnalistNotuTemizle`,
   PATCH ile yalnızca kendi anahtarını yazar). Doluysa `gorev_analiz_et` bunu analiz kullanıcı-mesajına
