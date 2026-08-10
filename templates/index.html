@@ -3171,7 +3171,7 @@ async function jgGorevleriCek() {
     if (!d.ok) { _jgMsg('jg-fetch-msg', d.error || 'Hata', 'err'); _jgTopbar('Hazır', false); return; }
     _jgParentKey = d.parent_key;
     _jgYerlestir(d);
-    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görev — ${d.hazir.length} hızlı, ${d.detay.length} analiz. Bu ayrım yalnızca FORMAT ön-taraması (içerik incelenmedi). Agent'ın her görevi okuyup karar vermesi için "AI ile Sınıflandır".`, 'ok');
+    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görev çekildi. Triyaj (yalnızca Backlog + atanmamış): ${d.hazir.length} hızlı, ${d.detay.length} analiz — bu ayrım FORMAT ön-taraması (içerik incelenmedi), "AI ile Sınıflandır" ile içerikten karar verilir. İlerlemiş görevler yalnızca "Tüm Görevler"de.`, 'ok');
     _jgTopbar(`${d.toplam} görev çekildi`, false);
   } catch (e) {
     _jgMsg('jg-fetch-msg', 'Bağlantı hatası: ' + e, 'err'); _jgTopbar('Hazır', false);
@@ -3193,7 +3193,7 @@ async function jgSiniflandir() {
     const d = await r.json();
     if (!d.ok) { _jgMsg('jg-fetch-msg', d.error || 'Hata', 'err'); _jgTopbar('Hazır', false); return; }
     _jgYerlestir(d);
-    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görev — ${d.hazir.length} hızlı, ${d.detay.length} analiz (AI ile sınıflandırıldı).`, 'ok');
+    _jgMsg('jg-fetch-msg', `${d.parent_key}: ${d.toplam} görev. Triyaj (Backlog + atanmamış): ${d.hazir.length} hızlı, ${d.detay.length} analiz (AI ile sınıflandırıldı). İlerlemiş görevler yalnızca "Tüm Görevler"de.`, 'ok');
     _jgTopbar('Sınıflandırma tamam', false);
   } catch (e) {
     _jgMsg('jg-fetch-msg', 'Bağlantı hatası: ' + e, 'err'); _jgTopbar('Hazır', false);
@@ -3201,11 +3201,12 @@ async function jgSiniflandir() {
 }
 
 function _jgYerlestir(d) {
-  _jgData = { hazir: d.hazir || [], detay: d.detay || [] };
+  // hazir/detay = triyaj (yalnızca Backlog + atanmamış). tum = TÜM görevler.
+  const tum = d.tum || [...(d.hazir || []), ...(d.detay || [])];
+  _jgData = { hazir: d.hazir || [], detay: d.detay || [], tum };
   _jgGorevler = {};
-  // Her görevi ait olduğu grupla etiketle (Tüm Görevler kartlarında sol kenar rengi için)
-  _jgData.hazir.forEach(g => { g._grup = 'hazir'; _jgGorevler[g.key] = g; });
-  _jgData.detay.forEach(g => { g._grup = 'detay'; _jgGorevler[g.key] = g; });
+  // Aksiyonlar (Formatla/Analiz) tüm görevlerde çalışabilsin diye map TÜM görevlerden
+  tum.forEach(g => { _jgGorevler[g.key] = g; });
   document.getElementById('jg-results').style.display = 'block';
   // Yeniden çekme yapıldığında eski "sadece client" sonucunu gizle (bayat olmasın)
   const scGrp = document.getElementById('jg-sc-group');
@@ -3235,7 +3236,7 @@ let _jgAssigneeSecili = '';          // '' = tümü, JG_ATANMAMIS = atanmamış,
 const JG_ATANMAMIS = '__atanmamis__';
 
 function _jgTumGorevler() {
-  return [...(_jgData.hazir || []), ...(_jgData.detay || [])];
+  return _jgData.tum || [];
 }
 
 // Çekilen görevlerdeki atanan kişilerden dropdown üret (sayaçlı, ATANMAMIŞ dahil).
@@ -3310,7 +3311,7 @@ function jgTumFiltrele() {
   const liste = _jgTumFiltreliListe();
   const kap = document.getElementById('jg-tum-list');
   kap.innerHTML = liste.length
-    ? liste.map(g => _jgKartHtml(g, g._grup || 'hazir')).join('')
+    ? liste.map(g => _jgKartHtml(g, g.durum === 'hazir' || g.durum === 'detay' ? g.durum : '')).join('')
     : '<div class="jg-empty">Seçili filtreye uyan görev yok.</div>';
   document.getElementById('jg-tum-count').textContent = liste.length;
 }
@@ -3331,8 +3332,8 @@ async function jgSadeceClient() {
     _jgMsg('jg-fetch-msg', 'Durduruluyor… (mevcut grup bitince duracak)');
     return;
   }
-  // Tüm görevleri al (baglantililar dahil — 'Görevleri Çek' bunları getirdi)
-  const tumu = [...(_jgData.hazir || []), ...(_jgData.detay || [])];
+  // TÜM görevleri al (yalnızca triyaj değil — 'Görevleri Çek' hepsini getirdi)
+  const tumu = _jgTumGorevler();
   if (!tumu.length) { _jgMsg('jg-fetch-msg', 'Önce görevleri çekin.', 'err'); return; }
 
   const btn = document.getElementById('jg-sc-btn');
@@ -3716,9 +3717,12 @@ function jgGorevineGit(key) {
 // Hem grup listeleri hem "Tüm Görevler" listesi bu ortak kartı kullanır.
 function _jgKartHtml(g, sinif) {
   const eksik = (g.eksikler && g.eksikler.length) ? `<div class="jg-eksik">Eksik: ${escHtml(g.eksikler.join(', '))}</div>` : '';
-  const kaynakRozet = g.kaynak === 'ai'
-    ? '<span class="jg-kaynak ai" title="AI görevin içeriğini okudu">AI incelendi</span>'
-    : '<span class="jg-kaynak yapisal" title="Yalnızca format/bölüm taraması — içerik AI ile incelenmedi">yapısal ön-tarama</span>';
+  // Kaynak/gerekçe satırı yalnızca triyaja giren (Backlog+atanmamış) görevlerde;
+  // triyaj dışı görevlerde (Tüm Görevler'de) kaynak yok → satır gizli.
+  const kaynakRozet = !g.kaynak ? ''
+    : (g.kaynak === 'ai'
+      ? '<span class="jg-kaynak ai" title="AI görevin içeriğini okudu">AI incelendi</span>'
+      : '<span class="jg-kaynak yapisal" title="Yalnızca format/bölüm taraması — içerik AI ile incelenmedi">yapısal ön-tarama</span>');
   const benzerUyari = (g.benzerler && g.benzerler.length)
     ? `<div class="jg-benzer">⚠ Benzer içerik: ${g.benzerler.map(b =>
         `<a href="#" onclick="jgGorevineGit('${escHtml(b.key)}');return false" title="${escHtml(b.summary)}">${escHtml(b.key)}</a> <span class="jg-benzer-skor">%${Math.round(b.skor*100)}</span>`
@@ -3741,7 +3745,7 @@ function _jgKartHtml(g, sinif) {
         ? `<span class="jg-pill assignee" title="Atanan kişi">👤 ${escHtml(g.assignee)}</span>`
         : `<span class="jg-pill assignee yok" title="Atanmamış">ATANMAMIŞ</span>`}
     </div>
-    <div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>
+    ${(kaynakRozet || g.gerekce) ? `<div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>` : ''}
     ${eksik}
     ${benzerUyari}
     <details class="jg-detay-ac">

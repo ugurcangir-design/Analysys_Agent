@@ -503,6 +503,18 @@ def _ai_siniflandir(gorevler: list[dict], parca_boyu: int = 30) -> dict:
     return ai_map
 
 
+def _triyaja_uygun_mu(gorev: dict) -> bool:
+    """Görev, Hızlı İşleme / Detaylı Analiz triyajına girmeli mi?
+
+    Amaç: analistin ANALİZ EDİP DETAYLANDIRACAĞI, henüz işleme alınmamış işler.
+    Kural: durumu Backlog VE atanmamış. UAT / TAMAM / READY FOR TEST / Devam Ediyor
+    gibi ilerlemiş (işe alınmış) durumlar triyaja alınmaz — bunlar yalnızca
+    "Tüm Görevler" listesinde görünür."""
+    status = (gorev.get("status") or "").strip().lower()
+    atanmamis = not (gorev.get("assignee") or "").strip()
+    return "backlog" in status and atanmamis
+
+
 def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
     """İki fazlı sınıflandırma. Her görevde 'kaynak' alanı kararın NEYE dayandığını
     belirtir ('yapisal' = format ön-tarama / 'ai' = içerik incelemesi):
@@ -510,9 +522,13 @@ def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
         Bölüm/dosya işaretlerine bakar; İÇERİĞİ İNCELEMEZ. Şeffaf gerekçe verir.
       - ai_kullan=True (FAZ 2): AI HER görevin içeriğini okuyup sınıflandırır
         (parçalara bölünmüş); kararı gerçek bir gerekçeyle döner. Yapısal sonuç
-        AI başarısız olan görevler için fallback kalır."""
+        AI başarısız olan görevler için fallback kalır.
+
+    Hızlı İşleme / Detaylı Analiz gruplarına YALNIZCA triyaja uygun (Backlog +
+    atanmamış) görevler girer (bkz. `_triyaja_uygun_mu`). Tüm görevler ayrıca
+    'tum' altında döner — "Tüm Görevler" başlığı + statü/atanan filtreleri için."""
     if not gorevler:
-        return {"hazir": [], "detay": []}
+        return {"hazir": [], "detay": [], "tum": []}
 
     for g in gorevler:
         g["yapisal"] = _yapisal_skor(g)
@@ -520,10 +536,13 @@ def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
     # Benzer içerik tespiti — deterministik, 0 token; her görev `benzerler` listesi alır
     benzer_gorevleri_isaretle(gorevler)
 
-    ai_map = _ai_siniflandir(gorevler) if ai_kullan else {}
+    # Triyaj YALNIZCA Backlog + atanmamış görevlerde çalışır (analistin işleme
+    # alacağı fresh işler). İlerlemiş görevler yalnızca "Tüm Görevler"de kalır.
+    uygunlar = [g for g in gorevler if _triyaja_uygun_mu(g)]
+    ai_map = _ai_siniflandir(uygunlar) if ai_kullan else {}
 
     hazir, detay = [], []
-    for g in gorevler:
+    for g in uygunlar:
         ys = g["yapisal"]
         ai = ai_map.get(g["key"])
         if ai and ai.get("durum") in ("hazir", "detay"):
@@ -539,11 +558,12 @@ def gorevleri_siniflandir(gorevler: list[dict], ai_kullan: bool = True) -> dict:
             g["kaynak"] = "yapisal"
         (hazir if g["durum"] == "hazir" else detay).append(g)
 
-    # 'yapisal' iç alanı UI'a gönderilmesin (sade JSON)
+    # 'yapisal' iç alanı UI'a gönderilmesin (sade JSON). Triyaj dışı görevler
+    # durum/gerekce/kaynak ALMAZ — "Tüm Görevler"de nötr kart olarak görünür.
     for g in gorevler:
         g.pop("yapisal", None)
 
-    return {"hazir": hazir, "detay": detay}
+    return {"hazir": hazir, "detay": detay, "tum": gorevler}
 
 
 # ─── Sadece Client (Frontend-only) Ayıklama ──────────────────────────────────

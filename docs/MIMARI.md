@@ -317,6 +317,13 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   sayısını taşır; UI'da kalıcı bilgi notu ("İptal edilmiş biletler listeye dahil edilmemiştir" +
   varsa "N iptal edilen görev çıkarıldı", `#jg-iptal-not`).
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.
+- **Triyaj KAPSAMI — yalnızca Backlog + atanmamış (`_triyaja_uygun_mu`):** *Hızlı İşleme Alınacak* ve
+  *Detaylı Analiz Gerekir* gruplarına YALNIZCA durumu Backlog VE atanmamış görevler girer (analistin
+  işleme alıp detaylandıracağı fresh işler). UAT/TAMAM/READY FOR TEST/Devam Ediyor gibi ilerlemiş
+  görevler triyaja alınmaz. `gorevleri_siniflandir` üç liste döndürür: `hazir`/`detay` (triyaj alt
+  kümesi) + `tum` (TÜM görevler). AI sınıflandırma yalnızca uygun görevlerde çalışır (token tasarrufu).
+  UI: "Tüm Görevler" başlığı `tum`'u gösterir (triyaj dışı kartlar nötr — durum/gerekçe yok);
+  Sadece Client de `tum` üzerinde çalışır; aksiyonlar tüm görevlerde geçerli.
 - **İki aksiyon:** *Hızlı İşleme Alınacak* → **Standart Formatla** (4 başlık, Haiku); *Detaylı Analiz
   Gerekir* → **Teknik Analiz Et** (Sonnet + RAG/bağlam filtresi + ayrı Haiku açık-sorular; modal'da
   2. sekme, Jira'ya yazılmaz). Sadece-client görevlerinde de aynı iki aksiyon kullanılabilir.
