@@ -1533,6 +1533,15 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-pill { font-size: 10px; font-weight: 600; border-radius: 5px; padding: 2px 7px; text-transform: uppercase; letter-spacing: .02em; }
 .jg-pill.type { background: var(--surface2); color: var(--text2); }
 .jg-pill.status { background: var(--accent-soft); color: var(--accent); }
+/* Statü filtre çubuğu (Tüm Görevler) */
+.jg-status-filtre { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px dashed var(--border); }
+.jg-status-filtre:empty { display: none; }
+.jg-fltr-lbl { font-size: 12px; color: var(--text3); margin-right: 2px; }
+.jg-chip { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; user-select: none; }
+.jg-chip:hover { border-color: var(--text3); color: var(--text); }
+.jg-chip .jg-chip-cnt { background: var(--surface3); color: var(--text3); border-radius: 20px; padding: 0 7px; font-size: 11px; }
+.jg-chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.jg-chip.on .jg-chip-cnt { background: var(--accent); color: var(--bg); }
 .jg-gerekce-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .jg-gerekce { font-size: 12px; color: var(--text2); line-height: 1.5; }
 .jg-kaynak { font-size: 9.5px; font-weight: 700; border-radius: 4px; padding: 1px 6px; text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0; }
@@ -2300,6 +2309,28 @@ function temaDegistir() {
             <button class="btn btn-outline" id="jg-sc-btn" onclick="jgSadeceClient()" title="Görevleri tek tek inceler ve HİÇBİR BFF/BE değişikliği gerektirmeden yalnızca client (frontend) tarafında yapılacak olanları ayrı liste olarak verir. Bağlı BE task'ları dikkate alınır. Token harcar.">
               <svg class="ico"><use href="#i-monitor"/></svg> Sadece Client İşleri
             </button>
+          </div>
+        </div>
+
+        <!-- Ana grup: Tüm Görevler + statü filtresi -->
+        <div class="panel jg-group" id="jg-tum-group" style="margin-bottom:14px;border-color:var(--accent)">
+          <div class="panel-head jg-group-head" onclick="jgGrupAc('tum')">
+            <span class="jg-dot" style="background:var(--accent)"></span>
+            <span class="panel-title">Tüm Görevler</span>
+            <span class="badge" id="jg-tum-count" style="background:var(--accent-soft);color:var(--accent)">0</span>
+            <span class="panel-spacer"></span>
+            <span class="jg-sub">statüye göre filtrele</span>
+            <button class="jg-export" onclick="event.stopPropagation();jgKopyala('tum')" title="Görünen listeyi panoya kopyala (anahtar + başlık)">
+              <svg class="ico ico-sm"><use href="#i-clipboard"/></svg>
+            </button>
+            <button class="jg-export" onclick="event.stopPropagation();jgCsvIndir('tum')" title="Görünen listeyi CSV indir">
+              <svg class="ico ico-sm"><use href="#i-download"/></svg>
+            </button>
+            <svg class="ico jg-caret" id="jg-caret-tum"><use href="#i-chevron-down"/></svg>
+          </div>
+          <div class="panel-body" id="jg-tum-body">
+            <div class="jg-status-filtre" id="jg-status-filtre"></div>
+            <div id="jg-tum-list" class="jg-list"></div>
           </div>
         </div>
 
@@ -3149,14 +3180,66 @@ async function jgSiniflandir() {
 function _jgYerlestir(d) {
   _jgData = { hazir: d.hazir || [], detay: d.detay || [] };
   _jgGorevler = {};
-  [..._jgData.hazir, ..._jgData.detay].forEach(g => { _jgGorevler[g.key] = g; });
+  // Her görevi ait olduğu grupla etiketle (Tüm Görevler kartlarında sol kenar rengi için)
+  _jgData.hazir.forEach(g => { g._grup = 'hazir'; _jgGorevler[g.key] = g; });
+  _jgData.detay.forEach(g => { g._grup = 'detay'; _jgGorevler[g.key] = g; });
   document.getElementById('jg-results').style.display = 'block';
   // Yeniden çekme yapıldığında eski "sadece client" sonucunu gizle (bayat olmasın)
   const scGrp = document.getElementById('jg-sc-group');
   if (scGrp) scGrp.style.display = 'none';
   _jgScData = [];
+  _jgStatusSecili.clear();          // yeni çekimde statü filtresini sıfırla
   jgPreviewKapat();
+  jgStatusChipCiz();
   jgFiltrele();
+}
+
+// ─── Tüm Görevler: statü filtresi (çoklu seçim) ──────────────────────────────
+const _jgStatusSecili = new Set();   // boş = tümü
+
+function _jgTumGorevler() {
+  return [...(_jgData.hazir || []), ...(_jgData.detay || [])];
+}
+
+// Çekilen görevlerdeki distinct statülerden sayaçlı chip'ler üret.
+function jgStatusChipCiz() {
+  const kap = document.getElementById('jg-status-filtre');
+  if (!kap) return;
+  const tumu = _jgTumGorevler();
+  const say = {};
+  tumu.forEach(g => { const s = g.status || '—'; say[s] = (say[s] || 0) + 1; });
+  const statuler = Object.keys(say).sort((a, b) => say[b] - say[a]);
+  if (!statuler.length) { kap.innerHTML = ''; return; }
+  const tumuAktif = _jgStatusSecili.size === 0;
+  let html = '<span class="jg-fltr-lbl">Statü:</span>';
+  html += `<span class="jg-chip ${tumuAktif ? 'on' : ''}" onclick="jgStatusToggle('')">Tümü <span class="jg-chip-cnt">${tumu.length}</span></span>`;
+  html += statuler.map(s =>
+    `<span class="jg-chip ${_jgStatusSecili.has(s) ? 'on' : ''}" onclick="jgStatusToggle('${escHtml(s).replace(/'/g, "\\'")}')">${escHtml(s)} <span class="jg-chip-cnt">${say[s]}</span></span>`
+  ).join('');
+  kap.innerHTML = html;
+}
+
+function jgStatusToggle(status) {
+  if (!status) { _jgStatusSecili.clear(); }         // "Tümü" → filtreyi kaldır
+  else if (_jgStatusSecili.has(status)) { _jgStatusSecili.delete(status); }
+  else { _jgStatusSecili.add(status); }
+  jgStatusChipCiz();
+  jgTumFiltrele();
+}
+
+// "Tüm Görevler" listesini statü + arama ile süz ve çiz (yalnızca bu başlığı etkiler).
+function jgTumFiltrele() {
+  const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
+  const liste = _jgTumGorevler().filter(g => {
+    const statuOk = _jgStatusSecili.size === 0 || _jgStatusSecili.has(g.status || '—');
+    const aramaOk = !q || (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q);
+    return statuOk && aramaOk;
+  });
+  const kap = document.getElementById('jg-tum-list');
+  kap.innerHTML = liste.length
+    ? liste.map(g => _jgKartHtml(g, g._grup || 'hazir')).join('')
+    : '<div class="jg-empty">Seçili filtreye uyan görev yok.</div>';
+  document.getElementById('jg-tum-count').textContent = liste.length;
 }
 
 // Sadece Client İşleri — görevleri PARÇALAYARAK incele, YALNIZCA frontend
@@ -3282,6 +3365,7 @@ function jgFiltrele() {
   const detayGrp = document.getElementById('jg-caret-detay').closest('.jg-group');
   hazirGrp.style.display = (q && h.length === 0) ? 'none' : '';
   detayGrp.style.display = (q && dt.length === 0) ? 'none' : '';
+  jgTumFiltrele();   // arama "Tüm Görevler" başlığını da süzer (statü seçimiyle birlikte)
 }
 
 function jgGrupAc(grup) {
@@ -3293,6 +3377,7 @@ function jgGrupAc(grup) {
 // Üç grup da dışa aktarılabilir. Aramada filtre uygulanmışsa EKRANDA GÖRÜNEN
 // liste dışa aktarılır (analist ne görüyorsa onu paylaşır).
 const _JG_GRUP_ADI = {
+  tum:   'Tüm Görevler',
   hazir: 'Hızlı İşleme Alınacak',
   detay: 'Detaylı Analiz Gerekir',
   sc:    'Sadece Client (Frontend) İşleri',
@@ -3301,12 +3386,20 @@ const _JG_GRUP_ADI = {
 function _jgGrupListesi(grup) {
   if (grup === 'sc') return _jgScData || [];
   const q = (document.getElementById('jg-search').value || '').trim().toLowerCase();
+  if (grup === 'tum') {
+    // Ekranda görünen (statü + arama filtreli) liste dışa aktarılır
+    return _jgTumGorevler().filter(g => {
+      const statuOk = _jgStatusSecili.size === 0 || _jgStatusSecili.has(g.status || '—');
+      const aramaOk = !q || (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q);
+      return statuOk && aramaOk;
+    });
+  }
   const tumu = (grup === 'hazir' ? _jgData.hazir : _jgData.detay) || [];
   return q ? tumu.filter(g => (g.key + ' ' + (g.summary || '')).toLowerCase().includes(q)) : tumu;
 }
 
 function _jgDosyaAdi(grup, uzanti) {
-  const slug = {hazir: 'hizli-isleme', detay: 'detayli-analiz', sc: 'sadece-client'}[grup] || grup;
+  const slug = {tum: 'tum-gorevler', hazir: 'hizli-isleme', detay: 'detayli-analiz', sc: 'sadece-client'}[grup] || grup;
   const anahtar = (_jgParentKey || 'gorevler').toLowerCase();
   const tarih = new Date().toISOString().slice(0, 10);
   return `${anahtar}-${slug}-${tarih}.${uzanti}`;
@@ -3524,50 +3617,52 @@ function jgGorevineGit(key) {
   setTimeout(() => el.classList.remove('jg-vurgu'), 1500);
 }
 
+// Tek bir görev kartının HTML'i. `sinif` = 'hazir'|'detay' (sol kenar rengi).
+// Hem grup listeleri hem "Tüm Görevler" listesi bu ortak kartı kullanır.
+function _jgKartHtml(g, sinif) {
+  const eksik = (g.eksikler && g.eksikler.length) ? `<div class="jg-eksik">Eksik: ${escHtml(g.eksikler.join(', '))}</div>` : '';
+  const kaynakRozet = g.kaynak === 'ai'
+    ? '<span class="jg-kaynak ai" title="AI görevin içeriğini okudu">AI incelendi</span>'
+    : '<span class="jg-kaynak yapisal" title="Yalnızca format/bölüm taraması — içerik AI ile incelenmedi">yapısal ön-tarama</span>';
+  const benzerUyari = (g.benzerler && g.benzerler.length)
+    ? `<div class="jg-benzer">⚠ Benzer içerik: ${g.benzerler.map(b =>
+        `<a href="#" onclick="jgGorevineGit('${escHtml(b.key)}');return false" title="${escHtml(b.summary)}">${escHtml(b.key)}</a> <span class="jg-benzer-skor">%${Math.round(b.skor*100)}</span>`
+      ).join(' · ')}</div>`
+    : '';
+  const yorumlar = (g.comments && g.comments.length)
+    ? `<details class="jg-detay-ac"><summary>Yorumlar (${g.comments.length})</summary><div class="jg-yorumlar">${
+        g.comments.slice(-3).map(c =>
+          `<div class="jg-yorum"><span class="jg-yorum-meta">${escHtml(c.yazar || 'bilinmiyor')} · ${escHtml(c.tarih || '')}</span><div class="jg-yorum-metin">${escHtml(c.metin || '')}</div></div>`
+        ).join('')
+      }</div></details>`
+    : '';
+  return `<div class="jg-item ${sinif}" id="jg-card-${escHtml(g.key)}">
+    <div class="jg-item-top">
+      <span class="jg-key">${escHtml(g.key)}</span>
+      <span class="jg-summary">${escHtml(g.summary || '')}</span>
+      ${g.type ? `<span class="jg-pill type">${escHtml(g.type)}</span>` : ''}
+      ${g.status ? `<span class="jg-pill status">${escHtml(g.status)}</span>` : ''}
+    </div>
+    <div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>
+    ${eksik}
+    ${benzerUyari}
+    <details class="jg-detay-ac">
+      <summary>İçeriği gör</summary>
+      <div class="jg-icerik">${g.description ? escHtml(g.description) : '(Jira görevinde açıklama yok)'}</div>
+    </details>
+    ${yorumlar}
+    <div class="jg-item-actions">
+      <button onclick="jgFormatla('${escHtml(g.key)}')">Standart Formatla</button>
+      <button onclick="jgAnaliz('${escHtml(g.key)}')">Teknik Analiz Et</button>
+    </div>
+  </div>`;
+}
+
 function jgListeCiz(containerId, liste, hazirMi) {
   const kap = document.getElementById(containerId);
   if (!liste.length) { kap.innerHTML = '<div class="jg-empty">Bu kategoride görev yok.</div>'; return; }
   const sinif = hazirMi ? 'hazir' : 'detay';
-  kap.innerHTML = liste.map(g => {
-    const eksik = (g.eksikler && g.eksikler.length) ? `<div class="jg-eksik">Eksik: ${escHtml(g.eksikler.join(', '))}</div>` : '';
-    const kaynakRozet = g.kaynak === 'ai'
-      ? '<span class="jg-kaynak ai" title="AI görevin içeriğini okudu">AI incelendi</span>'
-      : '<span class="jg-kaynak yapisal" title="Yalnızca format/bölüm taraması — içerik AI ile incelenmedi">yapısal ön-tarama</span>';
-    // Benzer içerik uyarısı: hangi görev(ler) ile örtüşüyor?
-    const benzerUyari = (g.benzerler && g.benzerler.length)
-      ? `<div class="jg-benzer">⚠ Benzer içerik: ${g.benzerler.map(b =>
-          `<a href="#" onclick="jgGorevineGit('${escHtml(b.key)}');return false" title="${escHtml(b.summary)}">${escHtml(b.key)}</a> <span class="jg-benzer-skor">%${Math.round(b.skor*100)}</span>`
-        ).join(' · ')}</div>`
-      : '';
-    // Yorumlar (varsa) — son 3
-    const yorumlar = (g.comments && g.comments.length)
-      ? `<details class="jg-detay-ac"><summary>Yorumlar (${g.comments.length})</summary><div class="jg-yorumlar">${
-          g.comments.slice(-3).map(c =>
-            `<div class="jg-yorum"><span class="jg-yorum-meta">${escHtml(c.yazar || 'bilinmiyor')} · ${escHtml(c.tarih || '')}</span><div class="jg-yorum-metin">${escHtml(c.metin || '')}</div></div>`
-          ).join('')
-        }</div></details>`
-      : '';
-    return `<div class="jg-item ${sinif}" id="jg-card-${escHtml(g.key)}">
-      <div class="jg-item-top">
-        <span class="jg-key">${escHtml(g.key)}</span>
-        <span class="jg-summary">${escHtml(g.summary || '')}</span>
-        ${g.type ? `<span class="jg-pill type">${escHtml(g.type)}</span>` : ''}
-        ${g.status ? `<span class="jg-pill status">${escHtml(g.status)}</span>` : ''}
-      </div>
-      <div class="jg-gerekce-row">${kaynakRozet}${g.gerekce ? `<span class="jg-gerekce">${escHtml(g.gerekce)}</span>` : ''}</div>
-      ${eksik}
-      ${benzerUyari}
-      <details class="jg-detay-ac">
-        <summary>İçeriği gör</summary>
-        <div class="jg-icerik">${g.description ? escHtml(g.description) : '(Jira görevinde açıklama yok)'}</div>
-      </details>
-      ${yorumlar}
-      <div class="jg-item-actions">
-        <button onclick="jgFormatla('${escHtml(g.key)}')">Standart Formatla</button>
-        <button onclick="jgAnaliz('${escHtml(g.key)}')">Teknik Analiz Et</button>
-      </div>
-    </div>`;
-  }).join('');
+  kap.innerHTML = liste.map(g => _jgKartHtml(g, sinif)).join('');
 }
 
 async function _jgIslem(key, endpoint, baslik, bekleMesaji) {

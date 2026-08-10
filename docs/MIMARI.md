@@ -292,6 +292,13 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   timeout olurken sunucu arka planda öğütmeye (token harcamaya) devam ediyordu.
   UI: mevcut iki grubu bozmadan 3. grup `#jg-sc-group` (varsayılan gizli, butonla üretilir); yeniden
   çekmede bayat sonuç gizlenir.
+- **Tüm Görevler + statü filtresi (UI, `#jg-tum-group` — 0 token, tamamen frontend):** sonuç alanının
+  EN ÜSTÜNDE, çekilen tüm görevleri listeleyen ana başlık. İçinde dinamik **statü filtre çubuğu**
+  (`#jg-status-filtre`) — görevlerdeki distinct Jira statülerinden sayaçlı chip'ler (`Tümü` + her statü).
+  **Çoklu seçim** (`_jgStatusSecili` Set; boş=tümü), `jgStatusToggle`/`jgTumFiltrele`. Statü filtresi
+  YALNIZCA bu başlığı süzer; mevcut arama (`jgFiltrele`) ile birlikte çalışır. Kartlar ortak
+  `_jgKartHtml(g, sinif)` ile çizilir (her görev `_grup` etiketiyle hazir/detay sol-kenar rengini korur).
+  Export ('tum') aktif filtreye göre. Mevcut iki grup + Sadece Client + aksiyonlar aynen korunur.
 - **Benzer içerik:** `benzer_gorevleri_isaretle` Jaccard (eşik 0.35, 0 token) → kartta sarı uyarı + link.
 - **İki aksiyon:** *Hızlı İşleme Alınacak* → **Standart Formatla** (4 başlık, Haiku); *Detaylı Analiz
   Gerekir* → **Teknik Analiz Et** (Sonnet + RAG/bağlam filtresi + ayrı Haiku açık-sorular; modal'da
