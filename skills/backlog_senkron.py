@@ -56,6 +56,8 @@ HEADER_SATIR = 3
 KEY_BASLIK = "TRADE/OPERATION BOARD"
 SIRA_BASLIK = "Sıra"
 ALAN_BASLIK = "Alan"
+UAT_BOARD_BASLIK = "UAT BOARD"          # kullanıcının manuel UAT referansları (kolon Q) — sadece OKUNUR
+_UAT_REF_DESENI = re.compile(r"MBSUATEAM-\d+", re.IGNORECASE)
 
 JIRA_KOLON_ESLEME = {
     "Özet": "summary",
@@ -456,10 +458,12 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     key_c = basliklar[KEY_BASLIK]
     sira_c = basliklar.get(SIRA_BASLIK)
     alan_c = basliklar.get(ALAN_BASLIK)
+    q_c = _kolon_bul(basliklar, UAT_BOARD_BASLIK)   # manuel UAT referans kolonu (yalnızca okunur)
 
     # ── Mevcut satırlar + boş rezerve slotlar ──
     key_satir: dict[str, int] = {}
     alan_bos: dict[str, bool] = {}
+    q_uat: dict[str, bool] = {}         # kolon Q'da MBSUATEAM referansı var mı (manuel eşleme)
     en_yuksek_sira = 0
     bos_slotlar: list[int] = []
     for r in range(HEADER_SATIR + 1, max(t_r2, ws.max_row) + 1):
@@ -468,6 +472,7 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
             key = str(k).strip()
             key_satir[key] = r
             alan_bos[key] = (alan_c is not None and ws.cell(r, alan_c).value in (None, ""))
+            q_uat[key] = bool(q_c and _UAT_REF_DESENI.search(str(ws.cell(r, q_c).value or "")))
         elif r <= t_r2:
             # Tablo içi, key'siz VE (Sıra hariç) tamamen boş satır → doldurulabilir slot
             if all(ws.cell(r, c).value in (None, "") for c in range(1, t_c2 + 1) if c != sira_c):
@@ -508,7 +513,8 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
             continue
         alanlar = jira[key]
         yeni_iso = alanlar.get("_updated_iso", "")
-        eslendi = key in uat_eslesme
+        # EŞLENDİ: Jira `relates` linki VAR *veya* kolon Q'da manuel MBSUATEAM referansı var
+        eslendi = (key in uat_eslesme) or q_uat.get(key, False)
         onceki = durum.get(key, {})
         esleme_degisti = eslendi != onceki.get("eslendi")
         if yeni_iso and yeni_iso == onceki.get("updated") and not esleme_degisti:
