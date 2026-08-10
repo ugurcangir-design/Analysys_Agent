@@ -1484,6 +1484,12 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-msg { font-size: 12px; color: var(--text3); margin-top: 10px; min-height: 15px; }
 .jg-msg.err { color: var(--red); }
 .jg-msg.ok { color: var(--green); }
+/* Backlog Senkron sonuç kartları */
+.bs-ozet { display: flex; flex-wrap: wrap; gap: 12px; }
+.bs-stat { flex: 1 1 120px; min-width: 110px; padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; text-align: center; }
+.bs-stat .bs-num { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.bs-stat .bs-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.bs-stat.bs-muted .bs-num { color: var(--text2); }
 .jg-ctx-bilgi { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 9px 12px; background: var(--info-bg, rgba(59,130,246,.08)); border: 1px solid var(--info-bd, rgba(59,130,246,.25)); border-radius: 6px; font-size: 12px; color: var(--text2); }
 .jg-ctx-bilgi .ico { width: 13px; height: 13px; color: var(--info-tx, #3b82f6); flex-shrink: 0; }
 .jg-ctx-bilgi > span { flex: 1; line-height: 1.5; }
@@ -1681,6 +1687,10 @@ function temaDegistir() {
       <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
         <svg class="ico"><use href="#i-ticket"/></svg>
         <span class="nav-label">Jira Görevleri</span>
+      </div>
+      <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="nav-label">Backlog Senkron</span>
       </div>
 
       <div class="nav-section">Çıktılar</div>
@@ -2390,6 +2400,47 @@ function temaDegistir() {
       </div>
     </div>
 
+    <!-- ══ Backlog Senkron ══ -->
+    <div class="page" id="page-backlog-senkron">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Backlog Senkron</h1>
+          <p>UAT board'unda (MBSUATEAM) product'ın açtığı taskların TRADE/OPS board karşılıklarını ve durumlarını takip Excel'ine işler. <strong>Tamamen deterministik — LLM/token harcamaz.</strong> Değişmeyen satırlara dokunmaz, manuel not kolonlarınızı korur, orijinali değiştirmeden zaman damgalı yeni bir kopya üretir.</p>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title">Takip Excel'i</span>
+          <span class="panel-tag">ADIM 1</span>
+        </div>
+        <div class="panel-body">
+          <p class="ctx-field-sub" style="margin-top:0">İçinde <code>Excel Maddeleri</code> sayfası bulunan takip dosyasını (.xlsx) yükleyin. İlk gün orijinal dosyanızı, sonraki günler bir önceki gün indirdiğiniz güncel kopyayı yükleyin — agent kendi kolonlarını başlık adından tanır, tekrarlamaz.</p>
+          <div class="jg-fetch-row" style="align-items:center">
+            <input type="file" id="bs-file" accept=".xlsx" onchange="bsDosyaSec()" style="flex:1">
+            <button class="btn btn-primary" id="bs-run-btn" onclick="bsSenkronize()" disabled>
+              <svg class="ico"><use href="#i-refresh"/></svg> Senkronize Et
+            </button>
+          </div>
+          <div id="bs-msg" class="jg-msg"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="bs-sonuc-panel" style="display:none">
+        <div class="panel-head">
+          <span class="panel-title">Sonuç</span>
+          <span class="panel-spacer"></span>
+          <button class="btn btn-primary btn-sm" id="bs-indir-btn" onclick="bsIndir()">
+            <svg class="ico"><use href="#i-download"/></svg> Güncel Excel'i İndir
+          </button>
+        </div>
+        <div class="panel-body">
+          <div class="bs-ozet" id="bs-ozet"></div>
+          <div id="bs-uyari" class="jg-msg" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="page-output">
       <div class="output-toolbar">
         <div class="output-tabs" id="output-tabs">
@@ -3001,7 +3052,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'Backlog Senkron',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Jira Görevleri sekmesi: üst bar workflow yerine bu sayfanın durumunu gösterir
   _jgTabAktif = (tab === 'jira-gorevler');
@@ -3614,6 +3665,68 @@ async function jgJiraGuncelle() {
     _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
     btn.disabled = false;
   }
+}
+
+// ─── Backlog Senkron ────────────────────────────────────────────────────────
+let _bsDosya = null;      // sunucuya yüklenmiş kaynak dosya adı
+let _bsCikti = null;      // üretilen indirilebilir dosya adı
+
+function bsMsg(html, tip) {
+  const el = document.getElementById('bs-msg');
+  el.className = 'jg-msg' + (tip ? ' ' + tip : '');
+  el.innerHTML = html;
+}
+
+function bsDosyaSec() {
+  const f = document.getElementById('bs-file').files[0];
+  document.getElementById('bs-run-btn').disabled = !f;
+  document.getElementById('bs-sonuc-panel').style.display = 'none';
+  bsMsg(f ? `Seçildi: <strong>${f.name}</strong>` : '');
+}
+
+async function bsSenkronize() {
+  const f = document.getElementById('bs-file').files[0];
+  if (!f) { bsMsg('Önce bir .xlsx dosyası seçin.', 'err'); return; }
+  const btn = document.getElementById('bs-run-btn');
+  btn.disabled = true;
+  bsMsg('Yükleniyor…');
+  try {
+    const fd = new FormData(); fd.append('file', f);
+    const up = await fetch('/api/backlog/upload', { method: 'POST', body: fd });
+    const upData = await up.json();
+    if (!up.ok) { bsMsg('Yükleme hatası: ' + (upData.error || up.status), 'err'); btn.disabled = false; return; }
+    _bsDosya = upData.dosya;
+
+    bsMsg('Jira ile senkronize ediliyor… (UAT board taranıyor, değişen tasklar okunuyor — token harcanmaz)');
+    const r = await fetch('/api/backlog/senkronize', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dosya: _bsDosya })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) { bsMsg('Senkron hatası: ' + (d.error || r.status), 'err'); btn.disabled = false; return; }
+
+    _bsCikti = d.cikti_dosya;
+    bsMsg('');
+    document.getElementById('bs-ozet').innerHTML =
+      `<div class="bs-stat"><div class="bs-num">${d.eklenen}</div><div class="bs-lbl">Yeni satır eklendi</div></div>`
+    + `<div class="bs-stat"><div class="bs-num">${d.guncellenen}</div><div class="bs-lbl">Satır güncellendi</div></div>`
+    + `<div class="bs-stat"><div class="bs-num">${d.yeni_uat_baglantisi}</div><div class="bs-lbl">Yeni UAT bağlantısı</div></div>`
+    + `<div class="bs-stat bs-muted"><div class="bs-num">${d.degismeyen}</div><div class="bs-lbl">Değişmedi (dokunulmadı)</div></div>`
+    + `<div class="bs-stat bs-muted"><div class="bs-num">${d.toplam_satir}</div><div class="bs-lbl">Toplam satır</div></div>`;
+    const uy = document.getElementById('bs-uyari');
+    uy.innerHTML = (d.uyarilar && d.uyarilar.length)
+      ? '⚠️ ' + d.uyarilar.join('<br>⚠️ ') : '';
+    document.getElementById('bs-sonuc-panel').style.display = '';
+    toast('Senkron tamam: +' + d.eklenen + ' yeni, ' + d.guncellenen + ' güncel. Excel indirmeye hazır.', 'success');
+  } catch (e) {
+    bsMsg('Beklenmeyen hata: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function bsIndir() {
+  if (_bsCikti) window.location.href = '/api/backlog/indir/' + encodeURIComponent(_bsCikti);
 }
 
 // ─── Onboarding Banner'ları (her biri 1 kez gösterilir) ─────────────────────

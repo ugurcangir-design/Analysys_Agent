@@ -19,7 +19,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, abort, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, abort, session, redirect, url_for, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from skills.atlassian import (
     env_oku as _env_oku,
@@ -40,9 +40,11 @@ CONF_DIR     = REF_DIR / "confluence"
 JIRA_REF_DIR = REF_DIR / "jira"
 SERVIS_DIR   = REF_DIR / "services"
 LIVE_APP_DIR = REF_DIR / "live-app"
+BACKLOG_DIR  = BASE_DIR / "backlog"          # Backlog Senkron: yüklenen + üretilen Excel'ler
 
 for d in [INPUT_DIR, OUTPUT_DIR, REF_DIR / "current-brd",
-          CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR, HISTORY_DIR, LOG_DIR]:
+          CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR, HISTORY_DIR, LOG_DIR,
+          BACKLOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 LOG_FILE = LOG_DIR / "app.log"
@@ -732,6 +734,56 @@ def upload():
     f.save(str(hedef))
     logger.info(f"Dosya yüklendi: {guvenli_ad}")
     return jsonify({"ok": True, "dosya": guvenli_ad})
+
+
+# ─── Backlog Senkron (UAT ↔ TRADE/OPS takip Excel'i) ────────────────────────────
+# Deterministik, 0-token: LLM/MCP ÇAĞRILMAZ. Jira REST okuması + Excel yazımı.
+@app.route("/api/backlog/upload", methods=["POST"])
+def backlog_upload():
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "Dosya seçilmedi"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"ok": False, "error": "Dosya adı boş"}), 400
+    if Path(f.filename).suffix.lower() != ".xlsx":
+        return jsonify({"ok": False, "error": "Yalnızca .xlsx dosyası yükleyin"}), 400
+    guvenli_ad = Path(f.filename).name
+    hedef = BACKLOG_DIR / guvenli_ad
+    f.save(str(hedef))
+    logger.info("Backlog Excel yüklendi: %s", guvenli_ad)
+    return jsonify({"ok": True, "dosya": guvenli_ad})
+
+
+@app.route("/api/backlog/senkronize", methods=["POST"])
+def backlog_senkronize():
+    data = request.get_json(force=True) or {}
+    dosya = (data.get("dosya") or "").strip()
+    if not dosya or Path(dosya).name != dosya or not dosya.lower().endswith(".xlsx"):
+        return jsonify({"ok": False, "error": "Geçersiz dosya"}), 400
+    kaynak = BACKLOG_DIR / dosya
+    if not kaynak.exists():
+        return jsonify({"ok": False, "error": "Önce Excel yükleyin"}), 404
+    try:
+        from skills.backlog_senkron import senkronize_et
+        sonuc = senkronize_et(kaynak, BACKLOG_DIR,
+                              state_path=BACKLOG_DIR / "senkron_state.json")
+        logger.info("Backlog senkron: +%s güncel, +%s yeni, %s değişmedi",
+                    sonuc["guncellenen"], sonuc["eklenen"], sonuc["degismeyen"])
+        return jsonify(sonuc)
+    except Exception as e:
+        logger.exception("Backlog senkron hatası")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/backlog/indir/<path:dosya>")
+def backlog_indir(dosya: str):
+    if Path(dosya).name != dosya or not dosya.lower().endswith(".xlsx"):
+        abort(404)
+    yol = BACKLOG_DIR / dosya
+    if not yol.exists():
+        abort(404)
+    return send_file(str(yol), as_attachment=True, download_name=dosya,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def _stale_workflow_kurtar() -> None:

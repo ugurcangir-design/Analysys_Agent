@@ -207,6 +207,35 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
   json `result` tam döner, `stop_reason`/`is_error` ile kesilme tespiti. `_claude_yolu_bul()` PATH'e
   bağımlı değil (GUI minimal PATH için nvm/~.local/homebrew tarar).
 
+## Backlog Senkron (`skills/backlog_senkron.py` + UI `page-backlog-senkron`)
+Product'ın **UAT board'unda** (MBSUATEAM) açtığı taskların bizim **TRADE/OPS board**
+(MBSTRADE/MBSOPS) karşılıklarını ve durumlarını bir takip Excel'ine işler. Analist her gün
+ekrandan tek tıkla çalıştırır, güncel Excel'i indirir.
+- **0 LLM tokenı — tamamen deterministik.** `claude -p`/MCP ÇAĞRILMAZ; yalnızca Jira REST
+  okuması + Excel yazımı. Deterministik işleme kalıbıyla (belirsizlik_denetimi vb.) aynı felsefe.
+- **Bağ mekanizması (Jira ile doğrulandı):** UAT taskı --`relates to`--> TRADE/OPS taskı.
+  `_uat_board_tara` UAT board'unu (JQL, sayfalı) tarayıp her UAT taskının bağlı çalışma-taskı
+  key'lerini toplar. Bir UAT birden çok TRADE/OPS taskına bağlanabilir; her çalışma taskı = bir satır.
+- **Değişmeyene iş yapma:** yan durum dosyası (`backlog/senkron_state.json`) her key için son Jira
+  `updated` + `uat_key` tutar. Satırın Jira damgası değişmediyse VE UAT bağı aynıysa o satıra tek
+  hücre yazılmaz. Hiç değişiklik yoksa dosya sadece kopyalanır (yazım bile yapılmaz).
+- **Kolon sahipliği:** agent YALNIZCA Jira kolonlarını (Özet, Konu Türü, Durum, Öncelik, Oluşturulan,
+  Güncellendi, Etiketler) + agent'a ait yeni UAT kolonlarını (`UAT Key`/`UAT Durum`/`UAT Özet`, sağa
+  Y/Z/AA olarak, başlık adından tanınır → idempotent) yazar. Diğer TÜM kolonlar (İlgili Analist,
+  Priority, Öncelik Grubu, Efor Skoru, **UAT BOARD [kolon Q]**, Status, Product Onayı, Bağımlılık/Not,
+  Açıklama Kısa, **Eski Task Ekran Görüntüsü**) hiç okunmaz/yazılmaz. Yeni UAT taskları (Excel'de satırı
+  olmayan) auto-add ile en alta eklenir.
+- **DOSYA BOZMA — CERRAHİ YAZIM (KRİTİK):** Takip Excel'i hücre-içi görseller (richData/`vm=`,
+  ekran görüntüleri), Excel Tablosu (ListObject), hyperlink'ler ve gizli sayfalar içerir. openpyxl
+  kaydederken bunları DÜŞÜRÜR (~999KB → ~77KB, 6 PNG kaybı). Bu yüzden **okuma openpyxl (salt-okuma),
+  yazım `lxml` ile cerrahi zip düzenlemesidir**: `_surgical_yaz` zip içinde YALNIZCA hedef sayfanın
+  XML'ini değiştirir (`inlineStr` hücreler, üstteki hücreden stil kopyalar), diğer TÜM parçaları
+  (medya/richData/metadata/tablo/`[Content_Types].xml`/diğer sayfalar) bit-bit korur. Orijinalin
+  üstüne yazılmaz; zaman damgalı KOPYA üretilir (`<taban>_YYYY-MM-DD_HHMM.xlsx`).
+- **Endpoint'ler:** `POST /api/backlog/upload` (xlsx yükle) · `POST /api/backlog/senkronize`
+  (`{dosya}` → özet JSON) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
+  altında (gitignore). Bağımlılık: `openpyxl`, `lxml` (requirements.txt).
+
 ## Jira Görevleri Özelliği (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`)
 Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip triyaj eder.
 - **Çekme — İKİ AŞAMALI (keşif + taze okuma):**

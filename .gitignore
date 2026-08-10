@@ -62,3 +62,6 @@ reference/sources.json
 .playwright-mcp/
 # .claude/skills ile birebir mükerrer (bkz. AGENTS.md)
 .agents/
+
+# Backlog Senkron runtime (yüklenen/üretilen Excel'ler)
+backlog/
