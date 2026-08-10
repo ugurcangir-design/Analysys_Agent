@@ -66,10 +66,11 @@ JIRA_KOLON_ESLEME = {
     "Güncellendi": "updated",
     "Etiketler": "labels",
 }
-UAT_KEY_BASLIK = "UAT Key"
-UAT_DURUM_BASLIK = "UAT Durum"
-UAT_OZET_BASLIK = "UAT Özet"
-UAT_BASLIKLAR = [UAT_KEY_BASLIK, UAT_DURUM_BASLIK, UAT_OZET_BASLIK]
+# Agent'a ait TEK kolon: UAT board'unda karşılığı olan (bizim task'ımıza bağlı UAT
+# taskı bulunan) satırlar EŞLENDİ, olmayanlar EŞLENMEDİ. Başlık adından tanınır → idempotent.
+ESLEME_BASLIK = "UAT - BOARD EŞLEME"
+ESLENDI = "EŞLENDİ"
+ESLENMEDI = "EŞLENMEDİ"
 
 CALISMA_ONEKLERI = ("MBSTRADE", "MBSOPS")
 UAT_PROJE = "MBSUATEAM"
@@ -206,6 +207,20 @@ def _baslik_haritasi(ws) -> dict[str, int]:
     return harita
 
 
+def _norm(s: str) -> str:
+    """Başlık eşleştirme için normalize: boşlukları sadeleştir, küçült (Türkçe-duyarlı)."""
+    return re.sub(r"\s+", " ", str(s or "").strip()).casefold()
+
+
+def _kolon_bul(basliklar: dict[str, int], hedef: str) -> int | None:
+    """Başlığı normalize ederek bulur (çift kolon eklenmesini önler)."""
+    h = _norm(hedef)
+    for ad, idx in basliklar.items():
+        if _norm(ad) == h:
+            return idx
+    return None
+
+
 # ─── Zip / XML cerrahi yazım ────────────────────────────────────────────────────
 def _sheet_part_bul(zf: zipfile.ZipFile, sheet_adi: str) -> str:
     wb = etree.fromstring(zf.read("xl/workbook.xml"))
@@ -262,10 +277,28 @@ def _tablo_xml_uygula(tablo_bytes: bytes, yeni_ref: str, yeni_kolon_adlari: list
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
 
+def _cf_genislet(root, yeni_son_satir: int) -> None:
+    """Koşullu biçimlendirme (conditionalFormatting) aralıklarını yeni son satıra
+    kadar uzatır — böylece mevcut renklendirme kuralı yeni satırları da kapsar."""
+    for cf in root.findall(f"{{{_NS}}}conditionalFormatting"):
+        sq = cf.get("sqref", "")
+        parcalar = []
+        for p in sq.split():
+            m = re.match(r"([A-Z]+)(\d+):([A-Z]+)(\d+)$", p)
+            if m:
+                c1, r1, c2, r2 = m.group(1), int(m.group(2)), m.group(3), int(m.group(4))
+                parcalar.append(f"{c1}{r1}:{c2}{max(r2, yeni_son_satir)}")
+            else:
+                parcalar.append(p)
+        if parcalar:
+            cf.set("sqref", " ".join(parcalar))
+
+
 def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
                   yazimlar: dict[tuple[int, int], str],
                   tablo_ref: str | None = None,
-                  tablo_yeni_kolonlar: list[str] | None = None) -> None:
+                  tablo_yeni_kolonlar: list[str] | None = None,
+                  cf_son_satir: int | None = None) -> None:
     """`yazimlar` = {(satir, kolon_idx): metin}. YALNIZCA hedef sayfa (+ varsa tablo)
     XML'i değişir; medya, richData, tablo görselleri, diğer sayfalar korunur."""
     with zipfile.ZipFile(kaynak) as zf:
@@ -296,15 +329,16 @@ def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
         return yeni
 
     def ust_stil(col_idx: int, satir: int) -> str | None:
+        # Bu kolonda YUKARI doğru ilk stilli hücreyi bul (erken durma YOK) — yeni
+        # satır hücreleri, üstteki veri satırlarının kolon biçimini miras alsın.
         for r in range(satir - 1, HEADER_SATIR, -1):
             re_el = row_map.get(r)
             if re_el is None:
                 continue
             ref = f"{_kolon_harf(col_idx)}{r}"
             for c in re_el.findall(f"{{{_NS}}}c"):
-                if c.get("r") == ref:
+                if c.get("r") == ref and c.get("s"):
                     return c.get("s")
-            break
         return None
 
     def hucre_yaz(satir: int, col_idx: int, metin: str):
@@ -350,6 +384,10 @@ def _surgical_yaz(kaynak: Path, cikti: Path, sheet_adi: str,
             max_col = max(max_col, _harf_kolon(son))
             max_row = max(max_row, int(re.search(r"\d+", son).group(0)))
             dim.set("ref", f"A1:{_kolon_harf(max_col)}{max_row}")
+
+    # Koşullu biçim aralıklarını yeni satırları kapsayacak şekilde uzat
+    if cf_son_satir:
+        _cf_genislet(root, cf_son_satir)
 
     icerikler[part] = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
@@ -406,15 +444,14 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     else:
         t_c1, t_r1, t_c2, t_r2 = 1, HEADER_SATIR, max(basliklar.values()), ws.max_row
 
-    # ── UAT kolonları: varsa yeniden kullan (başlıktan), yoksa TABLOYA BİTİŞİK ekle ──
-    sonraki_kol = t_c2
-    for b in UAT_BASLIKLAR:
-        if b in basliklar:
-            sonraki_kol = max(sonraki_kol, basliklar[b])
-        else:
-            sonraki_kol += 1
-            basliklar[b] = sonraki_kol
-    uat_son_kol = max(basliklar[b] for b in UAT_BASLIKLAR)
+    # ── EŞLEME kolonu: varsa yeniden kullan (normalize eşleşme → çift eklenmez),
+    #    yoksa TABLOYA BİTİŞİK (son tablo kolonundan sonra) ekle. ──
+    esleme_c = _kolon_bul(basliklar, ESLEME_BASLIK)
+    if esleme_c is None:
+        esleme_c = t_c2 + 1
+        basliklar[ESLEME_BASLIK] = esleme_c
+    # Tablonun son kolonundan sonra ise tabloya yeni kolon olarak eklenmeli
+    yeni_kolonlar = [ESLEME_BASLIK] if esleme_c > t_c2 else []
 
     key_c = basliklar[KEY_BASLIK]
     sira_c = basliklar.get(SIRA_BASLIK)
@@ -448,14 +485,13 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     jira = _calisma_tasklari_getir(sorted(hedef_keys), cloud_id)
 
     durum = _durum_oku(state_path)
-    guncellenen = eklenen = degismeyen = yeni_uat = 0
+    guncellenen = eklenen = degismeyen = yeni_esleme = 0
     yazimlar: dict[tuple[int, int], str] = {}
 
-    # UAT başlık hücreleri (idempotent: zaten varsa aynı metin)
-    for b in UAT_BASLIKLAR:
-        yazimlar[(HEADER_SATIR, basliklar[b])] = b
+    # EŞLEME başlık hücresi (idempotent: zaten varsa aynı metin)
+    yazimlar[(HEADER_SATIR, esleme_c)] = ESLEME_BASLIK
 
-    def _satir_hucreleri(satir: int, alanlar: dict, uat: dict | None, alan_bos_mu: bool):
+    def _satir_hucreleri(satir: int, alanlar: dict, eslendi: bool, alan_bos_mu: bool):
         for baslik, alan in JIRA_KOLON_ESLEME.items():
             c = basliklar.get(baslik)
             if c:
@@ -464,10 +500,7 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
             t = _alan_turet(alanlar.get("summary", ""))
             if t:
                 yazimlar[(satir, alan_c)] = t
-        # UAT kolonları HER ZAMAN yazılır (eşleşme yoksa boş → eski/çöp değer temizlenir)
-        yazimlar[(satir, basliklar[UAT_KEY_BASLIK])] = uat.get("uat_key", "") if uat else ""
-        yazimlar[(satir, basliklar[UAT_DURUM_BASLIK])] = uat.get("uat_durum", "") if uat else ""
-        yazimlar[(satir, basliklar[UAT_OZET_BASLIK])] = uat.get("uat_ozet", "") if uat else ""
+        yazimlar[(satir, esleme_c)] = ESLENDI if eslendi else ESLENMEDI
 
     # Mevcut satırlar — yalnızca değişenler
     for key, r in key_satir.items():
@@ -475,18 +508,17 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
             continue
         alanlar = jira[key]
         yeni_iso = alanlar.get("_updated_iso", "")
-        uat = uat_eslesme.get(key)
-        uat_key_str = uat.get("uat_key", "") if uat else ""
+        eslendi = key in uat_eslesme
         onceki = durum.get(key, {})
-        uat_degisti = uat_key_str != onceki.get("uat_key", "")
-        if yeni_iso and yeni_iso == onceki.get("updated") and not uat_degisti:
+        esleme_degisti = eslendi != onceki.get("eslendi")
+        if yeni_iso and yeni_iso == onceki.get("updated") and not esleme_degisti:
             degismeyen += 1
             continue
-        _satir_hucreleri(r, alanlar, uat, alan_bos.get(key, False))
-        durum[key] = {"updated": yeni_iso, "uat_key": uat_key_str}
+        _satir_hucreleri(r, alanlar, eslendi, alan_bos.get(key, False))
+        durum[key] = {"updated": yeni_iso, "eslendi": eslendi}
         guncellenen += 1
-        if uat_degisti and uat_key_str:
-            yeni_uat += 1
+        if esleme_degisti and eslendi:
+            yeni_esleme += 1
 
     # Yeni satırlar — önce boş rezerve slotlar, sonra tablonun altına ekle
     yeni_keys = sorted(k for k in uat_eslesme if k not in key_satir and k in jira)
@@ -497,15 +529,13 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
         if r is None:
             ek_satir += 1
             r = ek_satir
-        # Sıra: slotta varsa koru, yoksa sıradaki numarayı ata
         mevcut_sira = ws.cell(r, sira_c).value if (sira_c and r <= ws.max_row) else None
         if sira_c and (mevcut_sira in (None, "")):
             en_yuksek_sira += 1
             yazimlar[(r, sira_c)] = str(en_yuksek_sira)
         yazimlar[(r, key_c)] = key
-        _satir_hucreleri(r, jira[key], uat_eslesme.get(key), True)
-        durum[key] = {"updated": jira[key].get("_updated_iso", ""),
-                      "uat_key": uat_eslesme.get(key, {}).get("uat_key", "")}
+        _satir_hucreleri(r, jira[key], True, True)   # UAT'tan keşfedildi → EŞLENDİ
+        durum[key] = {"updated": jira[key].get("_updated_iso", ""), "eslendi": True}
         eklenen += 1
 
     # ── Yazım ──
@@ -516,15 +546,16 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
     if guncellenen == 0 and eklenen == 0:
         shutil.copyfile(excel_path, cikti_yol)      # hiç değişiklik yok → sadece kopyala
     else:
-        # Tabloyu yeni son satır/kolonu kapsayacak şekilde genişlet
+        # Tabloyu ve koşullu biçimi yeni son satır/kolonu kapsayacak şekilde genişlet
         yeni_son_satir = max(t_r2, max((r for r, _ in yazimlar), default=t_r2))
-        yeni_son_kol = max(t_c2, uat_son_kol)
+        yeni_son_kol = max(t_c2, esleme_c)
         tablo_ref = None
         if tablo is not None:
             tablo_ref = (f"{_kolon_harf(t_c1)}{t_r1}:"
                          f"{_kolon_harf(yeni_son_kol)}{yeni_son_satir}")
         _surgical_yaz(excel_path, cikti_yol, KAYNAK_SHEET, yazimlar,
-                      tablo_ref=tablo_ref, tablo_yeni_kolonlar=UAT_BASLIKLAR)
+                      tablo_ref=tablo_ref, tablo_yeni_kolonlar=yeni_kolonlar,
+                      cf_son_satir=yeni_son_satir)
 
     _durum_yaz(state_path, durum)
 
@@ -534,7 +565,7 @@ def senkronize_et(excel_path: str | Path, cikti_dir: str | Path,
         "guncellenen": guncellenen,
         "eklenen": eklenen,
         "degismeyen": degismeyen,
-        "yeni_uat_baglantisi": yeni_uat,
+        "yeni_esleme": yeni_esleme,
         "uyarilar": uyarilar,
         "sheet": KAYNAK_SHEET,
         "toplam_satir": len(key_satir) + eklenen,

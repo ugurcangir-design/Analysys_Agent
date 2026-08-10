@@ -220,10 +220,11 @@ ekrandan tek tıkla çalıştırır, güncel Excel'i indirir.
   `updated` + `uat_key` tutar. Satırın Jira damgası değişmediyse VE UAT bağı aynıysa o satıra tek
   hücre yazılmaz. Hiç değişiklik yoksa dosya sadece kopyalanır (yazım bile yapılmaz).
 - **Kolon sahipliği:** agent YALNIZCA Jira kolonlarını (Özet, Konu Türü, Durum, Öncelik, Oluşturulan,
-  Güncellendi, Etiketler) + agent'a ait UAT kolonlarını (`UAT Key`/`UAT Durum`/`UAT Özet`) yazar.
-  Diğer TÜM kolonlar (İlgili Analist, Priority, Öncelik Grubu, Efor Skoru, **UAT BOARD [kolon Q]**,
-  Status, Product Onayı, Bağımlılık/Not, Açıklama Kısa, **Eski Task Ekran Görüntüsü**) hiç
-  okunmaz/yazılmaz. Yeni UAT taskları (Excel'de satırı olmayan) auto-add ile eklenir.
+  Güncellendi, Etiketler) + agent'a ait TEK kolon **`UAT - BOARD EŞLEME`** (UAT board'unda karşılığı
+  olan satır `EŞLENDİ`, olmayan `EŞLENMEDİ`) yazar. Diğer TÜM kolonlar (İlgili Analist, Priority,
+  Öncelik Grubu, Efor Skoru, **UAT BOARD [kolon Q]**, Status, Product Onayı, Bağımlılık/Not, Açıklama
+  Kısa, **Eski Task Ekran Görüntüsü**) hiç okunmaz/yazılmaz. Yeni UAT taskları (Excel'de satırı olmayan)
+  auto-add ile eklenir → EŞLENDİ. EŞLEME kolonu başlık adından (normalize) tanınır → çift eklenmez.
 - **EXCEL FORMUNU KORU — CERRAHİ YAZIM + TABLO ENTEGRASYONU (KRİTİK):** Takip Excel'i hücre-içi
   görseller (richData/`vm=`), Excel Tablosu (ListObject = renk bandı + filtre), hyperlink'ler ve gizli
   sayfalar içerir. openpyxl kaydederken bunları DÜŞÜRÜR (~999KB → ~77KB, 6 PNG kaybı). Bu yüzden
@@ -231,14 +232,17 @@ ekrandan tek tıkla çalıştırır, güncel Excel'i indirir.
   içinde YALNIZCA hedef sayfa (+ tablo) XML'ini değiştirir (`inlineStr` hücreler, üstteki hücreden
   stil kopyalar), diğer TÜM parçaları (medya/richData/metadata/diğer sayfalar/`[Content_Types].xml`)
   bit-bit korur.
-  - **Yeni satır/kolonlar TABLONUN İÇİNE alınır** (yoksa kullanıcının şikayeti: tablo dışı satırlar
-    renk/filtre almaz → "yönetilemez"). UAT kolonları tabloya BİTİŞİK (son tablo kolonu W'den sonra
-    X/Y/Z); yeni satırlar önce tablo içindeki BOŞ REZERVE SLOTLARA (yalnızca Sıra dolu satırlar)
-    yerleşir, sonra tablonun altına kesintisiz eklenir. `_tablo_xml_uygula` tablo `ref`+`autoFilter`
-    aralığını genişletir ve eksik `tableColumn`ları ekler (başlık hücreleri kolon adlarıyla birebir
-    eşleşir → Excel onarım istemez). Böylece renk bandı + filtre yeni içeriği de kapsar.
-  - UAT kolonları başlık adından tanınır → **idempotent** (dünkü çıktı yeniden yüklenince kolon/satır
-    tekrarlanmaz, tablo tekrar genişlemez).
+  - **Yeni satır/kolonlar TABLONUN İÇİNE alınır** (yoksa tablo dışı satırlar renk/filtre almaz →
+    "yönetilemez"). EŞLEME kolonu tabloya BİTİŞİK (son tablo kolonu W'den sonra X); yeni satırlar önce
+    tablo içindeki BOŞ REZERVE SLOTLARA (yalnızca Sıra dolu satırlar) yerleşir, sonra tablonun altına
+    kesintisiz eklenir. `_tablo_xml_uygula` tablo `ref`+`autoFilter` aralığını genişletir ve eksik
+    `tableColumn`ı ekler (başlık hücresi kolon adıyla birebir eşleşir → Excel onarım istemez).
+    Yeni satır hücreleri üstteki veri satırından stil (`s`) miras alır; `_cf_genislet` koşullu
+    biçimlendirme aralığını (ör. `N4:N162`) yeni son satıra kadar uzatır → **mevcut renklendirme
+    kuralı (tablo bandı + koşullu biçim) yeni içeriği de kapsar**.
+  - EŞLEME kolonu başlık adından (normalize) tanınır → **idempotent** (dünkü çıktı yeniden yüklenince
+    kolon/satır tekrarlanmaz, tablo tekrar genişlemez). NOT: sürümler arası (UAT-detay-kolonlu eski
+    çıktı) yeniden işleme başlıksız kolon boşluğu yaratabilir; **temiz orijinalden** çalıştırın.
   - Orijinalin üstüne yazılmaz; zaman damgalı KOPYA üretilir (`<taban>_YYYY-MM-DD_HHMM.xlsx`).
 - **Endpoint'ler:** `POST /api/backlog/upload` (xlsx yükle) · `POST /api/backlog/senkronize`
   (`{dosya}` → özet JSON) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
