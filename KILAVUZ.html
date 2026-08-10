@@ -172,7 +172,7 @@
   <aside>
     <div class="brand">Analyst Studio</div>
     <div class="brand-sub">Kullanıcı Kılavuzu</div>
-    <div class="ver">v2026.07 · canlı uygulama referansı · ekipçe</div>
+    <div class="ver">v2026.08 · Backlog Senkron · statü filtresi · analist notu</div>
     <nav>
       <a href="#bakis"     class="h1">1. Genel Bakış</a>
       <a href="#hizli"     class="h1">2. Hızlı Başlangıç</a>
@@ -198,6 +198,7 @@
       <a href="#a-mockup"  class="h2">6.5 HTML prototip</a>
       <a href="#a-jira"    class="h2">6.6 Jira (FE/BE seçim)</a>
       <a href="#a-gorevler" class="h2">6.7 Jira görevleri triyajı</a>
+      <a href="#a-backlog" class="h2">6.8 Backlog Senkron</a>
       <a href="#akis-brd"  class="h1">7. BRD Akışı</a>
       <a href="#sorular"   class="h1">8. Soru Defteri</a>
       <a href="#s-banner"  class="h2">8.1 Banner ve sekme</a>
@@ -928,6 +929,82 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
       </div>
     </div>
 
+    <div class="box new">
+      <strong>Tüm Görevler + statü filtresi <span class="pill new">Yeni</span></strong>
+      Görevler çekildiğinde, "Hızlı İşleme" ve "Detaylı Analiz" başlıklarının üstünde
+      <strong>Tüm Görevler</strong> ana başlığı çıkar. İçindeki <em>statü çubuğu</em>, çekilen
+      görevlerin gerçek Jira statülerinden (Backlog · UAT · Devam Ediyor · READY FOR TEST … )
+      sayaçlı chip'ler üretir. Birden fazla statüyü aynı anda seçebilirsiniz (çoklu seçim);
+      <strong>Tümü</strong> sıfırlar. Arama kutusuyla birlikte çalışır. Statü filtresi yalnızca
+      Tüm Görevler'i süzer; iki alt başlık değişmez. Liste kopyala/CSV ile paylaşılabilir.
+    </div>
+
+    <div class="box new">
+      <strong>Analist Notu <span class="pill new">Yeni</span> <span class="pill opt">opsiyonel</span></strong>
+      Üst Görev panelinde, canlı uygulama bölümünün altındaki <em>Analist Notu</em> alanına bu göreve
+      özel bir yorum, odak noktası veya detaylı bakılması gereken bir akış yazabilirsiniz. <strong>Doluysa</strong>
+      "Teknik Analiz Et" bu notu mevcut promptlarla <em>birlikte</em> dikkate alır (doğruluk ve
+      spekülasyon kurallarını gevşetmeden); <strong>boşsa</strong> yok sayar. Not kalıcıdır
+      (Gözlem Kapsamı gibi) — siz değiştirene/temizleyene kadar tüm "Teknik Analiz Et" çağrılarında geçerli.
+    </div>
+
+    <div class="box info">
+      <strong>Sadece Client İşleri <span class="pill new">Yeni</span></strong>
+      "Sadece Client İşleri" butonu, görevleri tek tek inceleyip <strong>hiçbir BFF/BE değişikliği
+      gerektirmeyen</strong>, yalnızca frontend tarafında yapılacak olanları ayrı listeye çıkarır
+      (bağlı BE task'ları dikkate alınır). Uzun listede güvenli çalışması için 20'lik gruplar hâlinde
+      işlenir; emin olunamayan görevler güvenlik gereği dahil edilmez.
+    </div>
+
+    <!-- ============== 6.8 BACKLOG SENKRON ============== -->
+    <h3 id="a-backlog">6.8 Backlog Senkron <span class="pill new">Yeni</span></h3>
+    <p>
+      Product'ın <strong>UAT board'unda</strong> (MBSUATEAM) açtığı taskların bizim
+      <strong>TRADE/OPS board</strong> (MBSTRADE/MBSOPS) karşılıklarını ve durumlarını bir takip
+      Excel'ine işler. Amaç: bu eşlemeyi elle yapmak yerine, ilgili analist her gün ekrandan tek tıkla
+      güncel Excel'i almak.
+    </p>
+    <div class="box tip">
+      <strong>0 token — tamamen deterministik.</strong> Bu ekran yapay zekâ/analiz çağrısı
+      <em>yapmaz</em>; yalnızca Jira'dan okur ve Excel'i günceller. Saniyeler sürer, Claude kotanızı harcamaz.
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h4>Takip Excel'ini yükle</h4>
+        <p>Sol menü → <strong>Backlog Senkron</strong>. İçinde <code>Excel Maddeleri</code> sayfası bulunan
+        <code>.xlsx</code> dosyanızı seçin. İlk gün orijinal dosyanızı; sonraki günler bir önceki gün
+        <em>indirdiğiniz</em> güncel kopyayı yükleyin (agent kendi kolonunu başlıktan tanır, tekrarlamaz).</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h4>Senkronize Et</h4>
+        <p>Agent UAT board'unu tarar, her UAT taskının bağlı TRADE/OPS karşılığını bulur. Mevcut satırların
+        Jira alanlarını (Özet/Durum/Öncelik/Etiketler…) günceller, Excel'de olmayan yeni UAT tasklarını
+        satır olarak ekler. <strong>Değişmeyen satıra dokunmaz</strong> (hız + gereksiz değişiklik yok).</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h4>Güncel Excel'i indir</h4>
+        <p>Özet gösterilir (kaç satır güncellendi/eklendi/değişmedi) ve zaman damgalı <strong>yeni bir kopya</strong>
+        indirilir — <em>orijinal dosyanız asla ezilmez</em>.</p>
+      </div>
+    </div>
+    <div class="box info">
+      <strong>Ne yazılır, ne korunur?</strong>
+      Agent yalnızca Jira'dan gelen kolonları + tek yeni kolon <strong>“UAT - BOARD EŞLEME”</strong>
+      (UAT karşılığı olan satır <em>EŞLENDİ</em>, olmayan <em>EŞLENMEDİ</em>; Jira linki veya sizin
+      “UAT BOARD” kolonundaki manuel referans dikkate alınır) yazar. <strong>Manuel not kolonlarınıza</strong>
+      (İlgili Analist, Priority, Status, Bağımlılık/Not, “UAT BOARD”, Eski Task Ekran Görüntüsü…)
+      <strong>hiç dokunmaz.</strong> Hücre-içi ekran görüntüleri, Excel Tablosu (renk bandı + filtre) ve
+      hyperlink'ler <strong>birebir korunur</strong>; yeni satır/kolonlar tabloya dahil edilir (renk ve filtre uzatılır).
+    </div>
+    <div class="box warn">
+      <strong>İpucu</strong> Her gün <em>o günün başında indirdiğiniz</em> dosyayı değil, <em>bir önceki
+      çıktıyı</em> yükleyin ki notlarınız birikerek gitsin. Sürümler arası eski çıktıları (farklı kolon
+      düzeni) karıştırmayın — en temizi hep bir önceki günün Backlog Senkron çıktısıdır.
+    </div>
+
     <!-- ============== 7 BRD AKIŞI ============== -->
     <h2 id="akis-brd">7. BRD Akışı (Alternatif)</h2>
     <p>Mevcut bir BRD'yi inceletmek veya iki BRD versiyonunu karşılaştırmak için kullanılır.</p>
@@ -1637,7 +1714,7 @@ pip install -r requirements.txt   # gerekirse</code></pre>
     <p>Ekibinize bildirin. Geliştirici GitHub'da <code>ugurcangir-design/Analysys_Agent</code> deposunda issue açabilir.</p>
 
     <div style="margin-top:64px; padding-top:24px; border-top:1px solid var(--border); font-size:12px; color:var(--text3); text-align:center;">
-      <strong>Analyst Studio</strong> · v2026.05 · Kullanıcı Kılavuzu<br>
+      <strong>Analyst Studio</strong> · v2026.08 · Kullanıcı Kılavuzu<br>
       Bu doküman <code>KILAVUZ.html</code> dosyasıdır; depo köküne kayıtlıdır
     </div>
   </main>

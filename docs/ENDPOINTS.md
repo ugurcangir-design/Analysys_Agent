@@ -1,4 +1,4 @@
-# Endpoint Kataloğu (app.py — ~80 endpoint)
+# Endpoint Kataloğu (app.py — ~86 endpoint)
 
 > Ana referans: [CLAUDE.md](../CLAUDE.md). Bu dosya tam endpoint listesidir;
 > yeni/kaldırılan endpoint olduğunda burayı güncelle.
@@ -38,9 +38,22 @@ POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
 POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
 POST /api/jira/gorevler/cek        FAZ 1: alt görevleri çek + YAPISAL sınıflandır (AI'sız, 0 token)
 POST /api/jira/gorevler/siniflandir FAZ 2: yeniden çek + AI ile içerikten sınıflandır (opt-in)
+POST /api/jira/gorevler/sadece-client  Yalnızca client (frontend) işlerini ayıkla (batch, opt-in, AI)
 POST /api/jira/gorev/formatla      Özellik 1: görevi standart formata çevir (önizleme, YAZMAZ)
 POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detaylandır (önizleme, YAZMAZ)
+                                   Analist Notu (context_filter → gorev_analist_notu) doluysa dikkate alır
 POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'da güncelle (markdown→ADF)
+```
+UI (Jira Görevleri, 0 token / tamamen frontend): "Tüm Görevler" ana başlığı + Jira
+statü filtresi (çoklu seçim chip'ler); "Analist Notu" alanı (kalıcı, gorev_analist_notu).
+
+## Backlog Senkron (UAT ↔ TRADE/OPS takip Excel'i — 0 token, deterministik)
+```
+POST /api/backlog/upload           Takip Excel'i (.xlsx) yükle → backlog/
+POST /api/backlog/senkronize       {dosya} → Jira'dan tazele + yeni UAT tasklarını ekle;
+                                   cerrahi lxml yazımı (görsel/tablo/renk korunur),
+                                   zaman damgalı KOPYA üretir. Dönüş: özet JSON.
+GET  /api/backlog/indir/<dosya>    Üretilen güncel Excel'i indir (binary send_file)
 ```
 
 ## Soru Defteri (skills/sorular.py)
@@ -66,10 +79,12 @@ POST /api/sources/sync         Confluence/Jira veri çek
                                 _jira_status_haric_mi + JIRA_HARIC_STATUSLER)
 GET  /api/git/status           GitHub güncelleme kontrolü
 POST /api/git/pull             git pull --ff-only
-GET  /api/prompts              16 prompt + override durumu
+GET  /api/prompts              19 prompt + override durumu
 POST /api/prompts/<id>         Prompt özelleştirme kaydet
 POST /api/prompts/<id>/reset   Varsayılana dön
 GET  /api/context-filter
-POST /api/context-filter       keyword/jira/confluence + live_app.target_url/extra_urls/use_as_sample
+POST /api/context-filter       PATCH semantiği (eksik üst-anahtar korunur): keyword/jira/confluence
+                               + live_app + live_app_gorev (target_url/gozlem_kapsami)
+                               + live_app_auth + ozel_prompt + gorev_analist_notu
 GET  /api/history              Son 5 çalıştırma arşivi
 ```

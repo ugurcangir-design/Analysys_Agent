@@ -35,3 +35,30 @@
   iki fazlı sınıflandırma (yapısal + AI), benzer-içerik tespiti, yorumlar, Standart Formatla
   (Haiku) / Teknik Analiz Et (Sonnet + Haiku açık sorular), tam ekran modal, Jira'ya yazma
 - **markdown_to_adf:** HTML yorumlarını siler (RAG meta-yorumu Jira'ya sızmıyor)
+
+## Faz 5 — Backlog Senkron + Jira Görevleri iyileştirmeleri ✅
+- **Backlog Senkron** (`skills/backlog_senkron.py` + `page-backlog-senkron` + 3 endpoint): Product'ın
+  UAT board'unda (MBSUATEAM) açtığı taskların TRADE/OPS karşılıklarını takip Excel'ine işler.
+  **0 LLM tokenı — tamamen deterministik** (yalnızca Jira REST + Excel). Bağ: UAT --relates to-->
+  TRADE/OPS. Değişmeyene iş yapmaz (yan durum dosyası ile `updated`+eşleme kıyası). Tek agent-kolonu
+  **UAT - BOARD EŞLEME** (EŞLENDİ/EŞLENMEDİ; Jira linki VEYA kolon Q'daki manuel MBSUATEAM referansı).
+  **Cerrahi lxml zip yazımı:** hücre-içi görseller (richData), Excel Tablosu, hyperlink'ler bit-bit
+  korunur (openpyxl bunları düşürüyordu); yeni satır/kolonlar tabloya dahil edilir (ref+autoFilter+CF
+  genişletme → renk/filtre korunur). Orijinal ezilmez; zaman damgalı kopya. Bağımlılık: `openpyxl`, `lxml`.
+- **Jira Görevleri — "Tüm Görevler" + statü filtresi** (UI, 0 token): sonuç alanının üstünde tüm
+  görevleri listeleyen ana başlık + dinamik Jira statü chip'leri (çoklu seçim). Mevcut iki başlık
+  (Hızlı İşleme / Detaylı Analiz) + arama + AI Sınıflandır + Sadece Client korunur.
+- **Jira Görevleri — Analist Notu** (`context_filter → gorev_analist_notu`): opsiyonel, kalıcı alan;
+  doluysa "Teknik Analiz Et" notu mevcut promptla BİRLİKTE dikkate alır (doğruluk kurallarını
+  gevşetmeden), boşsa yok sayar. Yalnızca teknik analizi etkiler.
+- **Sadece Client İşleri** (`/gorevler/sadece-client`): BFF/BE değişikliği gerektirmeyen, yalnızca
+  frontend görevleri batch (20'lik) AI ile ayıklar; bağlı BE task'ları dikkate alır.
+- **Görev listesi export:** üç grup (+ Tüm Görevler) için kopyala/CSV (anahtar + başlık).
+- **Bulkfetch tazelik:** görev/backlog çekiminde `search/jql` yerine `issue/bulkfetch` — arama indeksi
+  eventually-consistent olduğundan güncel içerik anında görünür.
+- **Görev-bazlı YALIN teknik analiz** (`gorev_teknik_analiz` promptu): ağır 11-bölüm şablonu yerine
+  yalnızca ilgili kısımlar (token/süre tasarrufu). Spekülasyon yasağı eklendi.
+- **Canlı gözlem MCP verimlilik kuralları:** tek geçiş, snapshot/network ekonomisi, bitiş koşulu →
+  görev bazlı canlı gözlem süresi/token maliyeti düşürüldü (doğruluktan ödün yok).
+- **Açık renk tema okunabilirliği (WCAG AA):** `--text3` 5.3:1 vb. kontrast düzeltmeleri.
+- **CLI 401 OAuth teşhisi:** `_cli_oturum_hatasi_mi` → Türkçe yeniden-giriş rehberi.
