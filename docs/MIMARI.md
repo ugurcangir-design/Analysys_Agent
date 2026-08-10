@@ -220,18 +220,26 @@ ekrandan tek tıkla çalıştırır, güncel Excel'i indirir.
   `updated` + `uat_key` tutar. Satırın Jira damgası değişmediyse VE UAT bağı aynıysa o satıra tek
   hücre yazılmaz. Hiç değişiklik yoksa dosya sadece kopyalanır (yazım bile yapılmaz).
 - **Kolon sahipliği:** agent YALNIZCA Jira kolonlarını (Özet, Konu Türü, Durum, Öncelik, Oluşturulan,
-  Güncellendi, Etiketler) + agent'a ait yeni UAT kolonlarını (`UAT Key`/`UAT Durum`/`UAT Özet`, sağa
-  Y/Z/AA olarak, başlık adından tanınır → idempotent) yazar. Diğer TÜM kolonlar (İlgili Analist,
-  Priority, Öncelik Grubu, Efor Skoru, **UAT BOARD [kolon Q]**, Status, Product Onayı, Bağımlılık/Not,
-  Açıklama Kısa, **Eski Task Ekran Görüntüsü**) hiç okunmaz/yazılmaz. Yeni UAT taskları (Excel'de satırı
-  olmayan) auto-add ile en alta eklenir.
-- **DOSYA BOZMA — CERRAHİ YAZIM (KRİTİK):** Takip Excel'i hücre-içi görseller (richData/`vm=`,
-  ekran görüntüleri), Excel Tablosu (ListObject), hyperlink'ler ve gizli sayfalar içerir. openpyxl
-  kaydederken bunları DÜŞÜRÜR (~999KB → ~77KB, 6 PNG kaybı). Bu yüzden **okuma openpyxl (salt-okuma),
-  yazım `lxml` ile cerrahi zip düzenlemesidir**: `_surgical_yaz` zip içinde YALNIZCA hedef sayfanın
-  XML'ini değiştirir (`inlineStr` hücreler, üstteki hücreden stil kopyalar), diğer TÜM parçaları
-  (medya/richData/metadata/tablo/`[Content_Types].xml`/diğer sayfalar) bit-bit korur. Orijinalin
-  üstüne yazılmaz; zaman damgalı KOPYA üretilir (`<taban>_YYYY-MM-DD_HHMM.xlsx`).
+  Güncellendi, Etiketler) + agent'a ait UAT kolonlarını (`UAT Key`/`UAT Durum`/`UAT Özet`) yazar.
+  Diğer TÜM kolonlar (İlgili Analist, Priority, Öncelik Grubu, Efor Skoru, **UAT BOARD [kolon Q]**,
+  Status, Product Onayı, Bağımlılık/Not, Açıklama Kısa, **Eski Task Ekran Görüntüsü**) hiç
+  okunmaz/yazılmaz. Yeni UAT taskları (Excel'de satırı olmayan) auto-add ile eklenir.
+- **EXCEL FORMUNU KORU — CERRAHİ YAZIM + TABLO ENTEGRASYONU (KRİTİK):** Takip Excel'i hücre-içi
+  görseller (richData/`vm=`), Excel Tablosu (ListObject = renk bandı + filtre), hyperlink'ler ve gizli
+  sayfalar içerir. openpyxl kaydederken bunları DÜŞÜRÜR (~999KB → ~77KB, 6 PNG kaybı). Bu yüzden
+  **okuma openpyxl (salt-okuma), yazım `lxml` ile cerrahi zip düzenlemesidir**: `_surgical_yaz` zip
+  içinde YALNIZCA hedef sayfa (+ tablo) XML'ini değiştirir (`inlineStr` hücreler, üstteki hücreden
+  stil kopyalar), diğer TÜM parçaları (medya/richData/metadata/diğer sayfalar/`[Content_Types].xml`)
+  bit-bit korur.
+  - **Yeni satır/kolonlar TABLONUN İÇİNE alınır** (yoksa kullanıcının şikayeti: tablo dışı satırlar
+    renk/filtre almaz → "yönetilemez"). UAT kolonları tabloya BİTİŞİK (son tablo kolonu W'den sonra
+    X/Y/Z); yeni satırlar önce tablo içindeki BOŞ REZERVE SLOTLARA (yalnızca Sıra dolu satırlar)
+    yerleşir, sonra tablonun altına kesintisiz eklenir. `_tablo_xml_uygula` tablo `ref`+`autoFilter`
+    aralığını genişletir ve eksik `tableColumn`ları ekler (başlık hücreleri kolon adlarıyla birebir
+    eşleşir → Excel onarım istemez). Böylece renk bandı + filtre yeni içeriği de kapsar.
+  - UAT kolonları başlık adından tanınır → **idempotent** (dünkü çıktı yeniden yüklenince kolon/satır
+    tekrarlanmaz, tablo tekrar genişlemez).
+  - Orijinalin üstüne yazılmaz; zaman damgalı KOPYA üretilir (`<taban>_YYYY-MM-DD_HHMM.xlsx`).
 - **Endpoint'ler:** `POST /api/backlog/upload` (xlsx yükle) · `POST /api/backlog/senkronize`
   (`{dosya}` → özet JSON) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
   altında (gitignore). Bağımlılık: `openpyxl`, `lxml` (requirements.txt).
