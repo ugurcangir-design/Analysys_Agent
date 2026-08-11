@@ -207,46 +207,40 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
   json `result` tam döner, `stop_reason`/`is_error` ile kesilme tespiti. `_claude_yolu_bul()` PATH'e
   bağımlı değil (GUI minimal PATH için nvm/~.local/homebrew tarar).
 
-## Backlog Senkron (`skills/backlog_senkron.py` + UI `page-backlog-senkron`)
-Product'ın **UAT board'unda** (MBSUATEAM) açtığı taskların bizim **TRADE/OPS board**
-(MBSTRADE/MBSOPS) karşılıklarını ve durumlarını bir takip Excel'ine işler. Analist her gün
-ekrandan tek tıkla çalıştırır, güncel Excel'i indirir.
-- **0 LLM tokenı — tamamen deterministik.** `claude -p`/MCP ÇAĞRILMAZ; yalnızca Jira REST
-  okuması + Excel yazımı. Deterministik işleme kalıbıyla (belirsizlik_denetimi vb.) aynı felsefe.
-- **Bağ mekanizması (Jira ile doğrulandı):** UAT taskı --`relates to`--> TRADE/OPS taskı.
-  `_uat_board_tara` UAT board'unu (JQL, sayfalı) tarayıp her UAT taskının bağlı çalışma-taskı
-  key'lerini toplar. Bir UAT birden çok TRADE/OPS taskına bağlanabilir; her çalışma taskı = bir satır.
-- **Değişmeyene iş yapma:** yan durum dosyası (`backlog/senkron_state.json`) her key için son Jira
-  `updated` + `uat_key` tutar. Satırın Jira damgası değişmediyse VE UAT bağı aynıysa o satıra tek
-  hücre yazılmaz. Hiç değişiklik yoksa dosya sadece kopyalanır (yazım bile yapılmaz).
-- **Kolon sahipliği:** agent YALNIZCA Jira kolonlarını (Özet, Konu Türü, Durum, Öncelik, Oluşturulan,
-  Güncellendi, Etiketler) + agent'a ait TEK kolon **`UAT - BOARD EŞLEME`** (UAT board'unda karşılığı
-  olan satır `EŞLENDİ`, olmayan `EŞLENMEDİ`) yazar. Diğer TÜM kolonlar (İlgili Analist, Priority,
-  Öncelik Grubu, Efor Skoru, **UAT BOARD [kolon Q]**, Status, Product Onayı, Bağımlılık/Not, Açıklama
-  Kısa, **Eski Task Ekran Görüntüsü**) hiç okunmaz/yazılmaz. Yeni UAT taskları (Excel'de satırı olmayan)
-  auto-add ile eklenir → EŞLENDİ. EŞLEME kolonu başlık adından (normalize) tanınır → çift eklenmez.
-- **EXCEL FORMUNU KORU — CERRAHİ YAZIM + TABLO ENTEGRASYONU (KRİTİK):** Takip Excel'i hücre-içi
-  görseller (richData/`vm=`), Excel Tablosu (ListObject = renk bandı + filtre), hyperlink'ler ve gizli
-  sayfalar içerir. openpyxl kaydederken bunları DÜŞÜRÜR (~999KB → ~77KB, 6 PNG kaybı). Bu yüzden
-  **okuma openpyxl (salt-okuma), yazım `lxml` ile cerrahi zip düzenlemesidir**: `_surgical_yaz` zip
-  içinde YALNIZCA hedef sayfa (+ tablo) XML'ini değiştirir (`inlineStr` hücreler, üstteki hücreden
-  stil kopyalar), diğer TÜM parçaları (medya/richData/metadata/diğer sayfalar/`[Content_Types].xml`)
-  bit-bit korur.
-  - **Yeni satır/kolonlar TABLONUN İÇİNE alınır** (yoksa tablo dışı satırlar renk/filtre almaz →
-    "yönetilemez"). EŞLEME kolonu tabloya BİTİŞİK (son tablo kolonu W'den sonra X); yeni satırlar önce
-    tablo içindeki BOŞ REZERVE SLOTLARA (yalnızca Sıra dolu satırlar) yerleşir, sonra tablonun altına
-    kesintisiz eklenir. `_tablo_xml_uygula` tablo `ref`+`autoFilter` aralığını genişletir ve eksik
-    `tableColumn`ı ekler (başlık hücresi kolon adıyla birebir eşleşir → Excel onarım istemez).
-    Yeni satır hücreleri üstteki veri satırından stil (`s`) miras alır; `_cf_genislet` koşullu
-    biçimlendirme aralığını (ör. `N4:N162`) yeni son satıra kadar uzatır → **mevcut renklendirme
-    kuralı (tablo bandı + koşullu biçim) yeni içeriği de kapsar**.
-  - EŞLEME kolonu başlık adından (normalize) tanınır → **idempotent** (dünkü çıktı yeniden yüklenince
-    kolon/satır tekrarlanmaz, tablo tekrar genişlemez). NOT: sürümler arası (UAT-detay-kolonlu eski
-    çıktı) yeniden işleme başlıksız kolon boşluğu yaratabilir; **temiz orijinalden** çalıştırın.
-  - Orijinalin üstüne yazılmaz; zaman damgalı KOPYA üretilir (`<taban>_YYYY-MM-DD_HHMM.xlsx`).
-- **Endpoint'ler:** `POST /api/backlog/upload` (xlsx yükle) · `POST /api/backlog/senkronize`
-  (`{dosya}` → özet JSON) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
-  altında (gitignore). Bağımlılık: `openpyxl`, `lxml` (requirements.txt).
+## Backlog Mutabakat (`skills/backlog_senkron.py` + UI `page-backlog-senkron`)
+Product'ın **UAT board'unda** (MBSUATEAM) açtığı taskları bizim **TRADE/OPS board**
+(MBSTRADE/MBSOPS) tasklarıyla karşılaştırır; hangi UAT maddesinin işleme alınmadığını (açıkta
+kalan iş) ve hangi hedef taskın kaynağının UAT'de bulunmadığını ortaya çıkarır. Analist tek tıkla
+çalıştırır, sonucu ekranda görür, çok sayfalı Excel raporu indirir. **Excel girişi YOK** (eski
+takip-Excel senkron akışı — upload + cerrahi lxml yazımı — bu sürümde kaldırıldı).
+- **0 LLM tokenı — tamamen deterministik.** `claude -p`/MCP ÇAĞRILMAZ; yalnızca Jira REST okuması +
+  openpyxl ile sıfırdan .xlsx yazımı (yeni dosya → cerrahi zip korumasına gerek yok).
+- **İki board'u çek:** `mutabakat(uat_proje, hedef_projeler, mod, hedef_keys, anahtar_kelime)`. UAT
+  board'u HER ZAMAN tam taranır (`project = UAT`). Hedef tarafı `mod`'a göre toplanır:
+  `tum` (`project in (hedef...)`), `epic` (her key için `alt_gorevleri_cek` — parent+Epic Link+
+  linkedIssues birleşimi; sonuç **hedef board'lara göre filtrelenir** = epic altındaki ama başka
+  projedeki görevler elenir → tüm board yerine ilgili alt küme, token/zaman tasarrufu),
+  `keyword` (`project in (...) AND text ~ "kelime"`). JQL literal'leri
+  `_jql_kacis` ile kaçışlanır. Görevler `jira_gorevleri._issue_ayrıstir` ile ayrıştırılır (özet,
+  durum, açıklama, **baglantililar** = issue-link listesi).
+- **Katmanlı eşleştirme (güçlüden zayıfa):**
+  1. **KESİN** — UAT ile hedef arasında zaten Jira issue-link var (iki yön de taranır, tekrarsız).
+  2. **YÜKSEK** — link yok ama başlık+içerik Jaccard benzerliği `ESIK_YUKSEK` (0.55) üstünde →
+     otomatik eşleşme. Jetonlar `jira_gorevleri._benzerlik_jetonlari` (başlık + açıklama ilk 300).
+  3. **ADAY** — Jaccard `ESIK_ORTA` (0.35) ile `ESIK_YUKSEK` arası → analist teyit eder.
+  4. **EŞLEŞMEYEN** — UAT tarafı (açıkta kalan iş) VE hedef tarafı (kaynağı UAT'de olmayan) ayrı ayrı.
+  Dönüş: `eslesenler`, `adaylar`, `eslesmeyen_uat`, `eslesmeyen_hedef`, `sayimlar`, `jira_url`.
+- **`jira_url` (browse link'leri için):** `_jira_site_url` accessible-resources endpoint'inden cloud_id
+  eşleşmesiyle site adresini (ör. `https://firma.atlassian.net`) alır, süreç boyunca cache'ler. **`.env`
+  `JIRA_URL`'e GÜVENMEZ** — o bazı kurulumlarda OAuth callback adresini tutuyor.
+- **Export (`rapor_uret`):** openpyxl `Workbook` ile sıfırdan 3 sayfa: `Eşleşenler` (eşleşen+aday,
+  **Eşleşme** (Evet/Aday) + Gerekçe kolonlu), `Eşleşmeyen UAT`, `Eşleşmeyen TRADE-OPS`. UI aynı: stat
+  kartları tıklanınca ilgili tabloya kaydırır (`bsGoto`), task key'leri Jira browse link'i (yeni sekme),
+  key + durum bold. Başlık dolgusu + freeze + autoFilter.
+  Zaman damgalı `Backlog_Mutabakat_YYYY-MM-DD_HHMM.xlsx`, `backlog/` altına.
+- **Endpoint'ler:** `POST /api/backlog/mutabakat` (config → kova JSON) · `POST /api/backlog/export`
+  (sonuç body → `{dosya}`) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
+  altında (gitignore). Bağımlılık: `openpyxl` (requirements.txt).
 
 ## Jira Görevleri Özelliği (`skills/jira_gorevleri.py` + UI `page-jira-gorevler`)
 Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip triyaj eder.

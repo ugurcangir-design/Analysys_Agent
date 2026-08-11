@@ -15,9 +15,9 @@ CLI **görsel BRD analiz EDEMEZ** (PDF/DOCX/TXT/MD olmalı). API modu (`ANTHROPI
 
 ## Klasör yapısı
 - `app.py` Flask sunucu (~86 endpoint) · `run.py` orchestrator (subprocess) · `workflow.py` durum makinesi · `jira_agent.py` Jira OAuth+ADF
-- `skills/` iş mantığı (`agent.py` = import bridge): `base.py` (sabitler/RAG/`_api_cagri`/19 prompt), `atlassian.py` (**CANONICAL** OAuth helper), `surec_analizi` `teknik_analiz` `delta_analizi` `brd_analizi` `kapsam_analizi` `jira_tasks` `jira_gorevleri` `backlog_senkron` (UAT↔TRADE/OPS takip Excel'i; **0-token deterministik**, cerrahi lxml zip yazımı — görsel/tablo korur) `confluence_yaz` `html_mockup` `sorular`
-- `templates/index.html` SPA · `reference/` RAG kaynakları (Atlassian sync) · `output/ input/ history/ logs/` runtime · `backlog/` Backlog Senkron yüklenen+üretilen Excel'ler (gitignore) · `docs/` detaylı referans
-- **Bağımlılıklar** (`requirements.txt`): Flask, anthropic, requests, python-dotenv, PyMuPDF, Pillow, python-docx, ruff + **openpyxl, lxml** (Backlog Senkron Excel okuma + cerrahi zip yazımı).
+- `skills/` iş mantığı (`agent.py` = import bridge): `base.py` (sabitler/RAG/`_api_cagri`/19 prompt), `atlassian.py` (**CANONICAL** OAuth helper), `surec_analizi` `teknik_analiz` `delta_analizi` `brd_analizi` `kapsam_analizi` `jira_tasks` `jira_gorevleri` `backlog_senkron` (**Backlog Mutabakat** — UAT board'u ↔ TRADE/OPS board karşılaştırma; **0-token deterministik**; eşleştirme = mevcut Jira issue-link + başlık/içerik Jaccard benzerliği; openpyxl ile sıfırdan çok sayfalı .xlsx rapor. Excel girişi YOK) `confluence_yaz` `html_mockup` `sorular`
+- `templates/index.html` SPA · `reference/` RAG kaynakları (Atlassian sync) · `output/ input/ history/ logs/` runtime · `backlog/` Backlog Mutabakat üretilen .xlsx raporları (gitignore) · `docs/` detaylı referans
+- **Bağımlılıklar** (`requirements.txt`): Flask, anthropic, requests, python-dotenv, PyMuPDF, Pillow, python-docx, ruff + **openpyxl** (Backlog Mutabakat .xlsx rapor yazımı). `lxml` hâlâ kurulu (genel kullanım).
 - `reference/live-app` Claude MCP/Chrome ekran+network gözlem çıktıları içindir (gitignore); bağlam filtresinde ana URL + 5 alt URL ve "Örnek ekran olarak kullan" seçeneği süreç/teknik analize canlı uygulama görevi olarak eklenir.
 - **Canlı uygulama ÇALIŞMASI için `claude -p`'ye MCP + izin geçmek ZORUNLU** — bkz. `docs/MIMARI.md` "Canlı Uygulama (Chrome MCP)". `--allowedTools` verilmezse headless modda tarayıcı araçları sessizce reddedilir.
 

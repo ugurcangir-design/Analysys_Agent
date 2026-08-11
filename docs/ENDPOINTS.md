@@ -47,14 +47,19 @@ POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'd
 UI (Jira Görevleri, 0 token / tamamen frontend): "Tüm Görevler" ana başlığı + Jira
 statü filtresi (çoklu seçim chip'ler); "Analist Notu" alanı (kalıcı, gorev_analist_notu).
 
-## Backlog Senkron (UAT ↔ TRADE/OPS takip Excel'i — 0 token, deterministik)
+## Backlog Mutabakat (UAT board ↔ TRADE/OPS board karşılaştırma — 0 token, deterministik)
 ```
-POST /api/backlog/upload           Takip Excel'i (.xlsx) yükle → backlog/
-POST /api/backlog/senkronize       {dosya} → Jira'dan tazele + yeni UAT tasklarını ekle;
-                                   cerrahi lxml yazımı (görsel/tablo/renk korunur),
-                                   zaman damgalı KOPYA üretir. Dönüş: özet JSON.
-GET  /api/backlog/indir/<dosya>    Üretilen güncel Excel'i indir (binary send_file)
+POST /api/backlog/mutabakat        {uat_proje, hedef_projeler, mod, hedef_keys, anahtar_kelime}
+                                   → iki board'u Jira'dan çekip karşılaştırır. mod: tum |
+                                   epic (hedef_keys altı) | keyword (anahtar_kelime). Eşleştirme
+                                   = issue-link + başlık/içerik Jaccard. Dönüş: eslesenler,
+                                   adaylar, eslesmeyen_uat, eslesmeyen_hedef, sayimlar, jira_url.
+POST /api/backlog/export           Mutabakat sonucu (POST body) → çok sayfalı .xlsx rapor
+                                   (Eşleşenler / Eşleşmeyen UAT / Eşleşmeyen TRADE-OPS). Dönüş: {dosya}.
+GET  /api/backlog/indir/<dosya>    Üretilen .xlsx raporu indir (binary send_file)
 ```
+Not: Excel yükleme (`/api/backlog/upload`) ve senkron (`/api/backlog/senkronize`) KALDIRILDI;
+eski takip-Excel senkron akışının yerini board-to-board mutabakat aldı.
 
 ## Soru Defteri (skills/sorular.py)
 ```

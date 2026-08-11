@@ -172,7 +172,7 @@
   <aside>
     <div class="brand">Analyst Studio</div>
     <div class="brand-sub">Kullanıcı Kılavuzu</div>
-    <div class="ver">v2026.08 · Backlog Senkron · statü filtresi · analist notu</div>
+    <div class="ver">v2026.08 · Backlog Mutabakat · statü filtresi · analist notu</div>
     <nav>
       <a href="#bakis"     class="h1">1. Genel Bakış</a>
       <a href="#hizli"     class="h1">2. Hızlı Başlangıç</a>
@@ -198,7 +198,7 @@
       <a href="#a-mockup"  class="h2">6.5 HTML prototip</a>
       <a href="#a-jira"    class="h2">6.6 Jira (FE/BE seçim)</a>
       <a href="#a-gorevler" class="h2">6.7 Jira görevleri triyajı</a>
-      <a href="#a-backlog" class="h2">6.8 Backlog Senkron</a>
+      <a href="#a-backlog" class="h2">6.8 Backlog Mutabakat</a>
       <a href="#akis-brd"  class="h1">7. BRD Akışı</a>
       <a href="#sorular"   class="h1">8. Soru Defteri</a>
       <a href="#s-banner"  class="h2">8.1 Banner ve sekme</a>
@@ -957,52 +957,52 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     </div>
 
     <!-- ============== 6.8 BACKLOG SENKRON ============== -->
-    <h3 id="a-backlog">6.8 Backlog Senkron <span class="pill new">Yeni</span></h3>
+    <h3 id="a-backlog">6.8 Backlog Mutabakat <span class="pill new">Yeni</span></h3>
     <p>
-      Product'ın <strong>UAT board'unda</strong> (MBSUATEAM) açtığı taskların bizim
-      <strong>TRADE/OPS board</strong> (MBSTRADE/MBSOPS) karşılıklarını ve durumlarını bir takip
-      Excel'ine işler. Amaç: bu eşlemeyi elle yapmak yerine, ilgili analist her gün ekrandan tek tıkla
-      güncel Excel'i almak.
+      Product'ın <strong>UAT board'unda</strong> (MBSUATEAM) açtığı taskları bizim
+      <strong>TRADE/OPS board</strong> (MBSTRADE/MBSOPS) tasklarıyla <strong>karşılaştırır</strong>: hangi
+      UAT maddesinin işleme alınmadığını (<em>açıkta kalan iş</em>) ve hangi hedef taskın kaynağının
+      UAT'de bulunmadığını ortaya çıkarır. Amaç: hiçbir UAT maddesini açıkta bırakmadan tüm işleri
+      analiz edip işleme almak. <strong>Excel yükleme yok</strong> — iki board doğrudan Jira'dan çekilir.
     </p>
     <div class="box tip">
       <strong>0 token — tamamen deterministik.</strong> Bu ekran yapay zekâ/analiz çağrısı
-      <em>yapmaz</em>; yalnızca Jira'dan okur ve Excel'i günceller. Saniyeler sürer, Claude kotanızı harcamaz.
+      <em>yapmaz</em>; yalnızca Jira'dan okur ve karşılaştırır. Saniyeler sürer, Claude kotanızı harcamaz.
+      Eşleştirme iki sinyalle yapılır: <strong>mevcut Jira bağlantısı</strong> (issue-link) ve
+      <strong>başlık/içerik benzerliği</strong>.
     </div>
     <div class="steps">
       <div class="step">
         <div class="num">1</div>
-        <h4>Takip Excel'ini yükle</h4>
-        <p>Sol menü → <strong>Backlog Senkron</strong>. İçinde <code>Excel Maddeleri</code> sayfası bulunan
-        <code>.xlsx</code> dosyanızı seçin. İlk gün orijinal dosyanızı; sonraki günler bir önceki gün
-        <em>indirdiğiniz</em> güncel kopyayı yükleyin (agent kendi kolonunu başlıktan tanır, tekrarlamaz).</p>
+        <h4>Kaynak &amp; kapsam seç</h4>
+        <p>Sol menü → <strong>Backlog Mutabakat</strong>. <strong>UAT board'u</strong> (varsayılan MBSUATEAM;
+        her zaman tam taranır) ve <strong>hedef board(lar)</strong> (varsayılan MBSTRADE, MBSOPS) girin.
+        Hedef için <strong>tarama modu</strong> seçin: <em>Tüm board</em>, <em>Epic/Story altı</em> veya
+        <em>Anahtar kelime</em>. <strong>Epic/Story altı</strong> modunda girdiğiniz epic/story anahtarlarının
+        altındaki görevler taranır ve <strong>hedef board'larla sınırlanır</strong> (örn. hem TRADE hem OPS
+        epic'lerini yazıp her ikisinin altını arayabilirsiniz) — böylece tüm board'u boşuna taramazsınız.</p>
       </div>
       <div class="step">
         <div class="num">2</div>
-        <h4>Senkronize Et</h4>
-        <p>Agent UAT board'unu tarar, her UAT taskının bağlı TRADE/OPS karşılığını bulur. Mevcut satırların
-        Jira alanlarını (Özet/Durum/Öncelik/Etiketler…) günceller, Excel'de olmayan yeni UAT tasklarını
-        satır olarak ekler. <strong>Değişmeyen satıra dokunmaz</strong> (hız + gereksiz değişiklik yok).</p>
+        <h4>Karşılaştır</h4>
+        <p>Agent iki board'u çekip eşleştirir. Sonuç dört kovada listelenir: <strong>Eşleşenler</strong>
+        (güven etiketi: Kesin = Jira bağlantısı, Yüksek = içerik benzerliği), <strong>Teyit bekleyen adaylar</strong>
+        (orta skorlu — siz onaylarsınız), <strong>Eşleşmeyen UAT</strong> (açıkta kalan iş) ve
+        <strong>Eşleşmeyen TRADE/OPS</strong>. Her task anahtarı Jira'da açılır.</p>
       </div>
       <div class="step">
         <div class="num">3</div>
-        <h4>Güncel Excel'i indir</h4>
-        <p>Özet gösterilir (kaç satır güncellendi/eklendi/değişmedi) ve zaman damgalı <strong>yeni bir kopya</strong>
-        indirilir — <em>orijinal dosyanız asla ezilmez</em>.</p>
+        <h4>Excel raporu indir</h4>
+        <p><strong>Excel Raporu İndir</strong> → üç sayfalı <code>.xlsx</code> (Eşleşenler · Eşleşmeyen UAT ·
+        Eşleşmeyen TRADE-OPS). Zaman damgalı yeni dosya olarak <code>backlog/</code> altına üretilir.</p>
       </div>
     </div>
     <div class="box info">
-      <strong>Ne yazılır, ne korunur?</strong>
-      Agent yalnızca Jira'dan gelen kolonları + tek yeni kolon <strong>“UAT - BOARD EŞLEME”</strong>
-      (UAT karşılığı olan satır <em>EŞLENDİ</em>, olmayan <em>EŞLENMEDİ</em>; Jira linki veya sizin
-      “UAT BOARD” kolonundaki manuel referans dikkate alınır) yazar. <strong>Manuel not kolonlarınıza</strong>
-      (İlgili Analist, Priority, Status, Bağımlılık/Not, “UAT BOARD”, Eski Task Ekran Görüntüsü…)
-      <strong>hiç dokunmaz.</strong> Hücre-içi ekran görüntüleri, Excel Tablosu (renk bandı + filtre) ve
-      hyperlink'ler <strong>birebir korunur</strong>; yeni satır/kolonlar tabloya dahil edilir (renk ve filtre uzatılır).
-    </div>
-    <div class="box warn">
-      <strong>İpucu</strong> Her gün <em>o günün başında indirdiğiniz</em> dosyayı değil, <em>bir önceki
-      çıktıyı</em> yükleyin ki notlarınız birikerek gitsin. Sürümler arası eski çıktıları (farklı kolon
-      düzeni) karıştırmayın — en temizi hep bir önceki günün Backlog Senkron çıktısıdır.
+      <strong>Eşleştirme nasıl çalışır?</strong>
+      Önce <strong>mevcut Jira bağlantıları</strong> (bir UAT taskı ile hedef task arasında issue-link)
+      kesin eşleşme sayılır. Bağlantı yoksa <strong>başlık + içerik benzerliği</strong> (Jaccard) hesaplanır:
+      yüksek skor otomatik eşleşir, orta skor <em>aday</em> olarak analiste bırakılır. Böylece hem
+      önceden bağlanmış işler hem de bağlanmamış ama içerikçe örtüşen işler yakalanır.
     </div>
 
     <!-- ============== 7 BRD AKIŞI ============== -->

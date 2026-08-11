@@ -40,7 +40,7 @@ CONF_DIR     = REF_DIR / "confluence"
 JIRA_REF_DIR = REF_DIR / "jira"
 SERVIS_DIR   = REF_DIR / "services"
 LIVE_APP_DIR = REF_DIR / "live-app"
-BACKLOG_DIR  = BASE_DIR / "backlog"          # Backlog Senkron: yüklenen + üretilen Excel'ler
+BACKLOG_DIR  = BASE_DIR / "backlog"          # Backlog Mutabakat: üretilen .xlsx raporları
 
 for d in [INPUT_DIR, OUTPUT_DIR, REF_DIR / "current-brd",
           CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR, HISTORY_DIR, LOG_DIR,
@@ -736,42 +736,45 @@ def upload():
     return jsonify({"ok": True, "dosya": guvenli_ad})
 
 
-# ─── Backlog Senkron (UAT ↔ TRADE/OPS takip Excel'i) ────────────────────────────
+# ─── Backlog Mutabakat (UAT board ↔ TRADE/OPS board karşılaştırma) ──────────────────────────────────────────
 # Deterministik, 0-token: LLM/MCP ÇAĞRILMAZ. Jira REST okuması + Excel yazımı.
-@app.route("/api/backlog/upload", methods=["POST"])
-def backlog_upload():
-    if "file" not in request.files:
-        return jsonify({"ok": False, "error": "Dosya seçilmedi"}), 400
-    f = request.files["file"]
-    if not f.filename:
-        return jsonify({"ok": False, "error": "Dosya adı boş"}), 400
-    if Path(f.filename).suffix.lower() != ".xlsx":
-        return jsonify({"ok": False, "error": "Yalnızca .xlsx dosyası yükleyin"}), 400
-    guvenli_ad = Path(f.filename).name
-    hedef = BACKLOG_DIR / guvenli_ad
-    f.save(str(hedef))
-    logger.info("Backlog Excel yüklendi: %s", guvenli_ad)
-    return jsonify({"ok": True, "dosya": guvenli_ad})
-
-
-@app.route("/api/backlog/senkronize", methods=["POST"])
-def backlog_senkronize():
+@app.route("/api/backlog/mutabakat", methods=["POST"])
+def backlog_mutabakat():
+    """UAT board'u ile hedef board(lar)ı karşılaştırır. 0 token, deterministik."""
     data = request.get_json(force=True) or {}
-    dosya = (data.get("dosya") or "").strip()
-    if not dosya or Path(dosya).name != dosya or not dosya.lower().endswith(".xlsx"):
-        return jsonify({"ok": False, "error": "Geçersiz dosya"}), 400
-    kaynak = BACKLOG_DIR / dosya
-    if not kaynak.exists():
-        return jsonify({"ok": False, "error": "Önce Excel yükleyin"}), 404
+    uat_proje = (data.get("uat_proje") or "").strip()
+    hedef_projeler = data.get("hedef_projeler") or []
+    if isinstance(hedef_projeler, str):
+        hedef_projeler = [p for p in re.split(r"[,\s]+", hedef_projeler) if p]
+    mod = (data.get("mod") or "tum").strip()
+    hedef_keys = data.get("hedef_keys") or []
+    if isinstance(hedef_keys, str):
+        hedef_keys = [k for k in re.split(r"[,\s]+", hedef_keys) if k]
+    anahtar_kelime = (data.get("anahtar_kelime") or "").strip()
     try:
-        from skills.backlog_senkron import senkronize_et
-        sonuc = senkronize_et(kaynak, BACKLOG_DIR,
-                              state_path=BACKLOG_DIR / "senkron_state.json")
-        logger.info("Backlog senkron: +%s güncel, +%s yeni, %s değişmedi",
-                    sonuc["guncellenen"], sonuc["eklenen"], sonuc["degismeyen"])
+        from skills.backlog_senkron import mutabakat
+        sonuc = mutabakat(uat_proje=uat_proje or None, hedef_projeler=hedef_projeler or None,
+                          mod=mod, hedef_keys=hedef_keys, anahtar_kelime=anahtar_kelime)
         return jsonify(sonuc)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
-        logger.exception("Backlog senkron hatası")
+        logger.exception("Backlog mutabakat hatası")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/backlog/export", methods=["POST"])
+def backlog_export():
+    """Mutabakat sonucundan çok sayfalı .xlsx raporu üretir; dosya adını döndürür."""
+    data = request.get_json(force=True) or {}
+    if not isinstance(data.get("eslesenler"), list):
+        return jsonify({"ok": False, "error": "Önce mutabakat çalıştırın"}), 400
+    try:
+        from skills.backlog_senkron import rapor_uret
+        yol = rapor_uret(data, BACKLOG_DIR)
+        return jsonify({"ok": True, "dosya": yol.name})
+    except Exception as e:
+        logger.exception("Backlog export hatası")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 

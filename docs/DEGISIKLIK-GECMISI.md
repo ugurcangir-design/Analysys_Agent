@@ -62,3 +62,21 @@
   görev bazlı canlı gözlem süresi/token maliyeti düşürüldü (doğruluktan ödün yok).
 - **Açık renk tema okunabilirliği (WCAG AA):** `--text3` 5.3:1 vb. kontrast düzeltmeleri.
 - **CLI 401 OAuth teşhisi:** `_cli_oturum_hatasi_mi` → Türkçe yeniden-giriş rehberi.
+
+## Faz 6 — Backlog Senkron → Backlog Mutabakat (yeniden tasarım) ✅
+Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** aracına dönüştürüldü.
+- **Excel yükleme + senkron kaldırıldı** (`/api/backlog/upload`, `/api/backlog/senkronize`, cerrahi
+  lxml zip yazımı). `skills/backlog_senkron.py` baştan yazıldı; eski takip Excel'leri ve
+  `senkron_state.json` silindi (git'te hiç izlenmemişti — `backlog/` gitignore).
+- **`mutabakat()`** (0 token): UAT board'unu tam tarar, hedef board'ları `mod`'a göre toplar
+  (`tum`/`epic`/`keyword`), katmanlı eşleştirir: KESİN (mevcut issue-link) → YÜKSEK (Jaccard ≥ 0.55) →
+  ADAY (0.35–0.55) → EŞLEŞMEYEN (UAT = açıkta kalan iş, hedef = kaynağı UAT'de yok). `jira_gorevleri`'nden
+  `_issue_ayrıstir` + `_benzerlik_jetonlari` + `alt_gorevleri_cek` yeniden kullanıldı.
+- **`rapor_uret()`** (`/api/backlog/export`): openpyxl ile sıfırdan çok sayfalı `.xlsx` (Eşleşenler /
+  Eşleşmeyen UAT / Eşleşmeyen TRADE-OPS). Yeni dosya olduğu için cerrahi yazıma gerek yok.
+- **`_jira_site_url()`:** browse link'leri için site adresini accessible-resources'tan cloud_id
+  eşleşmesiyle alır (cache'li); `.env JIRA_URL`'e güvenmez (OAuth callback tutabiliyor).
+- **UI:** kaynak/kapsam formu (UAT + hedef board + tarama modu), 6 stat kartı, 4 sonuç tablosu
+  (link'li, güven rozetli), Excel Raporu İndir. Nav/breadcrumb "Backlog Mutabakat".
+- **Gerçek veriyle doğrulandı:** UAT=209, hedef=1747 → 174 eşleşen, 1 aday, 42 açıkta kalan UAT,
+  1588 eşleşmeyen hedef; rapor + indirme uçtan uca çalışıyor.

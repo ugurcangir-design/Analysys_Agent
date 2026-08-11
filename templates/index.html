@@ -1484,12 +1484,40 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-msg { font-size: 12px; color: var(--text3); margin-top: 10px; min-height: 15px; }
 .jg-msg.err { color: var(--red); }
 .jg-msg.ok { color: var(--green); }
-/* Backlog Senkron sonuç kartları */
+/* Backlog Mutabakat sonuç kartları */
 .bs-ozet { display: flex; flex-wrap: wrap; gap: 12px; }
 .bs-stat { flex: 1 1 120px; min-width: 110px; padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; text-align: center; }
 .bs-stat .bs-num { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1.1; }
 .bs-stat .bs-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; }
 .bs-stat.bs-muted .bs-num { color: var(--text2); }
+.bs-stat.bs-warn .bs-num { color: var(--red, #ef4444); }
+.bs-stat.bs-click { cursor: pointer; transition: border-color .12s, background .12s, transform .08s; }
+.bs-stat.bs-click:hover { border-color: var(--accent); background: var(--surface3, var(--surface2)); }
+.bs-stat.bs-click:active { transform: translateY(1px); }
+.bs-stat.bs-click::after { content: '↓'; display: block; margin-top: 4px; font-size: 11px; color: var(--text3); opacity: .6; }
+@keyframes bsVurgu { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.bs-grup.bs-vurgu { animation: bsVurgu 1.1s ease-out; border-radius: 8px; }
+.bs-mod-row { display: flex; flex-wrap: wrap; gap: 16px; }
+.bs-radio { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text2); cursor: pointer; }
+.bs-radio input { accent-color: var(--accent); }
+/* Mutabakat sonuç tabloları */
+.bs-grup { margin-top: 16px; }
+.bs-grup-bas { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.bs-grup-bas .bs-say { font-size: 11px; color: var(--text3); font-weight: 500; }
+.bs-tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.bs-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bs-tbl th, .bs-tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.bs-tbl th { background: var(--surface2); color: var(--text2); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+.bs-tbl tr:last-child td { border-bottom: none; }
+.bs-tbl a.bs-key { color: var(--accent); text-decoration: none; white-space: nowrap; font-weight: 700; }
+.bs-tbl a.bs-key::after { content: '↗'; font-size: 9px; margin-left: 2px; opacity: .55; vertical-align: super; }
+.bs-tbl a.bs-key:hover { text-decoration: underline; }
+.bs-tbl .bs-cell-ozet { min-width: 220px; max-width: 380px; }
+.bs-guven { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+.bs-guven.evet { background: rgba(34,197,94,.15); color: #16a34a; }
+.bs-guven.aday { background: rgba(234,179,8,.18); color: #a16207; }
+.bs-guven.hayir { background: rgba(239,68,68,.15); color: #dc2626; }
+.bs-bos { padding: 14px; font-size: 12px; color: var(--text3); }
 .jg-ctx-bilgi { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 9px 12px; background: var(--info-bg, rgba(59,130,246,.08)); border: 1px solid var(--info-bd, rgba(59,130,246,.25)); border-radius: 6px; font-size: 12px; color: var(--text2); }
 .jg-ctx-bilgi .ico { width: 13px; height: 13px; color: var(--info-tx, #3b82f6); flex-shrink: 0; }
 .jg-ctx-bilgi > span { flex: 1; line-height: 1.5; }
@@ -1705,7 +1733,7 @@ function temaDegistir() {
       </div>
       <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
         <svg class="ico"><use href="#i-refresh"/></svg>
-        <span class="nav-label">Backlog Senkron</span>
+        <span class="nav-label">Backlog Mutabakat</span>
       </div>
 
       <div class="nav-section">Çıktılar</div>
@@ -2454,27 +2482,55 @@ function temaDegistir() {
       </div>
     </div>
 
-    <!-- ══ Backlog Senkron ══ -->
+    <!-- ══ Backlog Mutabakat ══ -->
     <div class="page" id="page-backlog-senkron">
       <div class="ph">
         <div class="ph-text">
-          <h1>Backlog Senkron</h1>
-          <p>UAT board'unda (MBSUATEAM) product'ın açtığı taskların TRADE/OPS board karşılıklarını ve durumlarını takip Excel'ine işler. <strong>Tamamen deterministik — LLM/token harcamaz.</strong> Değişmeyen satırlara dokunmaz, manuel not kolonlarınızı korur, orijinali değiştirmeden zaman damgalı yeni bir kopya üretir.</p>
+          <h1>Backlog Mutabakat</h1>
+          <p>UAT board'unda (product'ın UAT testlerinden açtığı) taskları, TRADE/OPS çalışma board'larıyla karşılaştırır; hangi UAT maddesinin işleme alınmadığını (açıkta kalan iş) ve hangi hedef taskın kaynağının UAT'de bulunmadığını ortaya çıkarır. <strong>Tamamen deterministik — LLM/token harcamaz.</strong> Eşleştirme mevcut Jira bağlantısı + başlık/içerik benzerliğiyle yapılır.</p>
         </div>
       </div>
 
       <div class="panel" style="margin-bottom:14px">
         <div class="panel-head">
-          <span class="panel-title">Takip Excel'i</span>
+          <span class="panel-title">Kaynak &amp; Kapsam</span>
           <span class="panel-tag">ADIM 1</span>
         </div>
         <div class="panel-body">
-          <p class="ctx-field-sub" style="margin-top:0">İçinde <code>Excel Maddeleri</code> sayfası bulunan takip dosyasını (.xlsx) yükleyin. İlk gün orijinal dosyanızı, sonraki günler bir önceki gün indirdiğiniz güncel kopyayı yükleyin — agent kendi kolonlarını başlık adından tanır, tekrarlamaz.</p>
-          <div class="jg-fetch-row" style="align-items:center">
-            <input type="file" id="bs-file" accept=".xlsx" onchange="bsDosyaSec()" style="flex:1">
-            <button class="btn btn-primary" id="bs-run-btn" onclick="bsSenkronize()" disabled>
-              <svg class="ico"><use href="#i-refresh"/></svg> Senkronize Et
+          <div class="ctx-field" style="margin-top:0">
+            <label class="ctx-field-label">UAT board'u (proje anahtarı)</label>
+            <input type="text" id="bs-uat" class="ctx-input" value="MBSUATEAM" placeholder="MBSUATEAM">
+            <p class="ctx-field-sub">Product'ın UAT taskları burada açılıyor — bu board her zaman tam taranır.</p>
+          </div>
+          <div class="ctx-field">
+            <label class="ctx-field-label">Hedef board(lar) (virgülle)</label>
+            <input type="text" id="bs-hedef" class="ctx-input" value="MBSTRADE, MBSOPS" placeholder="MBSTRADE, MBSOPS">
+            <p class="ctx-field-sub" id="bs-hedef-sub">Bu board'ların tamamı taranır.</p>
+          </div>
+          <div class="ctx-field">
+            <label class="ctx-field-label">Tarama modu</label>
+            <div class="bs-mod-row">
+              <label class="bs-radio"><input type="radio" name="bs-mod" value="tum" checked onchange="bsModDegis()"> Tüm board</label>
+              <label class="bs-radio"><input type="radio" name="bs-mod" value="epic" onchange="bsModDegis()"> Epic/Story altı</label>
+              <label class="bs-radio"><input type="radio" name="bs-mod" value="keyword" onchange="bsModDegis()"> Anahtar kelime</label>
+            </div>
+            <p class="ctx-field-sub" id="bs-mod-hint">Hedef board'ların tamamı taranır; UAT board'u her zaman tam taranır.</p>
+          </div>
+          <div class="ctx-field" id="bs-epic-wrap" style="display:none">
+            <label class="ctx-field-label">Epic/Story anahtarları (virgülle)</label>
+            <input type="text" id="bs-epic-keys" class="ctx-input" placeholder="MBSTRADE-12, MBSOPS-34">
+            <p class="ctx-field-sub">Bu epic/story'lerin <strong>altındaki</strong> görevler taranır (parent + Epic Link + linkedIssues) ve <strong>yukarıdaki hedef board'larla sınırlanır</strong> — böylece tüm board yerine yalnızca ilgili alt küme çekilir (token/zaman tasarrufu). Örn. hem TRADE hem OPS epic'lerini yazıp her ikisinin altını tarayabilirsiniz.</p>
+          </div>
+          <div class="ctx-field" id="bs-kw-wrap" style="display:none">
+            <label class="ctx-field-label">Anahtar kelime</label>
+            <input type="text" id="bs-kw" class="ctx-input" placeholder="ör. bonus, iade, limit">
+            <p class="ctx-field-sub">Hedef board'da başlık/içeriğinde bu terim geçen tasklar taranır (JQL <code>text ~</code>).</p>
+          </div>
+          <div class="jg-fetch-row" style="align-items:center;margin-top:6px">
+            <button class="btn btn-primary" id="bs-run-btn" onclick="bsMutabakat()">
+              <svg class="ico"><use href="#i-refresh"/></svg> Karşılaştır
             </button>
+            <span class="panel-spacer"></span>
           </div>
           <div id="bs-msg" class="jg-msg"></div>
         </div>
@@ -2482,15 +2538,15 @@ function temaDegistir() {
 
       <div class="panel" id="bs-sonuc-panel" style="display:none">
         <div class="panel-head">
-          <span class="panel-title">Sonuç</span>
+          <span class="panel-title">Mutabakat Sonucu</span>
           <span class="panel-spacer"></span>
-          <button class="btn btn-primary btn-sm" id="bs-indir-btn" onclick="bsIndir()">
-            <svg class="ico"><use href="#i-download"/></svg> Güncel Excel'i İndir
+          <button class="btn btn-primary btn-sm" id="bs-indir-btn" onclick="bsExport()">
+            <svg class="ico"><use href="#i-download"/></svg> Excel Raporu İndir
           </button>
         </div>
         <div class="panel-body">
           <div class="bs-ozet" id="bs-ozet"></div>
-          <div id="bs-uyari" class="jg-msg" style="margin-top:10px"></div>
+          <div id="bs-tablolar" style="margin-top:14px"></div>
         </div>
       </div>
     </div>
@@ -3106,7 +3162,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'Backlog Senkron',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'Backlog Mutabakat',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Jira Görevleri sekmesi: üst bar workflow yerine bu sayfanın durumunu gösterir
   _jgTabAktif = (tab === 'jira-gorevler');
@@ -3864,9 +3920,8 @@ async function jgJiraGuncelle() {
   }
 }
 
-// ─── Backlog Senkron ────────────────────────────────────────────────────────
-let _bsDosya = null;      // sunucuya yüklenmiş kaynak dosya adı
-let _bsCikti = null;      // üretilen indirilebilir dosya adı
+// ─── Backlog Mutabakat ──────────────────────────────────────────────────────
+let _bsSonuc = null;      // son mutabakat sonucu (export için saklanır)
 
 function bsMsg(html, tip) {
   const el = document.getElementById('bs-msg');
@@ -3874,47 +3929,125 @@ function bsMsg(html, tip) {
   el.innerHTML = html;
 }
 
-function bsDosyaSec() {
-  const f = document.getElementById('bs-file').files[0];
-  document.getElementById('bs-run-btn').disabled = !f;
-  document.getElementById('bs-sonuc-panel').style.display = 'none';
-  bsMsg(f ? `Seçildi: <strong>${f.name}</strong>` : '');
+function bsModDegis() {
+  const mod = document.querySelector('input[name="bs-mod"]:checked').value;
+  document.getElementById('bs-epic-wrap').style.display = (mod === 'epic') ? '' : 'none';
+  document.getElementById('bs-kw-wrap').style.display = (mod === 'keyword') ? '' : 'none';
+  const hint = {
+    tum: 'Hedef board\'ların tamamı taranır; UAT board\'u her zaman tam taranır.',
+    epic: 'Kapsam: aşağıdaki epic/story anahtarlarının altındaki görevler — hedef board\'larla sınırlı. UAT board\'u her zaman tam taranır.',
+    keyword: 'Hedef board\'larda aşağıdaki anahtar kelimeyi içeren görevler taranır. UAT board\'u her zaman tam taranır.',
+  };
+  const hedefSub = {
+    tum: 'Bu board\'ların tamamı taranır.',
+    epic: 'Epic/story altındaki görevler yalnızca bu board\'lara göre filtrelenir.',
+    keyword: 'Anahtar kelime bu board\'larda aranır.',
+  };
+  document.getElementById('bs-mod-hint').textContent = hint[mod];
+  document.getElementById('bs-hedef-sub').textContent = hedefSub[mod];
 }
 
-async function bsSenkronize() {
-  const f = document.getElementById('bs-file').files[0];
-  if (!f) { bsMsg('Önce bir .xlsx dosyası seçin.', 'err'); return; }
-  const btn = document.getElementById('bs-run-btn');
-  btn.disabled = true;
-  bsMsg('Yükleniyor…');
-  try {
-    const fd = new FormData(); fd.append('file', f);
-    const up = await fetch('/api/backlog/upload', { method: 'POST', body: fd });
-    const upData = await up.json();
-    if (!up.ok) { bsMsg('Yükleme hatası: ' + (upData.error || up.status), 'err'); btn.disabled = false; return; }
-    _bsDosya = upData.dosya;
+function _bsEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
-    bsMsg('Jira ile senkronize ediliyor… (UAT board taranıyor, değişen tasklar okunuyor — token harcanmaz)');
-    const r = await fetch('/api/backlog/senkronize', {
+function _bsKeyLink(key) {
+  const k = _bsEsc(key);
+  const base = _bsSonuc && _bsSonuc.jira_url;
+  return base
+    ? `<a class="bs-key" href="${base}/browse/${k}" target="_blank" rel="noopener" title="Jira'da aç: ${k}">${k}</a>`
+    : `<strong>${k}</strong>`;
+}
+
+function _bsEslesmeRozet(g) {
+  // Kesin (Jira bağlantısı) + Yüksek (içerik benzerliği) → EŞLEŞTİ = "Evet"; orta skor → "Aday".
+  const evet = (g === 'Kesin' || g === 'Yüksek');
+  return `<span class="bs-guven ${evet ? 'evet' : 'aday'}">${evet ? 'Evet' : 'Aday'}</span>`;
+}
+
+function _bsTabloEsles(satirlar) {
+  if (!satirlar.length) return '<div class="bs-bos">Kayıt yok.</div>';
+  const govde = satirlar.map(r => `<tr>
+    <td>${_bsKeyLink(r.uat_key)}</td>
+    <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
+    <td><strong>${_bsEsc(r.uat_durum)}</strong></td>
+    <td>${_bsKeyLink(r.hedef_key)}</td>
+    <td class="bs-cell-ozet">${_bsEsc(r.hedef_ozet)}</td>
+    <td><strong>${_bsEsc(r.hedef_durum)}</strong></td>
+    <td>${_bsEslesmeRozet(r.guven)}</td>
+    <td>${_bsEsc(r.gerekce)}</td></tr>`).join('');
+  return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
+    <th>UAT</th><th>UAT Özet</th><th>Durum</th><th>Hedef</th><th>Hedef Özet</th>
+    <th>Durum</th><th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table></div>`;
+}
+
+function _bsTabloTek(satirlar, projeKolon) {
+  if (!satirlar.length) return '<div class="bs-bos">Kayıt yok — bu tarafta açıkta kalan yok. 🎉</div>';
+  const govde = satirlar.map(r => `<tr>
+    <td>${_bsKeyLink(r.key)}</td>
+    ${projeKolon ? `<td>${_bsEsc(r.proje)}</td>` : ''}
+    <td class="bs-cell-ozet">${_bsEsc(r.ozet)}</td>
+    <td><strong>${_bsEsc(r.durum)}</strong></td>
+    <td>${_bsEsc(r.tur)}</td></tr>`).join('');
+  return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
+    <th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th><th>Durum</th><th>Tür</th></tr></thead>
+    <tbody>${govde}</tbody></table></div>`;
+}
+
+function _bsGrup(id, baslik, sayi, ikon, ic) {
+  return `<div class="bs-grup" id="${id}"><div class="bs-grup-bas">${ikon} ${_bsEsc(baslik)}
+    <span class="bs-say">(${sayi})</span></div>${ic}</div>`;
+}
+
+// Stat kartına tıklanınca ilgili tabloya kaydır + kısa vurgu.
+function bsGoto(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.classList.remove('bs-vurgu');
+  void el.offsetWidth;            // reflow → animasyon yeniden tetiklensin
+  el.classList.add('bs-vurgu');
+}
+
+async function bsMutabakat() {
+  const btn = document.getElementById('bs-run-btn');
+  const mod = document.querySelector('input[name="bs-mod"]:checked').value;
+  const govde = {
+    uat_proje: document.getElementById('bs-uat').value.trim(),
+    hedef_projeler: document.getElementById('bs-hedef').value.trim(),
+    mod: mod,
+    hedef_keys: document.getElementById('bs-epic-keys').value.trim(),
+    anahtar_kelime: document.getElementById('bs-kw').value.trim(),
+  };
+  btn.disabled = true;
+  bsMsg('Board\'lar Jira\'dan çekiliyor ve karşılaştırılıyor… (deterministik — token harcanmaz)');
+  try {
+    const r = await fetch('/api/backlog/mutabakat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dosya: _bsDosya })
+      body: JSON.stringify(govde)
     });
     const d = await r.json();
-    if (!r.ok || !d.ok) { bsMsg('Senkron hatası: ' + (d.error || r.status), 'err'); btn.disabled = false; return; }
-
-    _bsCikti = d.cikti_dosya;
+    if (!r.ok || !d.ok) { bsMsg('Mutabakat hatası: ' + (d.error || r.status), 'err'); return; }
+    _bsSonuc = d;
     bsMsg('');
+    const s = d.sayimlar;
     document.getElementById('bs-ozet').innerHTML =
-      `<div class="bs-stat"><div class="bs-num">${d.eklenen}</div><div class="bs-lbl">Yeni satır eklendi</div></div>`
-    + `<div class="bs-stat"><div class="bs-num">${d.guncellenen}</div><div class="bs-lbl">Satır güncellendi</div></div>`
-    + `<div class="bs-stat"><div class="bs-num">${d.yeni_esleme}</div><div class="bs-lbl">Yeni eşleşme</div></div>`
-    + `<div class="bs-stat bs-muted"><div class="bs-num">${d.degismeyen}</div><div class="bs-lbl">Değişmedi (dokunulmadı)</div></div>`
-    + `<div class="bs-stat bs-muted"><div class="bs-num">${d.toplam_satir}</div><div class="bs-lbl">Toplam satır</div></div>`;
-    const uy = document.getElementById('bs-uyari');
-    uy.innerHTML = (d.uyarilar && d.uyarilar.length)
-      ? '⚠️ ' + d.uyarilar.join('<br>⚠️ ') : '';
+      `<div class="bs-stat bs-click" onclick="bsGoto('bs-g-eslesen')"><div class="bs-num">${s.eslesen}</div><div class="bs-lbl">Eşleşen</div></div>`
+    + `<div class="bs-stat bs-click" onclick="bsGoto('bs-g-aday')"><div class="bs-num">${s.aday}</div><div class="bs-lbl">Teyit bekleyen aday</div></div>`
+    + `<div class="bs-stat bs-warn bs-click" onclick="bsGoto('bs-g-uat')"><div class="bs-num">${s.eslesmeyen_uat}</div><div class="bs-lbl">Eşleşmeyen UAT (açıkta kalan iş)</div></div>`
+    + `<div class="bs-stat bs-muted bs-click" onclick="bsGoto('bs-g-hedef')"><div class="bs-num">${s.eslesmeyen_hedef}</div><div class="bs-lbl">Eşleşmeyen TRADE/OPS</div></div>`
+    + `<div class="bs-stat bs-muted"><div class="bs-num">${s.uat_toplam}</div><div class="bs-lbl">UAT toplam</div></div>`
+    + `<div class="bs-stat bs-muted"><div class="bs-num">${s.hedef_toplam}</div><div class="bs-lbl">Hedef toplam</div></div>`;
+
+    document.getElementById('bs-tablolar').innerHTML =
+      _bsGrup('bs-g-eslesen', 'Eşleşenler', d.eslesenler.length, '✅', _bsTabloEsles(d.eslesenler))
+    + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar))
+    + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false))
+    + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true));
+
     document.getElementById('bs-sonuc-panel').style.display = '';
-    toast('Senkron tamam: +' + d.eklenen + ' yeni, ' + d.guncellenen + ' güncel. Excel indirmeye hazır.', 'success');
+    toast(`Mutabakat tamam: ${s.eslesen} eşleşme, ${s.eslesmeyen_uat} açıkta kalan UAT.`, 'success');
   } catch (e) {
     bsMsg('Beklenmeyen hata: ' + e.message, 'err');
   } finally {
@@ -3922,8 +4055,23 @@ async function bsSenkronize() {
   }
 }
 
-function bsIndir() {
-  if (_bsCikti) window.location.href = '/api/backlog/indir/' + encodeURIComponent(_bsCikti);
+async function bsExport() {
+  if (!_bsSonuc) { toast('Önce Karşılaştır çalıştırın.', 'error'); return; }
+  const btn = document.getElementById('bs-indir-btn');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/backlog/export', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_bsSonuc)
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) { toast('Export hatası: ' + (d.error || r.status), 'error'); return; }
+    window.location.href = '/api/backlog/indir/' + encodeURIComponent(d.dosya);
+  } catch (e) {
+    toast('Export hatası: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ─── Onboarding Banner'ları (her biri 1 kez gösterilir) ─────────────────────
