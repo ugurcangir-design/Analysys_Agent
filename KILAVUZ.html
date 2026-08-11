@@ -450,7 +450,8 @@ python app.py</code></pre>
       </p>
       <p>Ayarlar:</p>
       <ul>
-        <li><strong>Callback URL:</strong> <code>http://localhost:5002/api/jira/callback</code></li>
+        <li><strong>Callback URL</strong> (developer console'a kaydedilir, uygulamadaki bir alana YAZILMAZ):
+          <code>http://localhost:5002/api/jira/callback</code></li>
         <li><strong>Permissions (scopes):</strong>
           <ul>
             <li>Jira: <code>read:jira-work</code>, <code>write:jira-work</code>, <code>read:jira-user</code>, <code>offline_access</code></li>
@@ -462,7 +463,8 @@ python app.py</code></pre>
 <pre><code>JIRA_CLIENT_ID=...
 JIRA_CLIENT_SECRET=...
 JIRA_PROJECT_KEY=PROJ                # görevleri açacağınız proje
-JIRA_DEFAULT_SITE=&lt;sitename&gt;.atlassian.net</code></pre>
+JIRA_URL=https://&lt;sitename&gt;.atlassian.net   # Atlassian SİTE adresiniz — Callback URL DEĞİL;
+                                     # görev /browse/ linkleri bundan üretilir (Ayarlar'daki "Jira URL" alanı)</code></pre>
     </div>
     <div class="step">
       <div class="num">2</div>

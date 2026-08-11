@@ -2991,8 +2991,15 @@ python cli.py ui ~/export.zip</pre>
               <input type="text" id="jira-project-key" placeholder="PROJ" autocomplete="off">
             </div>
             <div class="form-group">
-              <label>Jira URL</label>
-              <input type="text" id="jira-url" placeholder="https://yourcompany.atlassian.net" autocomplete="off">
+              <label>Jira URL <span style="font-weight:400;color:var(--text3)">— Atlassian site adresiniz</span></label>
+              <input type="text" id="jira-url" placeholder="https://sirketiniz.atlassian.net" autocomplete="off" oninput="jiraUrlUyar()">
+              <p style="font-size:11px;color:var(--text3);line-height:1.6;margin:4px 0 0">
+                Sitenizin ana adresi (ör. <code>https://sirketiniz.atlassian.net</code>). Görev linkleri
+                (<code>/browse/…</code>) bundan üretilir. <strong>Aşağıdaki Callback URL DEĞİL</strong> —
+                o, developer console'a kaydettiğiniz adrestir, buraya yazılmaz. Bağlandıktan sonra otomatik
+                de algılanır; bu alan yalnızca yedektir.
+              </p>
+              <p id="jira-url-uyari" style="display:none;font-size:11px;color:var(--yellow,#d97706);line-height:1.6;margin:4px 0 0"></p>
             </div>
           </div>
           <div class="btn-group" style="margin-bottom:12px">
@@ -6539,6 +6546,7 @@ async function jiraConfigYukle() {
     document.getElementById('jira-client-id').value   = d.client_id || '';
     document.getElementById('jira-project-key').value = d.project_key || '';
     document.getElementById('jira-url').value         = d.jira_url || '';
+    jiraUrlUyar();   // mevcut değer site adresi değilse uyarıyı göster
 
     // Secret alanı: kaydedilmişse placeholder göster, input boş bırak
     const secEl = document.getElementById('jira-client-secret');
@@ -6564,6 +6572,21 @@ async function jiraConfigYukle() {
       st.textContent = '⚠ Jira bağlı değil. Client ID, Secret, URL ve Project Key doldurup kaydedin.';
     }
   } catch {}
+}
+
+// Jira URL alanı site adresi olmalı; callback/localhost benzeri değer girilirse yumuşak uyar
+// (kaydetmeyi engellemez — kod site adresini accessible-resources'tan da çözer).
+function jiraUrlUyar() {
+  const v = document.getElementById('jira-url').value.trim();
+  const el = document.getElementById('jira-url-uyari');
+  if (!el) return;
+  const supheli = v && (/callback/i.test(v) || /localhost|127\.0\.0\.1/.test(v) || (/^https?:\/\//.test(v) && !/\.atlassian\.net/i.test(v)));
+  if (supheli) {
+    el.textContent = '⚠ Bu bir site adresi gibi görünmüyor. Buraya Atlassian sitenizi yazın (ör. https://sirketiniz.atlassian.net) — Callback URL\'i değil.';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 async function jiraAyarlarKaydet() {
