@@ -1491,12 +1491,19 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .bs-stat .bs-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; }
 .bs-stat.bs-muted .bs-num { color: var(--text2); }
 .bs-stat.bs-warn .bs-num { color: var(--red, #ef4444); }
-.bs-stat.bs-click { cursor: pointer; transition: border-color .12s, background .12s, transform .08s; }
+.bs-stat.bs-click { cursor: pointer; position: relative; transition: border-color .12s, background .12s, box-shadow .12s, transform .08s; }
 .bs-stat.bs-click:hover { border-color: var(--accent); background: var(--surface3, var(--surface2)); }
 .bs-stat.bs-click:active { transform: translateY(1px); }
-.bs-stat.bs-click::after { content: '↓'; display: block; margin-top: 4px; font-size: 11px; color: var(--text3); opacity: .6; }
-@keyframes bsVurgu { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
-.bs-grup.bs-vurgu { animation: bsVurgu 1.1s ease-out; border-radius: 8px; }
+.bs-stat.bs-click::after { content: 'filtrele'; display: block; margin-top: 5px; font-size: 10px; letter-spacing: .3px; color: var(--text3); opacity: .7; }
+.bs-stat.bs-click.bs-aktif { border-color: var(--accent); background: var(--surface3, var(--surface2)); box-shadow: inset 0 0 0 1px var(--accent); }
+.bs-stat.bs-click.bs-aktif::after { content: '✓ filtreli — tümü için tıkla'; color: var(--accent); opacity: 1; }
+/* Durum farkı: UAT ≠ Hedef statüsü → dikkat çekici amber */
+.bs-tbl td.bs-durum-fark { background: rgba(234,179,8,.16); }
+.bs-tbl td.bs-durum-fark strong { color: #b45309; }
+.bs-fark-im { color: #b45309; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .bs-tbl td.bs-durum-fark strong, .bs-fark-im { color: #fbbf24; } }
+:root[data-theme="dark"] .bs-tbl td.bs-durum-fark strong, :root[data-theme="dark"] .bs-fark-im { color: #fbbf24; }
+:root[data-theme="light"] .bs-tbl td.bs-durum-fark strong, :root[data-theme="light"] .bs-fark-im { color: #b45309; }
 .bs-mod-row { display: flex; flex-wrap: wrap; gap: 16px; }
 .bs-radio { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text2); cursor: pointer; }
 .bs-radio input { accent-color: var(--accent); }
@@ -3968,22 +3975,33 @@ function _bsKeyLink(key) {
 }
 
 function _bsEslesmeRozet(g) {
-  // Kesin (Jira bağlantısı) + Yüksek (içerik benzerliği) → EŞLEŞTİ = "Evet"; orta skor → "Aday".
-  const evet = (g === 'Kesin' || g === 'Yüksek');
-  return `<span class="bs-guven ${evet ? 'evet' : 'aday'}">${evet ? 'Evet' : 'Aday'}</span>`;
+  // Kesin (Jira bağlantısı) + Yüksek (içerik benzerliği) → EŞLEŞTİ; orta skor → ADAY.
+  if (g === 'Aday') return '<span class="bs-guven aday">● Aday</span>';
+  return '<span class="bs-guven evet">✓ Eşleşti</span>';
+}
+
+// UAT durumu ile Hedef durumu farklı mı? (Türkçe-duyarlı, boşluk/harf normalize)
+function _bsDurumFarkli(a, b) {
+  const n = s => String(s == null ? '' : s).trim().toLocaleLowerCase('tr');
+  return n(a) !== n(b);
 }
 
 function _bsTabloEsles(satirlar) {
   if (!satirlar.length) return '<div class="bs-bos">Kayıt yok.</div>';
-  const govde = satirlar.map(r => `<tr>
+  const govde = satirlar.map(r => {
+    const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
+    const dcls = farkli ? ' class="bs-durum-fark"' : '';
+    const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
+    return `<tr>
     <td>${_bsKeyLink(r.uat_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
-    <td><strong>${_bsEsc(r.uat_durum)}</strong></td>
+    <td${dcls}><strong>${_bsEsc(r.uat_durum)}</strong>${im}</td>
     <td>${_bsKeyLink(r.hedef_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.hedef_ozet)}</td>
-    <td><strong>${_bsEsc(r.hedef_durum)}</strong></td>
+    <td${dcls}><strong>${_bsEsc(r.hedef_durum)}</strong>${im}</td>
     <td>${_bsEslesmeRozet(r.guven)}</td>
-    <td>${_bsEsc(r.gerekce)}</td></tr>`).join('');
+    <td>${_bsEsc(r.gerekce)}</td></tr>`;
+  }).join('');
   return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
     <th>UAT</th><th>UAT Özet</th><th>Durum</th><th>Hedef</th><th>Hedef Özet</th>
     <th>Durum</th><th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table></div>`;
@@ -3996,9 +4014,10 @@ function _bsTabloTek(satirlar, projeKolon) {
     ${projeKolon ? `<td>${_bsEsc(r.proje)}</td>` : ''}
     <td class="bs-cell-ozet">${_bsEsc(r.ozet)}</td>
     <td><strong>${_bsEsc(r.durum)}</strong></td>
-    <td>${_bsEsc(r.tur)}</td></tr>`).join('');
+    <td>${_bsEsc(r.tur)}</td>
+    <td><span class="bs-guven hayir">✕ Eşleşmedi</span></td></tr>`).join('');
   return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
-    <th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th><th>Durum</th><th>Tür</th></tr></thead>
+    <th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th><th>Durum</th><th>Tür</th><th>Eşleşme</th></tr></thead>
     <tbody>${govde}</tbody></table></div>`;
 }
 
@@ -4007,14 +4026,22 @@ function _bsGrup(id, baslik, sayi, ikon, ic) {
     <span class="bs-say">(${sayi})</span></div>${ic}</div>`;
 }
 
-// Stat kartına tıklanınca ilgili tabloya kaydır + kısa vurgu.
-function bsGoto(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  el.classList.remove('bs-vurgu');
-  void el.offsetWidth;            // reflow → animasyon yeniden tetiklensin
-  el.classList.add('bs-vurgu');
+// Stat kartı FİLTRE gibi çalışır: tıklanınca yalnızca ilgili grup görünür, diğerleri gizlenir.
+// Aktif karta tekrar tıklamak filtreyi kaldırır (tümü görünür).
+let _bsAktifFiltre = null;
+const _BS_GRUPLAR = ['bs-g-eslesen', 'bs-g-aday', 'bs-g-uat', 'bs-g-hedef'];
+
+function bsFiltreSifirla() {
+  _bsAktifFiltre = null;
+  _BS_GRUPLAR.forEach(g => { const el = document.getElementById(g); if (el) el.style.display = ''; });
+  document.querySelectorAll('.bs-stat.bs-click').forEach(c => c.classList.remove('bs-aktif'));
+}
+
+function bsFiltrele(id) {
+  if (_bsAktifFiltre === id) { bsFiltreSifirla(); return; }
+  _bsAktifFiltre = id;
+  _BS_GRUPLAR.forEach(g => { const el = document.getElementById(g); if (el) el.style.display = (g === id) ? '' : 'none'; });
+  document.querySelectorAll('.bs-stat.bs-click').forEach(c => c.classList.toggle('bs-aktif', c.dataset.grup === id));
 }
 
 async function bsMutabakat() {
@@ -4040,10 +4067,10 @@ async function bsMutabakat() {
     bsMsg('');
     const s = d.sayimlar;
     document.getElementById('bs-ozet').innerHTML =
-      `<div class="bs-stat bs-click" onclick="bsGoto('bs-g-eslesen')"><div class="bs-num">${s.eslesen}</div><div class="bs-lbl">Eşleşen</div></div>`
-    + `<div class="bs-stat bs-click" onclick="bsGoto('bs-g-aday')"><div class="bs-num">${s.aday}</div><div class="bs-lbl">Teyit bekleyen aday</div></div>`
-    + `<div class="bs-stat bs-warn bs-click" onclick="bsGoto('bs-g-uat')"><div class="bs-num">${s.eslesmeyen_uat}</div><div class="bs-lbl">Eşleşmeyen UAT (açıkta kalan iş)</div></div>`
-    + `<div class="bs-stat bs-muted bs-click" onclick="bsGoto('bs-g-hedef')"><div class="bs-num">${s.eslesmeyen_hedef}</div><div class="bs-lbl">Eşleşmeyen TRADE/OPS</div></div>`
+      `<div class="bs-stat bs-click" data-grup="bs-g-eslesen" onclick="bsFiltrele('bs-g-eslesen')"><div class="bs-num">${s.eslesen}</div><div class="bs-lbl">Eşleşen</div></div>`
+    + `<div class="bs-stat bs-click" data-grup="bs-g-aday" onclick="bsFiltrele('bs-g-aday')"><div class="bs-num">${s.aday}</div><div class="bs-lbl">Teyit bekleyen aday</div></div>`
+    + `<div class="bs-stat bs-warn bs-click" data-grup="bs-g-uat" onclick="bsFiltrele('bs-g-uat')"><div class="bs-num">${s.eslesmeyen_uat}</div><div class="bs-lbl">Eşleşmeyen UAT (açıkta kalan iş)</div></div>`
+    + `<div class="bs-stat bs-muted bs-click" data-grup="bs-g-hedef" onclick="bsFiltrele('bs-g-hedef')"><div class="bs-num">${s.eslesmeyen_hedef}</div><div class="bs-lbl">Eşleşmeyen TRADE/OPS</div></div>`
     + `<div class="bs-stat bs-muted"><div class="bs-num">${s.uat_toplam}</div><div class="bs-lbl">UAT toplam</div></div>`
     + `<div class="bs-stat bs-muted"><div class="bs-num">${s.hedef_toplam}</div><div class="bs-lbl">Hedef toplam</div></div>`;
 
@@ -4052,6 +4079,7 @@ async function bsMutabakat() {
     + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar))
     + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false))
     + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true));
+    bsFiltreSifirla();   // yeni sonuçta filtre temiz başlar (tüm gruplar görünür)
 
     document.getElementById('bs-sonuc-panel').style.display = '';
     toast(`Mutabakat tamam: ${s.eslesen} eşleşme, ${s.eslesmeyen_uat} açıkta kalan UAT.`, 'success');

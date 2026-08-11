@@ -236,9 +236,11 @@ takip-Excel senkron akışı — upload + cerrahi lxml yazımı — bu sürümde
   yalnızca `.atlassian.net` içeriyorsa yedek olarak kullanılır. Aynı helper `jira_agent.py` task-oluşturma
   browse link'lerinde de kullanılır (tek kaynak).
 - **Export (`rapor_uret`):** openpyxl `Workbook` ile sıfırdan 3 sayfa: `Eşleşenler` (eşleşen+aday,
-  **Eşleşme** (Evet/Aday) + Gerekçe kolonlu), `Eşleşmeyen UAT`, `Eşleşmeyen TRADE-OPS`. UI aynı: stat
-  kartları tıklanınca ilgili tabloya kaydırır (`bsGoto`), task key'leri Jira browse link'i (yeni sekme),
-  key + durum bold. Başlık dolgusu + freeze + autoFilter.
+  **Eşleşme** (Evet/Aday) + Gerekçe kolonlu), `Eşleşmeyen UAT`, `Eşleşmeyen TRADE-OPS`. Başlık dolgusu +
+  freeze + autoFilter. UI'da (export'a yansımaz): stat kartları FİLTRE'dir (`bsFiltrele` — tıkla → yalnızca
+  o grup görünür, aktif karta tekrar tıkla → tümü); satır rozetleri (✓ Eşleşti / ● Aday / ✕ Eşleşmedi);
+  task key'leri Jira browse link'i (bold + ↗, yeni sekme); UAT durumu ≠ Hedef durumu olan satırlarda iki
+  durum hücresi amber + "≠" ile vurgulanır (`bs-durum-fark`).
   Zaman damgalı `Backlog_Mutabakat_YYYY-MM-DD_HHMM.xlsx`, `backlog/` altına.
 - **Endpoint'ler:** `POST /api/backlog/mutabakat` (config → kova JSON) · `POST /api/backlog/export`
   (sonuç body → `{dosya}`) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
