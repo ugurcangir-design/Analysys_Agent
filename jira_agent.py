@@ -144,7 +144,10 @@ def sonuc_dosyasini_oku() -> str | None:
     return None
 
 def sonuc_dosyasina_yaz(task_key: str, task_basligi: str) -> None:
-    jira_url = env_al("JIRA_URL") or "https://yourcompany.atlassian.net"
+    # Site adresi accessible-resources'tan çözülür; JIRA_URL bazı kurulumlarda OAuth
+    # callback adresini tuttuğundan yalnızca yedek. (canonical: skills/atlassian.py)
+    from skills.atlassian import jira_site_url
+    jira_url = jira_site_url() or env_al("JIRA_URL") or "https://yourcompany.atlassian.net"
     sonuc_dosyasi_yolu().write_text(
         f"Task  : {task_key}\n"
         f"Baslik: {task_basligi}\n"
@@ -382,6 +385,7 @@ def main() -> tuple[str, str]:
             raise RuntimeError("Jira task oluşturulamadı.")
 
     sonuc_dosyasina_yaz(task_key, task_basligi)
-    jira_url = env_al("JIRA_URL") or "https://yourcompany.atlassian.net"
+    from skills.atlassian import jira_site_url
+    jira_url = jira_site_url() or env_al("JIRA_URL") or "https://yourcompany.atlassian.net"
     print(f"✓ Jira task: {task_key} — {jira_url}/browse/{task_key}")
     return task_key, task_basligi

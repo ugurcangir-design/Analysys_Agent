@@ -29,12 +29,11 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-import requests as _req
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .atlassian import atlassian_post, env_oku
+from .atlassian import atlassian_post, jira_site_url
 from .jira_gorevleri import (
     _benzerlik_jetonlari,
     _cloud_id,
@@ -72,33 +71,6 @@ def _jql_ara(jql: str, cloud_id: str) -> list[dict]:
         if not next_token:
             break
     return gorevler
-
-
-_site_url_cache: dict[str, str] = {}
-
-
-def _jira_site_url(cloud_id: str) -> str:
-    """Atlassian site adresini (ör. https://firma.atlassian.net) accessible-resources'tan
-    cloud_id eşleşmesiyle bulur — /browse/KEY link'leri için. Süreç boyunca cache'lenir.
-    Bulunamazsa boş döner (link'ler düz metin gösterilir). JIRA_URL'e GÜVENMEZ; o env
-    bazı kurulumlarda OAuth callback adresini tutuyor."""
-    if cloud_id in _site_url_cache:
-        return _site_url_cache[cloud_id]
-    url = ""
-    try:
-        token = env_oku().get("JIRA_ACCESS_TOKEN", "")
-        r = _req.get("https://api.atlassian.com/oauth/token/accessible-resources",
-                     headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-                     timeout=15)
-        if r.status_code == 200:
-            for res in r.json():
-                if res.get("id") == cloud_id and res.get("url"):
-                    url = res["url"].rstrip("/")
-                    break
-    except Exception:
-        url = ""
-    _site_url_cache[cloud_id] = url
-    return url
 
 
 def _jql_kacis(deger: str) -> str:
@@ -282,7 +254,7 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
         "uat_proje": uat_proje,
         "hedef_projeler": hedef_projeler,
         "mod": mod,
-        "jira_url": _jira_site_url(cloud_id),
+        "jira_url": jira_site_url(cloud_id),
         "eslesenler": eslesenler,
         "adaylar": adaylar,
         "eslesmeyen_uat": eslesmeyen_uat,

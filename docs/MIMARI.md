@@ -230,9 +230,11 @@ takip-Excel senkron akışı — upload + cerrahi lxml yazımı — bu sürümde
   3. **ADAY** — Jaccard `ESIK_ORTA` (0.35) ile `ESIK_YUKSEK` arası → analist teyit eder.
   4. **EŞLEŞMEYEN** — UAT tarafı (açıkta kalan iş) VE hedef tarafı (kaynağı UAT'de olmayan) ayrı ayrı.
   Dönüş: `eslesenler`, `adaylar`, `eslesmeyen_uat`, `eslesmeyen_hedef`, `sayimlar`, `jira_url`.
-- **`jira_url` (browse link'leri için):** `_jira_site_url` accessible-resources endpoint'inden cloud_id
-  eşleşmesiyle site adresini (ör. `https://firma.atlassian.net`) alır, süreç boyunca cache'ler. **`.env`
-  `JIRA_URL`'e GÜVENMEZ** — o bazı kurulumlarda OAuth callback adresini tutuyor.
+- **`jira_url` (browse link'leri için):** canonical `atlassian.jira_site_url()` accessible-resources
+  endpoint'inden cloud_id eşleşmesiyle site adresini (ör. `https://firma.atlassian.net`) alır, süreç
+  boyunca cache'ler. **`.env` `JIRA_URL`'e GÜVENMEZ** — o bazı kurulumlarda OAuth callback adresini tutuyor;
+  yalnızca `.atlassian.net` içeriyorsa yedek olarak kullanılır. Aynı helper `jira_agent.py` task-oluşturma
+  browse link'lerinde de kullanılır (tek kaynak).
 - **Export (`rapor_uret`):** openpyxl `Workbook` ile sıfırdan 3 sayfa: `Eşleşenler` (eşleşen+aday,
   **Eşleşme** (Evet/Aday) + Gerekçe kolonlu), `Eşleşmeyen UAT`, `Eşleşmeyen TRADE-OPS`. UI aynı: stat
   kartları tıklanınca ilgili tabloya kaydırır (`bsGoto`), task key'leri Jira browse link'i (yeni sekme),

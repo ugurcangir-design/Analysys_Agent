@@ -137,6 +137,51 @@ def atlassian_put(path: str, body: dict, cloud_id: str, service: str = "jira") -
         return {}
 
 
+# ─── Jira Site Adresi (browse link'leri) ──────────────────────────────────────
+
+_site_url_cache: dict[str, str] = {}
+
+
+def jira_site_url(cloud_id: str = "") -> str:
+    """Atlassian site adresini (ör. https://firma.atlassian.net) döndürür — Jira
+    `/browse/KEY` link'leri için. accessible-resources endpoint'inden cloud_id
+    eşleşmesiyle bulur ve süreç boyunca cache'ler.
+
+    `.env` `JIRA_URL`'e GÜVENMEZ: o değer bazı kurulumlarda OAuth callback adresini
+    (ör. http://localhost:5002/jira-callback) tutuyor → yanlış browse link'i üretir.
+    accessible-resources başarısız olursa yalnızca gerçek bir site gibi görünen
+    (`.atlassian.net` içeren) JIRA_URL'e düşer; aksi hâlde boş döner."""
+    env = env_oku()
+    cloud_id = cloud_id or env.get("JIRA_CLOUD_ID", "")
+    onbellek_anahtari = cloud_id or "_ilk"
+    if onbellek_anahtari in _site_url_cache:
+        return _site_url_cache[onbellek_anahtari]
+
+    url = ""
+    try:
+        token = env.get("JIRA_ACCESS_TOKEN", "")
+        r = _req.get(
+            "https://api.atlassian.com/oauth/token/accessible-resources",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            for res in r.json():
+                if (not cloud_id or res.get("id") == cloud_id) and res.get("url"):
+                    url = res["url"].rstrip("/")
+                    break
+    except Exception:
+        url = ""
+
+    if not url:
+        ju = (env.get("JIRA_URL", "") or "").rstrip("/")
+        if ".atlassian.net" in ju:        # yalnızca gerçek site gibiyse yedek al
+            url = ju
+
+    _site_url_cache[onbellek_anahtari] = url
+    return url
+
+
 # ─── Confluence Sayfa CRUD (v2 API — Modern Mode) ─────────────────────────────
 
 def _confluence_space_id(space_key: str, cloud_id: str) -> str:
