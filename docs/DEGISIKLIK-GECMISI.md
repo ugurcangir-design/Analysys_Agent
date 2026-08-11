@@ -80,3 +80,15 @@ Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** arac
   (link'li, güven rozetli), Excel Raporu İndir. Nav/breadcrumb "Backlog Mutabakat".
 - **Gerçek veriyle doğrulandı:** UAT=209, hedef=1747 → 174 eşleşen, 1 aday, 42 açıkta kalan UAT,
   1588 eşleşmeyen hedef; rapor + indirme uçtan uca çalışıyor.
+
+## Faz 7 — UAT Mutabakat: sıra no + sıralı liste + UI iyileştirmeleri ✅
+- **Ekran adı** "Backlog Mutabakat" → **"UAT Mutabakat"** (nav/breadcrumb/başlık/KILAVUZ; iç sayfa id
+  `backlog-senkron`, modül `backlog_senkron`, endpoint `/api/backlog/*` tarihsel olarak korundu).
+  Rapor dosya adı `Backlog_Mutabakat_*` → `UAT_Mutabakat_*`.
+- **UAT sıra no + sıralı liste:** her satır UAT key'inin sonundaki sayıyla (`_sira_no`, MBSUATEAM-116→116)
+  "Sıra" kolonunda gösterilir; tüm kovalar bu no'ya göre ARTAN sıralanır (eski karışık liste — link
+  eşleşmeleri string-sıralı + benzerlik eşleşmeleri oluşturma sırasında — düzeltildi). Export'a da "Sıra".
+- **UI (önceki turda):** stat kartları FİLTRE (`bsFiltrele`); satır rozetleri (✓ Eşleşti / ● Aday /
+  ✕ Eşleşmedi); durum farkı (UAT≠Hedef) amber+"≠" vurgu; task key'leri Jira browse link (bold + ↗).
+- **Doğrulandı:** Eşleşenler 1,16,17…; Eşleşmeyen UAT 140,141,142… artan; Sıra=key no; export "Sıra"
+  kolonu (MBSUATEAM-1→1). ruff temiz.

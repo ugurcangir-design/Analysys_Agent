@@ -119,21 +119,31 @@ def _jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(birlesim)
 
 
+def _sira_no(key: str) -> int:
+    """Jira key'inin sonundaki sayı = board'daki sıra no (MBSUATEAM-116 → 116).
+    Sayı yoksa listede sona düşsün diye çok büyük döner."""
+    m = re.search(r"(\d+)$", key or "")
+    return int(m.group(1)) if m else 10**9
+
+
 def _sade(g: dict, proje_ekle: bool = False) -> dict:
     """Görev sözlüğünü ekran/rapor için sade kayda indirger."""
+    key = g.get("key", "")
     kayit = {
-        "key": g.get("key", ""),
+        "sira": _sira_no(key),
+        "key": key,
         "ozet": g.get("summary", ""),
         "durum": g.get("status", ""),
         "tur": g.get("type", ""),
     }
     if proje_ekle:
-        kayit["proje"] = (g.get("key", "").split("-", 1)[0]) if g.get("key") else ""
+        kayit["proje"] = (key.split("-", 1)[0]) if key else ""
     return kayit
 
 
 def _satir(uat: dict, hedef: dict, guven: str, gerekce: str, skor: float) -> dict:
     return {
+        "sira": _sira_no(uat.get("key", "")),   # UAT board sıra no (sıralama + gösterim)
         "uat_key": uat.get("key", ""),
         "uat_ozet": uat.get("summary", ""),
         "uat_durum": uat.get("status", ""),
@@ -245,6 +255,13 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     eslesmeyen_hedef = [_sade(h, proje_ekle=True) for h in hedef_gorevler
                         if h["key"] not in kullanilan_hedef]
 
+    # Tüm kovalar UAT sıra no'suna (hedef kovası kendi key no'suna) göre artan sıralı —
+    # karışık liste yerine 1, 2, 3… gitsin (analist hiçbir maddeyi atlamasın).
+    eslesenler.sort(key=lambda r: r["sira"])
+    adaylar.sort(key=lambda r: r["sira"])
+    eslesmeyen_uat.sort(key=lambda r: r["sira"])
+    eslesmeyen_hedef.sort(key=lambda r: r["sira"])
+
     logger.info("Mutabakat: UAT=%d hedef=%d → eşleşen=%d aday=%d eşleşmeyen_uat=%d eşleşmeyen_hedef=%d",
                 len(uat_gorevler), len(hedef_gorevler), len(eslesenler), len(adaylar),
                 len(eslesmeyen_uat), len(eslesmeyen_hedef))
@@ -300,27 +317,30 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
 
     ws1 = wb.active
     ws1.title = "Eşleşenler"
-    esles_bas = ["UAT Key", "UAT Özet", "UAT Durum", "Hedef Key", "Hedef Özet",
+    esles_bas = ["Sıra", "UAT Key", "UAT Özet", "UAT Durum", "Hedef Key", "Hedef Özet",
                  "Hedef Durum", "Eşleşme", "Gerekçe", "Skor"]
-    esles_satir = [[r["uat_key"], r["uat_ozet"], r["uat_durum"], r["hedef_key"],
+    esles_kaynak = sorted(sonuc.get("eslesenler", []) + sonuc.get("adaylar", []),
+                          key=lambda r: r.get("sira", 10**9))
+    esles_satir = [[r.get("sira", ""), r["uat_key"], r["uat_ozet"], r["uat_durum"], r["hedef_key"],
                     r["hedef_ozet"], r["hedef_durum"],
                     ("Aday" if r["guven"] == "Aday" else "Evet"), r["gerekce"], r["skor"]]
-                   for r in (sonuc.get("eslesenler", []) + sonuc.get("adaylar", []))]
-    _sayfa_yaz(ws1, esles_bas, esles_satir, [14, 44, 14, 14, 44, 14, 10, 26, 8])
+                   for r in esles_kaynak]
+    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 14, 44, 14, 10, 26, 8])
 
     ws2 = wb.create_sheet("Eşleşmeyen UAT")
-    _sayfa_yaz(ws2, ["UAT Key", "Özet", "Durum", "Tür"],
-               [[r["key"], r["ozet"], r["durum"], r["tur"]] for r in sonuc.get("eslesmeyen_uat", [])],
-               [14, 52, 16, 14])
+    _sayfa_yaz(ws2, ["Sıra", "UAT Key", "Özet", "Durum", "Tür"],
+               [[r.get("sira", ""), r["key"], r["ozet"], r["durum"], r["tur"]]
+                for r in sonuc.get("eslesmeyen_uat", [])],
+               [6, 14, 52, 16, 14])
 
     ws3 = wb.create_sheet("Eşleşmeyen TRADE-OPS")
-    _sayfa_yaz(ws3, ["Hedef Key", "Proje", "Özet", "Durum", "Tür"],
-               [[r["key"], r.get("proje", ""), r["ozet"], r["durum"], r["tur"]]
+    _sayfa_yaz(ws3, ["Sıra", "Hedef Key", "Proje", "Özet", "Durum", "Tür"],
+               [[r.get("sira", ""), r["key"], r.get("proje", ""), r["ozet"], r["durum"], r["tur"]]
                 for r in sonuc.get("eslesmeyen_hedef", [])],
-               [14, 12, 52, 16, 14])
+               [6, 14, 12, 52, 16, 14])
 
     damga = datetime.now().strftime("%Y-%m-%d_%H%M")
-    yol = cikti_dir / f"Backlog_Mutabakat_{damga}.xlsx"
+    yol = cikti_dir / f"UAT_Mutabakat_{damga}.xlsx"
     wb.save(str(yol))
     logger.info("Mutabakat raporu üretildi: %s", yol.name)
     return yol

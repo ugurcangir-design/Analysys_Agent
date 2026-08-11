@@ -207,7 +207,7 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
   json `result` tam döner, `stop_reason`/`is_error` ile kesilme tespiti. `_claude_yolu_bul()` PATH'e
   bağımlı değil (GUI minimal PATH için nvm/~.local/homebrew tarar).
 
-## Backlog Mutabakat (`skills/backlog_senkron.py` + UI `page-backlog-senkron`)
+## UAT Mutabakat (ekran adı; `skills/backlog_senkron.py` + UI `page-backlog-senkron`)
 Product'ın **UAT board'unda** (MBSUATEAM) açtığı taskları bizim **TRADE/OPS board**
 (MBSTRADE/MBSOPS) tasklarıyla karşılaştırır; hangi UAT maddesinin işleme alınmadığını (açıkta
 kalan iş) ve hangi hedef taskın kaynağının UAT'de bulunmadığını ortaya çıkarır. Analist tek tıkla
@@ -235,13 +235,16 @@ takip-Excel senkron akışı — upload + cerrahi lxml yazımı — bu sürümde
   boyunca cache'ler. **`.env` `JIRA_URL`'e GÜVENMEZ** — o bazı kurulumlarda OAuth callback adresini tutuyor;
   yalnızca `.atlassian.net` içeriyorsa yedek olarak kullanılır. Aynı helper `jira_agent.py` task-oluşturma
   browse link'lerinde de kullanılır (tek kaynak).
-- **Export (`rapor_uret`):** openpyxl `Workbook` ile sıfırdan 3 sayfa: `Eşleşenler` (eşleşen+aday,
-  **Eşleşme** (Evet/Aday) + Gerekçe kolonlu), `Eşleşmeyen UAT`, `Eşleşmeyen TRADE-OPS`. Başlık dolgusu +
-  freeze + autoFilter. UI'da (export'a yansımaz): stat kartları FİLTRE'dir (`bsFiltrele` — tıkla → yalnızca
-  o grup görünür, aktif karta tekrar tıkla → tümü); satır rozetleri (✓ Eşleşti / ● Aday / ✕ Eşleşmedi);
-  task key'leri Jira browse link'i (bold + ↗, yeni sekme); UAT durumu ≠ Hedef durumu olan satırlarda iki
-  durum hücresi amber + "≠" ile vurgulanır (`bs-durum-fark`).
-  Zaman damgalı `Backlog_Mutabakat_YYYY-MM-DD_HHMM.xlsx`, `backlog/` altına.
+- **Sıralama:** tüm kovalar UAT sıra no'suna (`_sira_no` = key sonundaki sayı, MBSUATEAM-116→116; hedef
+  kovası kendi key no'suna) göre ARTAN sıralanır → karışık liste değil 1,2,3… Her satırda `sira` alanı;
+  UI ve export'ta ilk kolon "Sıra".
+- **Export (`rapor_uret`):** openpyxl `Workbook` ile sıfırdan 3 sayfa: `Eşleşenler` (Sıra + eşleşen+aday,
+  **Eşleşme** (Evet/Aday) + Gerekçe kolonlu), `Eşleşmeyen UAT`, `Eşleşmeyen TRADE-OPS` (hepsi Sıra kolonlu).
+  Başlık dolgusu + freeze + autoFilter. UI'da (export'a yansımaz): stat kartları FİLTRE'dir (`bsFiltrele` —
+  tıkla → yalnızca o grup görünür, aktif karta tekrar tıkla → tümü); satır rozetleri (✓ Eşleşti / ● Aday /
+  ✕ Eşleşmedi); task key'leri Jira browse link'i (bold + ↗, yeni sekme); UAT durumu ≠ Hedef durumu olan
+  satırlarda iki durum hücresi amber + "≠" ile vurgulanır (`bs-durum-fark`).
+  Zaman damgalı `UAT_Mutabakat_YYYY-MM-DD_HHMM.xlsx`, `backlog/` altına.
 - **Endpoint'ler:** `POST /api/backlog/mutabakat` (config → kova JSON) · `POST /api/backlog/export`
   (sonuç body → `{dosya}`) · `GET /api/backlog/indir/<dosya>` (binary `send_file`). Dosyalar `backlog/`
   altında (gitignore). Bağımlılık: `openpyxl` (requirements.txt).

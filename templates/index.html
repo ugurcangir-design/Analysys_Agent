@@ -1484,7 +1484,7 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-msg { font-size: 12px; color: var(--text3); margin-top: 10px; min-height: 15px; }
 .jg-msg.err { color: var(--red); }
 .jg-msg.ok { color: var(--green); }
-/* Backlog Mutabakat sonuç kartları */
+/* UAT Mutabakat sonuç kartları */
 .bs-ozet { display: flex; flex-wrap: wrap; gap: 12px; }
 .bs-stat { flex: 1 1 120px; min-width: 110px; padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; text-align: center; }
 .bs-stat .bs-num { font-size: 26px; font-weight: 700; color: var(--accent); line-height: 1.1; }
@@ -1520,6 +1520,7 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .bs-tbl a.bs-key::after { content: '↗'; font-size: 9px; margin-left: 2px; opacity: .55; vertical-align: super; }
 .bs-tbl a.bs-key:hover { text-decoration: underline; }
 .bs-tbl .bs-cell-ozet { min-width: 220px; max-width: 380px; }
+.bs-tbl td.bs-sira { text-align: right; color: var(--text3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bs-guven { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
 .bs-guven.evet { background: rgba(34,197,94,.15); color: #16a34a; }
 .bs-guven.aday { background: rgba(234,179,8,.18); color: #a16207; }
@@ -1740,7 +1741,7 @@ function temaDegistir() {
       </div>
       <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
         <svg class="ico"><use href="#i-refresh"/></svg>
-        <span class="nav-label">Backlog Mutabakat</span>
+        <span class="nav-label">UAT Mutabakat</span>
       </div>
 
       <div class="nav-section">Çıktılar</div>
@@ -2489,11 +2490,11 @@ function temaDegistir() {
       </div>
     </div>
 
-    <!-- ══ Backlog Mutabakat ══ -->
+    <!-- ══ UAT Mutabakat ══ -->
     <div class="page" id="page-backlog-senkron">
       <div class="ph">
         <div class="ph-text">
-          <h1>Backlog Mutabakat</h1>
+          <h1>UAT Mutabakat</h1>
           <p>UAT board'unda (product'ın UAT testlerinden açtığı) taskları, TRADE/OPS çalışma board'larıyla karşılaştırır; hangi UAT maddesinin işleme alınmadığını (açıkta kalan iş) ve hangi hedef taskın kaynağının UAT'de bulunmadığını ortaya çıkarır. <strong>Tamamen deterministik — LLM/token harcamaz.</strong> Eşleştirme mevcut Jira bağlantısı + başlık/içerik benzerliğiyle yapılır.</p>
         </div>
       </div>
@@ -3176,7 +3177,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'Backlog Mutabakat',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Jira Görevleri sekmesi: üst bar workflow yerine bu sayfanın durumunu gösterir
   _jgTabAktif = (tab === 'jira-gorevler');
@@ -3934,7 +3935,7 @@ async function jgJiraGuncelle() {
   }
 }
 
-// ─── Backlog Mutabakat ──────────────────────────────────────────────────────
+// ─── UAT Mutabakat ──────────────────────────────────────────────────────
 let _bsSonuc = null;      // son mutabakat sonucu (export için saklanır)
 
 function bsMsg(html, tip) {
@@ -3993,6 +3994,7 @@ function _bsTabloEsles(satirlar) {
     const dcls = farkli ? ' class="bs-durum-fark"' : '';
     const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
     return `<tr>
+    <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.uat_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
     <td${dcls}><strong>${_bsEsc(r.uat_durum)}</strong>${im}</td>
@@ -4003,13 +4005,14 @@ function _bsTabloEsles(satirlar) {
     <td>${_bsEsc(r.gerekce)}</td></tr>`;
   }).join('');
   return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
-    <th>UAT</th><th>UAT Özet</th><th>Durum</th><th>Hedef</th><th>Hedef Özet</th>
+    <th>Sıra</th><th>UAT</th><th>UAT Özet</th><th>Durum</th><th>Hedef</th><th>Hedef Özet</th>
     <th>Durum</th><th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table></div>`;
 }
 
 function _bsTabloTek(satirlar, projeKolon) {
   if (!satirlar.length) return '<div class="bs-bos">Kayıt yok — bu tarafta açıkta kalan yok. 🎉</div>';
   const govde = satirlar.map(r => `<tr>
+    <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.key)}</td>
     ${projeKolon ? `<td>${_bsEsc(r.proje)}</td>` : ''}
     <td class="bs-cell-ozet">${_bsEsc(r.ozet)}</td>
@@ -4017,7 +4020,7 @@ function _bsTabloTek(satirlar, projeKolon) {
     <td>${_bsEsc(r.tur)}</td>
     <td><span class="bs-guven hayir">✕ Eşleşmedi</span></td></tr>`).join('');
   return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
-    <th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th><th>Durum</th><th>Tür</th><th>Eşleşme</th></tr></thead>
+    <th>Sıra</th><th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th><th>Durum</th><th>Tür</th><th>Eşleşme</th></tr></thead>
     <tbody>${govde}</tbody></table></div>`;
 }
 

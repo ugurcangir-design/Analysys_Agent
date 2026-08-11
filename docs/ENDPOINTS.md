@@ -47,7 +47,7 @@ POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'd
 UI (Jira Görevleri, 0 token / tamamen frontend): "Tüm Görevler" ana başlığı + Jira
 statü filtresi (çoklu seçim chip'ler); "Analist Notu" alanı (kalıcı, gorev_analist_notu).
 
-## Backlog Mutabakat (UAT board ↔ TRADE/OPS board karşılaştırma — 0 token, deterministik)
+## UAT Mutabakat (UAT board ↔ TRADE/OPS board karşılaştırma — 0 token, deterministik)
 ```
 POST /api/backlog/mutabakat        {uat_proje, hedef_projeler, mod, hedef_keys, anahtar_kelime}
                                    → iki board'u Jira'dan çekip karşılaştırır. mod: tum |
