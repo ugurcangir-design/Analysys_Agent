@@ -92,3 +92,22 @@ Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** arac
   ✕ Eşleşmedi); durum farkı (UAT≠Hedef) amber+"≠" vurgu; task key'leri Jira browse link (bold + ↗).
 - **Doğrulandı:** Eşleşenler 1,16,17…; Eşleşmeyen UAT 140,141,142… artan; Sıra=key no; export "Sıra"
   kolonu (MBSUATEAM-1→1). ruff temiz.
+
+## Faz 8 — Süreç Analizi Confluence şablonu + HTML Prototip canlı-uygulama baz'ı ✅
+- Süreç analizi çıktı formatı, ekibin Confluence sayfalarıyla (örn. mbs2/Categories, Retailer Management)
+  **aynı iskelete** çevrildi: metadata tablosu → **AMAÇ → MOCKUP → GEREKSİNİMLER** (İş Gereksinimleri↔İş
+  Kuralları + Aktörler + numaralı **Ekranlar** [Alan Adı/Buton Adı | Açıklama tabloları] + Süreç Adımları)
+  → **ÖNERİLEN DB ALANLARI → GELİŞTİRME NOTLARI** (Sistemler, Kabul Kriterleri, Karar Tabloları, Açık Sorular).
+- **B yaklaşımı — pipeline korundu:** eski 13-bölüm akış yapısı yerine ekran-merkezli şablon, ama
+  ID'ler (A/BR/PA/AF/EF/EK/AC/Q) bölümlere gömülü → `surec_id_kapsam`/RTM çalışır; `### Süreç Adımları`
+  başlığı mermaid çapası; `| Q-001 |` tablosu Soru Defteri çapası korundu. `VARSAYILAN_PROMPTLAR
+  ["surec_analizi"]` yeniden yazıldı; `surec_analizi_rol`'daki sabit "Bölüm 8" referansı genelleştirildi.
+- **Doğrulandı:** ruff temiz; birleşik prompt "Süreç Adımları"+mermaid+yeni bölümler içeriyor;
+  `sorular._TABLO_SORU_SATIR` yeni `| Q-001 |` satırını yakalıyor. Gerçek analiz ÇALIŞTIRILMADI (kota).
+- **HTML Prototip canlı-uygulama baz'lı** (`html_mockup.py` + `html_mockup_base`): mockup artık
+  context_filter `live_app` URL'i (+ alt URL'ler) tanımlıysa `canli_uygulama_baglami_hazirla()` ile
+  Chrome MCP gezinme görevi kurup `_api_cagri(..., canli_uygulama_kapsami="surec")` ile Playwright MCP'yi
+  açıyor → gözlemlenen ekranın tasarım dili + component desenleri baz alınıyor; içerik süreç analizinin
+  Ekranlar (EK-XXX) bölümünden; tüm component'ler çalışır. URL yoksa generic fallback. `html_mockup_base`'in
+  eski "Bölüm 9" referansı yeni formata (GEREKSİNİMLER → Ekranlar) taşındı. `MAX_TOKENS_MOCKUP` 8K→12K.
+  Stub testiyle doğrulandı (kapsam="surec" geçiyor, gezinme görevi mesajlarda); gerçek mockup ÇALIŞTIRILMADI.

@@ -159,6 +159,28 @@ gorev_teknik_analiz   test_senaryolari   delta_analizi
   şablona göre denetler → yanlış bulgu üretirdi) atlanır ve denetim bölümüne not yazılır.
   Deterministik `surec_id_kapsam` çalışmaya devam eder (ID yoksa skor 1.0 — zarar vermez).
 
+## Süreç Analizi Çıktı Formatı (analiz ekibi Confluence şablonu)
+`VARSAYILAN_PROMPTLAR["surec_analizi"]` çıktısı, analiz ekibinin Confluence sayfalarıyla **aynı iskeleti**
+üretir: üstte metadata tablosu (Target Release/Epic/Story/Jira Task/Jira Subtask/Analyst/Ürün Doküman
+Versiyonu — değerler BOŞ; analist Confluence'a taşırken doldurur) → **AMAÇ → MOCKUP → GEREKSİNİMLER**
+(İş Gereksinimleri↔İş Kuralları tablosu + Aktörler + numaralı **Ekranlar**: her ekran `Alan Adı | Açıklama`
+ve `Buton Adı | Açıklama` tabloları + **Süreç Adımları** iş akışı) → **ÖNERİLEN DB ALANLARI → GELİŞTİRME
+NOTLARI** (Sistemler ve Entegrasyonlar, Kabul Kriterleri, Karar Tabloları, Açık Sorular).
+**Pipeline korunur (B yaklaşımı):** ID'ler (A/BR/PA/AF/EF/EK/AC/Q) ilgili bölümlere gömülür →
+`surec_id_kapsam` + RTM çalışır; `### Süreç Adımları` başlığı mermaid enjeksiyonunun çapası;
+`| Q-001 | …` tablosu Soru Defteri (`sorular._TABLO_SORU_SATIR`) çapasıdır. Format değişikliği bu üç
+çapayı bozmamalıdır.
+
+## HTML Prototip — canlı uygulama baz'lı (`skills/html_mockup.py`)
+`html_mockup_uret()` süreç analizinden `mockup.html` üretir. **Canlı uygulama baz'ı:** context_filter
+`live_app` (target_url + extra_urls) doluysa `canli_uygulama_baglami_hazirla()` ile Chrome MCP gezinme
+görevi kurulur ve `_api_cagri(..., canli_uygulama_kapsami="surec")` ile CLI modunda **Playwright MCP açılır**;
+`claude -p` verilen ekran(lar)ı gezip tasarım sistemini (palet/tipografi/spacing) + component desenlerini
+(sidebar/tablo/form/buton/modal/tab/chip) çıkarır ve prototip bunlara birebir uyar. İçerik kaynağı süreç
+analizinin **GEREKSİNİMLER → Ekranlar** (EK-XXX, Alan/Buton tabloları) bölümüdür. Tüm component'ler çalışır
+(nav geçiş, form submit+doğrulama, tablo mock veri, modal aç/kapa). URL yoksa generic tasarım ipucuna düşer
+(fallback korunur). `html_mockup_base` promptu buna göre güncellendi (eski "Bölüm 9" referansı yeni formata taşındı).
+
 ## ID Şeması (aşamalar arası izlenebilirlik)
 ```
 BRD Analizi   : FR-XXX NFR-XXX US-XXX AC-XXX I-XXX

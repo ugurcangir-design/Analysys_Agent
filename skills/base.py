@@ -114,7 +114,7 @@ MAX_CHARS_SERVIS_TOT =  60_000   # Swagger/OpenAPI toplamı
 MAX_CHARS_LIVE_APP_TOT = 60_000   # Claude MCP/Chrome canlı uygulama gözlemi
 MAX_CHARS_DIGER_TOT  =  20_000   # Diğer referanslar toplamı
 
-MAX_TOKENS_UZUN     = 16_000   # süreç analizi: 13 bölüm + 15+ açık soru +
+MAX_TOKENS_UZUN     = 16_000   # süreç analizi: Confluence şablonu (AMAÇ/MOCKUP/GEREKSİNİMLER/DB/NOTLAR) + ekranlar + açık sorular +
                                # izlenebilirlik matrisi. 8K kesiliyordu.
 MAX_TOKENS_KISA     =  3_000
 MAX_TOKENS_COMBINED = 16_000   # teknik analiz: DDL + OpenAPI YAML içerdiği için yüksek
@@ -258,7 +258,7 @@ Bu bir RAG görevidir. Ürettiğin her bilgi sağlanan kaynaklara dayanmalıdır
 # BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
 1. Ana doküman (BRD/süreç tarifi) — birincil kaynak, iş gereksiniminin kendisi
 2. Swagger/OpenAPI — mevcut endpoint, path, request/response şeması;
-   süreç adımları ve Bölüm 8 entegrasyon tablosunda kullan
+   süreç adımlarında ve GELİŞTİRME NOTLARI → Sistemler ve Entegrasyonlar bölümünde kullan
 3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
 4. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, akış, mesaj,
    validasyon ve network davranışı; `[K: Canlı UI:<route>]` / `[K: Network:<METHOD> <path>]`
@@ -311,125 +311,105 @@ Ekran ihtiyacı belirsizse → Açık Sorular'a taşı; varsayımla ekran uydurm
         "ad": "Süreç Analizi — Bölümler",
         "aciklama": "Süreç analizi raporu bölüm yapısı. Teknik analize kaynak oluşturacak detay seviyesi.",
         "icerik": (
-            """Çıktı Türkçe Markdown formatında olmalı. Aşağıdaki 13 bölüm ZORUNLU.
-Süreç adımları, iş kuralları ve ekranlar KATMAN etiketi (FE / BE / FE+BE /
-Tek tip) taşımalıdır.
+            """Çıktı Türkçe Markdown olmalı ve analiz ekibinin CONFLUENCE ŞABLONUYLA AYNI iskeleti taşımalı:
+[metadata tablosu] → # BAŞLIK → ## AMAÇ → ## MOCKUP → ## GEREKSİNİMLER → ## ÖNERİLEN DB ALANLARI → ## GELİŞTİRME NOTLARI.
+Süreç adımları, iş kuralları ve ekranlar KATMAN etiketi (FE / BE / FE+BE / Tek tip) taşımalı.
+Numaralı ID'ler İLGİLİ bölümlere GÖMÜLÜR (izlenebilirlik + teknik analiz için ZORUNLU):
+A-XXX aktör · BR-XXX iş kuralı · PA-XXX süreç adımı · AF-XXX alternatif akış · EF-XXX hata akışı ·
+EK-XXX ekran · AC-XXX kabul kriteri · Q-XXX açık soru.
 
-## 1. Süreç Özeti
-- 2-3 paragraf: iş hedefi, etkilenen sistemler, beklenen sonuç
-- Kapsam ve kapsam dışı 2 maddelik liste
+En üste, başlıktan ÖNCE metadata tablosu. Değerleri BOŞ bırak (analist Confluence'a taşırken doldurur);
+yalnızca modül/ekran adını başlığa yaz.
 
-## 2. Aktörler ve Roller
-| ID | Aktör/Rol | Tip | Sorumluluk | Yetki Düzeyi | Kaynak |
-|----|-----------|-----|------------|--------------|--------|
+| Alan | Değer |
+|------|-------|
+| Target Release |  |
+| Epic |  |
+| Story |  |
+| Jira Task |  |
+| Jira Subtask |  |
+| Analyst |  |
+| Ürün Doküman Versiyonu |  |
+
+# <MODÜL / EKRAN ADI — BÜYÜK harf>
+
+## AMAÇ
+- 2-3 paragraf: iş hedefi, etkilenen sistemler, beklenen sonuç.
+- Kapsam / Kapsam dışı — 2'şer madde.
+
+## MOCKUP
+- Ekranın görsel taslağı. Ayrı üretilen HTML prototip varsa referans ver (`mockup.html`);
+  yoksa "Prototip ayrıca üretilecek" notu bırak. Kaynağı olmayan ekran UYDURMA.
+
+## GEREKSİNİMLER
+
+### Aktörler ve Roller
+| ID | Aktör/Rol | Tip | Sorumluluk | Yetki | Kaynak |
+|----|-----------|-----|------------|-------|--------|
 | A-001 | ... | İç kullanıcı/Dış sistem/Otomatik job | ... | Okuma/Yazma/Onay | [BRD §X] |
 
-## 3. Süreç Adımları — Happy Path
-Her adım için: ID, aktör, eylem, girdi, çıktı, kullanılan sistem, katman.
+### İş Gereksinimleri ve İş Kuralları
+| ID | İş Gereksinimi | İş Kuralı (test edilebilir) | Katman | Doğrulama Anı | Etkilenen Adım | Kaynak |
+|----|----------------|------------------------------|--------|---------------|----------------|--------|
+| BR-001 | ... | ör. "yanıt 200 ms altında" | FE/BE/FE+BE | İstemci/Sunucu/Async | PA-XXX | [BRD §X] |
 
-**PA-001:** [Aktör A-XXX] [eylem] → [çıktı]
-- Girdi: ...
-- Çıktı: ...
-- Sistem/Bileşen: ...
-- Katman: FE / BE / FE+BE / Tek tip
-- Bağlı kural: BR-XXX
-- Bağlı ekran: EK-XXX (FE veya FE+BE adımıysa)
-- Kaynak: [BRD §X.Y]
+("hızlı / kolay / uygun / vb." gibi ölçülemez ifade YASAK — belirsizse Açık Sorular'a taşı.)
 
-(Adım sırası NUMARALI olmalı; karar noktalarında alternatif/hata akışına
-referans ver: → AF-001 / EF-001)
+### Ekranlar
+Süreçteki her ekran/bileşen AYRI NUMARALI alt başlık (analiz ekibinin şablonundaki gibi:
+"1. Action Bar", "2. <Liste>", "3. <Ekle>", "4. <Düzenle>", "5. Log Screen" …). Her ekran için:
 
-## 4. Alternatif Akışlar
-Koşullu dallanmalar (örn. "kullanıcı VIP ise farklı işlem"). Her biri
-AF-001, AF-002 ile.
+**EK-001** · Tip: Yeni ekran / Mevcut ekranda değişiklik · Kullanan: A-XXX · Bağlı adım: PA-XXX · Katman: FE / FE+BE
+Kısa amaç (1-2 cümle).
 
-**AF-001:** [Koşul] — [Ana akıştan ayrılma noktası: PA-XXX]
-- Tetikleyici koşul: ...
-- Adımlar: ...
-- Ana akışa dönüş noktası: PA-XXX veya süreç sonu
-- Kaynak: ...
+Alanlar:
+| Alan Adı | Açıklama | Tip | Zorunlu | Bağlı Kural |
+|----------|----------|-----|---------|-------------|
+| ... | ... | metin/sayı/tarih/seçim | E/H | BR-XXX |
 
-## 5. Hata / Exception Akışları
-Her hata senaryosu için: tetikleyici, etki, kullanıcıya gösterilen mesaj,
-recovery aksiyonu.
+Butonlar / Aksiyonlar:
+| Buton Adı | Açıklama | Tetiklediği İşlem | İlişkili BE Servisi |
+|-----------|----------|-------------------|---------------------|
+| ... | ... | ... | [Swagger:...] |
 
-**EF-001:** [Hata Adı] — Tetikleyici adım: PA-XXX
-- Tetikleyici: ...
-- Etki (kullanıcı/veri/sistem): ...
-- Kullanıcı mesajı: "..."
-- Recovery: Otomatik retry / Manuel müdahale / Rollback / Loglama
-- Bağlı validasyon: BR-XXX
-- Kaynak: ...
+> NOT: karar / varsayım / uyarı (analiz ekibinin info-note paneli karşılığı). Belirsizse ekran uydurma → Açık Sorular'a.
 
-## 6. İş Kuralları
-| ID | Kural | Tip | Katman | Etkilenen Adım | Doğrulama Anı | Hata Senaryosu | Kaynak |
-|----|-------|-----|--------|----------------|---------------|----------------|--------|
-| BR-001 | ... | Validasyon/Hesaplama/Yetki/İş Akışı/Süre | FE/BE/FE+BE | PA-XXX | İstemci/Sunucu/Async | EF-XXX | [BRD §X] |
+### Süreç Adımları (İş Akışı — Happy Path + Alternatif/Hata)
+Numaralı adımlar; her biri ID + katman + kaynak.
 
-(Her kural test edilebilir olmalı — "sistem hızlı olmalı" YASAK; "yanıt
-200ms altında" geçerli)
+**PA-001:** [A-XXX] [eylem] → [çıktı] · Sistem/Bileşen: ... · Katman: FE/BE · Bağlı kural: BR-XXX · Kaynak: [BRD §X]
+(Karar noktalarında alternatif/hata akışına referans ver: → AF-XXX / EF-XXX)
 
-## 7. Veri Varlıkları (Kavramsal)
-Tablolar veya DDL değil — entity ve ana özelliklerin kavramsal listesi.
-Teknik analiz bu listeden DDL üretecek.
+**AF-001:** [Koşul] — ayrılma noktası: PA-XXX → ana akışa dönüş: PA-XXX veya süreç sonu · Kaynak: ...
 
-| Entity | Ana Özellikler | Yaşam Döngüsü | İlişkili Entity'ler | Kaynak |
-|--------|----------------|---------------|---------------------|--------|
-| ... | ad, durum, oluşturulma vb. | Oluştur → ... → Arşiv | ... | [BRD §X] |
+**EF-001:** [Hata] — tetikleyici adım: PA-XXX · kullanıcı mesajı: "..." · recovery: otomatik retry / manuel / rollback / loglama · Bağlı validasyon: BR-XXX
 
-## 8. Sistemler ve Entegrasyonlar
+## ÖNERİLEN DB ALANLARI
+Kavramsal entity/alan listesi — DDL DEĞİL (teknik analiz DDL üretir).
+| Entity | Alan | Kavramsal Tip | Açıklama | İlişkili Entity | Kaynak |
+|--------|------|---------------|----------|-----------------|--------|
+| ... | ... | ... | ... | ... | [BRD §X] |
+
+## GELİŞTİRME NOTLARI
+
+### Sistemler ve Entegrasyonlar
 | Sistem | Tip | Yön | Tetikleyici | Veri Alışverişi | Kaynak |
 |--------|-----|-----|-------------|-----------------|--------|
 | ... | İç/Dış/3rd-party | Inbound/Outbound/Bidirectional | Olay/Zamanlı/Manuel | ... | [Swagger:...] |
 
-## 9. Ekranlar / UI İhtiyaçları (FE)
-Süreçteki kullanıcı etkileşimlerinin gerektirdiği ekranlar. Her ekran, FE
-geliştiricinin tasarlayabileceği netlikte tanımlanır.
+### Kabul Kriterleri
+**AC-001:** Given [başlangıç] · When [tetikleyici — PA-XXX] · Then [gözlemlenebilir sonuç] · Bağlı kural: BR-XXX · Kaynak: [BRD §X.Y]
 
-**EK-001:** [Ekran Adı]
-- Amaç: [ekranın ne işe yaradığı]
-- Kullanan aktör: A-XXX
-- Bağlı süreç adımı: PA-XXX
-- Tip: Yeni ekran / Mevcut ekranda değişiklik
-- Gösterilen veri: [listelenen/görüntülenen alanlar]
-- Form alanları: [alan adı → tip → bağlı kural BR-XXX]
-- Aksiyonlar/Butonlar: [buton → tetiklediği işlem]
-- Ekran geçişleri: [nereden gelinir, hangi aksiyon nereye götürür]
-- İlişkili BE ihtiyacı: [ekranı besleyen endpoint/servis — FE+BE bağı]
-- Kaynak: [BRD §X / UI:route]
-
-(Ekran ihtiyacı belirsizse Açık Sorular'a taşı; ekran uydurma.)
-
-## 10. Karar Tabloları (varsa)
-Birden çok koşulun farklı aksiyona yol açtığı durumlar için.
-
+### Karar Tabloları (varsa)
 | Koşul 1 | Koşul 2 | ... | Aksiyon | Bağlı Adım |
 |---------|---------|-----|---------|------------|
 | Evet | Hayır | ... | ... | PA-XXX |
 
-## 11. Kabul Kriterleri (Üst Seviye)
-Test edilebilir, Given/When/Then formatında. Her AC bir süreç davranışını
-doğrular.
-
-**AC-001:** [Başlık]
-- **Given:** [Başlangıç durumu]
-- **When:** [Tetikleyici aksiyon — PA-XXX]
-- **Then:** [Beklenen sonuç — gözlemlenebilir]
-- Bağlı kural: BR-XXX
-- Kaynak: [BRD §X.Y]
-
-## 12. Açık Sorular / Karar Bekleyen Konular
+### Açık Sorular / Karar Bekleyen Konular
+Belirsiz TÜM konular buraya; ana metne SIZDIRMA. Tablo formatını KORU (veri satırı `| Q-001 |` ile başlamalı):
 | # | Konu | Tip | Önem | Bağlı Bölüm | Mevcut Durum | Beklenen Yanıt |
 |---|------|-----|------|-------------|--------------|----------------|
-| Q-001 | ... | Çelişki/Eksik/Belirsiz | Kritik/Yüksek/Orta | BR-XXX | [Mevcut bilgi] | [Ne sorulduğu] |
-
-(Belirsiz tüm konuları buraya taşı. Belirsizlikleri ana metne sızdırma.)
-
-## 13. İzlenebilirlik / Kaynak Matrisi
-| Bölüm | Birincil Kaynak | Destekleyici Kaynaklar | Türetilmiş İçerik |
-|-------|------------------|------------------------|--------------------|
-| 3. Süreç Adımları | BRD §3 | Confluence:X | PA-005 (türetildi) |
-| 9. Ekranlar | BRD §5 | UI:routes | EK-003 (türetildi) |"""
+| Q-001 | ... | Çelişki/Eksik/Belirsiz | Kritik/Yüksek/Orta | BR-XXX | [mevcut bilgi] | [ne sorulduğu] |"""
         ),
     },
     "teknik_analiz_bolumler": {
@@ -1002,24 +982,33 @@ Bu prototip, paydaşların ve geliştirme ekibinin tasarımı kodlama öncesi
 görüp değerlendirmesini sağlar. Gerçek uygulama değil, etkileşimli bir
 maket — ama akışı ve ekranları somut biçimde göstermeli.
 
-# BİRİNCİL KAYNAK — EKRANLAR
-Süreç analizindeki "Bölüm 9 — Ekranlar / UI İhtiyaçları" (EK-XXX) bu
-prototipin temelidir. Her EK-XXX ekranını prototipde oluştur:
-- Ekranın amacı, gösterdiği veri, form alanları, butonları Bölüm 9'dan al
-- Süreç adımlarını (PA-XXX) takip eden bir navigasyon kur
-Bölüm 9 yoksa süreç adımlarından ekranları çıkar.
+# BİRİNCİL KAYNAK — CANLI UYGULAMA (tasarım baz'ı) + EKRANLAR (içerik)
+İki kaynağı birleştir:
+1. CANLI UYGULAMA — TASARIM BAZ'I: Sana bir CANLI GEZİNME GÖREVİ verildiyse ÖNCE
+   verilen ekran(lar)ı Chrome MCP ile gez ve gözlemle. Şunları çıkar:
+   - Tasarım sistemi: renk paleti, tipografi, boşluk/spacing, köşe yarıçapı, gölge dili
+   - Component desenleri: sidebar/nav, üst bar, tablo, form, input tipleri, buton
+     çeşitleri, modal/drawer, tab, chip/badge, filtre, pagination, toast/uyarı
+   - Gerçek layout ve ekran yapısı
+   Prototip bu tasarım diline ve component desenlerine BİREBİR uymalı — uydurma stil kullanma.
+2. EKRANLAR — İÇERİK: Süreç analizindeki "GEREKSİNİMLER → Ekranlar" (EK-XXX) bölümü.
+   Her EK-XXX ekranını prototipde oluştur; ekranın amacını, alanlarını (Alan Adı | Açıklama
+   tablosu) ve butonlarını (Buton Adı | Açıklama tablosu) buradan al. Navigasyonu Süreç
+   Adımları'na (PA-XXX) göre kur. Ekranlar bölümü yoksa süreç adımlarından ekranları çıkar.
+Canlı gözlem YOKSA: makul ve tutarlı bir tasarım sistemi seç, tüm ekranlarda aynısını uygula.
 
 # TEKNİK GEREKSİNİMLER
 - Tek HTML dosyası — CSS ve JS gömülü; dış CDN kullanılabilir
-- Bölüm 9'daki tüm ekranlar gezinilebilir (sidebar veya tab ile geçiş)
-- Gerçekçi form alanları, butonlar, örnek (mock) veri gösterimi
-- Tıklanabilir butonlar çalışsın; formlar submit'te sonuç göstersin
-- Canlı uygulama gözlemi sağlandıysa: gözlemlenen ekran dili, bileşen düzeni ve
-  kullanıcı akışlarına uy
+- Ekranlar (EK-XXX) bölümündeki TÜM ekranlar gezinilebilir (sidebar veya tab ile geçiş)
+- TÜM component'ler ÇALIŞIR olmalı: nav ekran değiştirir; formlar submit'te doğrulama +
+  sonuç/onay (toast/mesaj) gösterir; tablolar örnek (mock) veriyle dolar ve satır
+  aksiyonları çalışır; modal/drawer açılıp kapanır; tab/filtre/toggle tepki verir
+- Gözlemlenen canlı ekranın component desenlerini YENİDEN KULLAN (aynı tablo/form/modal düzeni)
 - Türkçe UI metinleri, profesyonel ve tutarlı görünüm
 
 # KALİTE ÖLÇÜTÜ
-- Her EK-XXX ekranı prototipde karşılığını bulur
+- Görünüm gözlemlenen canlı uygulamayla TUTARLI (tasarım dili + component desenleri aynı)
+- Her EK-XXX ekranı prototipde karşılığını bulur ve component'leri çalışır
 - Akış mantıklı: kullanıcı bir ekrandan diğerine süreç sırasına göre geçer
 - Hiçbir buton/link ölü olmamalı — ya çalışır ya devre dışı görünür
 - Responsive ve okunabilir"""

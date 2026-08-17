@@ -8,9 +8,10 @@ from .base import (
     _api_cagri, _kaydet,
     dosya_oku, prompt_yukle,
     OUTPUT_DIR, MAX_CHARS_GENEL,
+    canli_uygulama_baglami_hazirla,
 )
 
-MAX_TOKENS_MOCKUP  = 8_000
+MAX_TOKENS_MOCKUP  = 12_000   # CLI modunda etkisiz; API modu için canlı gözlem + üretim payı
 MAX_CHARS_MOCKUP   = 20_000   # teknik analize dahil ederken uygulanan limit
 
 _MOCKUP_SISTEM_BASE = """\
@@ -42,15 +43,30 @@ def html_mockup_uret() -> Path:
         raise FileNotFoundError("surec-analizi.md bulunamadı. Önce süreç analizi yapın.")
 
     surec_metni = dosya_oku(surec_dosya, MAX_CHARS_GENEL)
-    ui_hint = _UI_HINT_YOK
     icerik_parcalari = [
         {"type": "text", "text": f"### Süreç Analizi\n\n{surec_metni}"},
-        {"type": "text", "text": "Bu süreç için HTML prototipi oluştur."},
     ]
 
-    sistem = (prompt_yukle("html_mockup_base") + "\n{ui_hint}\nYalnızca HTML içeriğini ver — başka açıklama ekleme, kod bloğu (```) işareti kullanma.").format(ui_hint=ui_hint)
+    # Canlı uygulama (context_filter live_app: target_url + extra_urls) → Chrome MCP
+    # gezinme görevi. URL tanımlıysa prototip, GÖZLEMLENEN ekranın tasarım dilini ve
+    # component'lerini BAZ alır; değilse generic tasarım ipucuna düşer (fallback).
+    kapsam = None
+    gorev_talimati = canli_uygulama_baglami_hazirla()
+    if gorev_talimati:
+        icerik_parcalari.append({"type": "text", "text": gorev_talimati})
+        kapsam = "surec"   # _api_cagri CLI modunda Chrome MCP'yi bu bayrakla açar
+    ui_hint = "" if gorev_talimati else _UI_HINT_YOK
+
+    icerik_parcalari.append(
+        {"type": "text",
+         "text": "Bu süreç ve (görev verildiyse) gözlemlenen canlı ekranı baz alarak, "
+                 "tüm component'leri çalışan HTML prototipi oluştur."})
+
+    sistem = (prompt_yukle("html_mockup_base") + "\n" + ui_hint +
+              "\nYalnızca HTML içeriğini ver — başka açıklama ekleme, kod bloğu (```) işareti kullanma.")
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
-    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_MOCKUP)
+    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_MOCKUP,
+                       canli_uygulama_kapsami=kapsam)
 
     # AI bazen ```html ... ``` bloğu içinde döndürür — sadece içeriği al
     yanit = yanit.strip()

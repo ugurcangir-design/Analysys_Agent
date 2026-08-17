@@ -622,23 +622,16 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     <div class="step">
       <div class="num">3</div>
       <h4>Süreç analizini incele</h4>
-      <p>Üretilen dokümanı oku. 13 bölümden oluşur:</p>
-      <ol style="columns:2;column-gap:32px">
-        <li>Süreç Özeti</li>
-        <li>Aktörler ve Roller <code>(A-XXX)</code></li>
-        <li>Süreç Adımları <code>(PA-XXX)</code></li>
-        <li>Alternatif Akışlar <code>(AF-XXX)</code></li>
-        <li>Hata Akışları <code>(EF-XXX)</code></li>
-        <li>İş Kuralları <code>(BR-XXX)</code></li>
-        <li>Veri Varlıkları</li>
-        <li>Sistemler &amp; Entegrasyonlar</li>
-        <li><span class="pill new">Yeni</span> Ekranlar / UI <code>(EK-XXX)</code></li>
-        <li>Karar Tabloları</li>
-        <li>Kabul Kriterleri <code>(AC-XXX)</code></li>
-        <li>Açık Sorular</li>
-        <li>İzlenebilirlik Matrisi</li>
+      <p><span class="pill new">Yeni</span> Üretilen doküman, <strong>analiz ekibinin Confluence şablonuyla aynı</strong> iskeleti taşır:</p>
+      <ol>
+        <li><strong>Metadata tablosu</strong> — Target Release · Epic · Story · Jira Task · Jira Subtask · Analyst · Ürün Doküman Versiyonu <em>(değerler boş; analist Confluence'a taşırken doldurur)</em></li>
+        <li><strong>AMAÇ</strong> — iş hedefi, kapsam / kapsam dışı</li>
+        <li><strong>MOCKUP</strong> — HTML prototip referansı</li>
+        <li><strong>GEREKSİNİMLER</strong> — İş Gereksinimleri ↔ İş Kuralları <code>(BR-XXX)</code> · Aktörler <code>(A-XXX)</code> · numaralı <strong>Ekranlar</strong> <code>(EK-XXX)</code> (her ekran <em>Alan Adı | Açıklama</em> ve <em>Buton Adı | Açıklama</em> tabloları) · Süreç Adımları <code>(PA-XXX / AF-XXX / EF-XXX)</code></li>
+        <li><strong>ÖNERİLEN DB ALANLARI</strong> — kavramsal entity/alanlar</li>
+        <li><strong>GELİŞTİRME NOTLARI</strong> — Sistemler &amp; Entegrasyonlar · Kabul Kriterleri <code>(AC-XXX)</code> · Karar Tabloları · Açık Sorular <code>(Q-XXX)</code></li>
       </ol>
-      <p>Her satırda <strong>Katman</strong> sütunu olur: <span class="pill fe">FE</span> <span class="pill be">BE</span> <span class="pill febe">FE+BE</span> veya <em>Tek tip</em>.</p>
+      <p>Her satırda <strong>Katman</strong> sütunu olur: <span class="pill fe">FE</span> <span class="pill be">BE</span> <span class="pill febe">FE+BE</span> veya <em>Tek tip</em>. ID'ler ve Açık Sorular tablosu korunur → izlenebilirlik matrisi, Soru Defteri ve teknik analiz aynen çalışır.</p>
     </div>
 
     <div class="step">
@@ -717,8 +710,8 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     <div class="step">
       <div class="num">1</div>
       <h4>Onay ekranında HTML Prototip Oluştur</h4>
-      <p>Süreç analizindeki <strong>EK-XXX</strong> ekranlarından tıklanabilir tek dosyalık <code>mockup.html</code> üretir. Paydaşlarla tasarımı görsel doğrulamak için ideal.</p>
-      <p>Canlı uygulama gözlemi varsa ekrandaki alan, mesaj ve akışlar prototip ve analiz kararlarında kaynak olarak kullanılır.</p>
+      <p>Süreç analizindeki <strong>Ekranlar (EK-XXX)</strong> bölümünden tıklanabilir tek dosyalık <code>mockup.html</code> üretir. Paydaşlarla tasarımı kodlama öncesi görsel doğrulamak için ideal.</p>
+      <p><span class="pill new">Yeni</span> <strong>Canlı uygulamayı baz alır.</strong> Bağlam Filtresi'nde <em>Canlı Uygulama (Chrome MCP)</em> URL'i (ve alt URL'ler) tanımlıysa, prototip önce o ekran(lar)ı <strong>Chrome MCP ile gezip gözlemler</strong> → gerçek uygulamanın <strong>tasarım dilini</strong> (palet, tipografi, spacing) ve <strong>component desenlerini</strong> (sidebar/nav, tablo, form, buton, modal, tab, chip) çıkarır; prototip bunlara <strong>birebir uyar</strong>. Ayrıca <strong>tüm component'ler çalışır</strong>: navigasyon ekran değiştirir, formlar submit'te doğrulama + sonuç gösterir, tablolar örnek veriyle dolar, modal'lar açılıp kapanır. URL yoksa makul bir varsayılan tasarımla üretir (fallback).</p>
     </div>
 
     <h3 id="a-jira">6.6 Jira görev hiyerarşisi — FE/BE seçimi <span class="pill new">Yeni</span></h3>
