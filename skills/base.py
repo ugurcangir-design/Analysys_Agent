@@ -244,9 +244,13 @@ ANA METİNDE KALMAZ — her zaman "Açık Sorular" bölümüne taşınır.
               canlı uygulama gözlemi, Jira) eşleştir; mevcut sistemde karşılığını bul.
 3. BOŞLUK BUL — Tanımsız aktör, eksik kural, belirsiz akış, tanımsız ekran,
               çelişki: hepsini işaretle.
-4. YAPILANDIR — Bilgiyi numaralı ID'lerle ve katman (FE/BE) etiketiyle
+4. İLİŞKİ & ETKİ — Referanslardan (Confluence, Jira board'ları, Swagger, canlı
+              uygulama) bu ekran/sürecin İLİŞKİLİ olduğu diğer ekran/süreçleri, paylaşılan
+              bileşen/servis/kural/entity'yi ve bir değişikliğin ETKİLERİNİ çıkar → "İlişkili
+              Ekranlar / Süreçler ve Etki Analizi" bölümüne yaz. Süreç izole varsayma.
+5. YAPILANDIR — Bilgiyi numaralı ID'lerle ve katman (FE/BE) etiketiyle
               bölümlere yerleştir.
-5. DOĞRULA  — Her somut iddianın bir kaynağı olduğunu kontrol et; kaynaksız
+6. DOĞRULA  — Her somut iddianın bir kaynağı olduğunu kontrol et; kaynaksız
               olanı Açık Sorular'a taşı.
 
 # RAG İLKESİ — KANIT TEMELLİ ANALİZ
@@ -316,7 +320,17 @@ Ekran ihtiyacı belirsizse → Açık Sorular'a taşı; varsayımla ekran uydurm
 Süreç adımları, iş kuralları ve ekranlar KATMAN etiketi (FE / BE / FE+BE / Tek tip) taşımalı.
 Numaralı ID'ler İLGİLİ bölümlere GÖMÜLÜR (izlenebilirlik + teknik analiz için ZORUNLU):
 A-XXX aktör · BR-XXX iş kuralı · PA-XXX süreç adımı · AF-XXX alternatif akış · EF-XXX hata akışı ·
-EK-XXX ekran · AC-XXX kabul kriteri · Q-XXX açık soru.
+EK-XXX ekran · AC-XXX kabul kriteri · IB-XXX ilişki/bağımlılık · Q-XXX açık soru.
+
+## KAYNAK KULLANIMI (ZORUNLU — yüzeysel analiz KABUL EDİLMEZ)
+Sağlanan TÜM referansları AKTİF kullan; yalnızca ana dokümana bakma:
+- **Confluence sayfaları:** ilgili modül/ekran/kural/mimari kararı buradan al → `[K: Confluence:<sayfa>]`.
+- **Jira board/task'ları:** geçmiş kararlar, ilişkili story/task, mevcut davranış → `[K: Jira:<KEY>]`.
+- **Swagger/OpenAPI:** mevcut endpoint/şema — sistem ve entegrasyonları buradan doğrula.
+- **Canlı uygulama gözlemi:** varsa ekran yapısı / akış / servis çağrıları.
+Referanslarda bu süreçle İLİŞKİLİ ekran/modül/süreç geçiyorsa "İlişkili Ekranlar / Süreçler ve Etki
+Analizi" bölümüne taşı. Referans sağlandığı hâlde kullanmadan yüzeysel/tek-kaynaklı analiz üretme;
+ilgili referans YOKSA bunu Açık Sorular'da ve Kaynak/Canlı Gözlem notunda açıkça belirt.
 
 En üste, başlıktan ÖNCE metadata tablosu. Değerleri BOŞ bırak (analist Confluence'a taşırken doldurur);
 yalnızca modül/ekran adını başlığa yaz.
@@ -383,6 +397,19 @@ Numaralı adımlar; her biri ID + katman + kaynak.
 **AF-001:** [Koşul] — ayrılma noktası: PA-XXX → ana akışa dönüş: PA-XXX veya süreç sonu · Kaynak: ...
 
 **EF-001:** [Hata] — tetikleyici adım: PA-XXX · kullanıcı mesajı: "..." · recovery: otomatik retry / manuel / rollback / loglama · Bağlı validasyon: BR-XXX
+
+### İlişkili Ekranlar / Süreçler ve Etki Analizi
+Bu ekran/süreç izole DEĞİLDİR. Referanslardan (Confluence, Jira board'ları, Swagger, canlı uygulama)
+ve ana dokümandan, BU süreçle ilişkili / etkileşen / etkilenen ekran ve süreçleri tespit et:
+
+| ID | İlişkili Ekran/Süreç | İlişki Türü | Etkilenen Ne | Yön | Regresyon Riski | Kaynak |
+|----|----------------------|-------------|--------------|-----|-----------------|--------|
+| IB-001 | ... | Besler/Beslenir/Paylaşılan kural/Paylaşılan veri/Tetikler | ne değişir-etkilenir | Upstream/Downstream/Çift yönlü | Düşük/Orta/Yüksek | [Confluence:X / Jira:KEY] |
+
+- **Paylaşılan** bileşen / servis / iş kuralı / entity'yi açıkça belirt (aynı endpoint, aynı tablo, aynı validasyon).
+- **Etki analizi:** bu süreçteki bir değişikliğin hangi ekranları / servisleri / raporları etkileyeceğini yaz.
+- İlişkili bir süreç AYRI bir akış gerektiriyorsa, kısa akışını buraya kendi adımlarıyla (PA-XXX) ekle.
+- İlişki referanslarda net değil ama olası ise → `[K: 🔍 Türetilmiş]` + Açık Sorular'a doğrulama notu; UYDURMA yasak.
 
 ## ÖNERİLEN DB ALANLARI
 Kavramsal entity/alan listesi — DDL DEĞİL (teknik analiz DDL üretir).
@@ -1699,6 +1726,12 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
     if not ref_dosyalar:
         return [], []
 
+    # Keyword'ler: büyük referanslarda baştan kesmek yerine keyword-odaklı çıkarım için.
+    try:
+        _kw_odak = _context_filter_normalize(load_context_filter() or {})["keywords"]
+    except Exception:
+        _kw_odak = []
+
     # Dosyaları kaynak tipine göre grupla, tekrarları temizle
     gruplari: dict[str, list[Path]] = {
         "confluence": [], "jira": [], "servisler": [], "canli_uygulama": [], "diger": []
@@ -1786,7 +1819,11 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
                 if jira_modu and f.suffix.lower() == ".json":
                     metin = _jira_json_to_md(f, per_file)
                 else:
-                    metin = dosya_oku(f, per_file)
+                    # PDF-farkında TAM metin → keyword-odaklı çıkarım (ilgili bölüm derinde
+                    # olsa da yakalanır; keyword yoksa baştan-kesmeye döner).
+                    tam = _filtre_metni_oku(f)
+                    metin = (_keyword_odakli_metin(tam, _kw_odak, per_file, rel)
+                             if tam else dosya_oku(f, per_file))
             except Exception:
                 continue
 
@@ -1877,6 +1914,44 @@ def dosya_oku(path: Path, limit: int = MAX_CHARS_GENEL) -> str:
     else:
         metin = path.read_text(encoding="utf-8", errors="replace")
     return _metin_kes(metin, limit, path.name)
+
+
+def _keyword_odakli_metin(metin: str, keywords: list, limit: int, ad: str) -> str:
+    """Büyük referansta İLGİLİ bölümü yakalamak için: metin limitten büyük VE keyword
+    varsa, baştan kesmek yerine keyword geçen yerlerin ETRAFINDAN pencereler çıkarır
+    (ör. Publish Overview PDF'in %25'inde olsa da 15K bütçeye girer). Keyword yoksa
+    veya metin zaten kısaysa mevcut baştan-kesme davranışına döner."""
+    if len(metin) <= limit or not keywords:
+        return _metin_kes(metin, limit, ad)
+    lc = metin.lower()
+    pencere = 1800
+    araliklar = []
+    for kw in keywords:
+        kw = kw.lower()
+        start = 0
+        while len(araliklar) < 40:
+            i = lc.find(kw, start)
+            if i < 0:
+                break
+            araliklar.append((max(0, i - pencere), min(len(metin), i + len(kw) + pencere)))
+            start = i + len(kw)
+    if not araliklar:
+        return _metin_kes(metin, limit, ad)
+    araliklar.sort()
+    birlesik = [list(araliklar[0])]
+    for a, b in araliklar[1:]:
+        if a <= birlesik[-1][1] + 200:
+            birlesik[-1][1] = max(birlesik[-1][1], b)
+        else:
+            birlesik.append([a, b])
+    parcalar, toplam = [], 0
+    for a, b in birlesik:
+        if toplam >= limit:
+            break
+        kesit = metin[a:b][: limit - toplam]
+        parcalar.append(("" if a == 0 else "…") + kesit + "…")
+        toplam += len(kesit)
+    return f"[keyword-odaklı çıkarım — {ad}: '{', '.join(keywords)}' geçen bölümler]\n" + "\n\n[…]\n\n".join(parcalar)
 
 
 def input_hazirla(is_brd: bool = False) -> tuple[list, str]:
@@ -2243,6 +2318,19 @@ def _filtrele_openapi_json(json_path: Path, keywords: list) -> "Path | None | bo
         return None
 
 
+def _filtre_metni_oku(f: Path) -> str:
+    """Keyword/konu eşleşmesi için dosya metni — PDF-FARKINDA (fitz ile çıkarır).
+    Düz `read_text` bir PDF'i binary çöp okur → eşleşme olmaz → referans yanlışlıkla
+    ELENİRDİ. Okunamazsa '' döner (çağıran taraf PDF'i yine de dahil edebilir)."""
+    try:
+        if f.suffix.lower() == ".pdf":
+            metin = pdf_oku(f)
+            return "" if metin.startswith("[PDF okuma hatası") else metin
+        return f.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+
 def filtrele_referanslar(all_files: list, ctx: dict) -> list:
     ctx = _context_filter_normalize(ctx)
     keywords = ctx["keywords"]
@@ -2275,22 +2363,22 @@ def filtrele_referanslar(all_files: list, ctx: dict) -> list:
             continue
 
         if rel.startswith("confluence/"):
-            include = False
+            # Dosya adı eşleşmesi (birebir sayfa) VEYA İÇERİK eşleşmesi (konudan/keyword'den
+            # bahseden İLGİLİ sayfa) → ikisi de dahil. Böylece farklı adlı ama ilişkili
+            # dokümanlar (etki analizi için gerekli) elenmez. (Char limiti üst tarafta uygulanır.)
             fname_l = f.stem.lower().replace("-", " ")
-            if conf_pages:
-                include = any(p in fname_l or fname_l in p for p in conf_pages)
-            elif keywords:
-                try:
-                    content = f.read_text(encoding="utf-8", errors="ignore").lower()
-                    include = any(kw in content for kw in keywords)
-                except Exception:
-                    pass
-            if not include and jira_keys:
-                try:
-                    content = f.read_text(encoding="utf-8", errors="ignore").upper()
-                    include = any(jk in content for jk in jira_keys)
-                except Exception:
-                    pass
+            include = any(p in fname_l or fname_l in p for p in conf_pages) if conf_pages else False
+            if not include:
+                terimler = conf_pages + keywords
+                metin = _filtre_metni_oku(f)   # PDF-farkında
+                if metin:
+                    lc = metin.lower()
+                    include = any(t in lc for t in terimler)
+                    if not include and jira_keys:
+                        up = metin.upper()
+                        include = any(jk in up for jk in jira_keys)
+                elif f.suffix.lower() == ".pdf":
+                    include = True   # metni çıkarılamayan PDF referansını ELEME — RAG builder dener
             if include:
                 filtered.append(f)
             continue
@@ -2334,12 +2422,13 @@ def filtrele_referanslar(all_files: list, ctx: dict) -> list:
             continue
 
         if keywords:
-            try:
-                content = f.read_text(encoding="utf-8", errors="ignore").lower()
-                if any(kw in content or kw in f.name.lower() for kw in keywords):
+            metin = _filtre_metni_oku(f)   # PDF-farkında
+            if metin:
+                lc = metin.lower()
+                if any(kw in lc or kw in f.name.lower() for kw in keywords):
                     filtered.append(f)
-            except Exception:
-                filtered.append(f)
+            elif f.suffix.lower() == ".pdf":
+                filtered.append(f)   # okunamayan PDF'i eleme
         else:
             filtered.append(f)
 

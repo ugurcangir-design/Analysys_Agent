@@ -102,6 +102,13 @@ doğrulama/şeffaflık bilgisidir, gereksinim değildir. Her Jira yazma yolu iki
   DOKÜMANTASYONU` (md), `### JİRA TASK GEÇMİŞİ` (`_jira_json_to_md` kompakt md), `### API / SWAGGER
   TANIMLARI` (filtrelenmiş openapi), `### CANLI UYGULAMA GÖZLEMİ` (`reference/live-app`),
   `### DİĞER REFERANSLAR`. Her tip ayrı limitle.
+- **PDF-farkında filtre + keyword-odaklı çıkarım (KRİTİK):** `filtrele_referanslar` içerik-eşleşmesini
+  `_filtre_metni_oku` (PDF'i `pdf_oku`/fitz ile çıkarır) üzerinden yapar — düz `read_text` bir PDF'i binary
+  çöp okuyup ilgili referansı YANLIŞLIKLA elerdi (ör. 6.7 MB `TradePanel_1_7_9.pdf` confluence referansı).
+  Confluence filtresi dosya adı VEYA içerik eşleşmesiyle dahil eder (farklı adlı ilgili sayfa da gelir).
+  RAG blok üretiminde büyük dosya limitten (MAX_CHARS_REF=15K) büyükse `_keyword_odakli_metin` baştan
+  kesmek yerine keyword geçen yerlerin ETRAFINDAN pencereler alır → ilgili bölüm (ör. Publish Overview
+  PDF'in %25'inde) 15K bütçeye girer. Keyword yoksa baştan-kesmeye döner.
 - **Bağlam filtresi:** `load_context_filter()` → keyword / jira_keys / confluence_pages ön-filtre +
   `live_app.target_url`, en fazla 5 `live_app.extra_urls` ve `live_app.use_as_sample`; `filtrele_referanslar(files, ctx)`
   büyük Swagger'ı `_filtrele_openapi_json()` ile keyword bazlı kırpar.
@@ -166,6 +173,10 @@ Versiyonu — değerler BOŞ; analist Confluence'a taşırken doldurur) → **AM
 (İş Gereksinimleri↔İş Kuralları tablosu + Aktörler + numaralı **Ekranlar**: her ekran `Alan Adı | Açıklama`
 ve `Buton Adı | Açıklama` tabloları + **Süreç Adımları** iş akışı) → **ÖNERİLEN DB ALANLARI → GELİŞTİRME
 NOTLARI** (Sistemler ve Entegrasyonlar, Kabul Kriterleri, Karar Tabloları, Açık Sorular).
+GEREKSİNİMLER altında **İlişkili Ekranlar / Süreçler ve Etki Analizi** (IB-XXX) bölümü zorunlu: referanslardan
+bu süreçle ilişkili/etkilenen ekran-süreçleri, paylaşılan bileşen/servis/kural/entity'yi ve değişikliğin
+etkilerini çıkarır (izole varsayma). Prompt'ta **KAYNAK KULLANIMI (ZORUNLU)** bloğu: sağlanan tüm
+referansları (Confluence/Jira board/Swagger/canlı uygulama) aktif kullan, yüzeysel/tek-kaynaklı analiz üretme.
 **Pipeline korunur (B yaklaşımı):** ID'ler (A/BR/PA/AF/EF/EK/AC/Q) ilgili bölümlere gömülür →
 `surec_id_kapsam` + RTM çalışır; `### Süreç Adımları` başlığı mermaid enjeksiyonunun çapası;
 `| Q-001 | …` tablosu Soru Defteri (`sorular._TABLO_SORU_SATIR`) çapasıdır. Format değişikliği bu üç
@@ -184,7 +195,7 @@ analizinin **GEREKSİNİMLER → Ekranlar** (EK-XXX, Alan/Buton tabloları) böl
 ## ID Şeması (aşamalar arası izlenebilirlik)
 ```
 BRD Analizi   : FR-XXX NFR-XXX US-XXX AC-XXX I-XXX
-Süreç Analizi : A-XXX PA-XXX BR-XXX AF-XXX EF-XXX AC-XXX EK-XXX (ekran)
+Süreç Analizi : A-XXX PA-XXX BR-XXX AF-XXX EF-XXX AC-XXX EK-XXX (ekran) IB-XXX (ilişki/etki)
 Teknik Analiz : T-FE-XX T-BE-XX  (Bölüm 2/5/7'den çıkarılan FE/BE görevleri)
 Kapsam Analizi: YE-XXX (yeni) KL-XXX (kaldırılan) DG-XXX (değiştirilen)
 ```

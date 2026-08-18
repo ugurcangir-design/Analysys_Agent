@@ -111,3 +111,18 @@ Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** arac
   Ekranlar (EK-XXX) bölümünden; tüm component'ler çalışır. URL yoksa generic fallback. `html_mockup_base`'in
   eski "Bölüm 9" referansı yeni formata (GEREKSİNİMLER → Ekranlar) taşındı. `MAX_TOKENS_MOCKUP` 8K→12K.
   Stub testiyle doğrulandı (kapsam="surec" geçiyor, gezinme görevi mesajlarda); gerçek mockup ÇALIŞTIRILMADI.
+
+## Faz 9 — Süreç analizi RAG düzeltmesi + İlişkili/Etki analizi ✅
+Şikâyet: süreç analizi referans dokümanı/board'ları dikkate almadan yüzeysel çıktı üretti.
+- **Kök neden (PDF filtre bug'ı):** confluence referansı olarak konan `TradePanel_1_7_9.pdf` (6.7 MB),
+  `filtrele_referanslar`'da `read_text` ile binary okunup keyword eşleşmezdi → RAG'e HİÇ girmezdi.
+  `_filtre_metni_oku` (PDF-farkında, `pdf_oku`/fitz) eklendi; confluence filtresi dosya adı VEYA içerik
+  eşleşmesiyle dahil ediyor (ilgili farklı-adlı sayfa da gelir).
+- **Kök neden 2 (baştan kesme):** ilgili bölüm PDF'in %25'inde (209K/836K); RAG dosya başına ilk 15K'yı
+  okurdu → kaçardı. `_keyword_odakli_metin` eklendi: büyük dosyada baştan kesmek yerine keyword geçen
+  yerlerin etrafından pencereler alır. Doğrulandı: RAG bloğu artık "publish overview" bölümünü içeriyor.
+- **İlişkili/Etki:** `surec_analizi`'ye **İlişkili Ekranlar / Süreçler ve Etki Analizi** (IB-XXX) bölümü +
+  **KAYNAK KULLANIMI (ZORUNLU)** bloğu eklendi; `surec_analizi_rol`'a "İLİŞKİ & ETKİ" çalışma adımı.
+- **Veri boşluğu (kullanıcı tarafı):** `reference/jira` boş (board senkronu yok) → agent board kullanamaz;
+  ayrıca 6.7 MB PDF yerine ilgili Confluence sayfalarını .md senkronlamak RAG için daha isabetli.
+- **Doğrulandı:** ruff temiz; boot OK; RAG zinciri "publish overview" içeriyor. Gerçek analiz ÇALIŞTIRILMADI.
