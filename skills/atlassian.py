@@ -72,7 +72,10 @@ def atlassian_get(path: str, cloud_id: str, service: str = "jira") -> dict:
     token = env.get("JIRA_ACCESS_TOKEN", "")
     base = f"https://api.atlassian.com/ex/{service}/{cloud_id}"
     r = _req.get(base + path, headers=_auth_headers(token), timeout=30)
-    if r.status_code == 401:
+    # Confluence gateway (/ex/confluence) SÜRESİ DOLMUŞ/GEÇERSİZ token'da 401 yerine 404
+    # döndürüyor (Jira 401 döner → refresh çalışır). Bu yüzden confluence'ta 404'te de
+    # token yenile + BİR KEZ tekrar dene; hâlâ 404 ise gerçek "bulunamadı"dır (aşağıda raise).
+    if r.status_code == 401 or (r.status_code == 404 and service == "confluence"):
         try:
             token = atlassian_refresh(env)
         except Exception as refresh_err:

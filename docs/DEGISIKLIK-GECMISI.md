@@ -126,3 +126,9 @@ Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** arac
 - **Veri boşluğu (kullanıcı tarafı):** `reference/jira` boş (board senkronu yok) → agent board kullanamaz;
   ayrıca 6.7 MB PDF yerine ilgili Confluence sayfalarını .md senkronlamak RAG için daha isabetli.
 - **Doğrulandı:** ruff temiz; boot OK; RAG zinciri "publish overview" içeriyor. Gerçek analiz ÇALIŞTIRILMADI.
+- **Confluence sync 404 bug'ı (`atlassian_get`):** Referans güncellemede
+  `404 ... /ex/confluence/{cloud}/wiki/api/v2/spaces?keys=mbs2` hatası. Kök neden: OAuth token süresi
+  dolduğunda Atlassian **Confluence gateway'i 401 yerine 404 döndürüyor** (Jira 401 döner → refresh
+  çalışır; Confluence 404 → eski kod refresh tetiklemez). `atlassian_get` artık confluence'ta **404'te de**
+  token yenileyip bir kez tekrar deniyor; hâlâ 404 ise gerçek bulunamadı. (Space key "mbs2" geçerli —
+  taze token'la 200/results=1; case sorunu yoktu.) Doğrulandı: atlassian_get mbs2 space'ini buluyor.
