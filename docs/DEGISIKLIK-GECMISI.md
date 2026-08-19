@@ -152,3 +152,11 @@ Doğrulandı: ruff temiz, JQL doğru üretiliyor, import/boot OK.
 `UAT_HARIC_DURUMLAR` artık `["Created in Error", "Create In Error"]` — Jira board'unda görülen gerçek
 statü "Created in Error" (`-d`'li). Tablodaki "≠" statünün parçası değil, UAT≠Hedef fark işaretidir.
 Elde güvenlik ağı casefold ile büyük/küçük harf varyantlarını da yakalar.
+
+## UAT Mutabakat — Durum filtresi: seçenek temizliği + görsel iyileştirme ✅
+- **"Created in Error" seçeneği kaldırıldı:** `_BS_FILTRE_HARIC` (backend `UAT_HARIC_DURUMLAR` ile hizalı)
+  ile bu durumlar dropdown seçeneklerinden de elenir — kapsam dışı statü filtre listesinde görünmez.
+- **Dropdown UX/görsel:** özel ok imi (SVG caret), huni ikonlu büyük-harf "DURUM" etiketi, hover/focus
+  vurgusu; filtre seçiliyken `.is-aktif` ile accent kenarlık + tint arka plan → hangi kolonun süzüldüğü
+  bir bakışta belli. Doğrulandı: "Created in Error" seçeneklerde yok, huni ikonu render, aktif sınıf
+  seçince eklenip boşalınca kalkıyor (tarayıcı mock testi + görsel).

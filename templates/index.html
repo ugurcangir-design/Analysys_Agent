@@ -1516,15 +1516,30 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .bs-tbl th, .bs-tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .bs-tbl th { background: var(--surface2); color: var(--text2); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
 /* Durum kolonu hızlı filtresi (başlıkta select) */
-.bs-tbl th.bs-th-filtre { padding-top: 5px; padding-bottom: 5px; }
-.bs-th-filtre .bs-th-lbl { display: block; margin-bottom: 3px; }
-.bs-durum-filtre {
-  width: 100%; max-width: 160px; font: inherit; font-size: 11px; font-weight: 500;
-  color: var(--text); background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-xs, 4px); padding: 2px 4px; cursor: pointer;
+.bs-tbl th.bs-th-filtre { padding-top: 6px; padding-bottom: 6px; min-width: 150px; }
+.bs-th-filtre .bs-th-lbl {
+  display: inline-flex; align-items: center; gap: 4px; margin-bottom: 5px;
+  font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: var(--text3);
 }
+.bs-th-filtre .bs-th-lbl .ico { width: 11px; height: 11px; opacity: .8; }
+.bs-durum-filtre {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; max-width: 170px; font: inherit; font-size: 11.5px; font-weight: 500;
+  color: var(--text); background-color: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px); padding: 4px 24px 4px 8px; cursor: pointer;
+  line-height: 1.3; transition: border-color .12s, background-color .12s, box-shadow .12s;
+  /* özel ok imi (▾) — sağ ortada, tema-nötr gri */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5L5 6.5L8 3.5' fill='none' stroke='%23888' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat; background-position: right 7px center;
+}
+.bs-durum-filtre:hover { border-color: var(--accent); background-color: var(--surface3, var(--surface2)); }
 .bs-durum-filtre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--accent); }
-.bs-durum-filtre:hover { border-color: var(--accent); }
+/* Filtre uygulandığında belirgin aktif hâl — kullanıcı hangi kolonun süzüldüğünü görür */
+.bs-durum-filtre.is-aktif {
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
 .bs-filtre-bos { padding: 12px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); }
 .bs-tbl tr:last-child td { border-bottom: none; }
 .bs-tbl a.bs-key { color: var(--accent); text-decoration: none; white-space: nowrap; font-weight: 700; }
@@ -4001,12 +4016,19 @@ function _bsDurumFarkli(a, b) {
 // Durum kolonu için normalize edilmiş değer (filtre karşılaştırması Türkçe-duyarlı)
 function _bsDurumNorm(s) { return String(s == null ? '' : s).trim().toLocaleLowerCase('tr'); }
 
+// Durum filtresi seçeneklerinde gösterilmeyecek durumlar (kapsam dışı; backend
+// UAT_HARIC_DURUMLAR ile hizalı — "Created in Error" gibi hatalı kayıtlar).
+const _BS_FILTRE_HARIC = new Set(['created in error', 'create in error'].map(_bsDurumNorm));
+
 // Bir tablodaki bir durum alanının benzersiz değerleri (görünen hâliyle, sıralı)
 function _bsDurumOpsiyonlari(satirlar, alan) {
   const harita = new Map();  // normalize → görünen
   satirlar.forEach(r => {
     const v = String(r[alan] == null ? '' : r[alan]).trim();
-    if (v) { const k = _bsDurumNorm(v); if (!harita.has(k)) harita.set(k, v); }
+    if (!v) return;
+    const k = _bsDurumNorm(v);
+    if (_BS_FILTRE_HARIC.has(k)) return;   // kapsam dışı durumu seçeneğe koyma
+    if (!harita.has(k)) harita.set(k, v);
   });
   return [...harita.values()].sort((a, b) => a.localeCompare(b, 'tr'));
 }
@@ -4014,7 +4036,8 @@ function _bsDurumOpsiyonlari(satirlar, alan) {
 // Durum başlığı yerine hızlı filtre <select>'i olan <th>
 function _bsDurumFiltreTh(tid, alan, opsiyonlar) {
   const opts = opsiyonlar.map(o => `<option value="${_bsEsc(o)}">${_bsEsc(o)}</option>`).join('');
-  return `<th class="bs-th-filtre"><span class="bs-th-lbl">Durum</span>
+  const funnel = '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12l-4.5 5.5V13L6.5 11V8.5L2 3z"/></svg>';
+  return `<th class="bs-th-filtre"><span class="bs-th-lbl">${funnel}Durum</span>
     <select class="bs-durum-filtre" data-alan="${alan}" onchange="_bsDurumFiltrele('${tid}')"
       title="Jira durumuna göre filtrele">
       <option value="">Tüm durumlar</option>${opts}
@@ -4053,6 +4076,7 @@ function _bsDurumFiltrele(tid) {
   const secili = {};
   tbl.querySelectorAll('thead .bs-durum-filtre').forEach(sel => {
     const v = _bsDurumNorm(sel.value);
+    sel.classList.toggle('is-aktif', !!v);   // seçili filtreyi görsel olarak vurgula
     if (v) secili[sel.dataset.alan] = v;
   });
   let gorunen = 0;
