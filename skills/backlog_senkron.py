@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -170,6 +171,16 @@ def _iliski_sinifi(iliski: str) -> str:
     return "bağlılık" if any(ip in t for ip in _BAGLILIK_IPUCLARI) else "ilişki"
 
 
+# Story KÖPRÜSÜ için: yalnızca Story/Hikaye seviyesinde köprü kurulur. Epic/Initiative
+# bilinçli olarak DIŞARIDA — onlar çok geniş kapsar, dolaylı eşleşmede yanlış pozitif üretir.
+_KOPRU_TIP_ADLARI = {"story", "hikaye"}
+
+
+def _kopru_link_mi(lk: dict) -> bool:
+    """Bir issue-link'in hedefi Story/Hikaye mi? (transitif köprü adayı)."""
+    return str(lk.get("type", "")).strip().lower() in _KOPRU_TIP_ADLARI
+
+
 def _iptal_ayir(gorevler: list[dict]) -> tuple[list[dict], list[dict]]:
     """İptal edilmiş görevleri (İptal Edildi / CANCEL / CANCELED) ayırır.
     (iptaller, kalan) döndürür — böylece iptaller ana akışa girmez, kendi kovasında görünür."""
@@ -309,30 +320,59 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     kullanilan_hedef: set[str] = set()   # eşleşen VEYA aday olarak bir UAT'a bağlanan hedefler
 
     # ── 1. KESİN: mevcut Jira bağlantıları ──
-    # UAT tarafındaki linkler + hedef tarafındaki linkler birleştirilir (tekrarsız).
-    # Değer: (kaynak_key, ilişki_metni, hedef_key) — link'in GERÇEK yönü (gerekçede doğru okunsun).
-    kesin_ciftler: dict[tuple[str, str], tuple[str, str, str]] = {}
+    # (uat_key, hedef_key) → hazır gerekçe metni. setdefault: bir çift zaten kurulduysa
+    # ilk (daha güçlü/doğrudan) gerekçe korunur.
+    kesin_ciftler: dict[tuple[str, str], str] = {}
+
+    def _kesin_ekle(uk: str, hk: str, gerekce: str) -> None:
+        kesin_ciftler.setdefault((uk, hk), gerekce)
+
+    # 1a. DOĞRUDAN link: UAT↔hedef (kapsam dışı hedef dahil) + hedef tarafındaki linkler.
     for u in uat_gorevler:
         for lk in u.get("baglantililar", []):
             hk = lk.get("key", "")
             if hk and (hk in hedef_index or hk in link_hedef_index):
-                kesin_ciftler.setdefault((u["key"], hk),
-                                         (u["key"], lk.get("iliski", "ilişkili"), hk))
+                iliski = lk.get("iliski", "ilişkili")
+                notu = "" if hk in hedef_index else " · kapsam dışı hedef"
+                _kesin_ekle(u["key"], hk, f"Jira {_iliski_sinifi(iliski)}: {u['key']} “{iliski}” {hk}{notu}")
     for h in hedef_gorevler:
         for lk in h.get("baglantililar", []):
-            if lk.get("key") in uat_index:
-                kesin_ciftler.setdefault((lk["key"], h["key"]),
-                                         (h["key"], lk.get("iliski", "ilişkili"), lk["key"]))
+            uk = lk.get("key", "")
+            if uk in uat_index:
+                iliski = lk.get("iliski", "ilişkili")
+                _kesin_ekle(uk, h["key"], f"Jira {_iliski_sinifi(iliski)}: {h['key']} “{iliski}” {uk}")
 
-    for (uk, hk), (kaynak, iliski, hedef_lk) in sorted(kesin_ciftler.items()):
+    # 1b. STORY KÖPRÜSÜ (transitif): UAT task ve hedef task AYNI Story'ye linkliyse dolaylı eşleşir.
+    # Story bir UAT taskıyla eşleşmişse, o story'ye bağlı hedef task'lar da eşleşmiş sayılır
+    # (iş zaten üst/story üzerinden takip ediliyor). Epic değil, yalnızca Story seviyesinde köprü.
+    uat_koprusu: dict[str, set[str]] = defaultdict(set)   # story_key → {uat_key}
+    for u in uat_gorevler:
+        for lk in u.get("baglantililar", []):
+            if _kopru_link_mi(lk) and lk.get("key"):
+                uat_koprusu[lk["key"]].add(u["key"])
+    hedef_koprusu: dict[str, set[str]] = defaultdict(set)  # story_key → {hedef_key}
+    for h in hedef_gorevler:
+        for lk in h.get("baglantililar", []):
+            if _kopru_link_mi(lk) and lk.get("key"):
+                hedef_koprusu[lk["key"]].add(h["key"])
+    kopru_sayisi = 0
+    for skey, us in uat_koprusu.items():
+        hs = hedef_koprusu.get(skey)
+        if not hs:
+            continue
+        for uk in sorted(us):
+            for hk in sorted(hs):
+                if (uk, hk) not in kesin_ciftler:
+                    kopru_sayisi += 1
+                _kesin_ekle(uk, hk, f"Story köprüsü: {uk} ve {hk} ortak “{skey}” story’sine bağlı")
+    if kopru_sayisi:
+        logger.info("Story köprüsüyle %d dolaylı eşleşme eklendi.", kopru_sayisi)
+
+    # ── Satırları kur ──
+    for (uk, hk), gerekce in sorted(kesin_ciftler.items()):
         hedef_g = _hedef_bul(hk)
         if hedef_g is None:
             continue   # güvenlik: hedef verisi yoksa satır kurulamaz
-        # Gerekçeyi zenginleştir: bağın "bağlılık" (blocks/depends…) mı yoksa gevşek "ilişki"
-        # (relates) mi olduğunu ve link'in gerçek yönünü net göster. Kapsam dışı hedef ise belirt.
-        sinif = _iliski_sinifi(iliski)
-        kapsam_notu = "" if hk in hedef_index else " · kapsam dışı hedef"
-        gerekce = f"Jira {sinif}: {kaynak} “{iliski}” {hedef_lk}{kapsam_notu}"
         eslesenler.append(_satir(uat_index[uk], hedef_g, "Kesin", gerekce, 1.0))
         eslesen_uat.add(uk)
         kullanilan_hedef.add(hk)

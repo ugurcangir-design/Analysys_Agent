@@ -221,3 +221,16 @@ bakar; satır bu birleşik kaynaktan kurulur. Bu ek hedefler similarity/eşleşm
 toplamını şişirmez; gerekçeye "· kapsam dışı hedef" notu eklenir. Doğrulandı: gerçek MBSUATEAM-124 →
 MBSTRADE-1404 artık KESİN eşleşiyor (hedef boş sette bile); ruff temiz. Not: "tüm board" modunda hedef
 zaten sette olduğundan ek sorgu no-op.
+
+## UAT Mutabakat — Story köprüsü (transitif eşleşme) ✅
+**İhtiyaç:** MBSTRADE-1549 gibi bir hedef task, bir Story'ye (MBSTRADE-1464 "Hikaye") linkli; o Story de bir
+UAT taskına (MBSUATEAM-129) linkli. Story'ye bağlı alt task'lar "Eşleşmeyen TRADE/OPS" görünüyordu; oysa iş
+zaten story üzerinden takip ediliyor.
+**Çözüm:** KESİN eşleşmeye 1b adımı eklendi — UAT ve hedef task'lar AYNI Story'ye issue-link ile bağlıysa
+dolaylı eşleşirler. `_kopru_link_mi` (link hedefi tipi Story/Hikaye) ile `uat_koprusu`/`hedef_koprusu`
+haritaları kurulur; ortak story'de her (uat, hedef) çifti eşleştirilir. Köprü **yalnız Story seviyesinde**
+(`_KOPRU_TIP_ADLARI`={story,hikaye}); Epic/Initiative bilinçli hariç (aksi halde geniş kapsayıcılar yanlış
+pozitif üretir). `kesin_ciftler` değeri artık hazır gerekçe string'i; doğrudan link (1a) ile köprü (1b)
+aynı dedup'tan geçer, doğrudan gerekçe önceliklidir. Doğrulandı: gerçek veride MBSTRADE-1549 ↔ MBSUATEAM-129
+(ortak story MBSTRADE-1464) eşleşiyor; farklı story'ye (1133) bağlı olup UAT tarafı olmayanlar köprü kurmaz;
+ruff temiz.

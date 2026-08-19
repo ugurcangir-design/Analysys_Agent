@@ -989,6 +989,12 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
         (blocks / is blocked by / depends on / clones / duplicates) ile gevşek <em>ilişki</em> (relates to)
         ayrılır — örn. <code>Jira bağlılık: MBSUATEAM-2 "is blocked by" MBSTRADE-9</code>. İki board'un da
         link'lerine bakılır; yön link'in gerçek yönüne göre gösterilir.</p>
+        <p><strong>Story köprüsü (dolaylı eşleşme):</strong> Bir UAT task ile bir hedef task <em>aynı
+        Story'ye</em> (Hikaye) bağlıysa, bunlar dolaylı olarak eşleşmiş sayılır — çünkü iş zaten o story
+        üzerinden takip edilir. Örn. MBSUATEAM-129 → Story ← MBSTRADE-1549 ise, story'ye bağlı tüm hedef
+        task'lar o UAT taskıyla eşleşir (gerekçe: "Story köprüsü … ortak story'sine bağlı"). Köprü yalnızca
+        <strong>Story seviyesinde</strong> kurulur; Epic gibi çok geniş öğeler yanlış eşleşme yapmasın diye
+        dışarıda tutulur.</p>
         <p><strong>Kapsam kuralları:</strong> <strong>Epic ve Story</strong> tipindeki kayıtlar (kapsayıcı öğeler)
         karşılaştırmaya dahil edilmez — yalnızca yaprak iş kalemleri (Görev/Bug vb.) eşleştirilir.
         <strong>İptal edilmiş</strong> task'lar (durum "İptal Edildi" / "CANCEL" / "CANCELED" varyantları) ana
