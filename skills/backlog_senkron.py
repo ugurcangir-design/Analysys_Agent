@@ -471,16 +471,20 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
 
     ws1 = wb.active
     ws1.title = "Eşleşenler"
-    esles_bas = ["Sıra", "UAT Key", "UAT Özet", "UAT Durum", "UAT Atanan", "Hedef Key", "Hedef Özet",
-                 "Hedef Durum", "Hedef Atanan", "Eşleşme", "Gerekçe", "Skor"]
+    esles_bas = ["Sıra", "UAT Key", "UAT Özet", "UAT Durum", "UAT Atanan", "UAT İş Adedi",
+                 "Hedef Key", "Hedef Özet", "Hedef Durum", "Hedef Atanan", "Eşleşme", "Gerekçe", "Skor"]
     esles_kaynak = sorted(sonuc.get("eslesenler", []) + sonuc.get("adaylar", []),
                           key=lambda r: r.get("sira", 10**9))
+    # Bir UAT taskı birden çok hedefe bağlanabilir → her UAT'ın toplam iş (hedef) adedi.
+    uat_is_adedi: dict[str, int] = {}
+    for r in esles_kaynak:
+        uat_is_adedi[r["uat_key"]] = uat_is_adedi.get(r["uat_key"], 0) + 1
     esles_satir = [[r.get("sira", ""), r["uat_key"], r["uat_ozet"], r["uat_durum"],
-                    r.get("uat_atanan", ""), r["hedef_key"],
+                    r.get("uat_atanan", ""), uat_is_adedi.get(r["uat_key"], 1), r["hedef_key"],
                     r["hedef_ozet"], r["hedef_durum"], r.get("hedef_atanan", ""),
                     ("Aday" if r["guven"] == "Aday" else "Evet"), r["gerekce"], r["skor"]]
                    for r in esles_kaynak]
-    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 18, 14, 44, 14, 18, 10, 26, 8])
+    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 18, 10, 14, 44, 14, 18, 10, 26, 8])
 
     ws2 = wb.create_sheet("Eşleşmeyen UAT")
     _sayfa_yaz(ws2, ["Sıra", "UAT Key", "Özet", "Durum", "Atanan", "Tür"],

@@ -234,3 +234,17 @@ pozitif üretir). `kesin_ciftler` değeri artık hazır gerekçe string'i; doğr
 aynı dedup'tan geçer, doğrudan gerekçe önceliklidir. Doğrulandı: gerçek veride MBSTRADE-1549 ↔ MBSUATEAM-129
 (ortak story MBSTRADE-1464) eşleşiyor; farklı story'ye (1133) bağlı olup UAT tarafı olmayanlar köprü kurmaz;
 ruff temiz.
+
+## UAT Mutabakat — bir UAT → çok hedef: özet satır + tıkla-genişlet ✅
+**Sorun:** Bir UAT taskı birden çok TRADE/OPS işine bağlanınca (özellikle Story köprüsüyle) UAT satırda
+tekrar ediyor, tablo şişiyordu; "Eşleşen" sayısı da çift sayıyordu.
+**Çözüm (kullanıcı tercihi: özet satır + genişlet):** `_bsTabloEsles` artık eşleşmeleri UAT key'e göre
+gruplar. Tek hedefli UAT → düz satır (`bs-tek-sat`, 4 filtre alanı). Çok hedefli UAT → tıklanabilir
+**özet satır** (`bs-ozet-sat`, "▸ N eşleşen iş" rozeti + key önizleme) ve gizli **detay satırları**
+(`bs-detay-sat`, ↳ girintili). `_bsGrupAc` aç/kapa; key linkine tıklama grubu açmaz.
+`_bsFiltrele` gruplu-farkında: UAT Durum/Atanan filtresi özet satıra (grubu bütün süzer), Hedef
+Durum/Atanan filtresi detaya uygulanır ve eşleşen grup otomatik genişler; tek-satırlar tüm filtrelere
+uyar. "Eşleşen"/"Aday" stat kartı + grup başlığı artık **distinct UAT** sayısı, alt etikette toplam iş.
+Excel'e "UAT İş Adedi" kolonu eklendi (düz satır korunur). Doğrulandı: grup/tek render, aç-kapa, chevron,
+UAT vs Hedef filtre ayrımı, çapraz AND, boş-durum, distinct sayım ve Excel kolonu — tarayıcı testi +
+ekran görüntüsü + openpyxl testi.

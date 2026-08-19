@@ -995,6 +995,13 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
         task'lar o UAT taskıyla eşleşir (gerekçe: "Story köprüsü … ortak story'sine bağlı"). Köprü yalnızca
         <strong>Story seviyesinde</strong> kurulur; Epic gibi çok geniş öğeler yanlış eşleşme yapmasın diye
         dışarıda tutulur.</p>
+        <p><strong>Bir UAT → birden çok iş:</strong> Bir UAT taskı için TRADE/OPS'ta birden fazla iş açılmış
+        olabilir. Bu durumda o UAT, tabloda <strong>tek bir özet satır</strong> olarak görünür; sağında
+        yeşil <em>"N eşleşen iş"</em> rozeti ve satıra tıklayınca <strong>açılıp</strong> bağlı tüm hedef
+        task'ları (girintili, ↳) listelenir. Tek hedefi olan UAT'lar düz satır kalır. Üstteki "Eşleşen"
+        kartı <em>distinct UAT sayısını</em> (alt etikette toplam iş adedini) gösterir. Hedef Durum/Atanan
+        filtresi seçildiğinde ilgili gruplar otomatik açılıp yalnız uyan alt task'lar gösterilir. Excel'de
+        her satır düz kalır; ek "UAT İş Adedi" kolonu her UAT'ın kaç işe bağlı olduğunu verir.</p>
         <p><strong>Kapsam kuralları:</strong> <strong>Epic ve Story</strong> tipindeki kayıtlar (kapsayıcı öğeler)
         karşılaştırmaya dahil edilmez — yalnızca yaprak iş kalemleri (Görev/Bug vb.) eşleştirilir.
         <strong>İptal edilmiş</strong> task'lar (durum "İptal Edildi" / "CANCEL" / "CANCELED" varyantları) ana

@@ -1543,6 +1543,19 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 }
 .bs-tbl td.bs-atanan { white-space: nowrap; }
 .bs-tbl td.bs-atanan .bs-bos-im { color: var(--text3); }
+/* Çok hedefli eşleşme: özet satır (tıkla-genişlet) + detay satırları */
+.bs-tbl tr.bs-ozet-sat { cursor: pointer; }
+.bs-tbl tr.bs-ozet-sat:hover { background: var(--surface2); }
+.bs-tbl tr.bs-ozet-sat.acik { background: var(--surface2); }
+.bs-tbl td.bs-grp-toggle { color: var(--text2); white-space: nowrap; user-select: none; }
+.bs-grp-ok { display: inline-block; width: 12px; color: var(--accent); font-size: 10px; }
+.bs-grp-rozet {
+  display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);
+}
+.bs-grp-keys { color: var(--text3); font-size: 11px; margin-left: 6px; }
+.bs-tbl tr.bs-detay-sat > td { background: var(--surface2); border-bottom: 1px solid var(--border); }
+.bs-tbl tr.bs-detay-sat td.bs-detay-im { color: var(--accent); text-align: right; padding-right: 4px; }
 .bs-filtre-bos { padding: 12px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); }
 .bs-tbl tr:last-child td { border-bottom: none; }
 .bs-tbl a.bs-key { color: var(--accent); text-decoration: none; white-space: nowrap; font-weight: 700; }
@@ -4060,25 +4073,61 @@ function _bsAtananHucre(ad) {
   return `<td class="bs-atanan">${a ? _bsEsc(a) : '<span class="bs-bos-im">—</span>'}</td>`;
 }
 
-function _bsTabloEsles(satirlar, tid) {
-  if (!satirlar.length) return '<div class="bs-bos">Kayıt yok.</div>';
-  const govde = satirlar.map(r => {
-    const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
-    const dcls = farkli ? ' class="bs-durum-fark"' : '';
-    const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
-    return `<tr data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.uat_atanan))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}" data-fhatanan="${_bsEsc(_bsDurumNorm(r.hedef_atanan))}">
+// Bir hedef eşleşmesinin hücreleri (Hedef, Özet, Durum, Atanan, Rozet, Gerekçe) — 6 kolon.
+// uatDurum, hedef durumuyla karşılaştırılıp ≠ imi için kullanılır.
+function _bsHedefHucreleri(r) {
+  const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
+  const dcls = farkli ? ' class="bs-durum-fark"' : '';
+  const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
+  return `<td>${_bsKeyLink(r.hedef_key)}</td>
+    <td class="bs-cell-ozet">${_bsEsc(r.hedef_ozet)}</td>
+    <td${dcls}><strong>${_bsEsc(r.hedef_durum)}</strong>${im}</td>
+    ${_bsAtananHucre(r.hedef_atanan)}
+    <td>${_bsEslesmeRozet(r.guven)}</td>
+    <td>${_bsEsc(r.gerekce)}</td>`;
+}
+
+// Tek eşleşme (UAT'ın tek hedefi) → tüm kolonlar tek satırda; 4 filtre alanını taşır.
+function _bsTekSatir(r) {
+  const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
+  const dcls = farkli ? ' class="bs-durum-fark"' : '';
+  const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
+  return `<tr class="bs-tek-sat" data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.uat_atanan))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}" data-fhatanan="${_bsEsc(_bsDurumNorm(r.hedef_atanan))}">
     <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.uat_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
     <td${dcls}><strong>${_bsEsc(r.uat_durum)}</strong>${im}</td>
     ${_bsAtananHucre(r.uat_atanan)}
-    <td>${_bsKeyLink(r.hedef_key)}</td>
-    <td class="bs-cell-ozet">${_bsEsc(r.hedef_ozet)}</td>
-    <td${dcls}><strong>${_bsEsc(r.hedef_durum)}</strong>${im}</td>
-    ${_bsAtananHucre(r.hedef_atanan)}
-    <td>${_bsEslesmeRozet(r.guven)}</td>
-    <td>${_bsEsc(r.gerekce)}</td></tr>`;
-  }).join('');
+    ${_bsHedefHucreleri(r)}</tr>`;
+}
+
+function _bsTabloEsles(satirlar, tid) {
+  if (!satirlar.length) return '<div class="bs-bos">Kayıt yok.</div>';
+  // Aynı UAT taskının birden çok hedefi olabilir → UAT key'e göre grupla (sıra korunur).
+  const gruplar = new Map();
+  satirlar.forEach(r => {
+    if (!gruplar.has(r.uat_key)) gruplar.set(r.uat_key, []);
+    gruplar.get(r.uat_key).push(r);
+  });
+  let govde = '';
+  for (const [uk, grup] of gruplar) {
+    const r0 = grup[0];
+    if (grup.length === 1) { govde += _bsTekSatir(r0); continue; }
+    // Çok hedefli → özet satır (tıkla-genişlet) + gizli detay satırları.
+    const onizle = grup.slice(0, 4).map(r => r.hedef_key).join(', ') + (grup.length > 4 ? ' …' : '');
+    govde += `<tr class="bs-ozet-sat" data-uat="${_bsEsc(uk)}" data-fuat="${_bsEsc(_bsDurumNorm(r0.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r0.uat_atanan))}" onclick="_bsGrupAc(this, event)" title="Detayları göster/gizle">
+      <td class="bs-sira">${_bsEsc(r0.sira)}</td>
+      <td>${_bsKeyLink(r0.uat_key)}</td>
+      <td class="bs-cell-ozet">${_bsEsc(r0.uat_ozet)}</td>
+      <td><strong>${_bsEsc(r0.uat_durum)}</strong></td>
+      ${_bsAtananHucre(r0.uat_atanan)}
+      <td class="bs-grp-toggle" colspan="6"><span class="bs-grp-ok">▸</span> <span class="bs-grp-rozet">${grup.length} eşleşen iş</span> <span class="bs-grp-keys">${_bsEsc(onizle)}</span></td></tr>`;
+    grup.forEach(r => {
+      govde += `<tr class="bs-detay-sat" data-uat="${_bsEsc(uk)}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}" data-fhatanan="${_bsEsc(_bsDurumNorm(r.hedef_atanan))}" style="display:none">
+        <td></td><td class="bs-detay-im">↳</td><td></td><td></td><td></td>
+        ${_bsHedefHucreleri(r)}</tr>`;
+    });
+  }
   const thUat     = _bsFiltreTh(tid, 'fuat',     'uat_durum',   'Durum',  satirlar, { haric: true, tumEtiket: 'Tüm durumlar' });
   const thAtanan  = _bsFiltreTh(tid, 'fatanan',  'uat_atanan',  'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
   const thHedef   = _bsFiltreTh(tid, 'fhedef',   'hedef_durum', 'Durum',  satirlar, { tumEtiket: 'Tüm durumlar' });
@@ -4089,7 +4138,22 @@ function _bsTabloEsles(satirlar, tid) {
     <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen filtreye uygun kayıt yok.</div></div>`;
 }
 
-// Başlık <select>'leri değişince satırları göster/gizle (tüm kolonlar birlikte, AND mantığı)
+// Özet satırı aç/kapa (grup detaylarını göster/gizle). Key linkine tıklama grubu açmaz.
+function _bsGrupAc(ozetSat, ev) {
+  if (ev && ev.target.closest('a')) return;
+  const tbl = ozetSat.closest('table');
+  const acik = ozetSat.classList.toggle('acik');
+  tbl.querySelectorAll('.bs-detay-sat[data-uat="' + CSS.escape(ozetSat.dataset.uat) + '"]')
+     .forEach(d => { d.style.display = acik ? '' : 'none'; });
+  _bsChevronGuncelle(ozetSat);
+}
+function _bsChevronGuncelle(ozetSat) {
+  const ok = ozetSat.querySelector('.bs-grp-ok');
+  if (ok) ok.textContent = ozetSat.classList.contains('acik') ? '▾' : '▸';
+}
+
+// Başlık <select>'leri değişince satırları göster/gizle (tüm kolonlar birlikte, AND mantığı).
+// Gruplu tablolarda (özet+detay) UAT filtreleri özet satıra, Hedef filtreleri detaya uygulanır.
 function _bsFiltrele(tid) {
   const tbl = document.getElementById(tid);
   if (!tbl) return;
@@ -4100,15 +4164,41 @@ function _bsFiltrele(tid) {
     if (raw === _BS_BOS) secili[sel.dataset.alan] = '';         // Atanmamış → boş değerle eşleş
     else if (raw) secili[sel.dataset.alan] = _bsDurumNorm(raw);
   });
+  const uydu = (el, alanlar) => alanlar.every(a => (el.dataset[a] || '') === secili[a]);
   let gorunen = 0;
-  tbl.querySelectorAll('tbody tr').forEach(tr => {
-    let goster = true;
-    for (const alan in secili) {
-      if ((tr.dataset[alan] || '') !== secili[alan]) { goster = false; break; }
-    }
-    tr.style.display = goster ? '' : 'none';
-    if (goster) gorunen++;
-  });
+  if (!tbl.querySelector('tbody .bs-ozet-sat')) {
+    // Düz tablo (tek-satırlar dahil): her satır tüm aktif filtrelere uymalı.
+    tbl.querySelectorAll('tbody tr').forEach(tr => {
+      const goster = uydu(tr, Object.keys(secili));
+      tr.style.display = goster ? '' : 'none';
+      if (goster) gorunen++;
+    });
+  } else {
+    const uatAlan = ['fuat', 'fatanan'].filter(a => a in secili);
+    const hedAlan = ['fhedef', 'fhatanan'].filter(a => a in secili);
+    const hedAktif = hedAlan.length > 0;
+    // N=1 tek satırlar: hem UAT hem Hedef filtreleri.
+    tbl.querySelectorAll('tbody .bs-tek-sat').forEach(tr => {
+      const goster = uydu(tr, Object.keys(secili));
+      tr.style.display = goster ? '' : 'none';
+      if (goster) gorunen++;
+    });
+    // Gruplar: özet UAT'a, detay Hedef'e göre.
+    tbl.querySelectorAll('tbody .bs-ozet-sat').forEach(ozet => {
+      const uatUyar = uydu(ozet, uatAlan);
+      const detaylar = tbl.querySelectorAll('.bs-detay-sat[data-uat="' + CSS.escape(ozet.dataset.uat) + '"]');
+      let eslesenDetay = 0;
+      detaylar.forEach(d => {
+        const hedUyar = uydu(d, hedAlan);
+        if (uatUyar && hedUyar) eslesenDetay++;
+        d.style.display = (uatUyar && hedUyar && (hedAktif || ozet.classList.contains('acik'))) ? '' : 'none';
+      });
+      const grupGorun = uatUyar && (!hedAktif || eslesenDetay > 0);
+      ozet.style.display = grupGorun ? '' : 'none';
+      if (grupGorun && hedAktif) { ozet.classList.add('acik'); _bsChevronGuncelle(ozet); }
+      if (grupGorun) gorunen++;
+    });
+  }
   const bos = document.getElementById(tid + '-bos');
   if (bos) bos.style.display = gorunen ? 'none' : '';
 }
@@ -4180,9 +4270,12 @@ async function bsMutabakat() {
     _bsSonuc = d;
     bsMsg('');
     const s = d.sayimlar;
+    // Bir UAT taskı birden çok hedefe bağlanabilir → kartta DISTINCT UAT sayısı, alt etikette toplam iş.
+    const uatSay = liste => new Set((liste || []).map(r => r.uat_key)).size;
+    const eslesenUat = uatSay(d.eslesenler), adayUat = uatSay(d.adaylar);
     document.getElementById('bs-ozet').innerHTML =
-      `<div class="bs-stat bs-click" data-grup="bs-g-eslesen" onclick="bsFiltrele('bs-g-eslesen')"><div class="bs-num">${s.eslesen}</div><div class="bs-lbl">Eşleşen</div></div>`
-    + `<div class="bs-stat bs-click" data-grup="bs-g-aday" onclick="bsFiltrele('bs-g-aday')"><div class="bs-num">${s.aday}</div><div class="bs-lbl">Teyit bekleyen aday</div></div>`
+      `<div class="bs-stat bs-click" data-grup="bs-g-eslesen" onclick="bsFiltrele('bs-g-eslesen')"><div class="bs-num">${eslesenUat}</div><div class="bs-lbl">Eşleşen UAT · ${d.eslesenler.length} iş</div></div>`
+    + `<div class="bs-stat bs-click" data-grup="bs-g-aday" onclick="bsFiltrele('bs-g-aday')"><div class="bs-num">${adayUat}</div><div class="bs-lbl">Teyit bekleyen UAT · ${d.adaylar.length} iş</div></div>`
     + `<div class="bs-stat bs-warn bs-click" data-grup="bs-g-uat" onclick="bsFiltrele('bs-g-uat')"><div class="bs-num">${s.eslesmeyen_uat}</div><div class="bs-lbl">Eşleşmeyen UAT (açıkta kalan iş)</div></div>`
     + `<div class="bs-stat bs-muted bs-click" data-grup="bs-g-hedef" onclick="bsFiltrele('bs-g-hedef')"><div class="bs-num">${s.eslesmeyen_hedef}</div><div class="bs-lbl">Eşleşmeyen TRADE/OPS</div></div>`
     + `<div class="bs-stat bs-iptal bs-click" data-grup="bs-g-iptal" onclick="bsFiltrele('bs-g-iptal')"><div class="bs-num">${s.iptal || 0}</div><div class="bs-lbl">İptal Edildi</div></div>`
@@ -4190,8 +4283,8 @@ async function bsMutabakat() {
     + `<div class="bs-stat bs-muted"><div class="bs-num">${s.hedef_toplam}</div><div class="bs-lbl">Hedef toplam</div></div>`;
 
     document.getElementById('bs-tablolar').innerHTML =
-      _bsGrup('bs-g-eslesen', 'Eşleşenler', d.eslesenler.length, '✅', _bsTabloEsles(d.eslesenler, 'bs-tbl-eslesen'))
-    + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar, 'bs-tbl-aday'))
+      _bsGrup('bs-g-eslesen', 'Eşleşenler', eslesenUat, '✅', _bsTabloEsles(d.eslesenler, 'bs-tbl-eslesen'))
+    + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', adayUat, '🟡', _bsTabloEsles(d.adaylar, 'bs-tbl-aday'))
     + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false, 'bs-tbl-uat'))
     + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true, 'bs-tbl-hedef'))
     + _bsGrup('bs-g-iptal', 'İptal Edilenler', (d.iptaller || []).length, '🚫', _bsTabloTek(d.iptaller || [], true, 'bs-tbl-iptal', { rozet: false, bosMesaj: 'İptal edilmiş task yok.' }));
