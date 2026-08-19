@@ -140,6 +140,7 @@ def _sade(g: dict, proje_ekle: bool = False) -> dict:
         "key": key,
         "ozet": g.get("summary", ""),
         "durum": g.get("status", ""),
+        "atanan": g.get("assignee", ""),
         "tur": g.get("type", ""),
     }
     if proje_ekle:
@@ -153,6 +154,7 @@ def _satir(uat: dict, hedef: dict, guven: str, gerekce: str, skor: float) -> dic
         "uat_key": uat.get("key", ""),
         "uat_ozet": uat.get("summary", ""),
         "uat_durum": uat.get("status", ""),
+        "uat_atanan": uat.get("assignee", ""),
         "hedef_key": hedef.get("key", ""),
         "hedef_ozet": hedef.get("summary", ""),
         "hedef_durum": hedef.get("status", ""),
@@ -333,21 +335,22 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
 
     ws1 = wb.active
     ws1.title = "Eşleşenler"
-    esles_bas = ["Sıra", "UAT Key", "UAT Özet", "UAT Durum", "Hedef Key", "Hedef Özet",
+    esles_bas = ["Sıra", "UAT Key", "UAT Özet", "UAT Durum", "UAT Atanan", "Hedef Key", "Hedef Özet",
                  "Hedef Durum", "Eşleşme", "Gerekçe", "Skor"]
     esles_kaynak = sorted(sonuc.get("eslesenler", []) + sonuc.get("adaylar", []),
                           key=lambda r: r.get("sira", 10**9))
-    esles_satir = [[r.get("sira", ""), r["uat_key"], r["uat_ozet"], r["uat_durum"], r["hedef_key"],
+    esles_satir = [[r.get("sira", ""), r["uat_key"], r["uat_ozet"], r["uat_durum"],
+                    r.get("uat_atanan", ""), r["hedef_key"],
                     r["hedef_ozet"], r["hedef_durum"],
                     ("Aday" if r["guven"] == "Aday" else "Evet"), r["gerekce"], r["skor"]]
                    for r in esles_kaynak]
-    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 14, 44, 14, 10, 26, 8])
+    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 18, 14, 44, 14, 10, 26, 8])
 
     ws2 = wb.create_sheet("Eşleşmeyen UAT")
-    _sayfa_yaz(ws2, ["Sıra", "UAT Key", "Özet", "Durum", "Tür"],
-               [[r.get("sira", ""), r["key"], r["ozet"], r["durum"], r["tur"]]
+    _sayfa_yaz(ws2, ["Sıra", "UAT Key", "Özet", "Durum", "Atanan", "Tür"],
+               [[r.get("sira", ""), r["key"], r["ozet"], r["durum"], r.get("atanan", ""), r["tur"]]
                 for r in sonuc.get("eslesmeyen_uat", [])],
-               [6, 14, 52, 16, 14])
+               [6, 14, 52, 16, 18, 14])
 
     ws3 = wb.create_sheet("Eşleşmeyen TRADE-OPS")
     _sayfa_yaz(ws3, ["Sıra", "Hedef Key", "Proje", "Özet", "Durum", "Tür"],

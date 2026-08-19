@@ -1515,31 +1515,33 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .bs-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bs-tbl th, .bs-tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .bs-tbl th { background: var(--surface2); color: var(--text2); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
-/* Durum kolonu hızlı filtresi (başlıkta select) */
-.bs-tbl th.bs-th-filtre { padding-top: 6px; padding-bottom: 6px; min-width: 150px; }
+/* Kolon başlığı hızlı filtresi (Durum / Atanan) */
+.bs-tbl th.bs-th-filtre { padding: 6px 10px; min-width: 132px; vertical-align: bottom; }
 .bs-th-filtre .bs-th-lbl {
-  display: inline-flex; align-items: center; gap: 4px; margin-bottom: 5px;
-  font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: var(--text3);
+  display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+  font-size: 10px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--text3);
 }
-.bs-th-filtre .bs-th-lbl .ico { width: 11px; height: 11px; opacity: .8; }
-.bs-durum-filtre {
+.bs-th-filtre .bs-th-lbl .ico { width: 11px; height: 11px; opacity: .75; flex: none; }
+.bs-filtre-sel {
   -webkit-appearance: none; appearance: none;
-  width: 100%; max-width: 170px; font: inherit; font-size: 11.5px; font-weight: 500;
+  display: block; box-sizing: border-box; width: 100%; max-width: 190px; height: 26px;
+  font: inherit; font-size: 11.5px; font-weight: 500; line-height: normal;
   color: var(--text); background-color: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 6px); padding: 4px 24px 4px 8px; cursor: pointer;
-  line-height: 1.3; transition: border-color .12s, background-color .12s, box-shadow .12s;
+  border-radius: 6px; padding: 0 24px 0 8px; cursor: pointer;
+  text-overflow: ellipsis; transition: border-color .12s, background-color .12s;
   /* özel ok imi (▾) — sağ ortada, tema-nötr gri */
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5L5 6.5L8 3.5' fill='none' stroke='%23888' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  background-repeat: no-repeat; background-position: right 7px center;
+  background-repeat: no-repeat; background-position: right 8px center;
 }
-.bs-durum-filtre:hover { border-color: var(--accent); background-color: var(--surface3, var(--surface2)); }
-.bs-durum-filtre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--accent); }
-/* Filtre uygulandığında belirgin aktif hâl — kullanıcı hangi kolonun süzüldüğünü görür */
-.bs-durum-filtre.is-aktif {
+.bs-filtre-sel:hover { border-color: var(--accent); }
+.bs-filtre-sel:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--accent); }
+/* Filtre uygulandığında belirgin aktif hâl — hangi kolonun süzüldüğü belli olsun */
+.bs-filtre-sel.is-aktif {
   border-color: var(--accent); color: var(--accent); font-weight: 600;
-  background-color: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
+.bs-tbl td.bs-atanan { white-space: nowrap; }
+.bs-tbl td.bs-atanan .bs-bos-im { color: var(--text3); }
 .bs-filtre-bos { padding: 12px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); }
 .bs-tbl tr:last-child td { border-bottom: none; }
 .bs-tbl a.bs-key { color: var(--accent); text-decoration: none; white-space: nowrap; font-weight: 700; }
@@ -4019,29 +4021,42 @@ function _bsDurumNorm(s) { return String(s == null ? '' : s).trim().toLocaleLowe
 // Durum filtresi seçeneklerinde gösterilmeyecek durumlar (kapsam dışı; backend
 // UAT_HARIC_DURUMLAR ile hizalı — "Created in Error" gibi hatalı kayıtlar).
 const _BS_FILTRE_HARIC = new Set(['created in error', 'create in error'].map(_bsDurumNorm));
+const _BS_BOS = '__bos__';   // "Atanmamış" seçeneği için özel işaret (boş değere karşılık gelir)
+const _BS_FUNNEL = '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12l-4.5 5.5V13L6.5 11V8.5L2 3z"/></svg>';
 
-// Bir tablodaki bir durum alanının benzersiz değerleri (görünen hâliyle, sıralı)
-function _bsDurumOpsiyonlari(satirlar, alan) {
+// Bir tablodaki bir alanın benzersiz değerleri (görünen hâliyle, sıralı) + boş kayıt var mı?
+function _bsBenzersiz(satirlar, alan, haricEt) {
   const harita = new Map();  // normalize → görünen
+  let bosVar = false;
   satirlar.forEach(r => {
     const v = String(r[alan] == null ? '' : r[alan]).trim();
-    if (!v) return;
+    if (!v) { bosVar = true; return; }
     const k = _bsDurumNorm(v);
-    if (_BS_FILTRE_HARIC.has(k)) return;   // kapsam dışı durumu seçeneğe koyma
+    if (haricEt && _BS_FILTRE_HARIC.has(k)) return;   // kapsam dışı durumu seçeneğe koyma
     if (!harita.has(k)) harita.set(k, v);
   });
-  return [...harita.values()].sort((a, b) => a.localeCompare(b, 'tr'));
+  return { degerler: [...harita.values()].sort((a, b) => a.localeCompare(b, 'tr')), bosVar };
 }
 
-// Durum başlığı yerine hızlı filtre <select>'i olan <th>
-function _bsDurumFiltreTh(tid, alan, opsiyonlar) {
-  const opts = opsiyonlar.map(o => `<option value="${_bsEsc(o)}">${_bsEsc(o)}</option>`).join('');
-  const funnel = '<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12l-4.5 5.5V13L6.5 11V8.5L2 3z"/></svg>';
-  return `<th class="bs-th-filtre"><span class="bs-th-lbl">${funnel}Durum</span>
-    <select class="bs-durum-filtre" data-alan="${alan}" onchange="_bsDurumFiltrele('${tid}')"
-      title="Jira durumuna göre filtrele">
-      <option value="">Tüm durumlar</option>${opts}
-    </select></th>`;
+// Başlıkta hızlı filtre <select>'i olan <th>.
+//  alan   = satırdaki data-<alan> anahtarı (filtreleme için, örn. 'fatanan')
+//  kaynak = seçenekleri üretirken okunacak satır alanı (örn. 'uat_atanan')
+// opt: {haric, tumEtiket, bosEtiket}
+function _bsFiltreTh(tid, alan, kaynak, etiket, satirlar, opt) {
+  opt = opt || {};
+  const { degerler, bosVar } = _bsBenzersiz(satirlar, kaynak, opt.haric);
+  let opts = `<option value="">${_bsEsc(opt.tumEtiket || ('Tüm ' + etiket))}</option>`;
+  if (bosVar && opt.bosEtiket) opts += `<option value="${_BS_BOS}">${_bsEsc(opt.bosEtiket)}</option>`;
+  opts += degerler.map(o => `<option value="${_bsEsc(o)}">${_bsEsc(o)}</option>`).join('');
+  return `<th class="bs-th-filtre"><span class="bs-th-lbl">${_BS_FUNNEL}${_bsEsc(etiket)}</span>
+    <select class="bs-filtre-sel" data-alan="${alan}" onchange="_bsFiltrele('${tid}')"
+      title="${_bsEsc(etiket)}'e göre filtrele">${opts}</select></th>`;
+}
+
+// Atanan kişi hücresi (boşsa soluk "—")
+function _bsAtananHucre(ad) {
+  const a = String(ad == null ? '' : ad).trim();
+  return `<td class="bs-atanan">${a ? _bsEsc(a) : '<span class="bs-bos-im">—</span>'}</td>`;
 }
 
 function _bsTabloEsles(satirlar, tid) {
@@ -4050,34 +4065,37 @@ function _bsTabloEsles(satirlar, tid) {
     const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
     const dcls = farkli ? ' class="bs-durum-fark"' : '';
     const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
-    return `<tr data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}">
+    return `<tr data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.uat_atanan))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}">
     <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.uat_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
     <td${dcls}><strong>${_bsEsc(r.uat_durum)}</strong>${im}</td>
+    ${_bsAtananHucre(r.uat_atanan)}
     <td>${_bsKeyLink(r.hedef_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.hedef_ozet)}</td>
     <td${dcls}><strong>${_bsEsc(r.hedef_durum)}</strong>${im}</td>
     <td>${_bsEslesmeRozet(r.guven)}</td>
     <td>${_bsEsc(r.gerekce)}</td></tr>`;
   }).join('');
-  const thUat   = _bsDurumFiltreTh(tid, 'fuat',   _bsDurumOpsiyonlari(satirlar, 'uat_durum'));
-  const thHedef = _bsDurumFiltreTh(tid, 'fhedef', _bsDurumOpsiyonlari(satirlar, 'hedef_durum'));
+  const thUat    = _bsFiltreTh(tid, 'fuat',    'uat_durum',  'Durum',  satirlar, { haric: true, tumEtiket: 'Tüm durumlar' });
+  const thAtanan = _bsFiltreTh(tid, 'fatanan', 'uat_atanan', 'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
+  const thHedef  = _bsFiltreTh(tid, 'fhedef',  'hedef_durum', 'Durum', satirlar, { tumEtiket: 'Tüm durumlar' });
   return `<div class="bs-tbl-wrap"><table class="bs-tbl" id="${tid}"><thead><tr>
-    <th>Sıra</th><th>UAT</th><th>UAT Özet</th>${thUat}<th>Hedef</th><th>Hedef Özet</th>
+    <th>Sıra</th><th>UAT</th><th>UAT Özet</th>${thUat}${thAtanan}<th>Hedef</th><th>Hedef Özet</th>
     ${thHedef}<th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table>
-    <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen duruma uygun kayıt yok.</div></div>`;
+    <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen filtreye uygun kayıt yok.</div></div>`;
 }
 
-// Durum <select>'leri değişince satırları göster/gizle (iki kolon birlikte, AND mantığı)
-function _bsDurumFiltrele(tid) {
+// Başlık <select>'leri değişince satırları göster/gizle (tüm kolonlar birlikte, AND mantığı)
+function _bsFiltrele(tid) {
   const tbl = document.getElementById(tid);
   if (!tbl) return;
   const secili = {};
-  tbl.querySelectorAll('thead .bs-durum-filtre').forEach(sel => {
-    const v = _bsDurumNorm(sel.value);
-    sel.classList.toggle('is-aktif', !!v);   // seçili filtreyi görsel olarak vurgula
-    if (v) secili[sel.dataset.alan] = v;
+  tbl.querySelectorAll('thead .bs-filtre-sel').forEach(sel => {
+    const raw = sel.value;
+    sel.classList.toggle('is-aktif', !!raw);   // seçili filtreyi görsel olarak vurgula
+    if (raw === _BS_BOS) secili[sel.dataset.alan] = '';         // Atanmamış → boş değerle eşleş
+    else if (raw) secili[sel.dataset.alan] = _bsDurumNorm(raw);
   });
   let gorunen = 0;
   tbl.querySelectorAll('tbody tr').forEach(tr => {
@@ -4092,19 +4110,23 @@ function _bsDurumFiltrele(tid) {
   if (bos) bos.style.display = gorunen ? 'none' : '';
 }
 
-function _bsTabloTek(satirlar, projeKolon) {
+function _bsTabloTek(satirlar, projeKolon, tid) {
   if (!satirlar.length) return '<div class="bs-bos">Kayıt yok — bu tarafta açıkta kalan yok. 🎉</div>';
-  const govde = satirlar.map(r => `<tr>
+  const govde = satirlar.map(r => `<tr data-fdurum="${_bsEsc(_bsDurumNorm(r.durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.atanan))}">
     <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.key)}</td>
     ${projeKolon ? `<td>${_bsEsc(r.proje)}</td>` : ''}
     <td class="bs-cell-ozet">${_bsEsc(r.ozet)}</td>
     <td><strong>${_bsEsc(r.durum)}</strong></td>
+    ${_bsAtananHucre(r.atanan)}
     <td>${_bsEsc(r.tur)}</td>
     <td><span class="bs-guven hayir">✕ Eşleşmedi</span></td></tr>`).join('');
-  return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
-    <th>Sıra</th><th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th><th>Durum</th><th>Tür</th><th>Eşleşme</th></tr></thead>
-    <tbody>${govde}</tbody></table></div>`;
+  const thDurum  = _bsFiltreTh(tid, 'fdurum',  'durum',  'Durum',  satirlar, { haric: true, tumEtiket: 'Tüm durumlar' });
+  const thAtanan = _bsFiltreTh(tid, 'fatanan', 'atanan', 'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
+  return `<div class="bs-tbl-wrap"><table class="bs-tbl" id="${tid}"><thead><tr>
+    <th>Sıra</th><th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th>${thDurum}${thAtanan}<th>Tür</th><th>Eşleşme</th></tr></thead>
+    <tbody>${govde}</tbody></table>
+    <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen filtreye uygun kayıt yok.</div></div>`;
 }
 
 function _bsGrup(id, baslik, sayi, ikon, ic) {
@@ -4163,8 +4185,8 @@ async function bsMutabakat() {
     document.getElementById('bs-tablolar').innerHTML =
       _bsGrup('bs-g-eslesen', 'Eşleşenler', d.eslesenler.length, '✅', _bsTabloEsles(d.eslesenler, 'bs-tbl-eslesen'))
     + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar, 'bs-tbl-aday'))
-    + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false))
-    + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true));
+    + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false, 'bs-tbl-uat'))
+    + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true, 'bs-tbl-hedef'));
     bsFiltreSifirla();   // yeni sonuçta filtre temiz başlar (tüm gruplar görünür)
 
     document.getElementById('bs-sonuc-panel').style.display = '';

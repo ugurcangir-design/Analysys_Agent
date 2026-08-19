@@ -160,3 +160,20 @@ Elde güvenlik ağı casefold ile büyük/küçük harf varyantlarını da yakal
   vurgusu; filtre seçiliyken `.is-aktif` ile accent kenarlık + tint arka plan → hangi kolonun süzüldüğü
   bir bakışta belli. Doğrulandı: "Created in Error" seçeneklerde yok, huni ikonu render, aktif sınıf
   seçince eklenip boşalınca kalkıyor (tarayıcı mock testi + görsel).
+
+## UAT Mutabakat — Atanan (assignee) kolonu + filtre & dropdown görsel düzeltmesi ✅
+- **Atanan kişi:** UAT task'ının assignee'si backend çıktısına eklendi (`_satir.uat_atanan`, `_sade.atanan`;
+  parser zaten `assignee`=displayName veriyordu). Eşleşenler/Adaylar ve Eşleşmeyen UAT tablolarında
+  **Atanan** kolonu (boşsa soluk "—"), Excel raporuna da yazılıyor (Eşleşenler sayfası "UAT Atanan",
+  Eşleşmeyen UAT sayfası "Atanan").
+- **Atanan filtresi:** başlıkta hızlı filtre; "Herkes" + benzersiz kişiler + "(Atanmamış)" seçeneği.
+  Durum filtreleriyle birlikte **AND** çalışır (hem duruma hem atanan kişiye göre süzme).
+- **Genel filtre altyapısı:** `_bsDurumFiltreTh/_bsDurumFiltrele` → generic `_bsFiltreTh(tid, alan, kaynak,
+  etiket, satirlar, opt)` + `_bsFiltrele(tid)`; data-attr (`fuat/fhedef/fatanan/fdurum`) ile kaynak alan
+   adı ayrıştırıldı. "(Atanmamış)" için `_BS_BOS='__bos__'` sentinel (boş değere eşleşir).
+- **Dropdown görsel (görev 1):** sabit yükseklik (26px, box-sizing), özel caret hep görünür, aktif hâlde
+  yalnız accent kenarlık+tint (eski şişkin inset gölge kaldırıldı), `vertical-align:bottom` ile hizalı,
+  ellipsis. Ekranda taşma/boyut sorunu giderildi.
+- Doğrulandı: ruff temiz; tarayıcı mock testinde durum+atanan+atanmamış filtreleri ve AND kombinasyonu
+  doğru; görsel ekran görüntüsüyle onaylandı. **Not:** eski bir düzenlemede string'e kazara NUL (\x00)
+  girmişti — Python ile temizlendi (`_BS_BOS='__bos__'`).
