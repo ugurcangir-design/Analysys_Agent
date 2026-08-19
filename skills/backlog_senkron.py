@@ -358,13 +358,22 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     # Bağ iki türlü olabilir: Story tipli issue-LINK VEYA Story tipli PARENT (Story altındaki alt
     # görev/task). Story bir UAT taskıyla eşleşmişse, o story'nin altındaki/ilişkili hedef task'lar da
     # eşleşmiş sayılır (iş zaten story üzerinden takip ediliyor). Epic değil, yalnız Story seviyesinde.
+    #
+    # KRİTİK: Köprü story'si HEDEF board'a (MBSTRADE/MBSOPS) ait olmalı. UAT-board story'leri
+    # (örn. MBSUATEAM-139) UAT-tarafı gruplamadır, dev işini temsil etmez — köprü olarak
+    # kullanılırsa aynı UAT story'sine bağlı alakasız task'lar yanlış eşleşir (yanlış pozitif).
+    _kopru_proje_set = set(hedef_projeler)
+
+    def _hedef_story_baglari(g: dict) -> set[str]:
+        return {s for s in _story_baglari(g) if s.split("-", 1)[0] in _kopru_proje_set}
+
     uat_koprusu: dict[str, set[str]] = defaultdict(set)   # story_key → {uat_key}
     for u in uat_gorevler:
-        for skey in _story_baglari(u):
+        for skey in _hedef_story_baglari(u):
             uat_koprusu[skey].add(u["key"])
     hedef_koprusu: dict[str, set[str]] = defaultdict(set)  # story_key → {hedef_key}
     for h in hedef_gorevler:
-        for skey in _story_baglari(h):
+        for skey in _hedef_story_baglari(h):
             hedef_koprusu[skey].add(h["key"])
     kopru_sayisi = 0
     for skey, us in uat_koprusu.items():

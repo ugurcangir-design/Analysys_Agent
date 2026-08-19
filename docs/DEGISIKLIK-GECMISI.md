@@ -273,3 +273,16 @@ yenilemek Python sürecini hiç yeniden başlatmadığından backend eski kodda 
   yolu kullanır (aynı bug düzeldi).
 - "Zaten güncel" mesajı artık "Yeniden Başlat"a yönlendiriyor; Nasıl Çalışır metni ikisinin farkını açıklar.
 - Doğrulandı: POST /api/restart sonrası eski PID kapanıp ~3 sn'de yeni PID ile porta bağlanıyor; buton+fn UI'da.
+
+## UAT Mutabakat — Story köprüsü YANLIŞ POZİTİF düzeltmesi (kritik) ✅
+**Sorun:** Story köprüsü, paylaşılan story'nin hangi board'da olduğuna bakmıyordu. Bir UAT task bir
+**UAT-board story'sine** (örn. MBSUATEAM-158 → MBSUATEAM-139) bağlıysa ve bir TRADE task da aynı UAT
+story'sine relate ediyorsa, ikisi yanlışça eşleşiyordu (MBSUATEAM-158 → MBSTRADE-1502 gibi; oysa 1502
+başka bir UAT taskına ait). Bu, çok sayıda sahte eşleşme üretip gerçekten açıkta kalan task'ları
+gizliyordu (eşleşmeyen_uat yapay olarak 2 görünüyordu; gerçekte ~29).
+**Not:** Önce "moddan bağımsız köprü" (kapsam dışı hedef çekme) commit'i (39e9960) geri alındı; sahte
+eşleşmenin kök nedeni o değil, köprünün board kısıtı eksikliğiydi (temel kodda da vardı).
+**Çözüm:** Köprü artık YALNIZ **hedef board'a (MBSTRADE/MBSOPS) ait story'ler** üzerinden kurulur
+(`_hedef_story_baglari` — story key'inin projesi hedef projelerde olmalı). UAT-board story'leri
+(UAT-tarafı gruplama) köprü sayılmaz. Doğrulandı: MBSUATEAM-158 artık açıkta; MBSUATEAM-33 (→MBSTRADE-1215)
+ve -129 (→MBSTRADE-1464) doğru eşleşiyor; UAT-story köprüsü sayısı 0; eşleşmeyen_uat=29 (gerçekçi).
