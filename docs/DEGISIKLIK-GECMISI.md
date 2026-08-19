@@ -273,14 +273,3 @@ yenilemek Python sürecini hiç yeniden başlatmadığından backend eski kodda 
   yolu kullanır (aynı bug düzeldi).
 - "Zaten güncel" mesajı artık "Yeniden Başlat"a yönlendiriyor; Nasıl Çalışır metni ikisinin farkını açıklar.
 - Doğrulandı: POST /api/restart sonrası eski PID kapanıp ~3 sn'de yeni PID ile porta bağlanıyor; buton+fn UI'da.
-
-## UAT Mutabakat — Story köprüsü artık TARAMA MODUNDAN BAĞIMSIZ ✅
-**Sorun:** MBSUATEAM-33 "Tüm board" modunda eşleşiyordu ama Epic/Story-altı veya Anahtar kelime modunda
-"açıkta kalan" görünüyordu (kullanıcı 31 eşleşmeyen gördü). Kök neden: story köprüsü yalnız TARANAN hedef
-task'lar üzerinden kuruluyordu; dar modlarda story'nin alt task'ları taranmayınca köprü kurulamıyordu.
-**Çözüm:** Fetch sonrası, UAT task'larının bağlı olduğu Story'lerin taranan sette OLMAYAN hedef task'ları
-ayrıca çekilir (`kopru_hedef_index`): (a) `parent in (storyler) AND project in (hedef)` ile Story çocukları,
-(b) Story'lerin relates-to linkli hedef task'ları. Epic/Story ve iptal olanlar hariç; bu ek hedefler
-similarity/eşleşmeyen_hedef'e katılmaz. `_hedef_bul` ve `hedef_koprusu` bu indeksi de kapsar. Doğrulandı:
-boş hedef setinde bile MBSUATEAM-33 → story MBSTRADE-1215'in 8 alt task'ıyla eşleşiyor; tum mod regresyonsuz
-(eşleşmeyen_uat=2, ~21s); ruff temiz.
