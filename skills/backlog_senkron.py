@@ -54,7 +54,9 @@ _MIN_JETON = 4       # bu kadar token yoksa benzerlik sinyali güvenilmez
 
 # UAT board'unda bu durumdaki tasklar kapsam dışı (hatalı/iptal kayıtlar; işleme alınmaz).
 # JQL'de baştan elenir; ayrıca güvenlik ağı olarak çekilen kayıtlarda da filtrelenir.
-UAT_HARIC_DURUMLAR = ["Create In Error"]
+# Not: tablodaki "≠" statünün parçası değil, UAT≠Hedef fark işaretidir.
+# Yazım varyantları birlikte (Jira board'unda "Created in Error" görülüyor).
+UAT_HARIC_DURUMLAR = ["Created in Error", "Create In Error"]
 
 _ID_DESENI = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 _PROJE_DESENI = re.compile(r"^[A-Z][A-Z0-9]+$")

@@ -147,3 +147,8 @@ seçime uygun kayıt yoksa "Seçilen duruma uygun kayıt yok" satırı çıkar. 
 JQL'e `AND status NOT IN ("Create In Error")` eklendi; ayrıca özel workflow'da durum adı eşleşmezse diye
 çekilen kayıtlarda `casefold` ile **elde güvenlik ağı** filtresi var. Hedef (TRADE/OPS) tarafı etkilenmez.
 Doğrulandı: ruff temiz, JQL doğru üretiliyor, import/boot OK.
+
+## UAT Mutabakat — "Created in Error" yazım varyantı da hariç ✅
+`UAT_HARIC_DURUMLAR` artık `["Created in Error", "Create In Error"]` — Jira board'unda görülen gerçek
+statü "Created in Error" (`-d`'li). Tablodaki "≠" statünün parçası değil, UAT≠Hedef fark işaretidir.
+Elde güvenlik ağı casefold ile büyük/küçük harf varyantlarını da yakalar.
