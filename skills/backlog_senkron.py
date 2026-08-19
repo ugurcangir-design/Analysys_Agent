@@ -181,6 +181,18 @@ def _kopru_link_mi(lk: dict) -> bool:
     return str(lk.get("type", "")).strip().lower() in _KOPRU_TIP_ADLARI
 
 
+def _story_baglari(g: dict) -> set[str]:
+    """Görevin bağlı olduğu Story key'leri. İki yol: (1) Story tipli issue-link,
+    (2) Story tipli PARENT (alt görev/task doğrudan Story altında). Epic bilinçli hariç."""
+    stories = set()
+    for lk in g.get("baglantililar", []):
+        if _kopru_link_mi(lk) and lk.get("key"):
+            stories.add(lk["key"])
+    if str(g.get("parent_type", "")).strip().lower() in _KOPRU_TIP_ADLARI and g.get("parent_key"):
+        stories.add(g["parent_key"])
+    return stories
+
+
 def _iptal_ayir(gorevler: list[dict]) -> tuple[list[dict], list[dict]]:
     """İptal edilmiş görevleri (İptal Edildi / CANCEL / CANCELED) ayırır.
     (iptaller, kalan) döndürür — böylece iptaller ana akışa girmez, kendi kovasında görünür."""
@@ -342,19 +354,18 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
                 iliski = lk.get("iliski", "ilişkili")
                 _kesin_ekle(uk, h["key"], f"Jira {_iliski_sinifi(iliski)}: {h['key']} “{iliski}” {uk}")
 
-    # 1b. STORY KÖPRÜSÜ (transitif): UAT task ve hedef task AYNI Story'ye linkliyse dolaylı eşleşir.
-    # Story bir UAT taskıyla eşleşmişse, o story'ye bağlı hedef task'lar da eşleşmiş sayılır
-    # (iş zaten üst/story üzerinden takip ediliyor). Epic değil, yalnızca Story seviyesinde köprü.
+    # 1b. STORY KÖPRÜSÜ (transitif): UAT task ve hedef task AYNI Story'ye bağlıysa dolaylı eşleşir.
+    # Bağ iki türlü olabilir: Story tipli issue-LINK VEYA Story tipli PARENT (Story altındaki alt
+    # görev/task). Story bir UAT taskıyla eşleşmişse, o story'nin altındaki/ilişkili hedef task'lar da
+    # eşleşmiş sayılır (iş zaten story üzerinden takip ediliyor). Epic değil, yalnız Story seviyesinde.
     uat_koprusu: dict[str, set[str]] = defaultdict(set)   # story_key → {uat_key}
     for u in uat_gorevler:
-        for lk in u.get("baglantililar", []):
-            if _kopru_link_mi(lk) and lk.get("key"):
-                uat_koprusu[lk["key"]].add(u["key"])
+        for skey in _story_baglari(u):
+            uat_koprusu[skey].add(u["key"])
     hedef_koprusu: dict[str, set[str]] = defaultdict(set)  # story_key → {hedef_key}
     for h in hedef_gorevler:
-        for lk in h.get("baglantililar", []):
-            if _kopru_link_mi(lk) and lk.get("key"):
-                hedef_koprusu[lk["key"]].add(h["key"])
+        for skey in _story_baglari(h):
+            hedef_koprusu[skey].add(h["key"])
     kopru_sayisi = 0
     for skey, us in uat_koprusu.items():
         hs = hedef_koprusu.get(skey)

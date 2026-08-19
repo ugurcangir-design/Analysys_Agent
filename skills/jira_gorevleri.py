@@ -198,6 +198,7 @@ def _issue_ayrıstir(issue: dict) -> dict:
         yazar = (c.get("author") or {}).get("displayName", "")
         tarih = (c.get("created") or "")[:10]  # YYYY-MM-DD
         comments.append({"yazar": yazar, "tarih": tarih, "metin": body_metin.strip()})
+    parent = f.get("parent") or {}
     return {
         "key": issue["key"],
         "summary": f.get("summary", ""),
@@ -205,6 +206,9 @@ def _issue_ayrıstir(issue: dict) -> dict:
         "type": (f.get("issuetype") or {}).get("name", ""),
         "priority": (f.get("priority") or {}).get("name", ""),
         "assignee": (f.get("assignee") or {}).get("displayName", ""),
+        # Üst kayıt (Story/Epic altındaki iş kalemleri için köprü/transitif eşleşmede kullanılır)
+        "parent_key": parent.get("key", ""),
+        "parent_type": ((parent.get("fields") or {}).get("issuetype") or {}).get("name", ""),
         "description": desc_metin.strip(),
         "comments": comments,
         # Bağlı task'lar (FE/BE ayrımı için kritik): her issue-link'in

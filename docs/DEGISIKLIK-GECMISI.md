@@ -248,3 +248,12 @@ uyar. "Eşleşen"/"Aday" stat kartı + grup başlığı artık **distinct UAT** 
 Excel'e "UAT İş Adedi" kolonu eklendi (düz satır korunur). Doğrulandı: grup/tek render, aç-kapa, chevron,
 UAT vs Hedef filtre ayrımı, çapraz AND, boş-durum, distinct sayım ve Excel kolonu — tarayıcı testi +
 ekran görüntüsü + openpyxl testi.
+
+## UAT Mutabakat — Story köprüsü artık PARENT (alt görev) bağını da kapsıyor ✅
+**Sorun:** MBSUATEAM-33, Story MBSTRADE-1215'e issue-link'li; ama story'nin dev task'ları (MBSTRADE-1404
+vb.) story'ye issue-link ile DEĞİL, **parent-child (alt görev)** ile bağlı. Story köprüsü yalnız
+issue-link'e baktığından bu tasklar köprülenmiyor, UAT-33 "açıkta kalan" görünüyordu.
+**Çözüm:** parser (`_issue_ayrıstir`) artık `parent_key`/`parent_type` döndürür (`_ISSUE_ALANLARI` zaten
+"parent" çekiyordu). Köprü kurulumu `_story_baglari(g)` ile genelleştirildi: bir görevin bağlı olduğu
+Story key'leri = Story tipli issue-link'ler + Story tipli parent. Epic yine hariç (yanlış pozitif önlemi).
+Doğrulandı: MBSUATEAM-33 ↔ MBSTRADE-1215'in alt task'ları (1404/1405/1406/1560…) artık eşleşiyor; ruff temiz.
