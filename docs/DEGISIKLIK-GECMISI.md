@@ -257,3 +257,19 @@ issue-link'e baktığından bu tasklar köprülenmiyor, UAT-33 "açıkta kalan" 
 "parent" çekiyordu). Köprü kurulumu `_story_baglari(g)` ile genelleştirildi: bir görevin bağlı olduğu
 Story key'leri = Story tipli issue-link'ler + Story tipli parent. Epic yine hariç (yanlış pozitif önlemi).
 Doğrulandı: MBSUATEAM-33 ↔ MBSTRADE-1215'in alt task'ları (1404/1405/1406/1560…) artık eşleşiyor; ruff temiz.
+
+## Uygulama — güvenilir "Yeniden Başlat" + os.execv restart bug'ı düzeltmesi ✅
+**Sorun:** Backend değişikliği sonrası "Güncelle" çoğu zaman restart etmiyordu — `git pull` yerel dosyalar
+zaten güncel olduğunda "Already up to date" deyip erken dönüyor, `os.execv` restart hiç tetiklenmiyordu.
+Ayrıca `os.execv` restart'ın KENDİSİ bozuktu: execv, Flask'ın dinlediği socket FD'sini yeni sürece
+devrettiği için bind "Address already in use" veriyordu (süreç düşüyordu). Sekme kapatıp açmak/sayfa
+yenilemek Python sürecini hiç yeniden başlatmadığından backend eski kodda kalıyordu (kullanıcı şikâyeti).
+**Çözüm:**
+- Yeni `/api/restart` endpoint'i (koşulsuz) + Güncelleme sekmesinde **"Yeniden Başlat"** düğmesi
+  (`yenidenBaslat()`), git pull yapmadan süreci yeniden başlatır.
+- Restart mekanizması `_yeniden_baslat_zamanla()`'da toplandı ve os.execv'den vazgeçildi: mevcut süreç
+  `os._exit(0)` ile kapanır (dinlenen socket serbest kalır), ayrık (start_new_session) yeni süreç ~1.5 sn
+  gecikmeyle aynı komutla başlar → port boşaldıktan sonra temiz bind. "Güncelle" restart'ı da bu ortak
+  yolu kullanır (aynı bug düzeldi).
+- "Zaten güncel" mesajı artık "Yeniden Başlat"a yönlendiriyor; Nasıl Çalışır metni ikisinin farkını açıklar.
+- Doğrulandı: POST /api/restart sonrası eski PID kapanıp ~3 sn'de yeni PID ile porta bağlanıyor; buton+fn UI'da.

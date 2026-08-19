@@ -12,6 +12,7 @@ import shutil
 import logging
 import logging.handlers
 import secrets
+import shlex
 import subprocess
 import threading
 import tempfile
@@ -653,6 +654,43 @@ def version_bilgi():
         return jsonify({"hash": "?", "mesaj": "Git bilgisi alınamadı", "tarih": "", "hata": str(e)})
 
 
+def _yeniden_baslat_zamanla():
+    """Uygulamayı TEMİZ yeniden başlatır. HTTP yanıtı gidebilsin diye kısa gecikmeli
+    ayrı thread'de çalışır. skills/*.py, app.py gibi backend değişiklikleri ANCAK
+    böyle bir restart'la devreye girer; sekme kapatıp açmak/sayfa yenilemek yetmez.
+
+    NOT: os.execv KULLANILMAZ — execv, Flask'ın dinlediği socket FD'sini yeni sürece
+    devrettiğinden bind 'Address already in use' verir. Bunun yerine: mevcut süreç
+    kapanır (socket serbest kalır), ayrık (detached) yeni süreç kısa gecikmeyle aynı
+    komutla başlar; böylece port boşaldıktan sonra bind eder."""
+    komut = [sys.executable, os.path.abspath(sys.argv[0]), *sys.argv[1:]]
+    boot_log = str(BASE_DIR / "logs" / "son_restart.log")
+    kabuk = f"sleep 1.5; exec {shlex.join(komut)} >> {shlex.quote(boot_log)} 2>&1"
+
+    def _calis():
+        time.sleep(1)   # yanıtın flush olması için
+        try:
+            subprocess.Popen(["bash", "-c", kabuk], cwd=str(BASE_DIR),
+                             start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        finally:
+            os._exit(0)   # mevcut süreci hemen kapat → dinlenen socket serbest kalır
+
+    threading.Thread(target=_calis, daemon=True).start()
+
+
+@app.route("/api/restart", methods=["POST"])
+def yeniden_baslat():
+    """Kod çekmeden (git pull yapmadan) süreci KOŞULSUZ yeniden başlatır.
+    Yerelde düzenlenen backend değişiklikleri 'Güncelle'de 'zaten güncel' çıkıp
+    restart tetiklenmediği için gerekli — bu düğme her zaman yeniden başlatır."""
+    if _auth_aktif_mi() and not _giris_yapildi_mi():
+        return jsonify({"error": "Yetkisiz"}), 403
+    logger.info("Manuel yeniden başlatma istendi.")
+    _yeniden_baslat_zamanla()
+    return jsonify({"ok": True, "yeniden_basliyor": True})
+
+
 @app.route("/api/update", methods=["POST"])
 def guncelle():
     if _auth_aktif_mi() and not _giris_yapildi_mi():
@@ -674,14 +712,7 @@ def guncelle():
         )
 
         logger.info("Güncelleme tamamlandı, uygulama yeniden başlatılıyor...")
-
-        # 1 saniye sonra kendini yeniden başlat (os.execv = aynı PID, temiz restart)
-        def _yeniden_basla():
-            time.sleep(1)
-            os.execv(sys.executable, [sys.executable] + sys.argv)
-
-        threading.Thread(target=_yeniden_basla, daemon=True).start()
-
+        _yeniden_baslat_zamanla()
         return jsonify({"ok": True, "guncelleme_var": True, "mesaj": cikti, "yeniden_basliyor": True})
 
     except subprocess.TimeoutExpired:

@@ -3146,16 +3146,22 @@ python cli.py ui ~/export.zip</pre>
               <div class="section-title">Mevcut Sürüm</div>
               <div id="version-info" style="font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-top:6px"></div>
             </div>
-            <button class="btn btn-outline btn-sm" id="update-btn" onclick="guncellemeYap()" style="white-space:nowrap;margin-top:2px">
-              <svg class="ico"><use href="#i-refresh"/></svg> Güncelle
-            </button>
+            <div style="display:flex;gap:8px;margin-top:2px">
+              <button class="btn btn-outline btn-sm" id="update-btn" onclick="guncellemeYap()" style="white-space:nowrap">
+                <svg class="ico"><use href="#i-refresh"/></svg> Güncelle
+              </button>
+              <button class="btn btn-outline btn-sm" id="restart-btn" onclick="yenidenBaslat()" style="white-space:nowrap" title="Kod çekmeden sunucuyu yeniden başlatır (yerel backend değişiklikleri için)">
+                <svg class="ico"><use href="#i-refresh"/></svg> Yeniden Başlat
+              </button>
+            </div>
           </div>
           <div id="update-log" style="display:none;margin-top:10px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:'Geist Mono',monospace;color:var(--text2);white-space:pre-wrap;line-height:1.6"></div>
         </div>
         <div class="settings-section">
           <div class="section-title">Nasıl Çalışır?</div>
           <div class="section-desc" style="margin-bottom:0;line-height:1.75">
-            "Güncelle" butonuna basıldığında GitHub'dan son commit'ler çekilir, gerekli paketler yüklenir ve uygulama otomatik olarak yeniden başlatılır. Sayfa birkaç saniye içinde otomatik yenilenir.
+            <strong>Güncelle:</strong> GitHub'dan son commit'ler çekilir (git pull), gerekli paketler yüklenir ve <em>yeni commit varsa</em> uygulama otomatik yeniden başlar. "Zaten güncel" çıkarsa yeniden başlatma olmaz.<br>
+            <strong>Yeniden Başlat:</strong> Kod çekmeden sunucu sürecini koşulsuz yeniden başlatır. Backend kodu (skills/*.py, app.py) <em>yerelde</em> değiştirildiğinde — sekme kapatıp açmak ya da sayfayı yenilemek yetmez, çünkü bunlar Python sürecini yeniden başlatmaz; değişikliğin devreye girmesi için bu düğmeyi kullanın. Her iki işlemde de sayfa birkaç saniye içinde otomatik yenilenir.
           </div>
         </div>
       </div>
@@ -6144,7 +6150,7 @@ async function guncellemeYap() {
     log.style.borderColor = 'var(--border)';
 
     if (!d.guncelleme_var) {
-      log.textContent = '✓ Zaten en güncel sürümdesiniz.';
+      log.textContent = '✓ Zaten en güncel sürümdesiniz.\n\nNot: Kod yerelde değiştirildiyse (git ile çekilmediyse) "git pull" yeni bir şey bulmaz ve süreç yeniden başlamaz. Backend değişikliklerini yüklemek için "Yeniden Başlat" düğmesini kullanın.';
       log.style.display = 'block';
       toast('Zaten güncel', 'info');
       return;
@@ -6176,6 +6182,32 @@ async function guncellemeYap() {
       btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Güncelle';
     }
   }
+}
+
+// Kod çekmeden süreci KOŞULSUZ yeniden başlat — yerelde düzenlenen backend (skills/*.py,
+// app.py) değişikliklerini yüklemenin tek güvenilir yolu. Sekme kapatıp açmak yetmez.
+async function yenidenBaslat() {
+  const btn = document.getElementById('restart-btn');
+  const log = document.getElementById('update-log');
+  if (!confirm('Uygulama sunucusu yeniden başlatılsın mı? Sürmekte olan bir işlem varsa kesilir.')) return;
+  btn.disabled = true;
+  document.getElementById('update-btn').disabled = true;
+  btn.innerHTML = 'Yeniden başlatılıyor...';
+  try {
+    await fetch('/api/restart', {method: 'POST'});
+  } catch (e) { /* execv sürede yanıt kesilebilir — normal */ }
+  log.textContent = 'Sunucu yeniden başlatılıyor... Sayfa birkaç saniye içinde yenilenecek.';
+  log.style.display = 'block';
+  log.style.borderColor = 'var(--border)';
+  toast('Yeniden başlatılıyor, yeniden bağlanılıyor...', 'success');
+  setTimeout(() => {
+    let kalan = 5;
+    const interval = setInterval(() => {
+      btn.innerHTML = `Yeniden bağlanılıyor... (${kalan}s)`;
+      kalan--;
+      if (kalan < 0) { clearInterval(interval); window.location.reload(); }
+    }, 1000);
+  }, 3000);
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
