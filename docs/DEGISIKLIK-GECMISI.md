@@ -186,3 +186,16 @@ Eşleşenler/Adaylar tablosunda Hedef tarafı için de atanan eklendi: `_satir.h
 Hedef atananı gibi çapraz kombinasyonlar dahil. (Eşleşmeyen TRADE/OPS tablosunda atanan+filtre zaten
 `_sade.atanan` ile mevcuttu.) Doğrulandı: ruff temiz, tarayıcı mock testinde 4 filtre + çapraz AND +
 "(Atanmamış)" doğru, görsel onaylandı.
+
+## UAT Mutabakat — İptal kovası + Epic/Story eleme ✅
+- **Epic/Story kapsam dışı:** her iki board'da kapsayıcı tipler (`_KAPSAYICI_TIP_ADLARI` → epic/story/…)
+  `_kapsayici_tip_mi` ile elenir; yalnızca yaprak iş kalemleri karşılaştırılır.
+- **İptal kovası:** iptal statüsündeki task'lar (İptal Edildi / CANCEL / CANCELED — mevcut
+  `_iptal_statusu_mu`) `_iptal_ayir` ile ana akıştan çıkarılıp ayrı **`iptaller`** kovasına alınır
+  (UAT+Hedef birlikte, Proje sütunlu). Eşleşen/açıkta kalan listeleriyle karışmaz.
+- **Ekran:** yeni "İptal Edildi" stat kartı (mor, tıklayınca yalnız İptal Edilenler kutusu) + `bs-g-iptal`
+  grubu; `_bsTabloTek` artık `opt` alıyor (`rozet:false` → "Eşleşme" kolonu gizli, `bosMesaj`). İptal
+  kutusunda Durum+Atanan filtreleri var (durum filtresi CANCEL/CANCELED/İptal varyantlarını ayırır).
+- **Excel:** yeni "İptal Edilenler" sayfası; Eşleşmeyen TRADE-OPS sayfasına da "Atanan" sütunu eklendi.
+- Doğrulandı: ruff temiz; backend simülasyonda Epic/Story elenmesi + 3 iptal varyantı doğru; tarayıcıda
+  kart/kutu/filtre ve "yalnız iptaller" izolasyonu ekran görüntüsüyle onaylandı.

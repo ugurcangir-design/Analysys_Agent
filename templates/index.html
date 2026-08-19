@@ -1491,6 +1491,7 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .bs-stat .bs-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; }
 .bs-stat.bs-muted .bs-num { color: var(--text2); }
 .bs-stat.bs-warn .bs-num { color: var(--red, #ef4444); }
+.bs-stat.bs-iptal .bs-num { color: #a855f7; }
 .bs-stat.bs-click { cursor: pointer; position: relative; transition: border-color .12s, background .12s, box-shadow .12s, transform .08s; }
 .bs-stat.bs-click:hover { border-color: var(--accent); background: var(--surface3, var(--surface2)); }
 .bs-stat.bs-click:active { transform: translateY(1px); }
@@ -4112,8 +4113,11 @@ function _bsFiltrele(tid) {
   if (bos) bos.style.display = gorunen ? 'none' : '';
 }
 
-function _bsTabloTek(satirlar, projeKolon, tid) {
-  if (!satirlar.length) return '<div class="bs-bos">Kayıt yok — bu tarafta açıkta kalan yok. 🎉</div>';
+// opt: { rozet:true|false (son "Eşleşme" kolonu), bosMesaj:'...', durumHaric:true|false }
+function _bsTabloTek(satirlar, projeKolon, tid, opt) {
+  opt = opt || {};
+  const rozet = opt.rozet !== false;   // varsayılan: "✕ Eşleşmedi" kolonu var
+  if (!satirlar.length) return `<div class="bs-bos">${_bsEsc(opt.bosMesaj || 'Kayıt yok — bu tarafta açıkta kalan yok. 🎉')}</div>`;
   const govde = satirlar.map(r => `<tr data-fdurum="${_bsEsc(_bsDurumNorm(r.durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.atanan))}">
     <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.key)}</td>
@@ -4122,11 +4126,11 @@ function _bsTabloTek(satirlar, projeKolon, tid) {
     <td><strong>${_bsEsc(r.durum)}</strong></td>
     ${_bsAtananHucre(r.atanan)}
     <td>${_bsEsc(r.tur)}</td>
-    <td><span class="bs-guven hayir">✕ Eşleşmedi</span></td></tr>`).join('');
-  const thDurum  = _bsFiltreTh(tid, 'fdurum',  'durum',  'Durum',  satirlar, { haric: true, tumEtiket: 'Tüm durumlar' });
+    ${rozet ? '<td><span class="bs-guven hayir">✕ Eşleşmedi</span></td>' : ''}</tr>`).join('');
+  const thDurum  = _bsFiltreTh(tid, 'fdurum',  'durum',  'Durum',  satirlar, { haric: opt.durumHaric !== false, tumEtiket: 'Tüm durumlar' });
   const thAtanan = _bsFiltreTh(tid, 'fatanan', 'atanan', 'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
   return `<div class="bs-tbl-wrap"><table class="bs-tbl" id="${tid}"><thead><tr>
-    <th>Sıra</th><th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th>${thDurum}${thAtanan}<th>Tür</th><th>Eşleşme</th></tr></thead>
+    <th>Sıra</th><th>Key</th>${projeKolon ? '<th>Proje</th>' : ''}<th>Özet</th>${thDurum}${thAtanan}<th>Tür</th>${rozet ? '<th>Eşleşme</th>' : ''}</tr></thead>
     <tbody>${govde}</tbody></table>
     <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen filtreye uygun kayıt yok.</div></div>`;
 }
@@ -4139,7 +4143,7 @@ function _bsGrup(id, baslik, sayi, ikon, ic) {
 // Stat kartı FİLTRE gibi çalışır: tıklanınca yalnızca ilgili grup görünür, diğerleri gizlenir.
 // Aktif karta tekrar tıklamak filtreyi kaldırır (tümü görünür).
 let _bsAktifFiltre = null;
-const _BS_GRUPLAR = ['bs-g-eslesen', 'bs-g-aday', 'bs-g-uat', 'bs-g-hedef'];
+const _BS_GRUPLAR = ['bs-g-eslesen', 'bs-g-aday', 'bs-g-uat', 'bs-g-hedef', 'bs-g-iptal'];
 
 function bsFiltreSifirla() {
   _bsAktifFiltre = null;
@@ -4181,6 +4185,7 @@ async function bsMutabakat() {
     + `<div class="bs-stat bs-click" data-grup="bs-g-aday" onclick="bsFiltrele('bs-g-aday')"><div class="bs-num">${s.aday}</div><div class="bs-lbl">Teyit bekleyen aday</div></div>`
     + `<div class="bs-stat bs-warn bs-click" data-grup="bs-g-uat" onclick="bsFiltrele('bs-g-uat')"><div class="bs-num">${s.eslesmeyen_uat}</div><div class="bs-lbl">Eşleşmeyen UAT (açıkta kalan iş)</div></div>`
     + `<div class="bs-stat bs-muted bs-click" data-grup="bs-g-hedef" onclick="bsFiltrele('bs-g-hedef')"><div class="bs-num">${s.eslesmeyen_hedef}</div><div class="bs-lbl">Eşleşmeyen TRADE/OPS</div></div>`
+    + `<div class="bs-stat bs-iptal bs-click" data-grup="bs-g-iptal" onclick="bsFiltrele('bs-g-iptal')"><div class="bs-num">${s.iptal || 0}</div><div class="bs-lbl">İptal Edildi</div></div>`
     + `<div class="bs-stat bs-muted"><div class="bs-num">${s.uat_toplam}</div><div class="bs-lbl">UAT toplam</div></div>`
     + `<div class="bs-stat bs-muted"><div class="bs-num">${s.hedef_toplam}</div><div class="bs-lbl">Hedef toplam</div></div>`;
 
@@ -4188,7 +4193,8 @@ async function bsMutabakat() {
       _bsGrup('bs-g-eslesen', 'Eşleşenler', d.eslesenler.length, '✅', _bsTabloEsles(d.eslesenler, 'bs-tbl-eslesen'))
     + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar, 'bs-tbl-aday'))
     + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false, 'bs-tbl-uat'))
-    + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true, 'bs-tbl-hedef'));
+    + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true, 'bs-tbl-hedef'))
+    + _bsGrup('bs-g-iptal', 'İptal Edilenler', (d.iptaller || []).length, '🚫', _bsTabloTek(d.iptaller || [], true, 'bs-tbl-iptal', { rozet: false, bosMesaj: 'İptal edilmiş task yok.' }));
     bsFiltreSifirla();   // yeni sonuçta filtre temiz başlar (tüm gruplar görünür)
 
     document.getElementById('bs-sonuc-panel').style.display = '';

@@ -37,8 +37,10 @@ from .atlassian import atlassian_post, jira_site_url
 from .jira_gorevleri import (
     _benzerlik_jetonlari,
     _cloud_id,
-    _issue_ayrıstir,
+    _iptal_statusu_mu,
     _ISSUE_ALANLARI,
+    _issue_ayrıstir,
+    _KAPSAYICI_TIP_ADLARI,
     alt_gorevleri_cek,
 )
 
@@ -132,6 +134,19 @@ def _sira_no(key: str) -> int:
     return int(m.group(1)) if m else 10**9
 
 
+def _kapsayici_tip_mi(g: dict) -> bool:
+    """Görev Epic/Story gibi kapsayıcı bir tip mi? (parser 'type' = issuetype adı)."""
+    return str(g.get("type", "")).strip().lower() in _KAPSAYICI_TIP_ADLARI
+
+
+def _iptal_ayir(gorevler: list[dict]) -> tuple[list[dict], list[dict]]:
+    """İptal edilmiş görevleri (İptal Edildi / CANCEL / CANCELED) ayırır.
+    (iptaller, kalan) döndürür — böylece iptaller ana akışa girmez, kendi kovasında görünür."""
+    iptal = [g for g in gorevler if _iptal_statusu_mu(g.get("status", ""))]
+    kalan = [g for g in gorevler if not _iptal_statusu_mu(g.get("status", ""))]
+    return iptal, kalan
+
+
 def _sade(g: dict, proje_ekle: bool = False) -> dict:
     """Görev sözlüğünü ekran/rapor için sade kayda indirger."""
     key = g.get("key", "")
@@ -216,6 +231,17 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
                     if (g.get("status") or "").strip().casefold() not in _haric_norm]
     hedef_gorevler = _hedef_gorevleri_topla(mod, hedef_projeler, hedef_keys, anahtar_kelime, cloud_id)
 
+    # ── Kapsam dışı tipler: Epic/Story (kapsayıcı) elenir — yalnızca yaprak iş kalemleri karşılaştırılır.
+    uat_gorevler   = [g for g in uat_gorevler   if not _kapsayici_tip_mi(g)]
+    hedef_gorevler = [g for g in hedef_gorevler if not _kapsayici_tip_mi(g)]
+
+    # ── İptal edilmiş task'lar ana akıştan ayrılır → kendi kovası ("İptal Edilenler").
+    # Böylece eşleşen/açıkta kalan listeleriyle karışmaz; iptaller ayrı görünür.
+    iptal_uat, uat_gorevler     = _iptal_ayir(uat_gorevler)
+    iptal_hedef, hedef_gorevler = _iptal_ayir(hedef_gorevler)
+    iptaller = [_sade(g, proje_ekle=True) for g in (iptal_uat + iptal_hedef)]
+    iptaller.sort(key=lambda r: (r.get("proje", ""), r["sira"]))
+
     hedef_index = {g["key"]: g for g in hedef_gorevler}
     uat_index = {g["key"]: g for g in uat_gorevler}
     hedef_jeton = {g["key"]: _benzerlik_jetonlari(g) for g in hedef_gorevler}
@@ -281,9 +307,9 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     eslesmeyen_uat.sort(key=lambda r: r["sira"])
     eslesmeyen_hedef.sort(key=lambda r: r["sira"])
 
-    logger.info("Mutabakat: UAT=%d hedef=%d → eşleşen=%d aday=%d eşleşmeyen_uat=%d eşleşmeyen_hedef=%d",
+    logger.info("Mutabakat: UAT=%d hedef=%d → eşleşen=%d aday=%d eşleşmeyen_uat=%d eşleşmeyen_hedef=%d iptal=%d",
                 len(uat_gorevler), len(hedef_gorevler), len(eslesenler), len(adaylar),
-                len(eslesmeyen_uat), len(eslesmeyen_hedef))
+                len(eslesmeyen_uat), len(eslesmeyen_hedef), len(iptaller))
 
     return {
         "ok": True,
@@ -295,6 +321,7 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
         "adaylar": adaylar,
         "eslesmeyen_uat": eslesmeyen_uat,
         "eslesmeyen_hedef": eslesmeyen_hedef,
+        "iptaller": iptaller,
         "sayimlar": {
             "uat_toplam": len(uat_gorevler),
             "hedef_toplam": len(hedef_gorevler),
@@ -302,6 +329,7 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
             "aday": len(adaylar),
             "eslesmeyen_uat": len(eslesmeyen_uat),
             "eslesmeyen_hedef": len(eslesmeyen_hedef),
+            "iptal": len(iptaller),
         },
     }
 
@@ -354,10 +382,18 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
                [6, 14, 52, 16, 18, 14])
 
     ws3 = wb.create_sheet("Eşleşmeyen TRADE-OPS")
-    _sayfa_yaz(ws3, ["Sıra", "Hedef Key", "Proje", "Özet", "Durum", "Tür"],
-               [[r.get("sira", ""), r["key"], r.get("proje", ""), r["ozet"], r["durum"], r["tur"]]
+    _sayfa_yaz(ws3, ["Sıra", "Hedef Key", "Proje", "Özet", "Durum", "Atanan", "Tür"],
+               [[r.get("sira", ""), r["key"], r.get("proje", ""), r["ozet"], r["durum"],
+                 r.get("atanan", ""), r["tur"]]
                 for r in sonuc.get("eslesmeyen_hedef", [])],
-               [6, 14, 12, 52, 16, 14])
+               [6, 14, 12, 52, 16, 18, 14])
+
+    ws4 = wb.create_sheet("İptal Edilenler")
+    _sayfa_yaz(ws4, ["Sıra", "Key", "Proje", "Özet", "Durum", "Atanan", "Tür"],
+               [[r.get("sira", ""), r["key"], r.get("proje", ""), r["ozet"], r["durum"],
+                 r.get("atanan", ""), r["tur"]]
+                for r in sonuc.get("iptaller", [])],
+               [6, 14, 12, 52, 16, 18, 14])
 
     damga = datetime.now().strftime("%Y-%m-%d_%H%M")
     yol = cikti_dir / f"UAT_Mutabakat_{damga}.xlsx"

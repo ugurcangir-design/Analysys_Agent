@@ -980,10 +980,16 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
       <div class="step">
         <div class="num">2</div>
         <h4>Karşılaştır</h4>
-        <p>Agent iki board'u çekip eşleştirir. Sonuç dört kovada listelenir: <strong>Eşleşenler</strong>
+        <p>Agent iki board'u çekip eşleştirir. Sonuç beş kovada listelenir: <strong>Eşleşenler</strong>
         (güven etiketi: Kesin = Jira bağlantısı, Yüksek = içerik benzerliği), <strong>Teyit bekleyen adaylar</strong>
-        (orta skorlu — siz onaylarsınız), <strong>Eşleşmeyen UAT</strong> (açıkta kalan iş) ve
-        <strong>Eşleşmeyen TRADE/OPS</strong>. Her task anahtarı Jira'da açılır.</p>
+        (orta skorlu — siz onaylarsınız), <strong>Eşleşmeyen UAT</strong> (açıkta kalan iş),
+        <strong>Eşleşmeyen TRADE/OPS</strong> ve <strong>İptal Edilenler</strong>. Her task anahtarı Jira'da açılır.</p>
+        <p><strong>Kapsam kuralları:</strong> <strong>Epic ve Story</strong> tipindeki kayıtlar (kapsayıcı öğeler)
+        karşılaştırmaya dahil edilmez — yalnızca yaprak iş kalemleri (Görev/Bug vb.) eşleştirilir.
+        <strong>İptal edilmiş</strong> task'lar (durum "İptal Edildi" / "CANCEL" / "CANCELED" varyantları) ana
+        listelerden ayrılıp kendi <strong>İptal Edilenler</strong> kutusunda toplanır; böylece eşleşen/açıkta
+        kalan listeleriyle karışmaz. Üstteki <em>İptal Edildi</em> kartına tıklayarak yalnızca iptalleri
+        görebilirsiniz. Bu kutu hem UAT hem TRADE/OPS board'undan iptalleri (Proje sütunuyla) içerir.</p>
         <p>Sonuç tablolarında başlıklardaki <strong>Durum</strong> ve <strong>Atanan</strong> kolonları birer
         <strong>hızlı filtredir</strong>: UAT durumuna, Hedef durumuna ve UAT task'ının atandığı kişiye göre
         süzebilirsiniz. Eşleşenler/Adaylar tablosunda hem <strong>UAT</strong> hem de <strong>Hedef</strong>
