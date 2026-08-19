@@ -140,3 +140,10 @@ başlığı artık her tablodaki mevcut Jira durumlarıyla dolu bir `<select>` f
 seçime uygun kayıt yoksa "Seçilen duruma uygun kayıt yok" satırı çıkar. Deterministik/istemci-taraflı
 (satırlarda `data-fuat`/`data-fhedef` normalize değerler; token harcamaz). Doğrulandı: mock veriyle 2 select
 + doğru benzersiz seçenekler, tek/çift kolon süzme ve boş-durum mesajı çalışıyor; ruff temiz.
+
+## UAT Mutabakat — "Create In Error" UAT taskları kapsam dışı ✅
+`skills/backlog_senkron.py`: UAT board'undan (MBSUATEAM) çekilen tasklar artık `UAT_HARIC_DURUMLAR`
+(şu an `["Create In Error"]`) durumlarını hariç tutuyor — hatalı/iptal kayıtlar mutabakata girmesin.
+JQL'e `AND status NOT IN ("Create In Error")` eklendi; ayrıca özel workflow'da durum adı eşleşmezse diye
+çekilen kayıtlarda `casefold` ile **elde güvenlik ağı** filtresi var. Hedef (TRADE/OPS) tarafı etkilenmez.
+Doğrulandı: ruff temiz, JQL doğru üretiliyor, import/boot OK.

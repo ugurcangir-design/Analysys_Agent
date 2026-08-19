@@ -52,6 +52,10 @@ ESIK_YUKSEK = 0.55   # bu skorun üstü otomatik EŞLEŞTİ
 ESIK_ORTA = 0.35     # bu ile ESIK_YUKSEK arası → teyit bekleyen ADAY
 _MIN_JETON = 4       # bu kadar token yoksa benzerlik sinyali güvenilmez
 
+# UAT board'unda bu durumdaki tasklar kapsam dışı (hatalı/iptal kayıtlar; işleme alınmaz).
+# JQL'de baştan elenir; ayrıca güvenlik ağı olarak çekilen kayıtlarda da filtrelenir.
+UAT_HARIC_DURUMLAR = ["Create In Error"]
+
 _ID_DESENI = re.compile(r"^[A-Z][A-Z0-9]+-\d+$")
 _PROJE_DESENI = re.compile(r"^[A-Z][A-Z0-9]+$")
 
@@ -194,7 +198,17 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     cloud_id = _cloud_id()
 
     # ── Jira'dan çek ──
-    uat_gorevler = _jql_ara(f'project = "{_jql_kacis(uat_proje)}" ORDER BY created ASC', cloud_id)
+    # UAT board'unda "Create In Error" (ve UAT_HARIC_DURUMLAR'daki) tasklar kapsam dışı.
+    uat_jql = f'project = "{_jql_kacis(uat_proje)}"'
+    if UAT_HARIC_DURUMLAR:
+        haric = ", ".join(f'"{_jql_kacis(d)}"' for d in UAT_HARIC_DURUMLAR)
+        uat_jql += f" AND status NOT IN ({haric})"
+    uat_jql += " ORDER BY created ASC"
+    uat_gorevler = _jql_ara(uat_jql, cloud_id)
+    # Güvenlik ağı: JQL durum adını eşleştiremezse (özel workflow) elde de filtrele.
+    _haric_norm = {d.strip().casefold() for d in UAT_HARIC_DURUMLAR}
+    uat_gorevler = [g for g in uat_gorevler
+                    if (g.get("status") or "").strip().casefold() not in _haric_norm]
     hedef_gorevler = _hedef_gorevleri_topla(mod, hedef_projeler, hedef_keys, anahtar_kelime, cloud_id)
 
     hedef_index = {g["key"]: g for g in hedef_gorevler}
