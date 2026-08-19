@@ -984,6 +984,11 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
         (güven etiketi: Kesin = Jira bağlantısı, Yüksek = içerik benzerliği), <strong>Teyit bekleyen adaylar</strong>
         (orta skorlu — siz onaylarsınız), <strong>Eşleşmeyen UAT</strong> (açıkta kalan iş),
         <strong>Eşleşmeyen TRADE/OPS</strong> ve <strong>İptal Edilenler</strong>. Her task anahtarı Jira'da açılır.</p>
+        <p><strong>İlişki/bağlılık gerekçesi:</strong> KESİN eşleşmeler (MBSUATEAM ↔ MBSTRADE/OPS arasında
+        mevcut Jira bağlantısı) için "Gerekçe" sütununda bağın türü ve yönü yazılır: <em>bağlılık</em>
+        (blocks / is blocked by / depends on / clones / duplicates) ile gevşek <em>ilişki</em> (relates to)
+        ayrılır — örn. <code>Jira bağlılık: MBSUATEAM-2 "is blocked by" MBSTRADE-9</code>. İki board'un da
+        link'lerine bakılır; yön link'in gerçek yönüne göre gösterilir.</p>
         <p><strong>Kapsam kuralları:</strong> <strong>Epic ve Story</strong> tipindeki kayıtlar (kapsayıcı öğeler)
         karşılaştırmaya dahil edilmez — yalnızca yaprak iş kalemleri (Görev/Bug vb.) eşleştirilir.
         <strong>İptal edilmiş</strong> task'lar (durum "İptal Edildi" / "CANCEL" / "CANCELED" varyantları) ana

@@ -199,3 +199,12 @@ Hedef atananı gibi çapraz kombinasyonlar dahil. (Eşleşmeyen TRADE/OPS tablos
 - **Excel:** yeni "İptal Edilenler" sayfası; Eşleşmeyen TRADE-OPS sayfasına da "Atanan" sütunu eklendi.
 - Doğrulandı: ruff temiz; backend simülasyonda Epic/Story elenmesi + 3 iptal varyantı doğru; tarayıcıda
   kart/kutu/filtre ve "yalnız iptaller" izolasyonu ekran görüntüsüyle onaylandı.
+
+## UAT Mutabakat — KESİN eşleşme gerekçesi: ilişki/bağlılık türü + yön ✅
+Eşleştirme kuralı değişmedi; yalnızca gerekçe zenginleşti. KESİN (mevcut Jira bağlantısı) eşleşmelerde
+`_iliski_sinifi` ile bağın türü sınıflanıyor: **bağlılık** (block/depend/clone/duplicate/cause/split
+ipuçları) ↔ gevşek **ilişki** (relates). Gerekçe artık link'in GERÇEK yönünü gösteriyor:
+`Jira <tür>: <kaynak> "<ilişki>" <hedef>` (örn. hedef tarafında bulunan link'te "MBSTRADE-9 blocks
+MBSUATEAM-2"). `kesin_ciftler` değeri (kaynak_key, ilişki, hedef_key) tuple'ına çevrildi. Metin mevcut
+"Gerekçe" kolonuna ve Excel'e otomatik akar (yeni kolon/kova yok). Doğrulandı: ruff temiz; sınıflandırıcı
+İng/TR varyantlarda doğru; UAT-tarafı/hedef-tarafı/relates senaryolarında yön doğru.

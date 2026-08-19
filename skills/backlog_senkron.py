@@ -139,6 +139,18 @@ def _kapsayici_tip_mi(g: dict) -> bool:
     return str(g.get("type", "")).strip().lower() in _KAPSAYICI_TIP_ADLARI
 
 
+# İlişki metni "bağlılık" (dependency) mı yoksa gevşek "ilişki" mi? Jira link tip adları
+# İngilizce/Türkçe olabilir; anahtar kelimeyle kaba sınıflama yapılır.
+_BAGLILIK_IPUCLARI = ("block", "engel", "depend", "bağıml", "bagiml", "clone", "klon",
+                      "duplicat", "mükerrer", "mukerrer", "cause", "neden", "split")
+
+
+def _iliski_sinifi(iliski: str) -> str:
+    """KESİN eşleşmedeki Jira link'inin türü: 'bağlılık' (blocks/depends/…) veya 'ilişki' (relates)."""
+    t = (iliski or "").strip().casefold()
+    return "bağlılık" if any(ip in t for ip in _BAGLILIK_IPUCLARI) else "ilişki"
+
+
 def _iptal_ayir(gorevler: list[dict]) -> tuple[list[dict], list[dict]]:
     """İptal edilmiş görevleri (İptal Edildi / CANCEL / CANCELED) ayırır.
     (iptaller, kalan) döndürür — böylece iptaller ana akışa girmez, kendi kovasında görünür."""
@@ -254,19 +266,25 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
 
     # ── 1. KESİN: mevcut Jira bağlantıları ──
     # UAT tarafındaki linkler + hedef tarafındaki linkler birleştirilir (tekrarsız).
-    kesin_ciftler: dict[tuple[str, str], str] = {}   # (uat_key, hedef_key) → ilişki metni
+    # Değer: (kaynak_key, ilişki_metni, hedef_key) — link'in GERÇEK yönü (gerekçede doğru okunsun).
+    kesin_ciftler: dict[tuple[str, str], tuple[str, str, str]] = {}
     for u in uat_gorevler:
         for lk in u.get("baglantililar", []):
             if lk.get("key") in hedef_index:
-                kesin_ciftler.setdefault((u["key"], lk["key"]), lk.get("iliski", "ilişkili"))
+                kesin_ciftler.setdefault((u["key"], lk["key"]),
+                                         (u["key"], lk.get("iliski", "ilişkili"), lk["key"]))
     for h in hedef_gorevler:
         for lk in h.get("baglantililar", []):
             if lk.get("key") in uat_index:
-                kesin_ciftler.setdefault((lk["key"], h["key"]), lk.get("iliski", "ilişkili"))
+                kesin_ciftler.setdefault((lk["key"], h["key"]),
+                                         (h["key"], lk.get("iliski", "ilişkili"), lk["key"]))
 
-    for (uk, hk), iliski in sorted(kesin_ciftler.items()):
-        eslesenler.append(_satir(uat_index[uk], hedef_index[hk],
-                                 "Kesin", f"Jira bağlantısı ({iliski})", 1.0))
+    for (uk, hk), (kaynak, iliski, hedef_lk) in sorted(kesin_ciftler.items()):
+        # Gerekçeyi zenginleştir: bağın "bağlılık" (blocks/depends…) mı yoksa gevşek "ilişki"
+        # (relates) mi olduğunu ve link'in gerçek yönünü net göster.
+        sinif = _iliski_sinifi(iliski)
+        gerekce = f"Jira {sinif}: {kaynak} “{iliski}” {hedef_lk}"
+        eslesenler.append(_satir(uat_index[uk], hedef_index[hk], "Kesin", gerekce, 1.0))
         eslesen_uat.add(uk)
         kullanilan_hedef.add(hk)
 
