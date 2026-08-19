@@ -132,3 +132,11 @@ Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** arac
   çalışır; Confluence 404 → eski kod refresh tetiklemez). `atlassian_get` artık confluence'ta **404'te de**
   token yenileyip bir kez tekrar deniyor; hâlâ 404 ise gerçek bulunamadı. (Space key "mbs2" geçerli —
   taze token'la 200/results=1; case sorunu yoktu.) Doğrulandı: atlassian_get mbs2 space'ini buluyor.
+
+## UAT Mutabakat — Durum kolonu hızlı filtresi ✅
+Eşleşenler ve Teyit bekleyen adaylar tablolarında (`_bsTabloEsles`, templates/index.html) iki **Durum**
+başlığı artık her tablodaki mevcut Jira durumlarıyla dolu bir `<select>` filtresi. UAT Özet sonrası
+(uat_durum) ve Hedef Özet sonrası (hedef_durum) kolonlar bağımsız seçilir, birlikte **AND** olarak süzer;
+seçime uygun kayıt yoksa "Seçilen duruma uygun kayıt yok" satırı çıkar. Deterministik/istemci-taraflı
+(satırlarda `data-fuat`/`data-fhedef` normalize değerler; token harcamaz). Doğrulandı: mock veriyle 2 select
++ doğru benzersiz seçenekler, tek/çift kolon süzme ve boş-durum mesajı çalışıyor; ruff temiz.

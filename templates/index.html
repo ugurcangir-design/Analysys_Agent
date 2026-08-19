@@ -1515,6 +1515,17 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .bs-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bs-tbl th, .bs-tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .bs-tbl th { background: var(--surface2); color: var(--text2); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+/* Durum kolonu hızlı filtresi (başlıkta select) */
+.bs-tbl th.bs-th-filtre { padding-top: 5px; padding-bottom: 5px; }
+.bs-th-filtre .bs-th-lbl { display: block; margin-bottom: 3px; }
+.bs-durum-filtre {
+  width: 100%; max-width: 160px; font: inherit; font-size: 11px; font-weight: 500;
+  color: var(--text); background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-xs, 4px); padding: 2px 4px; cursor: pointer;
+}
+.bs-durum-filtre:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--accent); }
+.bs-durum-filtre:hover { border-color: var(--accent); }
+.bs-filtre-bos { padding: 12px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); }
 .bs-tbl tr:last-child td { border-bottom: none; }
 .bs-tbl a.bs-key { color: var(--accent); text-decoration: none; white-space: nowrap; font-weight: 700; }
 .bs-tbl a.bs-key::after { content: '↗'; font-size: 9px; margin-left: 2px; opacity: .55; vertical-align: super; }
@@ -3987,13 +3998,36 @@ function _bsDurumFarkli(a, b) {
   return n(a) !== n(b);
 }
 
-function _bsTabloEsles(satirlar) {
+// Durum kolonu için normalize edilmiş değer (filtre karşılaştırması Türkçe-duyarlı)
+function _bsDurumNorm(s) { return String(s == null ? '' : s).trim().toLocaleLowerCase('tr'); }
+
+// Bir tablodaki bir durum alanının benzersiz değerleri (görünen hâliyle, sıralı)
+function _bsDurumOpsiyonlari(satirlar, alan) {
+  const harita = new Map();  // normalize → görünen
+  satirlar.forEach(r => {
+    const v = String(r[alan] == null ? '' : r[alan]).trim();
+    if (v) { const k = _bsDurumNorm(v); if (!harita.has(k)) harita.set(k, v); }
+  });
+  return [...harita.values()].sort((a, b) => a.localeCompare(b, 'tr'));
+}
+
+// Durum başlığı yerine hızlı filtre <select>'i olan <th>
+function _bsDurumFiltreTh(tid, alan, opsiyonlar) {
+  const opts = opsiyonlar.map(o => `<option value="${_bsEsc(o)}">${_bsEsc(o)}</option>`).join('');
+  return `<th class="bs-th-filtre"><span class="bs-th-lbl">Durum</span>
+    <select class="bs-durum-filtre" data-alan="${alan}" onchange="_bsDurumFiltrele('${tid}')"
+      title="Jira durumuna göre filtrele">
+      <option value="">Tüm durumlar</option>${opts}
+    </select></th>`;
+}
+
+function _bsTabloEsles(satirlar, tid) {
   if (!satirlar.length) return '<div class="bs-bos">Kayıt yok.</div>';
   const govde = satirlar.map(r => {
     const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
     const dcls = farkli ? ' class="bs-durum-fark"' : '';
     const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
-    return `<tr>
+    return `<tr data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}">
     <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.uat_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
@@ -4004,9 +4038,34 @@ function _bsTabloEsles(satirlar) {
     <td>${_bsEslesmeRozet(r.guven)}</td>
     <td>${_bsEsc(r.gerekce)}</td></tr>`;
   }).join('');
-  return `<div class="bs-tbl-wrap"><table class="bs-tbl"><thead><tr>
-    <th>Sıra</th><th>UAT</th><th>UAT Özet</th><th>Durum</th><th>Hedef</th><th>Hedef Özet</th>
-    <th>Durum</th><th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table></div>`;
+  const thUat   = _bsDurumFiltreTh(tid, 'fuat',   _bsDurumOpsiyonlari(satirlar, 'uat_durum'));
+  const thHedef = _bsDurumFiltreTh(tid, 'fhedef', _bsDurumOpsiyonlari(satirlar, 'hedef_durum'));
+  return `<div class="bs-tbl-wrap"><table class="bs-tbl" id="${tid}"><thead><tr>
+    <th>Sıra</th><th>UAT</th><th>UAT Özet</th>${thUat}<th>Hedef</th><th>Hedef Özet</th>
+    ${thHedef}<th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table>
+    <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen duruma uygun kayıt yok.</div></div>`;
+}
+
+// Durum <select>'leri değişince satırları göster/gizle (iki kolon birlikte, AND mantığı)
+function _bsDurumFiltrele(tid) {
+  const tbl = document.getElementById(tid);
+  if (!tbl) return;
+  const secili = {};
+  tbl.querySelectorAll('thead .bs-durum-filtre').forEach(sel => {
+    const v = _bsDurumNorm(sel.value);
+    if (v) secili[sel.dataset.alan] = v;
+  });
+  let gorunen = 0;
+  tbl.querySelectorAll('tbody tr').forEach(tr => {
+    let goster = true;
+    for (const alan in secili) {
+      if ((tr.dataset[alan] || '') !== secili[alan]) { goster = false; break; }
+    }
+    tr.style.display = goster ? '' : 'none';
+    if (goster) gorunen++;
+  });
+  const bos = document.getElementById(tid + '-bos');
+  if (bos) bos.style.display = gorunen ? 'none' : '';
 }
 
 function _bsTabloTek(satirlar, projeKolon) {
@@ -4078,8 +4137,8 @@ async function bsMutabakat() {
     + `<div class="bs-stat bs-muted"><div class="bs-num">${s.hedef_toplam}</div><div class="bs-lbl">Hedef toplam</div></div>`;
 
     document.getElementById('bs-tablolar').innerHTML =
-      _bsGrup('bs-g-eslesen', 'Eşleşenler', d.eslesenler.length, '✅', _bsTabloEsles(d.eslesenler))
-    + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar))
+      _bsGrup('bs-g-eslesen', 'Eşleşenler', d.eslesenler.length, '✅', _bsTabloEsles(d.eslesenler, 'bs-tbl-eslesen'))
+    + _bsGrup('bs-g-aday', 'Teyit bekleyen adaylar', d.adaylar.length, '🟡', _bsTabloEsles(d.adaylar, 'bs-tbl-aday'))
     + _bsGrup('bs-g-uat', 'Eşleşmeyen UAT — açıkta kalan iş', d.eslesmeyen_uat.length, '⚠️', _bsTabloTek(d.eslesmeyen_uat, false))
     + _bsGrup('bs-g-hedef', 'Eşleşmeyen TRADE/OPS', d.eslesmeyen_hedef.length, '◻️', _bsTabloTek(d.eslesmeyen_hedef, true));
     bsFiltreSifirla();   // yeni sonuçta filtre temiz başlar (tüm gruplar görünür)
