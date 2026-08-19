@@ -563,11 +563,16 @@ def _surec_calistir(mod: str) -> None:
     def _bekle():
         global _process
         hata_mesaji: str | None = None
+        # Zaman aşımı MOD-BAZLI: teknik/brd analizi ÇOK AŞAMALIDIR (Aşama 1 teknik +
+        # canlı-uygulama MCP gezinme, Aşama 2 açık sorular = 2 ayrı claude çağrısı,
+        # ayrıca Aşama 1 kesik-çıktıda 1 kez retry edebilir). Her claude çağrısının iç
+        # timeout'u 1200s/20dk (base.py); dış timeout tek çağrıya göre (eski 1320s)
+        # ayarlıysa 2. aşama başlarken subprocess yanlışlıkla öldürülüyordu ("22 dk
+        # zaman aşımı"). Dış timeout çağrı DİZİSİNİ kapsamalı; iç timeout tek çağrının
+        # asılı kalmasını yine engeller.
+        _timeout = 2700 if mod in ("teknik_analiz", "brd_analizi") else 1800
         try:
-            # 1320s (22 dk): CLI çağrısının iç timeout'u (base.py: 1200s/20dk)
-            # bundan kısa — böylece claude timeout'u önce tetiklenip net hata
-            # döner, bu dış bekleme onu yakalar. Teknik analiz 17 bölüm büyük.
-            out, _ = _process.communicate(timeout=1320)
+            out, _ = _process.communicate(timeout=_timeout)
             if out:
                 logger.info(f"[{mod}] çıktı:\n{out}")
             if _process.returncode != 0:
@@ -579,7 +584,7 @@ def _surec_calistir(mod: str) -> None:
                 _process.wait(timeout=5)
             except Exception:
                 pass
-            hata_mesaji = "Zaman aşımı (22 dakika). Alt süreç sonlandırıldı."
+            hata_mesaji = f"Zaman aşımı ({_timeout // 60} dakika). Alt süreç sonlandırıldı."
             logger.error(f"[{mod}] {hata_mesaji}")
         except Exception as e:
             hata_mesaji = f"Beklenmeyen hata: {e}"

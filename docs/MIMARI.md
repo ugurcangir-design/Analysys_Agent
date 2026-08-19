@@ -234,8 +234,12 @@ not sys.stdin.isatty() → GUI modu (input() çağrılmaz, otomatik onay)
 ```
 - Subprocess: `encoding="utf-8", errors="replace", start_new_session=True`; `_bekle()` thread'i
   timeout/crash'i yakalar, workflow'u HATA'ya çeker; zip-bomb koruması (compression ratio >100 atla).
-- **Timeout katmanları** (CLI tam çıktıda yavaş): `_api_cagri_cli`/API SDK = 1200s (20 dk);
-  app.py `_bekle` subprocess = 1320s (22 dk, CLI'dan FAZLA ki claude timeout'u önce tetiklensin).
+- **Timeout katmanları** (CLI tam çıktıda yavaş): `_api_cagri_cli`/API SDK = 1200s (20 dk) **her claude
+  çağrısı başına**; app.py `_bekle` subprocess = **MOD-BAZLI**: `teknik_analiz`/`brd_analizi` ÇOK AŞAMALIDIR
+  (Aşama 1 teknik + canlı-uygulama MCP gezinme, Aşama 2 açık sorular = 2 ayrı çağrı, +olası Aşama 1 retry)
+  → **2700s (45 dk)**; tek-çağrılık modlar (surec_analizi, kapsam_analizi, jira_gonder) → **1800s (30 dk)**.
+  Eski sabit 1320s tek çağrıya göreydi → teknik analizde 2. aşama başlarken yanlışlıkla öldürüp "22 dk
+  zaman aşımı" veriyordu. Dış timeout çağrı DİZİSİNİ kapsar; iç 1200s tek çağrının asılı kalmasını engeller.
 - **CLI `--output-format json`** (text DEĞİL): text uzun/çok-turn yanıtta çıktının başını kaybediyordu;
   json `result` tam döner, `stop_reason`/`is_error` ile kesilme tespiti. `_claude_yolu_bul()` PATH'e
   bağımlı değil (GUI minimal PATH için nvm/~.local/homebrew tarar).
