@@ -208,3 +208,16 @@ ipuçları) ↔ gevşek **ilişki** (relates). Gerekçe artık link'in GERÇEK y
 MBSUATEAM-2"). `kesin_ciftler` değeri (kaynak_key, ilişki, hedef_key) tuple'ına çevrildi. Metin mevcut
 "Gerekçe" kolonuna ve Excel'e otomatik akar (yeni kolon/kova yok). Doğrulandı: ruff temiz; sınıflandırıcı
 İng/TR varyantlarda doğru; UAT-tarafı/hedef-tarafı/relates senaryolarında yön doğru.
+
+## UAT Mutabakat — kapsam dışı ama linkli hedef task'lar eşleşmede (bug fix) ✅
+**Sorun:** MBSUATEAM-124, MBSTRADE-1404'e Jira "relates to" ile bağlı olmasına rağmen "Eşleşmeyen UAT
+(açıkta kalan iş)" görünüyordu. Kök neden: KESİN eşleşme yalnızca hedef task **taranan sette**
+(`hedef_index`) ise kuruluyordu; epic/keyword modunda ya da alt-görev gibi durumlarda linkli hedef task
+sette olmayınca eşleşme kaçıyordu.
+**Çözüm:** Fetch sonrası, UAT task'larının hedef-projedeki (MBSTRADE/MBSOPS) key'lere olan ama `hedef_index`'te
+olmayan linkleri toplanır; bu key'ler `_keyleri_cek` (bulkfetch) ile tek tek çekilip `link_hedef_index`'e
+alınır (Epic/Story ve iptal olanlar hariç). KESİN eşleşme artık `hedef_index` VEYA `link_hedef_index`'e
+bakar; satır bu birleşik kaynaktan kurulur. Bu ek hedefler similarity/eşleşmeyen_hedef'e katılmaz, board
+toplamını şişirmez; gerekçeye "· kapsam dışı hedef" notu eklenir. Doğrulandı: gerçek MBSUATEAM-124 →
+MBSTRADE-1404 artık KESİN eşleşiyor (hedef boş sette bile); ruff temiz. Not: "tüm board" modunda hedef
+zaten sette olduğundan ek sorgu no-op.

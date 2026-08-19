@@ -81,6 +81,25 @@ def _jql_ara(jql: str, cloud_id: str) -> list[dict]:
     return gorevler
 
 
+def _keyleri_cek(keyler: list[str], cloud_id: str) -> list[dict]:
+    """Verilen issue key'leri bulkfetch ile çeker ve parse eder.
+    Taranan sette OLMAYAN ama UAT'a linkli hedef task'ları eşleştirmeye dahil etmek için
+    kullanılır. Hata/bulunamama sessizce atlanır."""
+    out: list[dict] = []
+    for i in range(0, len(keyler), 100):   # bulkfetch tek istekte en fazla 100 key
+        parca = keyler[i:i + 100]
+        try:
+            data = atlassian_post("/rest/api/3/issue/bulkfetch",
+                                  body={"issueIdsOrKeys": parca, "fields": _ISSUE_ALANLARI},
+                                  cloud_id=cloud_id)
+        except Exception:
+            logger.warning("Linkli hedef task'lar çekilemedi (atlanıyor): %s", parca)
+            continue
+        for issue in data.get("issues", []):
+            out.append(_issue_ayrıstir(issue))
+    return out
+
+
 def _jql_kacis(deger: str) -> str:
     """JQL string literal içinde çift tırnak ve ters bölü kaçışlar."""
     return deger.replace("\\", "\\\\").replace('"', '\\"')
@@ -258,6 +277,31 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     uat_index = {g["key"]: g for g in uat_gorevler}
     hedef_jeton = {g["key"]: _benzerlik_jetonlari(g) for g in hedef_gorevler}
 
+    # ── Kapsam dışı ama LİNKLİ hedef task'ları tamamla ──
+    # Bir UAT task, hedef proje(ler)deki bir key'e Jira ile bağlıysa ama o hedef task
+    # taranan sette değilse (örn. epic/keyword modunda ya da alt-görev), yalnızca o linkli
+    # hedef task'ları tek tek çekip eşleştirmeye dahil ederiz. Böylece gerçek ilişki
+    # varken UAT "açıkta kalan iş" sanılmaz. Bu ek hedefler similarity/eşleşmeyen_hedef'e
+    # KATILMAZ (yalnız KESİN link eşleşmesi için); iptal/Epic-Story olanlar dahil edilmez.
+    _hedef_proje_set = set(hedef_projeler)
+    _eksik_link_keyleri = {
+        lk.get("key", "") for u in uat_gorevler for lk in u.get("baglantililar", [])
+        if lk.get("key") and lk["key"] not in hedef_index
+        and lk["key"].split("-", 1)[0] in _hedef_proje_set
+    }
+    link_hedef_index: dict[str, dict] = {}
+    if _eksik_link_keyleri:
+        for g in _keyleri_cek(sorted(_eksik_link_keyleri), cloud_id):
+            if _kapsayici_tip_mi(g) or _iptal_statusu_mu(g.get("status", "")):
+                continue   # Epic/Story ve iptal hedefler eşleşmeye alınmaz (ana akışla tutarlı)
+            link_hedef_index[g["key"]] = g
+        if link_hedef_index:
+            logger.info("Kapsam dışı ama linkli %d hedef task eşleştirmeye dahil edildi: %s",
+                        len(link_hedef_index), ", ".join(sorted(link_hedef_index)))
+
+    def _hedef_bul(key: str) -> dict | None:
+        return hedef_index.get(key) or link_hedef_index.get(key)
+
     eslesenler: list[dict] = []
     adaylar: list[dict] = []
     eslesen_uat: set[str] = set()
@@ -270,9 +314,10 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     kesin_ciftler: dict[tuple[str, str], tuple[str, str, str]] = {}
     for u in uat_gorevler:
         for lk in u.get("baglantililar", []):
-            if lk.get("key") in hedef_index:
-                kesin_ciftler.setdefault((u["key"], lk["key"]),
-                                         (u["key"], lk.get("iliski", "ilişkili"), lk["key"]))
+            hk = lk.get("key", "")
+            if hk and (hk in hedef_index or hk in link_hedef_index):
+                kesin_ciftler.setdefault((u["key"], hk),
+                                         (u["key"], lk.get("iliski", "ilişkili"), hk))
     for h in hedef_gorevler:
         for lk in h.get("baglantililar", []):
             if lk.get("key") in uat_index:
@@ -280,11 +325,15 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
                                          (h["key"], lk.get("iliski", "ilişkili"), lk["key"]))
 
     for (uk, hk), (kaynak, iliski, hedef_lk) in sorted(kesin_ciftler.items()):
+        hedef_g = _hedef_bul(hk)
+        if hedef_g is None:
+            continue   # güvenlik: hedef verisi yoksa satır kurulamaz
         # Gerekçeyi zenginleştir: bağın "bağlılık" (blocks/depends…) mı yoksa gevşek "ilişki"
-        # (relates) mi olduğunu ve link'in gerçek yönünü net göster.
+        # (relates) mi olduğunu ve link'in gerçek yönünü net göster. Kapsam dışı hedef ise belirt.
         sinif = _iliski_sinifi(iliski)
-        gerekce = f"Jira {sinif}: {kaynak} “{iliski}” {hedef_lk}"
-        eslesenler.append(_satir(uat_index[uk], hedef_index[hk], "Kesin", gerekce, 1.0))
+        kapsam_notu = "" if hk in hedef_index else " · kapsam dışı hedef"
+        gerekce = f"Jira {sinif}: {kaynak} “{iliski}” {hedef_lk}{kapsam_notu}"
+        eslesenler.append(_satir(uat_index[uk], hedef_g, "Kesin", gerekce, 1.0))
         eslesen_uat.add(uk)
         kullanilan_hedef.add(hk)
 
