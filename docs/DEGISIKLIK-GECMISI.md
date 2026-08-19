@@ -177,3 +177,12 @@ Elde güvenlik ağı casefold ile büyük/küçük harf varyantlarını da yakal
 - Doğrulandı: ruff temiz; tarayıcı mock testinde durum+atanan+atanmamış filtreleri ve AND kombinasyonu
   doğru; görsel ekran görüntüsüyle onaylandı. **Not:** eski bir düzenlemede string'e kazara NUL (\x00)
   girmişti — Python ile temizlendi (`_BS_BOS='__bos__'`).
+
+## UAT Mutabakat — Hedef (TRADE/OPS) atanan kolonu + filtresi ✅
+Eşleşenler/Adaylar tablosunda Hedef tarafı için de atanan eklendi: `_satir.hedef_atanan`, Excel'de
+"Hedef Atanan" sütunu. Frontend'de Hedef Durum'dan sonra **Atanan** kolonu + `fhatanan` filtresi
+(`hedef_atanan` kaynağı; "Herkes"/kişiler/"(Atanmamış)"). Böylece tabloda dört bağımsız filtre
+(UAT Durum, UAT Atanan, Hedef Durum, Hedef Atanan) AND mantığıyla birlikte çalışır — UAT durumu +
+Hedef atananı gibi çapraz kombinasyonlar dahil. (Eşleşmeyen TRADE/OPS tablosunda atanan+filtre zaten
+`_sade.atanan` ile mevcuttu.) Doğrulandı: ruff temiz, tarayıcı mock testinde 4 filtre + çapraz AND +
+"(Atanmamış)" doğru, görsel onaylandı.

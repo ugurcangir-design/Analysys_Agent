@@ -4065,7 +4065,7 @@ function _bsTabloEsles(satirlar, tid) {
     const farkli = _bsDurumFarkli(r.uat_durum, r.hedef_durum);
     const dcls = farkli ? ' class="bs-durum-fark"' : '';
     const im = farkli ? ' <span class="bs-fark-im" title="UAT ve Hedef durumları farklı">≠</span>' : '';
-    return `<tr data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.uat_atanan))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}">
+    return `<tr data-fuat="${_bsEsc(_bsDurumNorm(r.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r.uat_atanan))}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}" data-fhatanan="${_bsEsc(_bsDurumNorm(r.hedef_atanan))}">
     <td class="bs-sira">${_bsEsc(r.sira)}</td>
     <td>${_bsKeyLink(r.uat_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.uat_ozet)}</td>
@@ -4074,15 +4074,17 @@ function _bsTabloEsles(satirlar, tid) {
     <td>${_bsKeyLink(r.hedef_key)}</td>
     <td class="bs-cell-ozet">${_bsEsc(r.hedef_ozet)}</td>
     <td${dcls}><strong>${_bsEsc(r.hedef_durum)}</strong>${im}</td>
+    ${_bsAtananHucre(r.hedef_atanan)}
     <td>${_bsEslesmeRozet(r.guven)}</td>
     <td>${_bsEsc(r.gerekce)}</td></tr>`;
   }).join('');
-  const thUat    = _bsFiltreTh(tid, 'fuat',    'uat_durum',  'Durum',  satirlar, { haric: true, tumEtiket: 'Tüm durumlar' });
-  const thAtanan = _bsFiltreTh(tid, 'fatanan', 'uat_atanan', 'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
-  const thHedef  = _bsFiltreTh(tid, 'fhedef',  'hedef_durum', 'Durum', satirlar, { tumEtiket: 'Tüm durumlar' });
+  const thUat     = _bsFiltreTh(tid, 'fuat',     'uat_durum',   'Durum',  satirlar, { haric: true, tumEtiket: 'Tüm durumlar' });
+  const thAtanan  = _bsFiltreTh(tid, 'fatanan',  'uat_atanan',  'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
+  const thHedef   = _bsFiltreTh(tid, 'fhedef',   'hedef_durum', 'Durum',  satirlar, { tumEtiket: 'Tüm durumlar' });
+  const thHAtanan = _bsFiltreTh(tid, 'fhatanan', 'hedef_atanan', 'Atanan', satirlar, { tumEtiket: 'Herkes', bosEtiket: '(Atanmamış)' });
   return `<div class="bs-tbl-wrap"><table class="bs-tbl" id="${tid}"><thead><tr>
     <th>Sıra</th><th>UAT</th><th>UAT Özet</th>${thUat}${thAtanan}<th>Hedef</th><th>Hedef Özet</th>
-    ${thHedef}<th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table>
+    ${thHedef}${thHAtanan}<th>Eşleşme</th><th>Gerekçe</th></tr></thead><tbody>${govde}</tbody></table>
     <div class="bs-filtre-bos" id="${tid}-bos" style="display:none">Seçilen filtreye uygun kayıt yok.</div></div>`;
 }
 

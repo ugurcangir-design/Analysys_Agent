@@ -986,11 +986,13 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
         <strong>Eşleşmeyen TRADE/OPS</strong>. Her task anahtarı Jira'da açılır.</p>
         <p>Sonuç tablolarında başlıklardaki <strong>Durum</strong> ve <strong>Atanan</strong> kolonları birer
         <strong>hızlı filtredir</strong>: UAT durumuna, Hedef durumuna ve UAT task'ının atandığı kişiye göre
-        süzebilirsiniz. Birden fazla filtre seçilirse <strong>ve</strong> mantığıyla daraltır (örn. "Backlog"
-        + "Ahmet Yılmaz" → yalnızca Ahmet'e atanmış backlog task'ları). "Atanan" filtresinde
-        <em>(Atanmamış)</em> seçeneği atanmamış task'ları getirir. UAT board'una atanan kişi hem
-        Eşleşenler/Adaylar hem de Eşleşmeyen UAT tablosunda kolonda görünür ve Excel raporuna da yazılır.
-        Filtreler istemci tarafında çalışır — token harcamaz.</p>
+        süzebilirsiniz. Eşleşenler/Adaylar tablosunda hem <strong>UAT</strong> hem de <strong>Hedef</strong>
+        (TRADE/OPS) tarafı için ayrı Durum ve Atanan filtreleri vardır; Eşleşmeyen UAT ve Eşleşmeyen
+        TRADE/OPS tablolarında da kendi Durum + Atanan filtreleri bulunur. Birden fazla filtre seçilirse
+        <strong>ve</strong> mantığıyla daraltır (örn. "Backlog" + "Ahmet Yılmaz" → yalnızca Ahmet'e atanmış
+        backlog task'ları; ya da UAT durumu + Hedef atananı birlikte). "Atanan" filtresinde
+        <em>(Atanmamış)</em> seçeneği atanmamış task'ları getirir. Atanan kişi ilgili tablolarda kolonda
+        görünür ve Excel raporuna da yazılır. Filtreler istemci tarafında çalışır — token harcamaz.</p>
       </div>
       <div class="step">
         <div class="num">3</div>
