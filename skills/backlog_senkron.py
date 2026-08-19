@@ -120,13 +120,35 @@ def _hedef_gorevleri_topla(mod: str, hedef_projeler: list[str],
     ALTINDAKİ görevler + bunların YALNIZCA hedef board'lara (`hedef_projeler`) ait
     olanları. Böylece tüm board yerine sadece ilgili alt küme çekilir (token/zaman)."""
     if mod == "epic":
+        # "Epic/Story altı": girilen anahtarın TÜM alt-ağacı taranır (RECURSIVE).
+        # alt_gorevleri_cek yalnız BİR seviye iner; bir çocuk kapsayıcı ise (Epic altındaki
+        # Story gibi) ONUN da altına inilir — böylece Epic → Story → alt-task tümü gelir.
+        # Aksi halde Story alt-task'ları (dev işi) hiç çekilmez, köprü kurulamazdı.
         birlesik: dict[str, dict] = {}
-        for key in hedef_keys:
-            for g in alt_gorevleri_cek(key):
+        islenecek = [str(k).strip().upper() for k in hedef_keys if str(k).strip()]
+        gorulen_ust: set[str] = set()
+        while islenecek:
+            ust = islenecek.pop(0)
+            if ust in gorulen_ust:
+                continue
+            gorulen_ust.add(ust)
+            try:
+                cocuklar = alt_gorevleri_cek(ust)
+            except Exception:
+                logger.warning("Alt görev çekilemedi (atlanıyor): %s", ust)
+                continue
+            for g in cocuklar:
                 gk = g.get("key", "")
+                if not gk:
+                    continue
                 proje = gk.split("-", 1)[0]
+                if _kapsayici_tip_mi(g):
+                    # Kapsayıcı çocuk (Story/Epic) → altına da in; kendisini listeye ekleme.
+                    if (not hedef_projeler or proje in hedef_projeler) and gk not in gorulen_ust:
+                        islenecek.append(gk)
+                    continue
                 if hedef_projeler and proje not in hedef_projeler:
-                    continue   # epic altındaki ama hedef board dışı görevleri ele
+                    continue   # alt-ağaçtaki ama hedef board dışı yaprak görevleri ele
                 birlesik.setdefault(gk, g)
         return list(birlesik.values())
 

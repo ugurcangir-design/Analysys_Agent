@@ -2569,7 +2569,7 @@ function temaDegistir() {
           <div class="ctx-field" id="bs-epic-wrap" style="display:none">
             <label class="ctx-field-label">Epic/Story anahtarları (virgülle)</label>
             <input type="text" id="bs-epic-keys" class="ctx-input" placeholder="MBSTRADE-12, MBSOPS-34">
-            <p class="ctx-field-sub">Bu epic/story'lerin <strong>altındaki</strong> görevler taranır (parent + Epic Link + linkedIssues) ve <strong>yukarıdaki hedef board'larla sınırlanır</strong> — böylece tüm board yerine yalnızca ilgili alt küme çekilir (token/zaman tasarrufu). Örn. hem TRADE hem OPS epic'lerini yazıp her ikisinin altını tarayabilirsiniz.</p>
+            <p class="ctx-field-sub">Bu epic/story'lerin <strong>tüm alt-ağacı</strong> taranır (parent + Epic Link + linkedIssues, <strong>özyinelemeli</strong>): girilen bir <strong>Epic</strong> ise altındaki story'ler <em>ve</em> onların alt-task'ları; girilen bir <strong>Story</strong> ise doğrudan alt-task'ları — hepsi gelir. <strong>Yukarıdaki hedef board'larla sınırlanır</strong>; böylece tüm board yerine yalnızca ilgili alt küme çekilir. Örn. hem TRADE hem OPS epic'lerini yazıp her ikisinin altını tam tarayabilirsiniz.</p>
           </div>
           <div class="ctx-field" id="bs-kw-wrap" style="display:none">
             <label class="ctx-field-label">Anahtar kelime</label>

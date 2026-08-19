@@ -286,3 +286,15 @@ eşleşmenin kök nedeni o değil, köprünün board kısıtı eksikliğiydi (te
 (`_hedef_story_baglari` — story key'inin projesi hedef projelerde olmalı). UAT-board story'leri
 (UAT-tarafı gruplama) köprü sayılmaz. Doğrulandı: MBSUATEAM-158 artık açıkta; MBSUATEAM-33 (→MBSTRADE-1215)
 ve -129 (→MBSTRADE-1464) doğru eşleşiyor; UAT-story köprüsü sayısı 0; eşleşmeyen_uat=29 (gerçekçi).
+
+## UAT Mutabakat — "Epic/Story altı" modu artık ÖZYİNELEMELİ (tüm alt-ağaç) ✅
+**Sorun:** `alt_gorevleri_cek` yalnız BİR seviye iniyordu. Kullanıcı bir Epic girince onun doğrudan
+çocukları (story'ler) geliyordu; ama story'ler Epic/Story kuralıyla dışlandığından ve story'lerin
+alt-task'ları (2 seviye alt) hiç çekilmediğinden, dev işleri hedef sette olmuyordu → story köprüsü
+kurulamıyor, MBSUATEAM-33 gibi task'lar epic modunda "açıkta kalan" görünüyordu.
+**Çözüm:** `_hedef_gorevleri_topla` epic dalı özyinelemeli (BFS) hale getirildi: bir çocuk kapsayıcıysa
+(Epic altındaki Story gibi) onun da altına inilir → Epic → Story → alt-task tümü gelir. Kapsayıcının
+kendisi listeye eklenmez; yaprak görevler hedef board'la sınırlanır; döngü koruması (`gorulen_ust`).
+`alt_gorevleri_cek` (Jira Görevleri ekranı da kullanır) tek-seviye sözleşmesini korur — özyineleme yalnız
+Mutabakat epic modunda. Doğrulandı: Epic MBSTRADE-1149 alt-ağacı 206 görev (1215'in alt-task'ları dahil);
+MBSUATEAM-33 epic modunda EŞLEŞEN(8); MBSUATEAM-158 açıkta (yanlış eşleşme yok); eşleşmeyen_uat=29.
