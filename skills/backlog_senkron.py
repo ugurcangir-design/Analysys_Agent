@@ -322,8 +322,41 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
             logger.info("Kapsam dışı ama linkli %d hedef task eşleştirmeye dahil edildi: %s",
                         len(link_hedef_index), ", ".join(sorted(link_hedef_index)))
 
+    # ── Story köprüsü için kapsam dışı hedef tamamlama (moddan bağımsız) ──
+    # UAT task'larının bağlı olduğu Story'lerin, taranan sette OLMAYAN hedef task'larını çekeriz:
+    #   (a) Story'nin çocukları (parent = Story), hedef projelere ait,
+    #   (b) Story'nin relates-to linkli hedef task'ları.
+    # Böylece epic/keyword modunda story'nin alt task'ları taranmasa bile köprü kurulur.
+    # Bu ek hedefler similarity/eşleşmeyen_hedef'e KATILMAZ; Epic/Story ve iptal olanlar hariç.
+    _uat_story_keyleri: set[str] = set()
+    for u in uat_gorevler:
+        _uat_story_keyleri |= _story_baglari(u)
+    kopru_hedef_index: dict[str, dict] = {}
+    if _uat_story_keyleri:
+        _toplanan: dict[str, dict] = {}
+        _story_jql = ", ".join(f'"{_jql_kacis(s)}"' for s in sorted(_uat_story_keyleri))
+        try:   # (a) parent = Story olan hedef görevler
+            for g in _jql_ara(f"parent in ({_story_jql}) AND {_proje_listesi_jql(hedef_projeler)}", cloud_id):
+                _toplanan[g["key"]] = g
+        except Exception:
+            logger.warning("Köprü story çocukları çekilemedi.")
+        _link_keyler: set[str] = set()   # (b) Story'lerin relates-to linkli hedef task'ları
+        for s in _keyleri_cek(sorted(_uat_story_keyleri), cloud_id):
+            for lk in s.get("baglantililar", []):
+                k = lk.get("key", "")
+                if k and k not in _toplanan and k.split("-", 1)[0] in _hedef_proje_set:
+                    _link_keyler.add(k)
+        for g in _keyleri_cek(sorted(_link_keyler), cloud_id):
+            _toplanan.setdefault(g["key"], g)
+        for k, g in _toplanan.items():
+            if k in hedef_index or _kapsayici_tip_mi(g) or _iptal_statusu_mu(g.get("status", "")):
+                continue
+            kopru_hedef_index[k] = g
+        if kopru_hedef_index:
+            logger.info("Story köprüsü için kapsam dışı %d hedef task çekildi.", len(kopru_hedef_index))
+
     def _hedef_bul(key: str) -> dict | None:
-        return hedef_index.get(key) or link_hedef_index.get(key)
+        return hedef_index.get(key) or link_hedef_index.get(key) or kopru_hedef_index.get(key)
 
     eslesenler: list[dict] = []
     adaylar: list[dict] = []
@@ -363,7 +396,7 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
         for skey in _story_baglari(u):
             uat_koprusu[skey].add(u["key"])
     hedef_koprusu: dict[str, set[str]] = defaultdict(set)  # story_key → {hedef_key}
-    for h in hedef_gorevler:
+    for h in (*hedef_gorevler, *kopru_hedef_index.values()):
         for skey in _story_baglari(h):
             hedef_koprusu[skey].add(h["key"])
     kopru_sayisi = 0
