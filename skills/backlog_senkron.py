@@ -232,6 +232,7 @@ def _sade(g: dict, proje_ekle: bool = False) -> dict:
         "ozet": g.get("summary", ""),
         "durum": g.get("status", ""),
         "atanan": g.get("assignee", ""),
+        "story": g.get("_story", ""),
         "tur": g.get("type", ""),
     }
     if proje_ekle:
@@ -250,6 +251,7 @@ def _satir(uat: dict, hedef: dict, guven: str, gerekce: str, skor: float) -> dic
         "hedef_ozet": hedef.get("summary", ""),
         "hedef_durum": hedef.get("status", ""),
         "hedef_atanan": hedef.get("assignee", ""),
+        "hedef_story": hedef.get("_story", ""),
         "guven": guven,
         "gerekce": gerekce,
         "skor": round(skor, 2),
@@ -311,6 +313,17 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     uat_gorevler   = [g for g in uat_gorevler   if not _kapsayici_tip_mi(g)]
     hedef_gorevler = [g for g in hedef_gorevler if not _kapsayici_tip_mi(g)]
 
+    # ── Story kolonu için: her göreve, bağlı olduğu HEDEF board story'sini işle (görüntüde
+    # "Story" kolonu). Yalnız hedef-proje story'leri (UAT-board story'leri gösterilmez).
+    _hedef_proje_set = set(hedef_projeler)
+
+    def _story_isle(gs: list[dict]) -> None:
+        for g in gs:
+            ss = {s for s in _story_baglari(g) if s.split("-", 1)[0] in _hedef_proje_set}
+            g["_story"] = ", ".join(sorted(ss))
+    _story_isle(uat_gorevler)
+    _story_isle(hedef_gorevler)
+
     # ── İptal edilmiş task'lar ana akıştan ayrılır → kendi kovası ("İptal Edilenler").
     # Böylece eşleşen/açıkta kalan listeleriyle karışmaz; iptaller ayrı görünür.
     iptal_uat, uat_gorevler     = _iptal_ayir(uat_gorevler)
@@ -328,7 +341,6 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
     # hedef task'ları tek tek çekip eşleştirmeye dahil ederiz. Böylece gerçek ilişki
     # varken UAT "açıkta kalan iş" sanılmaz. Bu ek hedefler similarity/eşleşmeyen_hedef'e
     # KATILMAZ (yalnız KESİN link eşleşmesi için); iptal/Epic-Story olanlar dahil edilmez.
-    _hedef_proje_set = set(hedef_projeler)
     _eksik_link_keyleri = {
         lk.get("key", "") for u in uat_gorevler for lk in u.get("baglantililar", [])
         if lk.get("key") and lk["key"] not in hedef_index
@@ -340,6 +352,7 @@ def mutabakat(uat_proje: str = VARSAYILAN_UAT,
             if _kapsayici_tip_mi(g) or _iptal_statusu_mu(g.get("status", "")):
                 continue   # Epic/Story ve iptal hedefler eşleşmeye alınmaz (ana akışla tutarlı)
             link_hedef_index[g["key"]] = g
+        _story_isle(list(link_hedef_index.values()))
         if link_hedef_index:
             logger.info("Kapsam dışı ama linkli %d hedef task eşleştirmeye dahil edildi: %s",
                         len(link_hedef_index), ", ".join(sorted(link_hedef_index)))
@@ -514,7 +527,8 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
     ws1 = wb.active
     ws1.title = "Eşleşenler"
     esles_bas = ["Sıra", "UAT Key", "UAT Özet", "UAT Durum", "UAT Atanan", "UAT İş Adedi",
-                 "Hedef Key", "Hedef Özet", "Hedef Durum", "Hedef Atanan", "Eşleşme", "Gerekçe", "Skor"]
+                 "Hedef Key", "Hedef Özet", "Hedef Durum", "Hedef Atanan", "Hedef Story",
+                 "Eşleşme", "Gerekçe", "Skor"]
     esles_kaynak = sorted(sonuc.get("eslesenler", []) + sonuc.get("adaylar", []),
                           key=lambda r: r.get("sira", 10**9))
     # Bir UAT taskı birden çok hedefe bağlanabilir → her UAT'ın toplam iş (hedef) adedi.
@@ -523,10 +537,10 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
         uat_is_adedi[r["uat_key"]] = uat_is_adedi.get(r["uat_key"], 0) + 1
     esles_satir = [[r.get("sira", ""), r["uat_key"], r["uat_ozet"], r["uat_durum"],
                     r.get("uat_atanan", ""), uat_is_adedi.get(r["uat_key"], 1), r["hedef_key"],
-                    r["hedef_ozet"], r["hedef_durum"], r.get("hedef_atanan", ""),
+                    r["hedef_ozet"], r["hedef_durum"], r.get("hedef_atanan", ""), r.get("hedef_story", ""),
                     ("Aday" if r["guven"] == "Aday" else "Evet"), r["gerekce"], r["skor"]]
                    for r in esles_kaynak]
-    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 18, 10, 14, 44, 14, 18, 10, 26, 8])
+    _sayfa_yaz(ws1, esles_bas, esles_satir, [6, 14, 44, 14, 18, 10, 14, 44, 14, 18, 16, 10, 26, 8])
 
     ws2 = wb.create_sheet("Eşleşmeyen UAT")
     _sayfa_yaz(ws2, ["Sıra", "UAT Key", "Özet", "Durum", "Atanan", "Tür"],
@@ -535,11 +549,11 @@ def rapor_uret(sonuc: dict, cikti_dir: str | Path) -> Path:
                [6, 14, 52, 16, 18, 14])
 
     ws3 = wb.create_sheet("Eşleşmeyen TRADE-OPS")
-    _sayfa_yaz(ws3, ["Sıra", "Hedef Key", "Proje", "Özet", "Durum", "Atanan", "Tür"],
+    _sayfa_yaz(ws3, ["Sıra", "Hedef Key", "Proje", "Özet", "Durum", "Atanan", "Story", "Tür"],
                [[r.get("sira", ""), r["key"], r.get("proje", ""), r["ozet"], r["durum"],
-                 r.get("atanan", ""), r["tur"]]
+                 r.get("atanan", ""), r.get("story", ""), r["tur"]]
                 for r in sonuc.get("eslesmeyen_hedef", [])],
-               [6, 14, 12, 52, 16, 18, 14])
+               [6, 14, 12, 52, 16, 18, 16, 14])
 
     ws4 = wb.create_sheet("İptal Edilenler")
     _sayfa_yaz(ws4, ["Sıra", "Key", "Proje", "Özet", "Durum", "Atanan", "Tür"],

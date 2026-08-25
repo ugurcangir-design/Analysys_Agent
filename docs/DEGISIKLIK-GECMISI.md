@@ -298,3 +298,17 @@ kendisi listeye eklenmez; yaprak görevler hedef board'la sınırlanır; döngü
 `alt_gorevleri_cek` (Jira Görevleri ekranı da kullanır) tek-seviye sözleşmesini korur — özyineleme yalnız
 Mutabakat epic modunda. Doğrulandı: Epic MBSTRADE-1149 alt-ağacı 206 görev (1215'in alt-task'ları dahil);
 MBSUATEAM-33 epic modunda EŞLEŞEN(8); MBSUATEAM-158 açıkta (yanlış eşleşme yok); eşleşmeyen_uat=29.
+
+## UAT Mutabakat — İptal board bazlı + hedef "Story" kolonu ✅
+Kullanıcı Excel karşılaştırması: İptal kovası tüm board'ları birleştirdiğinden (114 = TRADE 84, OPS 20,
+UAT 10) UAT sayısı görünmüyordu; board bazlı ayrım UAT tarafını (10) netleştirir → 129 UAT toplam + 10 UAT
+iptal + 1 Story (MBSUATEAM-139) = 140 (Excel'le birebir).
+- **İptal board bazlı:** İptal (ve Eşleşmeyen TRADE/OPS) tablosuna **Proje filtresi** eklendi
+  (`_bsTabloTek` projeKolon → `fproje`); "İptal Edildi" stat kartı etiketi board kırılımı gösterir
+  ("· UAT N"), tooltip tam kırılım.
+- **Story kolonu (kullanıcı tercihi: mevcut + Story kolonu):** her hedef task satırında bağlı olduğu
+  HEDEF board story'si gösterilir (`_satir.hedef_story`, `_sade.story`; yalnız hedef-proje story'leri —
+  `_story_isle` ile görevlere `_story` işlenir). Eşleşen/Aday tablosunda "Story" kolonu, Eşleşmeyen
+  TRADE/OPS ve İptal tablolarında da Story; Excel'e "Hedef Story"/"Story" sütunları.
+- Doğrulandı: Story alanları doluyor (MBSTRADE-1404→"MBSTRADE-1133, MBSTRADE-1215"); İptal Proje filtresi
+  MBSUATEAM seçince yalnız UAT iptallerini gösteriyor; ruff temiz; Excel başlıkları doğru.
