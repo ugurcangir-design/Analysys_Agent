@@ -323,3 +323,15 @@ basınca, güncel yükleme yerine BİR ÖNCEKİ versiyon kullanılıyordu.
 hem yeni yükleme işlenir hem de orijinal koruma (ham kaynağın AI çıktısını ezmemesi) sürer — full
 pipeline'da kaynak, AI çıktısından eski olduğu için kopyalanmaz. İzole mtime testiyle 4 senaryo doğrulandı;
 ruff temiz.
+
+## Süreç/Teknik Analiz — takılı "Hata oluştu" + tekrar eden hata bildirimi düzeltmesi ✅
+**Sorun:** Header'da sürekli "Hata oluştu" ve altta tekrar eden "22 dakika … zaman aşımı" bildirimi.
+**Kök neden:** (1) `output/workflow-state.json` eski bir sürümün 1320s (22dk) timeout hatasında takılıydı
+(kod artık 2700s/45dk); durum "hata" olduğu için topbar `DURUM_ETIKET[HATA]="Hata oluştu"` gösteriyordu.
+(2) `updateUI` her çağrıldığında (poll, **sekme değişimi** `updateUI(_lastState)`, ilk yükleme) hata
+toast'unu YENİDEN atıyordu → bildirim tekrar tekrar çıkıyordu.
+**Çözüm:** (1) Takılı workflow durumu `sifirla()` ile idle'a çekildi → header "Hazır". (2) Hata toast'u
+artık yalnız hataya GEÇİŞTE gösteriliyor (`_oncekiWfDurum`/`_wfIlkRender` izleyicileri): ilk render'da
+mevcut/eski hata toast'lanmaz (header zaten gösterir), sekme değişimi/yeniden render tekrar atmaz, oturum
+içi gerçek yeni hata bir kez toast. Doğrulandı: topbar "Hazır"; tarayıcı testinde 3 render→0 toast, gerçek
+geçiş→1 toast; ruff temiz, konsol hatasız.

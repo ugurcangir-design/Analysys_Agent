@@ -3213,6 +3213,8 @@ let rerunPollTimer = null;
 let rerunBaslangicZaman = null;
 let _activePipeline = null;
 let _lastState = null;
+let _oncekiWfDurum = null;   // hata toast'unu SADECE geçişte göster (her render/sekme değişiminde değil)
+let _wfIlkRender = true;     // ilk render'da eski/mevcut hatayı toast'lama (header zaten gösterir)
 let _stepStart = {};      // durum → başlangıç ms
 let _lastDurum = null;
 let _mockupAbortCtrl = null;
@@ -4578,9 +4580,13 @@ function updateUI(s) {
     setTimeout(resetWorkflowUI, 3000);
   }
   if (s.durum === 'hata') {
-    toast('Hata: ' + (s.hata || 'Bilinmeyen hata'), 'error');
+    // Toast'u SADECE hataya GEÇİŞTE göster — sekme değişimi/yeniden render'da tekrar atma.
+    // İlk render'da eski/mevcut hatayı toast'lama; header (topbar) zaten "Hata oluştu" gösterir.
+    if (!_wfIlkRender && _oncekiWfDurum !== 'hata') toast('Hata: ' + (s.hata || 'Bilinmeyen hata'), 'error');
     stopPoll();
   }
+  _oncekiWfDurum = s.durum;
+  _wfIlkRender = false;
 }
 
 function updateSteps(durum) {
