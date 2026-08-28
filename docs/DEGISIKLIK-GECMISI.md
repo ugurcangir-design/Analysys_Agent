@@ -312,3 +312,14 @@ iptal + 1 Story (MBSUATEAM-139) = 140 (Excel'le birebir).
   TRADE/OPS ve İptal tablolarında da Story; Excel'e "Hedef Story"/"Story" sütunları.
 - Doğrulandı: Story alanları doluyor (MBSTRADE-1404→"MBSTRADE-1133, MBSTRADE-1215"); İptal Proje filtresi
   MBSUATEAM seçince yalnız UAT iptallerini gösteriyor; ruff temiz; Excel başlıkları doğru.
+
+## Sadece Teknik Analiz — yeni yüklenen doküman kaçırılıyordu (bug fix) ✅
+**Sorun (analist geri bildirimi):** Yeni bir süreç analizi dökümanı yükleyip "Sadece Teknik Analiz"e
+basınca, güncel yükleme yerine BİR ÖNCEKİ versiyon kullanılıyordu.
+**Kök neden:** `/api/run-teknik`, `output/surec-analizi.md` VARSA koşulsuz koruyordu; yükleme endpoint'i
+`input/`'u temizler ama `surec-analizi.md`'ye dokunmadığından önceki versiyon kalıyordu.
+**Çözüm:** Yüklenen .md/.txt, mevcut `surec-analizi.md`'den DAHA YENİ ise (mtime) yeni yükleme kullanılır
+(analist yeni analiz yükledi); değilse (AI'ın ürettiği çıktı daha yeni) üretilmiş analiz korunur. Böylece
+hem yeni yükleme işlenir hem de orijinal koruma (ham kaynağın AI çıktısını ezmemesi) sürer — full
+pipeline'da kaynak, AI çıktısından eski olduğu için kopyalanmaz. İzole mtime testiyle 4 senaryo doğrulandı;
+ruff temiz.

@@ -879,22 +879,25 @@ def run_teknik():
 
     surec_cikti = OUTPUT_DIR / "surec-analizi.md"
 
-    # ÜRETİLMİŞ ANALİZ ASLA SESSİZCE EZİLMEZ.
-    # Eski davranış: input'ta .md/.txt varsa KOŞULSUZ surec-analizi.md'nin
-    # üzerine kopyalanıyordu → AI'ın ürettiği süreç analizi, ham kaynak
-    # dokümanla eziliyor ve teknik analiz ham dokümanı "süreç analizi"
-    # sanarak çalışıyordu. Artık input dosyası yalnızca output'ta analiz
-    # YOKKEN kullanılır (hazır-analiz yükleyip sadece-teknik senaryosu).
-    if surec_cikti.exists():
-        logger.info("Mevcut surec-analizi.md korunuyor — teknik analiz onunla başlatılıyor.")
+    # ÜRETİLMİŞ ANALİZ ASLA SESSİZCE EZİLMEZ — AMA YENİ YÜKLENEN DOKÜMAN DA KAÇIRILMAZ.
+    # Eski davranış (bug): surec-analizi.md VARSA koşulsuz korunuyordu → analist yeni bir
+    # süreç analizi yükleyip "Sadece Teknik"e bastığında, bir ÖNCEKİ versiyondan kalan
+    # surec-analizi.md kullanılıyor, yeni yükleme yok sayılıyordu.
+    # Çözüm: yüklenen .md/.txt, mevcut surec-analizi.md'den DAHA YENİ ise onu kullan
+    # (kullanıcı yeni analiz yükledi). Aksi halde (AI'ın ürettiği surec-analizi.md daha
+    # yeni) üretilmiş analiz korunur — böylece hem yeni yükleme hem AI çıktısı doğru işlenir.
+    input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+    md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
+    yeni_yukleme = bool(md_dosya) and (
+        not surec_cikti.exists() or md_dosya.stat().st_mtime > surec_cikti.stat().st_mtime
+    )
+    if yeni_yukleme:
+        shutil.copy2(md_dosya, surec_cikti)
+        logger.info(f"Yeni yüklenen doküman süreç analizi olarak kullanılıyor: {md_dosya.name}")
+    elif surec_cikti.exists():
+        logger.info("Mevcut surec-analizi.md korunuyor (yeni/daha yeni yükleme yok) — teknik analiz onunla başlatılıyor.")
     else:
-        input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
-        md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
-        if md_dosya:
-            shutil.copy2(md_dosya, surec_cikti)
-            logger.info(f"Yüklenen dosya surec-analizi.md olarak kopyalandı: {md_dosya.name}")
-        else:
-            return jsonify({"error": "Süreç analizi bulunamadı. Bir süreç analizi dokümanı (.md / .txt) yükleyin ya da önce tam pipeline çalıştırın."}), 400
+        return jsonify({"error": "Süreç analizi bulunamadı. Bir süreç analizi dokümanı (.md / .txt) yükleyin ya da önce tam pipeline çalıştırın."}), 400
 
     try:
         wf.baslat_teknik()
