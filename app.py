@@ -1926,9 +1926,15 @@ def _swagger_spec_cek(url: str, headers: dict, _req):
         adaylar.append(urljoin(base + "/", yol))
         adaylar.append(urljoin(kok + "/", yol))
 
-    # 3) adayları sırayla dene; swagger-config {"urls":[{url}]} ise onları da ekle
+    # 3) adayları sırayla dene. AYNI-HOST spec adaylarını ÖNCE dene; bilinen demo
+    #    (petstore.swagger.io) adaylarını ELE — Swagger UI initializer'ı varsayılan
+    #    petstore'a işaret edebiliyor ve yanlış spec kaydına yol açıyordu.
+    _host = pu.netloc
+    tam = list(dict.fromkeys(urljoin(url, a) for a in adaylar))
+    tam = [u for u in tam if "petstore.swagger.io" not in urlparse(u).netloc]
+    tam.sort(key=lambda u: 0 if urlparse(u).netloc == _host else 1)
     gorulen = set()
-    kuyruk = list(dict.fromkeys(urljoin(url, a) for a in adaylar))
+    kuyruk = tam
     while kuyruk:
         aday = kuyruk.pop(0)
         if aday in gorulen:

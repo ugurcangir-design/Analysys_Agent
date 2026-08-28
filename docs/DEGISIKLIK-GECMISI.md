@@ -405,3 +405,17 @@ swagger-config `urls[]`). YALNIZ geçerli spec (paths/openapi/swagger) kaydedili
 geçersiz servis dosyalarını (OpenAPI olmayan) atlar. Bozuk Tradoria.json silindi (yeniden eklenmeli).
 Doğrulandı: mock testte HTML UI URL'i → /v3/api-docs'a çözülüp markets+sportId spec'i alındı; spec yoksa
 None; ruff temiz.
+
+## Swagger çözücü aynı-host önceliği + görev promptu "mevcut yetenek" kuralı ✅
+Analistin verdiği Swagger UI URL'i, initializer varsayılan **petstore.swagger.io**'ya işaret ettiğinden
+çözücü yanlış (Petstore demo) spec'i kaydediyordu → agent gerçek `GET /api/v1/market?sportId=` yeteneğini
+göremeyip "servise özellik eklenmeli" diyordu. Düzeltmeler:
+- **`_swagger_spec_cek`**: spec adayları AYNI-HOST önce denenir; `petstore.swagger.io` demo adayları elenir.
+  (Kullanıcı doğru `.../v3/api-docs`'u verince Tradoria Definition Service — 45 endpoint, `sportId`'li
+  `/api/v1/market` — doğru kaydedildi.)
+- **`gorev_teknik_analiz` promptu**: "MEVCUT YETENEĞİ 'YENİ İŞ' SANMA" kuralı — çözümden önce Swagger'ı
+  tara, gereken parametre (sportId) VARSA onu KULLAN, 'eklenmeli' deme; zaten var olan parametre dururken
+  dolaylı (sport-NAME) eşleştirme anlatma; yeni çözümle gereksizleşen davranışı (ekrandaki sport-name
+  arama filtresi) çözümün parçası olarak "kaldırılmalı, çünkü…" diye belirt.
+Doğrulandı: mock testte initializer petstore'a işaret etse de aynı-host /v3/api-docs seçildi; prompt yeni
+kurallarla yükleniyor; ruff temiz.
