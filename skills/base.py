@@ -2812,22 +2812,21 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
             v = json.loads(ham_err)
             if v.get("api_error_status") == 429:
                 # "You've hit your session limit · resets 3:50pm (Europe/Istanbul)"
+                # NOT: Bu 429, birkaç ayrı sayaçtan biri yüzünden olabilir — 5 saatlik oturum,
+                # haftalık kota VEYA usage-credit (ek kullanım) tükenmesi. Claude Desktop'un
+                # SOHBET ekranındaki 5 saatlik sayaç dolu görünmese bile Claude Code CLI'ın
+                # kendi limiti/usage-credit'i dolmuş olabilir (farklı ölçülür). Bu yüzden tek
+                # bir sebep iddia etmeyip kullanıcıyı Claude Code'un KENDİ /status'una yönlendir.
                 ham_limit = (v.get("result") or "limit doldu").strip()
-                # "session limit" = Claude aboneliğinin 5 SAATLİK oturum penceresi; genel/
-                # haftalık kotadan AYRIDIR → Claude Desktop'ta kota görünse de bu pencere
-                # dolmuş olabilir. Kullanıcı bu ayrımı sık karıştırıyor, açıkça belirt.
-                oturum_penceresi = "session" in ham_limit.lower()
-                _aciklama = (
-                    "Bu, Claude aboneliğinin 5 SAATLİK oturum penceresidir — Claude Desktop'ta "
-                    "gördüğünüz genel/haftalık kotadan AYRIDIR; orada kotanız görünse de bu 5 "
-                    "saatlik pencere dolmuş olabilir. " if oturum_penceresi else ""
-                )
                 raise RuntimeError(
-                    f"Claude kullanım limitine ulaşıldı: {ham_limit}. {_aciklama}"
-                    "Belirtilen sıfırlanma saatinden sonra tekrar deneyin; ya da .env'de "
-                    "ANTHROPIC_API_KEY tanımlayıp API moduna geçin. Ayrıca `claude` CLI'ın "
-                    "giriş yaptığı hesabın Claude Desktop'takiyle aynı olduğundan emin olun "
-                    "(terminalde `claude` çalıştırıp `/login`)."
+                    f"Claude kullanım limitine ulaşıldı: {ham_limit}. "
+                    "Bu, aboneliğin bir kullanım penceresidir (5 saatlik oturum, haftalık kota "
+                    "VEYA usage-credit/ek kullanım tükenmesi olabilir) ve Claude Desktop SOHBET "
+                    "ekranındaki sayaçlardan farklı ölçülebilir. Kesin sebebi görmek için bir "
+                    "terminalde `claude` çalıştırıp `/status` (ve `/usage`) ile Claude Code'un "
+                    "KENDİ limit/kredi görünümüne bakın. Belirtilen saatte sıfırlanır; hemen "
+                    "devam etmek için .env'de ANTHROPIC_API_KEY tanımlayıp API moduna geçin "
+                    "(USE_CLAUDE_CLI=false)."
                 )
             mesaj = v.get("result") or v.get("subtype") or "bilinmeyen hata"
             if _cli_oturum_hatasi_mi(v.get("api_error_status"), mesaj):
