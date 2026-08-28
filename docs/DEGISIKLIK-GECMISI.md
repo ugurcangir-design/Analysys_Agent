@@ -378,3 +378,16 @@ eklendi — her kullanıcı KENDİ hesabının durumunu görür (yerel `claude` 
   accent "API modu"; tıkla → probe ile tazele; tooltip Desktop-farkını açıklar.
 - Doğrulandı: GET son durumu, probe canlı "limit dolu · 3:50pm" döndürdü (state dosyası yazıldı), header
   kırmızı gösterdi; ruff temiz, NUL yok.
+
+## Görev Teknik Analizi promptu — çözüm odaklı (gözlem dökümü azaltıldı) ✅
+**Analist geri bildirimi:** Jira görev teknik analizi çok fazla gözlem bilgisi/gereksiz içerik üretiyordu;
+gözlenen servis (sport id ile istek kabul eden) çözüm olarak sunulmuyordu; amaç geliştiriciye isteri net
+anlatmak olmalı.
+**Kök neden:** `gorev_teknik_analiz` promptundaki "GÖZLEM SINIRI — SPEKÜLASYON YASAK" kuralı fazla genişti;
+gözlemi çözüme çevirmeyi de caydırıp ham gözlem dökümüne yol açıyordu.
+**Çözüm (base.py VARSAYILAN_PROMPTLAR):** Prompt çözüm-odaklı yeniden yazıldı: ROL "geliştiriciye isteri +
+somut çözüm"; yeni **"GÖZLEMİ ÇÖZÜME ÇEVİR"** bölümü (gözlenen servis/endpoint/yetenek ÇÖZÜM olarak
+sunulmalı — sport id örneğiyle); bölümler `## Gereksinim` + `## Çözüm` odaklı; "GEREKSİZ GÖZLEM/DÖKÜM YAZMA
+— her gözlem çözümü desteklemeli"; spekülasyon sınırı SUNUCU-İÇİ kök nedenle sınırlandı (gözlenen yetenekten
+çözüm önermek serbest/beklenir). Doğrulandı: prompt yükleniyor, tüm bölümler mevcut; ruff temiz. Not: etkiyi
+görmek için görev yeniden analiz edilmeli (CLI limiti açıkken ya da API modunda).
