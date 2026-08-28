@@ -1879,6 +1879,77 @@ def sources_sync_baslat():
 
 # ─── Servis Swagger Fetch ─────────────────────────────────────────────────────
 
+def _gecerli_spec_mi(o) -> bool:
+    """OpenAPI/Swagger spec sözlüğü mü? (paths ya da openapi/swagger sürüm alanı)."""
+    return isinstance(o, dict) and bool(o.get("paths") or o.get("openapi") or o.get("swagger"))
+
+
+def _swagger_spec_cek(url: str, headers: dict, _req):
+    """Verilen URL'den OpenAPI/Swagger SPEC'ini (JSON) döndürür.
+    URL doğrudan spec'e işaret ediyorsa onu; Swagger UI HTML'i döndürüyorsa gerçek
+    spec URL'ini (initializer / config / yaygın yollar) çözer. (spec, kaynak_url) ya da
+    (None, sebep) döndürür. HAM HTML ASLA kaydedilmez."""
+    from urllib.parse import urljoin, urlparse
+    try:
+        resp = _req.get(url, headers=headers, timeout=30)
+    except Exception as e:
+        return None, f"istek hatası: {e}"
+    if resp.status_code != 200:
+        return None, f"HTTP {resp.status_code}"
+    # 1) URL doğrudan JSON spec mi?
+    try:
+        s = resp.json()
+        if _gecerli_spec_mi(s):
+            return s, url
+    except Exception:
+        pass
+    govde = resp.text or ""
+
+    # 2) HTML/JS içinden spec URL adayları topla + yaygın OpenAPI yolları
+    adaylar: list[str] = []
+    for m in re.finditer(r'["\']?url["\']?\s*[:=]\s*["\']([^"\']+\.(?:json|yaml|yml)[^"\']*|[^"\']*api-docs[^"\']*)["\']', govde):
+        adaylar.append(m.group(1))
+    if "swagger-initializer" in govde or "swagger-ui" in govde:
+        try:
+            init_url = urljoin(url.rsplit("/", 1)[0] + "/", "swagger-initializer.js")
+            r2 = _req.get(init_url, headers=headers, timeout=15)
+            if r2.status_code == 200:
+                for m in re.finditer(r'url\s*[:=]\s*["\']([^"\']+)["\']', r2.text):
+                    adaylar.append(m.group(1))
+        except Exception:
+            pass
+    pu = urlparse(url)
+    kok = f"{pu.scheme}://{pu.netloc}"
+    base = url.rsplit("/", 1)[0]
+    for yol in ("v3/api-docs", "v3/api-docs/swagger-config", "v2/api-docs",
+                "swagger.json", "openapi.json", "api-docs", "openapi/v3/api-docs"):
+        adaylar.append(urljoin(base + "/", yol))
+        adaylar.append(urljoin(kok + "/", yol))
+
+    # 3) adayları sırayla dene; swagger-config {"urls":[{url}]} ise onları da ekle
+    gorulen = set()
+    kuyruk = list(dict.fromkeys(urljoin(url, a) for a in adaylar))
+    while kuyruk:
+        aday = kuyruk.pop(0)
+        if aday in gorulen:
+            continue
+        gorulen.add(aday)
+        try:
+            r = _req.get(aday, headers=headers, timeout=15)
+            if r.status_code != 200:
+                continue
+            s = r.json()
+        except Exception:
+            continue
+        if _gecerli_spec_mi(s):
+            return s, aday
+        if isinstance(s, dict) and s.get("urls"):
+            for u in s["urls"]:
+                if isinstance(u, dict) and u.get("url"):
+                    kuyruk.append(urljoin(aday, u["url"]))
+    return None, "OpenAPI spec çözülemedi"
+
+
 @app.route("/api/reference/fetch-be", methods=["POST"])
 def reference_fetch_be():
     data = request.get_json(silent=True) or {}
@@ -1897,27 +1968,29 @@ def reference_fetch_be():
 
     try:
         import requests as _req
-        resp = _req.get(url, headers=headers, timeout=30)
-        if resp.status_code != 200:
-            return jsonify({"ok": False, "output": f"HTTP {resp.status_code}: {resp.text[:200]}"})
+    except ImportError:
+        return jsonify({"ok": False, "error": "requests paketi yüklü değil: pip install requests"}), 500
+
+    try:
+        spec, kaynak = _swagger_spec_cek(url, headers, _req)
+        if spec is None:
+            return jsonify({"ok": False, "output":
+                f"Swagger/OpenAPI spec alınamadı ({kaynak}). Verdiğiniz URL Swagger UI HTML "
+                "sayfası olabilir — doğrudan OpenAPI JSON'una işaret eden adresi verin "
+                "(ör. .../v3/api-docs ya da .../swagger.json). Not: HAM HTML kaydedilmedi."})
+        endpoint_sayisi = len(spec.get("paths", {}))
+        if endpoint_sayisi == 0:
+            return jsonify({"ok": False, "output":
+                f"Spec alındı ama 0 endpoint içeriyor (kaynak: {kaynak}) — yanlış/boş spec olabilir."})
 
         SERVIS_DIR.mkdir(parents=True, exist_ok=True)
         hedef = SERVIS_DIR / f"{name}.json"
-        try:
-            spec = resp.json()
-            endpoint_sayisi = len(spec.get("paths", {}))
-            hedef.write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
-            boyut = hedef.stat().st_size
-            output = f"✓ {name}.json kaydedildi\n  {boyut:,} bytes | {endpoint_sayisi} endpoint"
-        except Exception:
-            hedef.write_bytes(resp.content)
-            output = f"✓ {name}.json kaydedildi ({len(resp.content):,} bytes)"
-
-        logger.info(f"Servis spec alındı: {name} ← {url}")
-        return jsonify({"ok": True, "output": output})
-
-    except ImportError:
-        return jsonify({"ok": False, "error": "requests paketi yüklü değil: pip install requests"}), 500
+        hedef.write_text(json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8")
+        boyut = hedef.stat().st_size
+        logger.info(f"Servis spec alındı: {name} ← {kaynak} ({endpoint_sayisi} endpoint)")
+        not_ = "" if kaynak == url else f"\n  (spec çözüldü: {kaynak})"
+        return jsonify({"ok": True, "output":
+                        f"✓ {name}.json kaydedildi\n  {boyut:,} bytes | {endpoint_sayisi} endpoint{not_}"})
     except Exception as e:
         return jsonify({"ok": False, "output": f"Hata: {e}"})
 

@@ -1823,6 +1823,18 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
             except ValueError:
                 rel = f.name
 
+            # Servis (Swagger) dosyası geçerli bir OpenAPI spec DEĞİLSE (ör. yanlışlıkla
+            # kaydedilmiş Swagger UI HTML'i) RAG'e SOKMA — yoksa analiz çöp içerikle bozulur.
+            if rel.startswith("services/"):
+                try:
+                    _s = json.loads(f.read_text(encoding="utf-8", errors="ignore"))
+                    if not (isinstance(_s, dict) and (_s.get("paths") or _s.get("openapi") or _s.get("swagger"))):
+                        logger.warning("Geçersiz servis spec atlandı (OpenAPI değil): %s", rel)
+                        continue
+                except Exception:
+                    logger.warning("Servis dosyası JSON değil, atlandı: %s", rel)
+                    continue
+
             per_file = min(MAX_CHARS_REF, kalan)
             try:
                 if jira_modu and f.suffix.lower() == ".json":

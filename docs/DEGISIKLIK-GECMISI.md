@@ -391,3 +391,17 @@ sunulmalı — sport id örneğiyle); bölümler `## Gereksinim` + `## Çözüm`
 — her gözlem çözümü desteklemeli"; spekülasyon sınırı SUNUCU-İÇİ kök nedenle sınırlandı (gözlenen yetenekten
 çözüm önermek serbest/beklenir). Doğrulandı: prompt yükleniyor, tüm bölümler mevcut; ruff temiz. Not: etkiyi
 görmek için görev yeniden analiz edilmeli (CLI limiti açıkken ya da API modunda).
+
+## Swagger fetch — HTML yerine gerçek OpenAPI spec'i çöz (kök neden) ✅
+**Analist:** Verdiği Swagger servisini (Tradoria definition-service/markets, sportId parametreli) agent
+görmemiş/analize eklememiş. **Kök neden:** `/api/reference/fetch-be`, URL JSON döndürmediğinde (Swagger
+UI HTML sayfası geldiğinde) `except` dalında HAM HTML'i olduğu gibi kaydediyordu → `reference/services/
+Tradoria.json` içinde 0 endpoint, sadece Swagger UI HTML boilerplate → RAG'e çöp gidiyor, agent endpoint'i
+göremiyordu.
+**Çözüm:** `_swagger_spec_cek` — URL doğrudan spec değilse (HTML), gerçek OpenAPI URL'ini çözer
+(swagger-initializer.js + HTML içindeki `url:"…"` + yaygın yollar: v3/api-docs, swagger.json, openapi.json,
+swagger-config `urls[]`). YALNIZ geçerli spec (paths/openapi/swagger) kaydedilir; 0 endpoint ya da
+çözülemezse net hata + HAM HTML ASLA kaydedilmez. Ek güvenlik: RAG yükleyici (`_ref_bloklari_olustur`)
+geçersiz servis dosyalarını (OpenAPI olmayan) atlar. Bozuk Tradoria.json silindi (yeniden eklenmeli).
+Doğrulandı: mock testte HTML UI URL'i → /v3/api-docs'a çözülüp markets+sportId spec'i alındı; spec yoksa
+None; ruff temiz.
