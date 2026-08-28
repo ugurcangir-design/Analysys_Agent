@@ -2756,6 +2756,96 @@ def _cli_oturum_hatasi_mi(status, mesaj: str | None) -> bool:
     return bool(mesaj and _CLI_OTURUM_DESENI.search(str(mesaj)))
 
 
+# ─── CLI limit (Claude Code oturum/kota) durumu — header göstergesi için ─────────
+# Claude Code CLI'ın kendi 5-saatlik oturum limiti, Claude Desktop SOHBET sayaçlarından
+# AYRIDIR ve agent bu limite tabidir. Canlı % yalnız interaktif `/usage`'da; bu yüzden
+# durumu (kullanılabilir / limit dolu + reset) gerçek analiz çağrılarından yakalarız
+# (bedava) + isteğe bağlı minimal probe ile tazeleriz.
+_CLI_DURUM_DOSYA = OUTPUT_DIR / "cli-usage-state.json"
+
+
+def _cli_env_hazirla(claude_yolu: str) -> dict:
+    """`claude` çağrısı için ortam: ANTHROPIC_API_KEY çıkarılır, PATH'e binary + npx
+    dizinleri eklenir (GUI'nin minimal PATH sorununu çözer)."""
+    cli_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    _ev = os.path.expanduser("~")
+    _ek_path = [os.path.dirname(claude_yolu), f"{_ev}/.local/bin",
+                "/opt/homebrew/bin", "/usr/local/bin"]
+    _npx = _npx_yolu_bul()
+    if _npx:
+        _ek_path.insert(0, os.path.dirname(_npx))
+    cli_env["PATH"] = os.pathsep.join(_ek_path) + os.pathsep + cli_env.get("PATH", "")
+    return cli_env
+
+
+def _cli_reset_ayikla(mesaj) -> str | None:
+    """'…resets 3:50pm (Europe/Istanbul)' → '3:50pm (Europe/Istanbul)'."""
+    m = re.search(r"resets\s+(.+?)\s*$", str(mesaj or ""), re.IGNORECASE)
+    return m.group(1).strip() if m else None
+
+
+def _cli_durum_yaz(available, reset=None, kaynak="analiz") -> None:
+    """Son CLI çağrısının limit durumunu diske yazar (header okur). Gerçek analiz
+    çağrılarına piggyback → bedava; probe ile de tazelenir. Alt süreç (run.py) ve app
+    aynı dosyayı paylaşır."""
+    try:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        _CLI_DURUM_DOSYA.write_text(json.dumps({
+            "mode": "cli", "available": available, "reset": reset,
+            "model": CLAUDE_CLI_MODEL, "checked_at": time.time(), "kaynak": kaynak,
+        }), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def cli_durum_oku() -> dict:
+    """Header için son bilinen CLI limit durumu. API modunda limit yoktur."""
+    if not USE_CLAUDE_CLI:
+        return {"mode": "api", "available": True, "reset": None, "checked_at": None}
+    try:
+        return json.loads(_CLI_DURUM_DOSYA.read_text(encoding="utf-8"))
+    except Exception:
+        return {"mode": "cli", "available": None, "reset": None, "checked_at": None}
+
+
+def cli_durum_probe() -> dict:
+    """Minimal bir `claude -p` (haiku, 'OK') çağrısıyla CLI limit durumunu TAZELER.
+    Çok az oturum bütçesi harcar (birkaç token) — yalnız kullanıcı 'Kontrol Et'e
+    basınca çağrılmalı. Limit doluysa çağrı zaten $0 döner."""
+    if not USE_CLAUDE_CLI:
+        return cli_durum_oku()
+    claude_yolu = _claude_yolu_bul()
+    if not claude_yolu:
+        return {"mode": "cli", "available": None, "reset": None,
+                "checked_at": time.time(), "error": "claude komutu bulunamadı"}
+    try:
+        proc = subprocess.run(
+            [claude_yolu, "-p", "--model", "haiku", "--output-format", "json"],
+            input="OK", capture_output=True, text=True, timeout=60,
+            env=_cli_env_hazirla(claude_yolu),
+        )
+        ham = proc.stdout.strip() or proc.stderr.strip() or "{}"
+        try:
+            v = json.loads(ham)
+        except (ValueError, TypeError):
+            v = {}
+        if v.get("api_error_status") == 429:
+            _cli_durum_yaz(False, _cli_reset_ayikla(v.get("result")), kaynak="probe")
+        elif proc.returncode == 0 and not v.get("is_error"):
+            _cli_durum_yaz(True, None, kaynak="probe")
+        else:
+            d = cli_durum_oku()
+            d["error"] = (str(v.get("result") or ham))[:200]
+            d["checked_at"] = time.time()
+            return d
+    except Exception as e:
+        d = cli_durum_oku()
+        d["error"] = str(e)[:200]
+        d["checked_at"] = time.time()
+        return d
+    return cli_durum_oku()
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -2774,19 +2864,7 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
             "(USE_CLAUDE_CLI satırını kaldırın)."
         )
     tam_prompt = _mesajlari_birlestir(sistem, mesajlar)
-    cli_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
-    # claude'un kendi node/bağımlılıklarını bulabilmesi için binary dizinini
-    # + yaygın bin dizinlerini PATH'e ekle (GUI minimal PATH sorununu çözer).
-    _ev = os.path.expanduser("~")
-    _ek_path = [
-        os.path.dirname(claude_yolu), f"{_ev}/.local/bin",
-        "/opt/homebrew/bin", "/usr/local/bin",
-    ]
-    # Playwright MCP sunucusu npx ile spawn edilir; npx'in de node'u bulması gerekir.
-    _npx = _npx_yolu_bul()
-    if _npx:
-        _ek_path.insert(0, os.path.dirname(_npx))
-    cli_env["PATH"] = os.pathsep.join(_ek_path) + os.pathsep + cli_env.get("PATH", "")
+    cli_env = _cli_env_hazirla(claude_yolu)
     # ÖNEMLİ: --output-format json kullanılıyor, text DEĞİL.
     # text formatı uzun / çok-turn yanıtlarda çıktının BAŞINI kaybediyordu
     # (yalnızca son asistan mesajını veriyordu) → süreç analizinin Bölüm
@@ -2826,6 +2904,7 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
                 # kendi limiti/usage-credit'i dolmuş olabilir (farklı ölçülür). Bu yüzden tek
                 # bir sebep iddia etmeyip kullanıcıyı Claude Code'un KENDİ /status'una yönlendir.
                 ham_limit = (v.get("result") or "limit doldu").strip()
+                _cli_durum_yaz(False, _cli_reset_ayikla(ham_limit), kaynak="analiz")
                 raise RuntimeError(
                     f"Claude kullanım limitine ulaşıldı: {ham_limit}. "
                     "Bu, aboneliğin bir kullanım penceresidir (5 saatlik oturum, haftalık kota "
@@ -2867,6 +2946,7 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     yanit = (veri.get("result") or "").strip()
     if not yanit:
         raise RuntimeError("claude CLI 'result' alanı boş döndü.")
+    _cli_durum_yaz(True, None, kaynak="analiz")   # başarılı çağrı → CLI kullanılabilir
 
     # Çıktı token limitine takılıp KESİLDİYSE kullanıcıyı uyar — eksik
     # analizin sessizce "tam" sanılmasını önler.

@@ -302,6 +302,23 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; color: var(--text3);
 }
+/* CLI limit (Claude Code oturum) göstergesi */
+.cli-limit {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-size: 11px; color: var(--text2); padding: 3px 8px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface2); user-select: none;
+  transition: border-color .12s, background .12s;
+}
+.cli-limit:hover { border-color: var(--accent); }
+.cli-limit-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex: none; }
+.cli-limit.ok    .cli-limit-dot { background: var(--green, #16a34a); }
+.cli-limit.dolu  .cli-limit-dot { background: var(--red, #dc2626); }
+.cli-limit.api   .cli-limit-dot { background: var(--accent); }
+.cli-limit.bilinmiyor .cli-limit-dot { background: var(--yellow, #eab308); }
+.cli-limit.dolu { border-color: var(--red, #dc2626); color: var(--red, #dc2626); }
+.cli-limit-ref { width: 11px; height: 11px; opacity: .55; }
+.cli-limit.kontrol .cli-limit-ref { animation: cli-spin 1s linear infinite; opacity: 1; }
+@keyframes cli-spin { to { transform: rotate(360deg); } }
 .user-avatar {
   width: 24px; height: 24px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -1845,6 +1862,13 @@ function temaDegistir() {
       <div class="topbar-meta">
         <span class="status-dot status-idle" id="topbar-dot"></span>
         <span id="topbar-status">Hazır</span>
+      </div>
+      <span class="topbar-sep"></span>
+      <div class="cli-limit" id="cli-limit" onclick="cliLimitKontrol(true)"
+           title="Claude Code CLI oturum limiti — agent bu limite tabidir (Claude Desktop sohbet sayaçlarından ayrıdır). Tıkla: minimal test çağrısıyla kontrol et.">
+        <span class="cli-limit-dot" id="cli-limit-dot"></span>
+        <span id="cli-limit-label">CLI limit</span>
+        <svg class="ico cli-limit-ref"><use href="#i-refresh"/></svg>
       </div>
       <span class="topbar-sep"></span>
       <div class="et-chip">
@@ -7113,6 +7137,60 @@ document.addEventListener('click', e => {
     _thinkingToggleGuncelle(d.extended_thinking || false);
   } catch {}
 })();
+
+// ─── Header: Claude Code CLI limit göstergesi ───────────────────────────────────
+// CLI'ın 5-saatlik oturum limiti Claude Desktop SOHBET sayaçlarından AYRIDIR; agent
+// bu limite tabidir. Yükleme: son bilinen durum (bedava, gerçek analiz çağrılarından).
+// Tıkla: minimal bir test çağrısıyla (probe) tazele (çok az oturum bütçesi harcar).
+function _cliLimitGuncelle(d) {
+  const el = document.getElementById('cli-limit');
+  const lbl = document.getElementById('cli-limit-label');
+  if (!el || !lbl) return;
+  el.classList.remove('ok', 'dolu', 'api', 'bilinmiyor', 'kontrol');
+  let baslik = 'Claude Code CLI oturum limiti — agent bu limite tabidir (Claude Desktop sohbet sayaçlarından ayrıdır). Tıkla: kontrol et.';
+  if (!d || d.mode === 'api') {
+    el.classList.add('api'); lbl.textContent = 'API modu';
+    baslik = 'API modu (ANTHROPIC_API_KEY) — CLI oturum limiti geçerli değil.';
+  } else if (d.available === true) {
+    el.classList.add('ok'); lbl.textContent = 'CLI: uygun';
+  } else if (d.available === false) {
+    el.classList.add('dolu');
+    lbl.textContent = 'CLI limit dolu' + (d.reset ? ' · ' + d.reset : '');
+    baslik = 'Claude Code CLI oturum limiti DOLU' + (d.reset ? ' — sıfırlanma: ' + d.reset : '') +
+      '. Bu, Claude Desktop sohbet sayaçlarından ayrıdır. Kesin durum için terminalde `claude` → /usage. Tıkla: yeniden kontrol et.';
+  } else {
+    el.classList.add('bilinmiyor'); lbl.textContent = 'CLI: kontrol et';
+    baslik = 'CLI limit durumu bilinmiyor — tıklayarak minimal bir test çağrısıyla kontrol edin.';
+  }
+  if (d && d.error) baslik += '  (Hata: ' + d.error + ')';
+  if (d && d.checked_at) {
+    const dk = Math.round((Date.now() / 1000 - d.checked_at) / 60);
+    baslik += '  · son kontrol: ' + (dk <= 0 ? 'az önce' : dk + ' dk önce') +
+      (d.kaynak === 'probe' ? ' (test)' : d.kaynak === 'analiz' ? ' (analiz)' : '');
+  }
+  el.title = baslik;
+}
+async function cliLimitYukle() {
+  try {
+    const r = await fetch('/api/cli-usage');
+    const d = await r.json();
+    if (d && d.ok) _cliLimitGuncelle(d);
+  } catch {}
+}
+async function cliLimitKontrol(probe) {
+  const el = document.getElementById('cli-limit');
+  const lbl = document.getElementById('cli-limit-label');
+  if (probe && el) { el.classList.add('kontrol'); if (lbl) lbl.textContent = 'kontrol ediliyor…'; }
+  try {
+    const r = await fetch('/api/cli-usage' + (probe ? '?probe=1' : ''));
+    const d = await r.json();
+    if (d && d.ok) _cliLimitGuncelle(d);
+    else if (el) { el.classList.remove('kontrol'); _cliLimitGuncelle(null); }
+  } catch {
+    if (el) el.classList.remove('kontrol');
+  }
+}
+cliLimitYukle();   // sayfa yüklenince son bilinen durumu göster (bedava)
 </script>
 </body>
 </html>

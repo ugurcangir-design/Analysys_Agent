@@ -691,6 +691,22 @@ def yeniden_baslat():
     return jsonify({"ok": True, "yeniden_basliyor": True})
 
 
+@app.route("/api/cli-usage", methods=["GET"])
+def cli_usage():
+    """Claude Code CLI limit durumu (header göstergesi). GET → son bilinen durum (bedava,
+    gerçek analiz çağrılarından). ?probe=1 → minimal test çağrısıyla TAZELE (az kota harcar,
+    yalnız kullanıcı 'Kontrol Et'e basınca). CLI'ın 5-saatlik oturum limiti Claude Desktop
+    sohbet sayaçlarından AYRIDIR; agent bu limite tabidir."""
+    probe = request.args.get("probe") == "1"
+    try:
+        from skills.base import cli_durum_oku, cli_durum_probe
+        d = cli_durum_probe() if probe else cli_durum_oku()
+        return jsonify({"ok": True, **d})
+    except Exception as e:
+        logger.error(f"CLI limit durumu hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/update", methods=["POST"])
 def guncelle():
     if _auth_aktif_mi() and not _giris_yapildi_mi():

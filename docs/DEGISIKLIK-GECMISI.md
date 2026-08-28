@@ -364,3 +364,17 @@ seçiyordu (alias listesinde 'fable' de var → premium/pahalı → istenmeyen �
 artık süren isteği gerçekten **abort** ediyor (limit/asılı kalmada "işlem yapılıyor" takılı kalmasın).
 Bekleme metnine "İptal'e basabilirsiniz" ipucu; AbortError ayrı "İşlem iptal edildi" mesajı. Doğrulandı:
 tarayıcıda jgPreviewKapat in-flight isteği abort ediyor, modal temizleniyor; ruff temiz, NUL yok.
+
+## Header'da CLI limit göstergesi ✅
+Claude Code CLI'ın 5-saatlik oturum limiti Claude Desktop SOHBET sayaçlarından AYRIDIR ve agent buna
+tabidir; kullanıcılar bunu karıştırıyordu. Header'a (bir sayfaya değil) canlı bir **CLI limit** göstergesi
+eklendi — her kullanıcı KENDİ hesabının durumunu görür (yerel `claude` auth'u kullanılır).
+- Backend `skills/base.py`: `cli_durum_oku`/`cli_durum_probe`/`_cli_durum_yaz` + `_cli_env_hazirla`
+  (env kurulumu yardımcıya çıkarıldı). Durum, gerçek analiz çağrılarından **bedava** yakalanır (429→dolu+
+  reset, başarı→uygun) ve diske yazılır (`output/cli-usage-state.json`, alt süreç+app paylaşır).
+- `/api/cli-usage` (GET son bilinen durum; `?probe=1` minimal `claude -p` haiku çağrısıyla tazeler — limit
+  doluysa $0). API modunda "API modu" gösterir.
+- Header göstergesi (topbar): yeşil "CLI: uygun" / kırmızı "CLI limit dolu · <reset>" / sarı "kontrol et" /
+  accent "API modu"; tıkla → probe ile tazele; tooltip Desktop-farkını açıklar.
+- Doğrulandı: GET son durumu, probe canlı "limit dolu · 3:50pm" döndürdü (state dosyası yazıldı), header
+  kırmızı gösterdi; ruff temiz, NUL yok.
