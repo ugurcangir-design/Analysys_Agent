@@ -3888,6 +3888,8 @@ function jgListeCiz(containerId, liste, hazirMi) {
   kap.innerHTML = liste.map(g => _jgKartHtml(g, sinif)).join('');
 }
 
+let _jgAbort = null;   // süren analiz isteğini iptal etmek için (limit/asılı kalma durumunda "İşlemi kapat")
+
 async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
   const gorev = _jgGorevler[key];
   if (!gorev) return;
@@ -3896,17 +3898,21 @@ async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
   document.body.style.overflow = 'hidden';
   document.getElementById('jg-preview-title').textContent = baslik + ' — ' + key;
   document.getElementById('jg-preview-sub').textContent = gorev.summary || '';
-  document.getElementById('jg-preview-editor').value = bekleMesaji;
+  document.getElementById('jg-preview-editor').value = bekleMesaji + '\n\n(İşlemi durdurmak için İptal\'e basabilirsiniz.)';
   document.getElementById('jg-preview-sorular').value = '';
   document.getElementById('jg-modal-tab-sorular').style.display = 'none';
   jgModalTab('ana');  // varsayılan: ana çıktı
   document.getElementById('jg-approve-btn').disabled = true;
   _jgMsg('jg-preview-msg', '');
   _jgCurrent = null;
+  // Önceki istek varsa iptal et; yenisi için AbortController kur.
+  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
+  _jgAbort = new AbortController();
+  const _busignal = _jgAbort.signal;
   try {
     const r = await fetch(endpoint, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gorev })
+      body: JSON.stringify({ gorev }), signal: _busignal
     });
     const d = await r.json();
     if (!d.ok) {
@@ -3928,7 +3934,13 @@ async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
     }
   } catch (e) {
     document.getElementById('jg-preview-editor').value = '';
-    _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
+    if (e && e.name === 'AbortError') {
+      _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err');
+    } else {
+      _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
+    }
+  } finally {
+    _jgAbort = null;
   }
 }
 
@@ -3948,6 +3960,8 @@ function jgAnaliz(key) {
 }
 
 function jgPreviewKapat() {
+  // Süren analiz isteği varsa iptal et — "İşlemi kapat" (limit/asılı kalma durumunda takılı kalmasın).
+  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} _jgAbort = null; }
   document.getElementById('jg-preview-card').style.display = 'none';
   document.getElementById('jg-preview-editor').value = '';
   document.getElementById('jg-preview-sorular').value = '';

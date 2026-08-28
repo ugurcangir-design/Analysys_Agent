@@ -27,6 +27,12 @@ load_dotenv()
 
 USE_CLAUDE_CLI = os.getenv("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "yes")
 
+# CLI modunda (`claude -p`) kullanılacak model. Açıkça geçilmezse Claude Code kendi
+# VARSAYILAN modelini seçer (Fable gibi premium/pahalı bir model olabilir → istenmeyen
+# ücretli kullanım). Bu yüzden --model DAİMA açıkça geçilir; .env ile ayarlanabilir.
+# Varsayılan "sonnet" (analiz için dengeli; Fable/Opus premium modellerinden kaçınır).
+CLAUDE_CLI_MODEL = os.getenv("CLAUDE_CLI_MODEL", "sonnet").strip()
+
 if not USE_CLAUDE_CLI:
     try:
         import anthropic
@@ -2797,8 +2803,10 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     _live_args = _live_app_cli_argumanlari(kapsam=canli_uygulama_kapsami)
     if _live_args:
         print(f"  🌐 Canlı uygulama modu: Chrome MCP + {len(LIVE_APP_ALLOWED_TOOLS)} araç izni")
+    # --model DAİMA açıkça geçilir → Claude Code'un varsayılan (ör. Fable) modeli KULLANILMAZ.
+    _model_args = ["--model", CLAUDE_CLI_MODEL] if CLAUDE_CLI_MODEL else []
     proc = subprocess.run(
-        [claude_yolu, "-p", "--output-format", "json", *_live_args],
+        [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args],
         input=tam_prompt,
         capture_output=True,
         text=True,

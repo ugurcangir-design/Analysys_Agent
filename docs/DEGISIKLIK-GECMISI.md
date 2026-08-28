@@ -354,3 +354,13 @@ doğrulandı: `ugurcangir@gmail.com` = Desktop ile AYNI (hesap uyuşmazlığı y
 sebep iddia etmiyor (5 saatlik / haftalık / usage-credit olabilir) ve kesin durum için Claude Code'un
 KENDİ `/status`·`/usage` görünümüne yönlendiriyor; API moduna geçiş (ANTHROPIC_API_KEY + USE_CLAUDE_CLI=
 false) alternatifi korunuyor. ruff temiz.
+
+## CLI modeli Fable olmasın (--model) + Jira analizini iptal edebilme ✅
+**(1) Fable/premium model:** CLI modu (`claude -p`) `--model` geçmiyordu → Claude Code KENDİ varsayılanını
+seçiyordu (alias listesinde 'fable' de var → premium/pahalı → istenmeyen ücretli kullanım). Artık
+`--model` DAİMA açıkça geçiliyor (`CLAUDE_CLI_MODEL`, varsayılan `sonnet`; .env ile değiştirilebilir).
+`--model` bayrağı `claude --help` ile doğrulandı (alias: sonnet|opus|haiku|fable veya tam ad).
+**(2) İşlemi kapatma:** Jira Görevleri teknik analiz modalında istek AbortController ile sarıldı; ✕/İptal
+artık süren isteği gerçekten **abort** ediyor (limit/asılı kalmada "işlem yapılıyor" takılı kalmasın).
+Bekleme metnine "İptal'e basabilirsiniz" ipucu; AbortError ayrı "İşlem iptal edildi" mesajı. Doğrulandı:
+tarayıcıda jgPreviewKapat in-flight isteği abort ediyor, modal temizleniyor; ruff temiz, NUL yok.
