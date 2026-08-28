@@ -335,3 +335,14 @@ artık yalnız hataya GEÇİŞTE gösteriliyor (`_oncekiWfDurum`/`_wfIlkRender` 
 mevcut/eski hata toast'lanmaz (header zaten gösterir), sekme değişimi/yeniden render tekrar atmaz, oturum
 içi gerçek yeni hata bir kez toast. Doğrulandı: topbar "Hazır"; tarayıcı testinde 3 render→0 toast, gerçek
 geçiş→1 toast; ruff temiz, konsol hatasız.
+
+## CLI 429 hata mesajı — "session limit" vs genel kota netleştirmesi ✅
+**Kullanıcı:** Jira Görevleri'nde teknik analizde "You've hit your session limit · resets 3:50pm" alıyor
+ama Claude Desktop'ta hâlâ kotası görünüyor.
+**Durum:** Bu gerçek bir `claude -p` 429'u; uygulama doğru aktarıyor. Karışıklık: "session limit" = Claude
+aboneliğinin **5 SAATLİK oturum penceresi**, Desktop'taki genel/haftalık kotadan AYRIDIR. Ayrıca `claude`
+CLI farklı bir hesaba giriş yapmışsa da bu tablo çıkar.
+**Çözüm:** `_api_cagri_cli` 429 dalındaki mesaj netleştirildi: result'ta "session" geçiyorsa 5 saatlik
+oturum penceresi olduğu ve Desktop kotasından ayrı olduğu açıkça belirtiliyor; her durumda `claude` CLI'ın
+giriş hesabının Desktop'takiyle aynı olduğunu doğrulama (terminalde `claude`→`/login`) yönergesi eklendi.
+Kod/eşleştirme değişmedi — sadece hata mesajı bilgilendirici. ruff temiz.

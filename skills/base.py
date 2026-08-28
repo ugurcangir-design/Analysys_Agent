@@ -2811,10 +2811,23 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
         try:
             v = json.loads(ham_err)
             if v.get("api_error_status") == 429:
-                # "You've hit your limit · resets 1:30pm (Europe/Istanbul)"
+                # "You've hit your session limit · resets 3:50pm (Europe/Istanbul)"
+                ham_limit = (v.get("result") or "limit doldu").strip()
+                # "session limit" = Claude aboneliğinin 5 SAATLİK oturum penceresi; genel/
+                # haftalık kotadan AYRIDIR → Claude Desktop'ta kota görünse de bu pencere
+                # dolmuş olabilir. Kullanıcı bu ayrımı sık karıştırıyor, açıkça belirt.
+                oturum_penceresi = "session" in ham_limit.lower()
+                _aciklama = (
+                    "Bu, Claude aboneliğinin 5 SAATLİK oturum penceresidir — Claude Desktop'ta "
+                    "gördüğünüz genel/haftalık kotadan AYRIDIR; orada kotanız görünse de bu 5 "
+                    "saatlik pencere dolmuş olabilir. " if oturum_penceresi else ""
+                )
                 raise RuntimeError(
-                    f"Claude kullanım limitine ulaşıldı: {v.get('result','limit doldu')}. "
-                    "Reset zamanından sonra tekrar deneyin veya .env'de ANTHROPIC_API_KEY ile API moduna geçin."
+                    f"Claude kullanım limitine ulaşıldı: {ham_limit}. {_aciklama}"
+                    "Belirtilen sıfırlanma saatinden sonra tekrar deneyin; ya da .env'de "
+                    "ANTHROPIC_API_KEY tanımlayıp API moduna geçin. Ayrıca `claude` CLI'ın "
+                    "giriş yaptığı hesabın Claude Desktop'takiyle aynı olduğundan emin olun "
+                    "(terminalde `claude` çalıştırıp `/login`)."
                 )
             mesaj = v.get("result") or v.get("subtype") or "bilinmeyen hata"
             if _cli_oturum_hatasi_mi(v.get("api_error_status"), mesaj):
