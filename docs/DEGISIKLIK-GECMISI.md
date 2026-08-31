@@ -419,3 +419,13 @@ göremeyip "servise özellik eklenmeli" diyordu. Düzeltmeler:
   arama filtresi) çözümün parçası olarak "kaldırılmalı, çünkü…" diye belirt.
 Doğrulandı: mock testte initializer petstore'a işaret etse de aynı-host /v3/api-docs seçildi; prompt yeni
 kurallarla yükleniyor; ruff temiz.
+
+## Görev teknik analizi — başlıklar ekip formatına geri alındı ✅
+Analist: son prompt değişikliğinde başlıklar (Gereksinim/Çözüm) ekibin mevcut task formatından sapmıştı.
+Kullanıcı tercihi: değişiklik ÖNCESİ başlıklar. `gorev_teknik_analiz` bölüm başlıkları geri alındı:
+`## Amaç ve Kapsam` / `## Etkilenen Alanlar` / `## Teknik Değişiklikler` / `## Kabul Kriterleri` (bu
+sırayla, "TAM BU BAŞLIK ADLARIYLA — başlık adını DEĞİŞTİRME" kuralıyla → LLM başlık uydurmaz). Son
+turlardaki çözüm-odaklı kurallar KORUNDU (GÖZLEMİ ÇÖZÜME ÇEVİR, MEVCUT YETENEĞİ 'YENİ İŞ' SANMA,
+sportId endpoint'ini kullan, gereksizleşen sport-name filtresini "Teknik Değişiklikler" altında belirt).
+"Basit task'ta yalnız ilgili bölümler" kuralı da yerinde. Doğrulandı: prompt eski başlıkları + kuralları
+birlikte içeriyor; ruff temiz.
