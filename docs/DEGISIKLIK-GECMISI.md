@@ -429,3 +429,12 @@ turlardaki çözüm-odaklı kurallar KORUNDU (GÖZLEMİ ÇÖZÜME ÇEVİR, MEVCU
 sportId endpoint'ini kullan, gereksizleşen sport-name filtresini "Teknik Değişiklikler" altında belirt).
 "Basit task'ta yalnız ilgili bölümler" kuralı da yerinde. Doğrulandı: prompt eski başlıkları + kuralları
 birlikte içeriyor; ruff temiz.
+
+## Header durum göstergesi — sekmeye göre güncelle (stale JG mesajı sızmıyor) ✅
+Analist: Jira Görevleri'nde "3 görev çekildi" mesajı başka ekranlara geçince güncellenmeyip takılı
+kalıyordu. Kök neden: `switchTab`, JG dışı sekmede yalnız `else if (_lastState)` ile workflow durumunu
+geri yüklüyordu; `_lastState` yoksa (workflow analizi hiç çalışmadıysa) üst bar hiç sıfırlanmıyordu.
+Çözüm: `switchTab` üst barı sekmeye göre günceller — JG → son JG durumu (`_jgSonDurum`); Süreç/BRD →
+workflow durumu; diğer ekranlar → nötr "Hazır" (`_topbarNotr`, `_jgSonDurum`'a dokunmaz → JG'ye dönünce
+geri gelir). Doğrulandı: JG "3 görev çekildi" → Mutabakat/Ayarlar "Hazır" → JG'ye dönüş "3 görev çekildi";
+Süreç (state yok) "Hazır". NUL yok.
