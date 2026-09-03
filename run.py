@@ -10,7 +10,9 @@ Kullanım:
   python run.py yeniden_calistir <hedef_dosya> <duzeltme_notu_dosyasi>
 """
 
+import os
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -19,6 +21,34 @@ sys.path.insert(0, str(BASE_DIR))
 
 import workflow
 from workflow import Durum
+
+
+def _telemetri_emit(mod: str, durum: str, sure_ms: int) -> None:
+    """Analiz olayını telemetriye yazar (fail-safe; analizi asla etkilemez)."""
+    try:
+        from skills import telemetri
+        from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+        ai_modu = "cli" if USE_CLAUDE_CLI else "api"
+        model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
+        baglam: dict = {}
+        proje = os.getenv("JIRA_PROJECT_KEY", "").strip()
+        if proje:
+            baglam["proje"] = proje
+        try:
+            girdi = BASE_DIR / "input"
+            dosyalar = [p.name for p in girdi.iterdir()
+                        if p.is_file() and not p.name.startswith(".")]
+            if dosyalar:
+                baglam["dokuman"] = dosyalar[0]
+        except Exception:
+            pass
+        jira = telemetri.jira_sayac_oku() if mod == "jira_gonder" else None
+        telemetri.olay_yaz(
+            olay=mod, durum=durum, sure_ms=sure_ms,
+            model=model, ai_modu=ai_modu, jira=jira, baglam=baglam or None,
+        )
+    except Exception:
+        pass
 
 
 def _tamamlandi(durum: str, mesaj: str) -> None:
@@ -136,7 +166,24 @@ if __name__ == "__main__":
         calistir_yeniden(sys.argv[2], sys.argv[3])
     elif mod in MODLAR:
         print(f"[MOD] {mod} başlatılıyor...")
-        MODLAR[mod]()
+        if mod == "jira_gonder":
+            try:
+                from skills import telemetri
+                telemetri.jira_sayac_sifirla()
+            except Exception:
+                pass
+        _bas = time.time()
+        try:
+            MODLAR[mod]()
+        except SystemExit as e:
+            _durum = "error" if e.code not in (0, None) else "ok"
+            _telemetri_emit(mod, _durum, int((time.time() - _bas) * 1000))
+            raise
+        except Exception:
+            _telemetri_emit(mod, "error", int((time.time() - _bas) * 1000))
+            raise
+        else:
+            _telemetri_emit(mod, "ok", int((time.time() - _bas) * 1000))
     else:
         print(f"Bilinmeyen mod: {mod}")
         sys.exit(1)

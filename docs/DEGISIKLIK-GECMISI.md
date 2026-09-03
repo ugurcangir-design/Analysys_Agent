@@ -3,6 +3,21 @@
 > Ana referans: [CLAUDE.md](../CLAUDE.md). Tarihsel kayıt — büyük bir faz/özellik
 > tamamlandığında buraya özet ekle.
 
+## Kullanım İzleme (Telemetri) ✅
+- **`skills/telemetri.py`** — analiz olaylarını yalnız metadata olarak loglar (analist, olay tipi,
+  durum, süre, model, AI modu, açılan Jira task adedi, bağlam proje/doküman). Doküman içeriği ASLA.
+  Lokal `logs/usage/events.jsonl` (append-only) + opsiyonel `USAGE_SINK_URL`'e fire-and-forget POST.
+  `istatistik()` = 0-token deterministik özet (analist × tür × zaman, başarı, süre, task).
+- **Transport:** Google Apps Script → özel Sheet, **write-only** (analistler yazar, okuyamaz). Owner
+  `USAGE_SINK_KEY` ile "Uzaktan Çek" (`/api/usage/pull`). Kurulum: `docs/telemetri-apps-script.md`.
+- **Owner-gate:** `USAGE_DASHBOARD=true` — AUTH'tan bağımsız; yalnız owner `.env`'inde. Analist
+  build'lerinde yok → "Kullanım" sekmesi gizli + `/api/usage/*` 403 (`admin_gerekli` AUTH kapalıyken
+  herkesi geçirdiğinden ayrı bayrak zorunlu). `auth/me` → `usage_admin`.
+- **Emit noktaları:** `run.py` (surec/teknik/brd/kapsam/jira_gonder; parent yalnız timeout), app.py
+  in-process (mutabakat, gorev_analiz). Jira sayımı iki oluşturma yolundan da toplanır. Analist
+  kimliği subprocess'e `ANALIST` env ile geçer. Endpoint: `/api/usage/stats|pull|export`; UI:
+  owner-only "Kullanım" sekmesi (özet kartlar + analist tablosu + tür kırılımı + Excel).
+
 ## Faz 1 — Skill ayrıştırma ✅
 `agent.py` → 13 satırlık import bridge; tüm iş mantığı `skills/` altında.
 

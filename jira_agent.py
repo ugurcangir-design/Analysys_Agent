@@ -328,6 +328,11 @@ def jira_task_olustur(summary: str, teknik_analiz: str) -> str | None:
     if r and r.status_code in (200, 201):
         key = r.json()["key"]
         log_yaz(f"Task oluşturuldu: {key} - {summary}")
+        try:
+            from skills.telemetri import jira_task_arttir
+            jira_task_arttir()  # telemetri: açılan task adedi
+        except Exception:
+            pass
         return key
     print(f"HATA: Task oluşturulamadı: {r.status_code if r else 'bağlantı yok'}")
     if r: print(f"  Detay: {r.text[:200]}")

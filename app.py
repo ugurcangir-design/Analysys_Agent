@@ -179,6 +179,41 @@ def _auth_aktif_mi() -> bool:
     return os.getenv("AUTH_ENABLED", "false").lower() in ("1", "true", "yes")
 
 
+def _usage_yetkili_mi() -> bool:
+    """Kullanım (telemetri) dashboard'unu yalnız OWNER görür.
+
+    AUTH'tan BAĞIMSIZ ayrı bayrak: yalnız owner'ın .env'inde USAGE_DASHBOARD=true olur.
+    Analist build'lerinde bu bayrak yoktur → sekme gizli + endpoint 403. Böylece güncelleme
+    aldıklarında ekip bu ekranı GÖREMEZ (admin_gerekli AUTH kapalıyken herkesi geçirirdi)."""
+    return os.getenv("USAGE_DASHBOARD", "false").lower() in ("1", "true", "yes")
+
+
+def usage_gerekli(fn):
+    """Kullanım endpoint'leri için owner-only decorator."""
+    from functools import wraps
+
+    @wraps(fn)
+    def _sarici(*args, **kwargs):
+        if not _usage_yetkili_mi():
+            return jsonify({"error": "Yetkisiz"}), 403
+        return fn(*args, **kwargs)
+
+    return _sarici
+
+
+def _telemetri_olay(olay: str, durum: str, sure_ms: int,
+                    model: str | None = None, ai_modu: str | None = None,
+                    baglam: dict | None = None) -> None:
+    """In-process analizler (görev analiz, mutabakat) için telemetri emit — fail-safe."""
+    try:
+        from skills import telemetri
+        analist = session.get("username") or os.getenv("ANALYST_NAME", "") or None
+        telemetri.olay_yaz(olay=olay, durum=durum, analist=analist, sure_ms=sure_ms,
+                           model=model, ai_modu=ai_modu, baglam=baglam)
+    except Exception:
+        pass
+
+
 @app.before_request
 def auth_kontrol():
     if not _auth_aktif_mi():
@@ -550,6 +585,15 @@ def _surec_calistir(mod: str) -> None:
         if _process and _process.poll() is None:
             return
         cmd = [sys.executable, str(BASE_DIR / "run.py"), mod]
+        # Telemetri: analist kimliğini subprocess'e geçir (session > ANALYST_NAME env).
+        _env = os.environ.copy()
+        _analist = ""
+        try:
+            _analist = session.get("username") or os.getenv("ANALYST_NAME", "")
+            if _analist:
+                _env["ANALIST"] = _analist
+        except Exception:
+            pass
         _process = subprocess.Popen(
             cmd,
             cwd=str(BASE_DIR),
@@ -559,6 +603,7 @@ def _surec_calistir(mod: str) -> None:
             encoding="utf-8",
             errors="replace",
             start_new_session=True,
+            env=_env,
         )
 
     def _bekle():
@@ -587,6 +632,13 @@ def _surec_calistir(mod: str) -> None:
                 pass
             hata_mesaji = f"Zaman aşımı ({_timeout // 60} dakika). Alt süreç sonlandırıldı."
             logger.error(f"[{mod}] {hata_mesaji}")
+            # Telemetri: subprocess öldürüldüğü için run.py emit edemedi — parent yazar.
+            try:
+                from skills import telemetri
+                telemetri.olay_yaz(olay=mod, durum="timeout", analist=_analist or None,
+                                   sure_ms=_timeout * 1000)
+            except Exception:
+                pass
         except Exception as e:
             hata_mesaji = f"Beklenmeyen hata: {e}"
             logger.error(f"[{mod}] {hata_mesaji}", exc_info=True)
@@ -803,14 +855,19 @@ def backlog_mutabakat():
     if isinstance(hedef_keys, str):
         hedef_keys = [k for k in re.split(r"[,\s]+", hedef_keys) if k]
     anahtar_kelime = (data.get("anahtar_kelime") or "").strip()
+    _bas = time.time()
     try:
         from skills.backlog_senkron import mutabakat
         sonuc = mutabakat(uat_proje=uat_proje or None, hedef_projeler=hedef_projeler or None,
                           mod=mod, hedef_keys=hedef_keys, anahtar_kelime=anahtar_kelime)
+        _telemetri_olay("mutabakat", "ok", int((time.time() - _bas) * 1000),
+                        baglam={"proje": uat_proje} if uat_proje else None)
         return jsonify(sonuc)
     except ValueError as e:
+        _telemetri_olay("mutabakat", "error", int((time.time() - _bas) * 1000))
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
+        _telemetri_olay("mutabakat", "error", int((time.time() - _bas) * 1000))
         logger.exception("Backlog mutabakat hatası")
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -1277,7 +1334,63 @@ def auth_logout():
 
 @app.route("/api/auth/me", methods=["GET"])
 def auth_me():
-    return jsonify({"username": session.get("username"), "is_admin": _admin_mi()})
+    return jsonify({"username": session.get("username"), "is_admin": _admin_mi(),
+                    "usage_admin": _usage_yetkili_mi()})
+
+
+@app.route("/api/usage/stats", methods=["GET"])
+@usage_gerekli
+def usage_stats():
+    """Owner-only kullanım özeti (deterministik, 0 token)."""
+    try:
+        gun = int(request.args.get("gun", 90))
+    except Exception:
+        gun = 90
+    from skills import telemetri
+    return jsonify(telemetri.istatistik(gun=gun))
+
+
+@app.route("/api/usage/pull", methods=["POST"])
+@usage_gerekli
+def usage_pull():
+    """Owner-only: uzak sink'ten (Apps Script) ekip olaylarını çeker."""
+    from skills import telemetri
+    ok, mesaj = telemetri.uzaktan_cek()
+    return jsonify({"ok": ok, "mesaj": mesaj})
+
+
+@app.route("/api/usage/export", methods=["GET"])
+@usage_gerekli
+def usage_export():
+    """Owner-only: kullanım özetini .xlsx olarak indirir."""
+    try:
+        gun = int(request.args.get("gun", 90))
+    except Exception:
+        gun = 90
+    from io import BytesIO
+
+    from openpyxl import Workbook
+
+    from skills import telemetri
+    stat = telemetri.istatistik(gun=gun)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Analist Özeti"
+    ws.append(["Analist", "Toplam Analiz", "Başarılı", "Hatalı",
+               "Jira Task", "Ort. Süre (sn)"])
+    for a in stat["analistler"]:
+        ws.append([a["analist"], a["toplam"], a["basarili"], a["hatali"],
+                   a["jira_task"], round(a["ort_sure_ms"] / 1000, 1)])
+    ws2 = wb.create_sheet("Tür Kırılımı")
+    ws2.append(["Olay Tipi", "Adet"])
+    for tip, adet in sorted(stat["tip_toplam"].items(), key=lambda x: -x[1]):
+        ws2.append([tip, adet])
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    ad = f"Kullanim_Ozeti_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return send_file(buf, as_attachment=True, download_name=ad,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 # ─── Kullanıcı Yönetimi ───────────────────────────────────────────────────────
@@ -2493,14 +2606,23 @@ def jira_gorev_analiz():
     hata = _jira_baglanti_eksik()
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
+    _bas = time.time()
+    from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
+    _model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
     try:
         from skills.jira_gorevleri import gorev_analiz_et
         sonuc = gorev_analiz_et(gorev)
+        _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
+                        model=_model, ai_modu=_ai_modu,
+                        baglam={"gorev": gorev.get("key")})
         # Geriye uyumlu: hem markdown (teknik analiz) hem acik_sorular ayrı sekme için
         return jsonify({"ok": True, "key": gorev["key"],
                         "markdown": sonuc.get("markdown", ""),
                         "acik_sorular": sonuc.get("acik_sorular", "")})
     except Exception as e:
+        _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
+                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key")})
         logger.error(f"Görev analiz hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 

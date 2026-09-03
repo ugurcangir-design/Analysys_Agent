@@ -61,6 +61,20 @@ GET  /api/backlog/indir/<dosya>    Üretilen .xlsx raporu indir (binary send_fil
 Not: Excel yükleme (`/api/backlog/upload`) ve senkron (`/api/backlog/senkronize`) KALDIRILDI;
 eski takip-Excel senkron akışının yerini board-to-board mutabakat aldı.
 
+## Kullanım İzleme (Telemetri — owner-only, 0 token; skills/telemetri.py)
+```
+GET  /api/auth/me                  → {username, is_admin, usage_admin}. usage_admin = USAGE_DASHBOARD
+                                     bayrağı (AUTH'tan bağımsız owner-gate).
+GET  /api/usage/stats?gun=90       Owner-only. Analist × tür × zaman özeti (deterministik).
+                                     403 eğer USAGE_DASHBOARD yok. Dönüş: toplam_analiz, toplam_jira_task,
+                                     analistler[], tip_toplam, gunluk.
+POST /api/usage/pull               Owner-only. Uzak sink'ten (Apps Script GET, USAGE_SINK_KEY) ekip
+                                     olaylarını çekip logs/usage/remote.jsonl'e yazar. Dönüş: {ok, mesaj}.
+GET  /api/usage/export?gun=90      Owner-only. Kullanım özetini .xlsx indirir (Analist + Tür sayfaları).
+```
+Not: Olaylar `logs/usage/*.jsonl` (gitignore). Emit `run.py` + in-process endpoint'lerden; kurulum
+`docs/telemetri-apps-script.md`. `USAGE_DASHBOARD` yalnız owner `.env`'inde → ekip göremez.
+
 ## Soru Defteri (skills/sorular.py)
 ```
 GET    /api/sorular[?parse=true]      Soru defteri + istatistik
