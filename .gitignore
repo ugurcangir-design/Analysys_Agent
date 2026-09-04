@@ -65,3 +65,6 @@ reference/sources.json
 
 # Backlog Senkron runtime (yüklenen/üretilen Excel'ler)
 backlog/
+
+# Makineye özel analist kimliği (telemetri)
+analist.json

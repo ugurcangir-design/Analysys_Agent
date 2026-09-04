@@ -2989,6 +2989,21 @@ function temaDegistir() {
 
       <div class="settings-form">
 
+        <!-- Analist Kimliği -->
+        <div class="settings-section">
+          <div class="section-title">Analist Adı Soyadı</div>
+          <div class="section-desc">Kullanım kayıtlarında bu ad ile görünürsünüz. Bir kez ayarlamanız yeterli.</div>
+          <div class="form-group">
+            <label>Ad Soyad</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="analist-input" placeholder="örn: Emin Yılmaz" autocomplete="off" style="flex:1"
+                onkeydown="if(event.key==='Enter') analistKaydet()">
+              <button class="btn btn-primary btn-sm" onclick="analistKaydet()">Kaydet</button>
+            </div>
+            <div id="analist-durum" style="font-size:11px;color:var(--text3);margin-top:6px"></div>
+          </div>
+        </div>
+
         <!-- Claude CLI -->
         <div class="settings-section">
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
@@ -3297,7 +3312,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'kullanim')      kullanimYukle();
   if (tab === 'history')       loadHistory();
   if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
-  if (tab === 'settings')      settingsYukle();
+  if (tab === 'settings')      { settingsYukle(); analistYukle(); }
   if (tab === 'jira-settings') jiraConfigYukle();
   if (tab === 'prompts')       promptlariYukle();
   if (tab === 'update')        versiyonYukle();
@@ -3331,10 +3346,10 @@ async function kullanimYukle() {
     const td = 'padding:8px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';
     let satirlar = (d.analistler || []).map(a => {
       const tipler = Object.entries(a.tipler || {}).map(([t, n]) => `${_KU_TIP_ETIKET[t] || t}: ${n}`).join(' · ');
-      return `<tr><td style="${td};font-weight:600">${a.analist}</td><td style="${td}">${a.toplam}</td><td style="${td};color:var(--ok,#15803d)">${a.basarili}</td><td style="${td};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${td}">${a.jira_task}</td><td style="${td}">${(a.ort_sure_ms/1000).toFixed(1)} sn</td><td style="${td};color:var(--text3);font-size:12px">${tipler}</td></tr>`;
+      return `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${td}">${a.toplam}</td><td style="${td};color:var(--ok,#15803d)">${a.basarili}</td><td style="${td};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${td}">${a.jira_task}</td><td style="${td}">${(a.ort_sure_ms/1000).toFixed(1)} sn</td><td style="${td};color:var(--text3);font-size:12px">${tipler}</td></tr>`;
     }).join('');
-    if (!satirlar) satirlar = `<tr><td colspan="7" style="${td};color:var(--text3)">Kayıt yok. (Bu makinede analiz yapıldıkça / "Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
-    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:640px"><thead><tr><th style="${th}">Analist</th><th style="${th}">Toplam</th><th style="${th}">Başarılı</th><th style="${th}">Hatalı</th><th style="${th}">Jira Task</th><th style="${th}">Ort. Süre</th><th style="${th}">Tür Kırılımı</th></tr></thead><tbody>${satirlar}</tbody></table>`;
+    if (!satirlar) satirlar = `<tr><td colspan="8" style="${td};color:var(--text3)">Kayıt yok. (Bu makinede analiz yapıldıkça / "Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
+    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:680px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${th}">Toplam</th><th style="${th}">Başarılı</th><th style="${th}">Hatalı</th><th style="${th}">Jira Task</th><th style="${th}">Ort. Süre</th><th style="${th}">Tür Kırılımı</th></tr></thead><tbody>${satirlar}</tbody></table>`;
     const tipEl = document.getElementById('ku-tip');
     const tipler = Object.entries(d.tip_toplam || {}).sort((a, b) => b[1] - a[1]);
     tipEl.innerHTML = tipler.length
@@ -3364,6 +3379,30 @@ async function kullanimUzaktanCek() {
     if (me && me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
   } catch (e) {}
 })();
+
+// ─── Analist Kimliği (Ayarlar) ─────────────────────────────────────────────────
+async function analistYukle() {
+  try {
+    const d = await (await fetch('/api/analist')).json();
+    const el = document.getElementById('analist-input');
+    if (el) el.value = d.ad_soyad || '';
+  } catch (e) {}
+}
+async function analistKaydet() {
+  const el = document.getElementById('analist-input');
+  const durum = document.getElementById('analist-durum');
+  const ad = (el ? el.value : '').trim();
+  if (!ad) { if (durum) durum.textContent = 'Ad soyad boş olamaz.'; return; }
+  try {
+    const r = await fetch('/api/analist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_soyad: ad }),
+    });
+    const d = await r.json();
+    if (durum) durum.textContent = d.ok ? ('Kaydedildi: ' + d.ad_soyad) : ('Hata: ' + (d.error || ''));
+    if (d.ok && typeof toast === 'function') toast('ok', 'Kaydedildi', 'Analist: ' + d.ad_soyad);
+  } catch (e) { if (durum) durum.textContent = 'Kaydedilemedi.'; }
+}
 
 // ─── Jira Görevleri ───────────────────────────────────────────────────────────
 let _jgGorevler = {};            // key → görev nesnesi (formatla/analiz için)

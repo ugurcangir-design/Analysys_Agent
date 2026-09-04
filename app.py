@@ -207,7 +207,7 @@ def _telemetri_olay(olay: str, durum: str, sure_ms: int,
     """In-process analizler (görev analiz, mutabakat) için telemetri emit — fail-safe."""
     try:
         from skills import telemetri
-        analist = session.get("username") or os.getenv("ANALYST_NAME", "") or None
+        analist = session.get("username") or None  # None → telemetri analist.json/env'e düşer
         telemetri.olay_yaz(olay=olay, durum=durum, analist=analist, sure_ms=sure_ms,
                            model=model, ai_modu=ai_modu, baglam=baglam)
     except Exception:
@@ -589,7 +589,9 @@ def _surec_calistir(mod: str) -> None:
         _env = os.environ.copy()
         _analist = ""
         try:
-            _analist = session.get("username") or os.getenv("ANALYST_NAME", "")
+            # Yalnız login username'i env'e geç; yoksa subprocess telemetri kendi
+            # fallback'ine düşer (analist.json UI adı > ANALYST_NAME > OS) — UI adı otoriter.
+            _analist = session.get("username") or ""
             if _analist:
                 _env["ANALIST"] = _analist
         except Exception:
@@ -1338,6 +1340,25 @@ def auth_me():
                     "usage_admin": _usage_yetkili_mi()})
 
 
+@app.route("/api/analist", methods=["GET"])
+def analist_getir():
+    """Bu makinedeki analist ad-soyad (UI için). Owner-gate YOK — herkes kendi adını ayarlar."""
+    from skills import telemetri
+    return jsonify({"ad_soyad": telemetri.analist_oku()})
+
+
+@app.route("/api/analist", methods=["POST"])
+def analist_kaydet():
+    """Analist kendi ad-soyadını kaydeder (.env düzenlemeden). Telemetri atfı buna göre yapılır."""
+    data = request.get_json(silent=True) or {}
+    ad_soyad = (data.get("ad_soyad") or "").strip()
+    if not ad_soyad:
+        return jsonify({"ok": False, "error": "Ad soyad boş olamaz"}), 400
+    from skills import telemetri
+    telemetri.analist_yaz(ad_soyad)
+    return jsonify({"ok": True, "ad_soyad": ad_soyad})
+
+
 @app.route("/api/usage/stats", methods=["GET"])
 @usage_gerekli
 def usage_stats():
@@ -1376,10 +1397,10 @@ def usage_export():
     wb = Workbook()
     ws = wb.active
     ws.title = "Analist Özeti"
-    ws.append(["Analist", "Toplam Analiz", "Başarılı", "Hatalı",
+    ws.append(["ID", "Analist", "Toplam Analiz", "Başarılı", "Hatalı",
                "Jira Task", "Ort. Süre (sn)"])
     for a in stat["analistler"]:
-        ws.append([a["analist"], a["toplam"], a["basarili"], a["hatali"],
+        ws.append([a.get("id"), a["analist"], a["toplam"], a["basarili"], a["hatali"],
                    a["jira_task"], round(a["ort_sure_ms"] / 1000, 1)])
     ws2 = wb.create_sheet("Tür Kırılımı")
     ws2.append(["Olay Tipi", "Adet"])

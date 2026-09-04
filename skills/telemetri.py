@@ -26,6 +26,33 @@ BASE_DIR = Path(__file__).parent.parent
 USAGE_DIR = BASE_DIR / "logs" / "usage"
 EVENTS_DOSYA = USAGE_DIR / "events.jsonl"          # bu makinenin kendi olayları
 UZAK_DOSYA = USAGE_DIR / "remote.jsonl"            # owner: sink'ten çekilen ekip verisi
+ANALIST_DOSYA = BASE_DIR / "analist.json"          # UI'dan girilen ad-soyad (gitignore)
+
+# Toplayıcı (Apps Script) varsayılan URL — analist makineleri hiçbir şey ayarlamasın diye
+# gömülü. Yalnız-YAZMA endpoint'i (okuma OKUMA_ANAHTARI ister). USAGE_SINK_URL env geçersizler.
+VARSAYILAN_SINK_URL = "https://script.google.com/macros/s/AKfycbzxMWtRqoTmgWFyc9_LrsNS-ZOK4HvT5BxjB_x8nLL29D77NBklAcImtyNNdyN_xIiF/exec"
+
+
+def _sink_url() -> str:
+    return os.getenv("USAGE_SINK_URL", "").strip() or VARSAYILAN_SINK_URL
+
+
+def analist_oku() -> str:
+    """UI'dan kaydedilen analist ad-soyad. Yoksa ''."""
+    try:
+        d = json.loads(ANALIST_DOSYA.read_text(encoding="utf-8"))
+        return str(d.get("ad_soyad", "")).strip()
+    except Exception:
+        return ""
+
+
+def analist_yaz(ad_soyad: str) -> None:
+    try:
+        ANALIST_DOSYA.write_text(
+            json.dumps({"ad_soyad": (ad_soyad or "").strip()}, ensure_ascii=False),
+            encoding="utf-8")
+    except Exception:
+        pass
 
 # Geçerli olay tipleri (dashboard kırılımı bunlara göre)
 OLAY_TIPLERI = (
@@ -56,8 +83,10 @@ def jira_sayac_oku() -> dict:
 
 
 def _analist_belirle(acik: str | None = None) -> str:
-    """Analist kimliği önceliği: açıkça verilen > ANALIST env > ANALYST_NAME env > OS kullanıcısı."""
-    for aday in (acik, os.getenv("ANALIST"), os.getenv("ANALYST_NAME")):
+    """Analist kimliği önceliği:
+    açıkça verilen (login username) > ANALIST env > analist.json (UI ad-soyad)
+    > ANALYST_NAME env > OS kullanıcısı."""
+    for aday in (acik, os.getenv("ANALIST"), analist_oku(), os.getenv("ANALYST_NAME")):
         if aday and str(aday).strip():
             return str(aday).strip()
     try:
@@ -79,7 +108,7 @@ def _app_versiyon() -> str:
 
 def _sink_gonder(olay: dict) -> None:
     """Uzak toplayıcıya (Apps Script vb.) fire-and-forget POST. Hata yutulur."""
-    url = os.getenv("USAGE_SINK_URL", "").strip()
+    url = _sink_url()
     if not url:
         return
 
@@ -198,12 +227,18 @@ def istatistik(gun: int = 90) -> dict:
     for an in analistler.values():
         an["ort_sure_ms"] = round(an["sure_ms_toplam"] / an["toplam"]) if an["toplam"] else 0
 
+    # İsim bazında SABİT sıralama + id (Emin=1, Denizhan=2 gibi; aynı kadro → aynı id).
+    # Türkçe harfler için casefold ile deterministik sıralama.
+    sirali = sorted(analistler.values(), key=lambda x: str(x["analist"]).casefold())
+    for i, an in enumerate(sirali, start=1):
+        an["id"] = i
+
     return {
         "gun": gun,
         "toplam_analiz": len(filtreli),
         "toplam_jira_task": toplam_task,
         "analist_sayisi": len(analistler),
-        "analistler": sorted(analistler.values(), key=lambda x: -x["toplam"]),
+        "analistler": sirali,
         "tip_toplam": tip_toplam,
         "gunluk": dict(sorted(gunluk.items())),
     }
@@ -214,7 +249,7 @@ def uzaktan_cek() -> tuple[bool, str]:
 
     USAGE_SINK_URL + USAGE_SINK_KEY gerektirir. Apps Script ?read=<key> ile JSON dizi döndürür.
     """
-    url = os.getenv("USAGE_SINK_URL", "").strip()
+    url = _sink_url()
     key = os.getenv("USAGE_SINK_KEY", "").strip()
     if not url:
         return False, "USAGE_SINK_URL tanımlı değil."

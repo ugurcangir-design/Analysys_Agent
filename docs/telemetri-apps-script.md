@@ -76,13 +76,17 @@ function doGet(e) {
 4. "Erişimi olan": **Herkes** (analistlerin POST edebilmesi için — okuma yine anahtarla korunur).
 5. **Dağıt** → çıkan **Web App URL**'ini kopyala.
 
-## 4. Analist makinelerine (herkese)
-Her analistin `.env`'ine ekle:
-```
-USAGE_SINK_URL=<Web App URL>
-ANALYST_NAME=<analistin adı>     # AUTH kapalıysa atıf için
-```
+## 4. Analist makinelerine (herkese) — `.env` GEREKMEZ
+Toplayıcı URL kodda gömülü (`skills/telemetri.py → VARSAYILAN_SINK_URL`), o yüzden analist
+hiçbir `.env` ayarı yapmaz. Her analistin tek işi:
+1. **Güncelle** (Güncelleme sekmesi → yeni telemetri kodunu çeker + restart).
+2. **Ayarlar → "Analist Adı Soyadı"** alanına adını yazıp **Kaydet** (bir kez). Bu ad
+   `analist.json`'a yazılır ve kullanım kayıtlarında atıf için kullanılır.
+> Not: Ekip panele **kendi kullanıcı adıyla login** oluyorsa (AUTH açık) isim otomatik alınır,
+> Ayarlar'a bile girmelerine gerek kalmaz.
 > `USAGE_DASHBOARD` ve `USAGE_SINK_KEY` analist makinelerine **EKLENMEZ** — onlar yalnız yazar, görmez.
+> (Gömülü URL yalnız-yazma; okuma `USAGE_SINK_KEY` ister. URL'yi değiştirmek istersen analist
+> `.env`'inde `USAGE_SINK_URL=...` ile override edebilir.)
 
 ## 5. Owner makinesine (yalnız sen)
 `.env`'ine ekle:
