@@ -18,7 +18,6 @@ import os
 import socket
 import threading
 import time
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -114,12 +113,8 @@ def _sink_gonder(olay: dict) -> None:
 
     def _gonder():
         try:
-            veri = json.dumps(olay, ensure_ascii=False).encode("utf-8")
-            istek = urllib.request.Request(
-                url, data=veri, method="POST",
-                headers={"Content-Type": "application/json"},
-            )
-            urllib.request.urlopen(istek, timeout=5).read()
+            import requests  # certifi CA paketi → macOS SSL doğrulaması sorunsuz
+            requests.post(url, json=olay, timeout=5)
         except Exception:
             pass  # transport başarısız → lokal JSONL yedek zaten var
 
@@ -254,10 +249,9 @@ def uzaktan_cek() -> tuple[bool, str]:
     if not url:
         return False, "USAGE_SINK_URL tanımlı değil."
     try:
-        tam = url + ("&" if "?" in url else "?") + "read=" + urllib.parse.quote(key)
-        with urllib.request.urlopen(tam, timeout=15) as r:
-            ham = r.read().decode("utf-8")
-        veri = json.loads(ham)
+        import requests
+        r = requests.get(url, params={"read": key}, timeout=15)
+        veri = r.json()
         if not isinstance(veri, list):
             return False, "Beklenmeyen yanıt (liste değil)."
         USAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -267,7 +261,3 @@ def uzaktan_cek() -> tuple[bool, str]:
         return True, f"{len(veri)} olay çekildi."
     except Exception as e:
         return False, f"Çekme başarısız: {e}"
-
-
-# urllib.parse geç import (uzaktan_cek dışında gerekmez)
-import urllib.parse  # noqa: E402
