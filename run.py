@@ -42,7 +42,10 @@ def _telemetri_emit(mod: str, durum: str, sure_ms: int) -> None:
                 baglam["dokuman"] = dosyalar[0]
         except Exception:
             pass
-        jira = telemetri.jira_sayac_oku() if mod == "jira_gonder" else None
+        jira = None
+        if mod == "jira_gonder":
+            jira = telemetri.jira_sayac_oku()   # {toplam, keyler}
+            jira["islem"] = "acildi"
         telemetri.olay_yaz(
             olay=mod, durum=durum, sure_ms=sure_ms,
             model=model, ai_modu=ai_modu, jira=jira, baglam=baglam or None,

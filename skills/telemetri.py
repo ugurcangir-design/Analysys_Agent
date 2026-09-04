@@ -64,6 +64,7 @@ OLAY_TIPLERI = (
 # yolu hem jira_tasks hiyerarşi yolu buraya artırır; run.py okur). Aynı subprocess içinde
 # TEK modül örneği (herkes `skills.telemetri` olarak import etmeli).
 _JIRA_SAYAC = {"toplam": 0}
+_JIRA_KEYLER: list[str] = []
 
 
 def jira_task_arttir(n: int = 1) -> None:
@@ -73,12 +74,21 @@ def jira_task_arttir(n: int = 1) -> None:
         pass
 
 
+def jira_key_ekle(key: str) -> None:
+    try:
+        if key:
+            _JIRA_KEYLER.append(str(key))
+    except Exception:
+        pass
+
+
 def jira_sayac_sifirla() -> None:
     _JIRA_SAYAC["toplam"] = 0
+    _JIRA_KEYLER.clear()
 
 
 def jira_sayac_oku() -> dict:
-    return dict(_JIRA_SAYAC)
+    return {"toplam": _JIRA_SAYAC["toplam"], "keyler": list(_JIRA_KEYLER)}
 
 
 def _analist_belirle(acik: str | None = None) -> str:
@@ -177,23 +187,57 @@ def olaylari_oku() -> list[dict]:
     return olaylar
 
 
-def istatistik(gun: int = 90) -> dict:
-    """Deterministik, 0-token özet: analist × olay tipi, başarı, süre, Jira task, zaman serisi."""
-    olaylar = olaylari_oku()
-    kesim = time.time() - gun * 86400
-    filtreli = []
-    for e in olaylar:
+def _donem_key(ts_str: str, donem: str) -> str:
+    """Bir olayın tarihini dönem kovasına çevirir: gün=YYYY-MM-DD, hafta=YYYY-Hnn, ay=YYYY-MM."""
+    if donem == "ay":
+        return ts_str[:7]
+    if donem == "hafta":
         try:
-            ts = datetime.fromisoformat(str(e.get("ts", ""))).timestamp()
-            if ts >= kesim:
-                filtreli.append(e)
+            y, w, _ = datetime.fromisoformat(ts_str[:10]).isocalendar()
+            return f"{y}-H{w:02d}"
         except Exception:
-            filtreli.append(e)  # ts parse edilemezse dahil et
+            return ts_str[:10]
+    return ts_str[:10]
+
+
+def _olaylari_filtrele(gun: int, analist: str | None = None) -> list[dict]:
+    """gün aralığına (+opsiyonel analiste) göre olayları döndürür."""
+    kesim = time.time() - gun * 86400
+    out = []
+    for e in olaylari_oku():
+        ts_str = str(e.get("ts", ""))
+        try:
+            if datetime.fromisoformat(ts_str[:19]).timestamp() < kesim:
+                continue
+        except Exception:
+            pass  # ts parse edilemezse dahil et
+        if analist and (e.get("analist") or "") != analist:
+            continue
+        out.append(e)
+    return out
+
+
+def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) -> dict:
+    """Deterministik, 0-token özet. donem: gun|hafta|ay (trend kovası). analist: tek kişi filtresi."""
+    if donem not in ("gun", "hafta", "ay"):
+        donem = "gun"
+    aralik = _olaylari_filtrele(gun)                      # dropdown + genel için (analist filtresi YOK)
+    tum_analistler = sorted({(e.get("analist") or "bilinmeyen") for e in aralik},
+                            key=lambda x: str(x).casefold())
+    filtreli = [e for e in aralik if not analist or (e.get("analist") or "") == analist]
+
+    now = datetime.now()
+    bugun = now.strftime("%Y-%m-%d")
+    y, w, _ = now.isocalendar()
+    bu_hafta = f"{y}-H{w:02d}"
+    bu_ay = now.strftime("%Y-%m")
 
     analistler: dict[str, dict] = {}
     tip_toplam: dict[str, int] = {}
-    gunluk: dict[str, int] = {}
+    trend: dict[str, int] = {}
+    ozet = {"bugun": 0, "bu_hafta": 0, "bu_ay": 0}
     toplam_task = 0
+    son_tasklar: list[dict] = []
 
     for e in filtreli:
         a = e.get("analist") or "bilinmeyen"
@@ -215,27 +259,45 @@ def istatistik(gun: int = 90) -> dict:
 
         tip_toplam[olay] = tip_toplam.get(olay, 0) + 1
         toplam_task += task_adedi
-        gun_k = str(e.get("ts", ""))[:10]
-        if gun_k:
-            gunluk[gun_k] = gunluk.get(gun_k, 0) + 1
+        ts_str = str(e.get("ts", ""))
+        if isinstance(jira, dict) and jira.get("keyler"):
+            son_tasklar.append({
+                "ts": ts_str, "analist": a,
+                "keyler": jira.get("keyler", []),
+                "islem": jira.get("islem", ""),
+            })
+        trend[_donem_key(ts_str, donem)] = trend.get(_donem_key(ts_str, donem), 0) + 1
+        if ts_str[:10] == bugun:
+            ozet["bugun"] += 1
+        if _donem_key(ts_str, "hafta") == bu_hafta:
+            ozet["bu_hafta"] += 1
+        if ts_str[:7] == bu_ay:
+            ozet["bu_ay"] += 1
 
     for an in analistler.values():
         an["ort_sure_ms"] = round(an["sure_ms_toplam"] / an["toplam"]) if an["toplam"] else 0
 
     # İsim bazında SABİT sıralama + id (Emin=1, Denizhan=2 gibi; aynı kadro → aynı id).
-    # Türkçe harfler için casefold ile deterministik sıralama.
     sirali = sorted(analistler.values(), key=lambda x: str(x["analist"]).casefold())
     for i, an in enumerate(sirali, start=1):
         an["id"] = i
 
+    limit = {"gun": 14, "hafta": 12, "ay": 12}.get(donem, 14)
+    trend_list = [{"etiket": k, "adet": v} for k, v in sorted(trend.items())[-limit:]]
+
     return {
         "gun": gun,
+        "donem": donem,
+        "analist": analist,
         "toplam_analiz": len(filtreli),
         "toplam_jira_task": toplam_task,
         "analist_sayisi": len(analistler),
+        "ozet": ozet,
         "analistler": sirali,
+        "tum_analistler": list(tum_analistler),
         "tip_toplam": tip_toplam,
-        "gunluk": dict(sorted(gunluk.items())),
+        "trend": trend_list,
+        "son_tasklar": sorted(son_tasklar, key=lambda x: x["ts"], reverse=True)[:15],
     }
 
 

@@ -329,8 +329,9 @@ def jira_task_olustur(summary: str, teknik_analiz: str) -> str | None:
         key = r.json()["key"]
         log_yaz(f"Task oluşturuldu: {key} - {summary}")
         try:
-            from skills.telemetri import jira_task_arttir
-            jira_task_arttir()  # telemetri: açılan task adedi
+            from skills.telemetri import jira_key_ekle, jira_task_arttir
+            jira_task_arttir()      # telemetri: açılan task adedi
+            jira_key_ekle(key)      # telemetri: açılan task key'i
         except Exception:
             pass
         return key

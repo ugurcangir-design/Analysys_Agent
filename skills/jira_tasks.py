@@ -109,8 +109,9 @@ def _issue_olustur(
 
     data = atlassian_post("/rest/api/3/issue", body={"fields": fields}, cloud_id=cloud_id)
     try:
-        from .telemetri import jira_task_arttir
-        jira_task_arttir()  # telemetri: bu run'da açılan task adedi
+        from .telemetri import jira_key_ekle, jira_task_arttir
+        jira_task_arttir()          # telemetri: açılan task adedi
+        jira_key_ekle(data["key"])  # telemetri: açılan task key'i
     except Exception:
         pass
     return data["key"]

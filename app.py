@@ -203,13 +203,13 @@ def usage_gerekli(fn):
 
 def _telemetri_olay(olay: str, durum: str, sure_ms: int,
                     model: str | None = None, ai_modu: str | None = None,
-                    baglam: dict | None = None) -> None:
-    """In-process analizler (görev analiz, mutabakat) için telemetri emit — fail-safe."""
+                    baglam: dict | None = None, jira: dict | None = None) -> None:
+    """In-process analizler (görev analiz, mutabakat, görev güncelle) için emit — fail-safe."""
     try:
         from skills import telemetri
         analist = session.get("username") or None  # None → telemetri analist.json/env'e düşer
         telemetri.olay_yaz(olay=olay, durum=durum, analist=analist, sure_ms=sure_ms,
-                           model=model, ai_modu=ai_modu, baglam=baglam)
+                           model=model, ai_modu=ai_modu, baglam=baglam, jira=jira)
     except Exception:
         pass
 
@@ -1362,13 +1362,15 @@ def analist_kaydet():
 @app.route("/api/usage/stats", methods=["GET"])
 @usage_gerekli
 def usage_stats():
-    """Owner-only kullanım özeti (deterministik, 0 token)."""
+    """Owner-only kullanım özeti (deterministik, 0 token). donem: gun|hafta|ay, analist: tek kişi."""
     try:
         gun = int(request.args.get("gun", 90))
     except Exception:
         gun = 90
+    donem = request.args.get("donem", "gun")
+    analist = (request.args.get("analist") or "").strip() or None
     from skills import telemetri
-    return jsonify(telemetri.istatistik(gun=gun))
+    return jsonify(telemetri.istatistik(gun=gun, donem=donem, analist=analist))
 
 
 @app.route("/api/usage/pull", methods=["POST"])
@@ -1406,6 +1408,21 @@ def usage_export():
     ws2.append(["Olay Tipi", "Adet"])
     for tip, adet in sorted(stat["tip_toplam"].items(), key=lambda x: -x[1]):
         ws2.append([tip, adet])
+
+    # Detay / Olaylar — her olay tek satır (task key + açıldı/güncellendi dahil)
+    ws3 = wb.create_sheet("Detay")
+    ws3.append(["Tarih-Saat", "Analist", "İşlem", "Doküman/Proje", "Durum",
+                "Süre (sn)", "Jira Key", "Task İşlemi"])
+    olaylar = telemetri._olaylari_filtrele(gun)
+    for e in sorted(olaylar, key=lambda x: str(x.get("ts", "")), reverse=True):
+        jira = e.get("jira") or {}
+        keyler = ", ".join(jira.get("keyler", []) or []) if isinstance(jira, dict) else ""
+        task_islem = jira.get("islem", "") if isinstance(jira, dict) else ""
+        baglam = e.get("baglam") or {}
+        dok = baglam.get("dokuman") or baglam.get("gorev") or baglam.get("proje") or ""
+        ws3.append([str(e.get("ts", "")).replace("T", " ")[:19], e.get("analist", ""),
+                    e.get("olay", ""), dok, e.get("durum", ""),
+                    round((e.get("sure_ms") or 0) / 1000, 1), keyler, task_islem])
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -2661,13 +2678,21 @@ def jira_gorev_guncelle():
     hata = _jira_baglanti_eksik()
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
+    _bas = time.time()
     try:
         from skills.jira_gorevleri import gorev_jiraya_yaz
         gorev_jiraya_yaz(key, markdown, summary=summary)
+        _telemetri_olay("gorev_guncelle", "ok", int((time.time() - _bas) * 1000),
+                        baglam={"gorev": key.upper()},
+                        jira={"toplam": 0, "keyler": [key.upper()], "islem": "guncellendi"})
         return jsonify({"ok": True, "key": key.upper()})
     except ValueError as e:
+        _telemetri_olay("gorev_guncelle", "error", int((time.time() - _bas) * 1000),
+                        baglam={"gorev": key.upper()})
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
+        _telemetri_olay("gorev_guncelle", "error", int((time.time() - _bas) * 1000),
+                        baglam={"gorev": key.upper()})
         logger.error(f"Görev Jira güncelleme hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 

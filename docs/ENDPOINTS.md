@@ -65,12 +65,18 @@ eski takip-Excel senkron akışının yerini board-to-board mutabakat aldı.
 ```
 GET  /api/auth/me                  → {username, is_admin, usage_admin}. usage_admin = USAGE_DASHBOARD
                                      bayrağı (AUTH'tan bağımsız owner-gate).
-GET  /api/usage/stats?gun=90       Owner-only. Analist × tür × zaman özeti (deterministik).
-                                     403 eğer USAGE_DASHBOARD yok. Dönüş: toplam_analiz, toplam_jira_task,
-                                     analistler[], tip_toplam, gunluk.
+GET  /api/analist                  Bu makinedeki analist ad-soyad (analist.json). Owner-gate YOK.
+POST /api/analist                  {ad_soyad} → analist.json'a yazar (UI'dan kimlik; .env gerekmez).
+GET  /api/usage/stats?gun=90&donem=gun|hafta|ay&analist=<ad>
+                                     Owner-only. Dönem bazlı (gün/hafta/ay trend) + analist filtresi.
+                                     403 eğer USAGE_DASHBOARD yok. Dönüş: ozet{bugun,bu_hafta,bu_ay},
+                                     analistler[] (isim sıralı sabit id), tum_analistler, tip_toplam,
+                                     trend[], son_tasklar[] (açılan/güncellenen jira key'leri).
 POST /api/usage/pull               Owner-only. Uzak sink'ten (Apps Script GET, USAGE_SINK_KEY) ekip
                                      olaylarını çekip logs/usage/remote.jsonl'e yazar. Dönüş: {ok, mesaj}.
-GET  /api/usage/export?gun=90      Owner-only. Kullanım özetini .xlsx indirir (Analist + Tür sayfaları).
+GET  /api/usage/export?gun=90      Owner-only. .xlsx: Analist Özeti + Tür Kırılımı + **Detay** sayfaları
+                                     (Detay = her olay tek satır: tarih-saat, analist, işlem, doküman/proje,
+                                     durum, süre, jira key, açıldı/güncellendi).
 ```
 Not: Olaylar `logs/usage/*.jsonl` (gitignore). Emit `run.py` + in-process endpoint'lerden; kurulum
 `docs/telemetri-apps-script.md`. `USAGE_DASHBOARD` yalnız owner `.env`'inde → ekip göremez.
