@@ -165,12 +165,22 @@ def olay_yaz(
 
 
 def olaylari_oku() -> list[dict]:
-    """logs/usage altındaki tüm .jsonl dosyalarını (lokal + uzak) okuyup birleştirir. Owner dashboard için."""
+    """Owner dashboard veri kaynağı.
+
+    ÇİFT SAYIM ÖNLEME: owner'ın kendi olayları hem lokal `events.jsonl`'de hem de
+    Sheet'e POST edildiği için `remote.jsonl`'de (Uzaktan Çek sonrası) bulunur. Bu yüzden
+    `remote.jsonl` VARSA yalnız o kullanılır (Sheet = tüm ekip, owner dahil, TEK doğruluk
+    kaynağı; hepsi aynı UTC saat biçiminde → tutarlı). Yoksa (henüz çekilmemiş) lokal
+    `events.jsonl` kullanılır. Owner en güncel veriyi 'Uzaktan Çek' ile tazeler."""
     olaylar: list[dict] = []
     try:
-        if not USAGE_DIR.exists():
+        if UZAK_DOSYA.exists():
+            dosyalar = [UZAK_DOSYA]
+        elif EVENTS_DOSYA.exists():
+            dosyalar = [EVENTS_DOSYA]
+        else:
             return olaylar
-        for yol in sorted(USAGE_DIR.glob("*.jsonl")):
+        for yol in dosyalar:
             try:
                 for satir in yol.read_text(encoding="utf-8").splitlines():
                     satir = satir.strip()

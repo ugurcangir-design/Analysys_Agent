@@ -68,3 +68,6 @@ backlog/
 
 # Makineye özel analist kimliği (telemetri)
 analist.json
+
+# App-üretimi RAG cache
+reference/_filtered_cache/
