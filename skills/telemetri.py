@@ -313,6 +313,39 @@ def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) ->
     }
 
 
+def donem_detay(baslangic: str, bitis: str) -> dict:
+    """[baslangic, bitis] (YYYY-MM-DD, iki uç dahil) aralığındaki olaylar için drill-down verisi:
+    analist × işlem-tipi matrisi + gün-gün dağılım (hafta/ay bloğuna tıklayınca alt-kırılım)."""
+    b, s = (baslangic or "")[:10], (bitis or "")[:10]
+    filt = [e for e in olaylari_oku() if b <= str(e.get("ts", ""))[:10] <= s]
+
+    analistler: dict[str, dict] = {}
+    tip_toplam: dict[str, int] = {}
+    gunluk: dict[str, int] = {}
+    for e in filt:
+        a = e.get("analist") or "bilinmeyen"
+        olay = e.get("olay") or "diger"
+        an = analistler.setdefault(a, {"analist": a, "toplam": 0, "tipler": {}})
+        an["toplam"] += 1
+        an["tipler"][olay] = an["tipler"].get(olay, 0) + 1
+        tip_toplam[olay] = tip_toplam.get(olay, 0) + 1
+        g = str(e.get("ts", ""))[:10]
+        if g:
+            gunluk[g] = gunluk.get(g, 0) + 1
+
+    sirali = sorted(analistler.values(), key=lambda x: str(x["analist"]).casefold())
+    for i, an in enumerate(sirali, start=1):
+        an["id"] = i
+
+    return {
+        "baslangic": b, "bitis": s,
+        "toplam": len(filt),
+        "analistler": sirali,
+        "tip_toplam": tip_toplam,
+        "gunluk": [{"etiket": k, "adet": v} for k, v in sorted(gunluk.items())],
+    }
+
+
 def uzaktan_cek() -> tuple[bool, str]:
     """Owner: uzak sink'ten (Apps Script GET) ekip olaylarını çekip remote.jsonl'e yazar.
 

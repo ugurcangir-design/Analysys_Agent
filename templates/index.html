@@ -2695,8 +2695,9 @@ function temaDegistir() {
             </div>
           </div>
           <div id="ku-ozet" class="ku-ozet-wrap" style="margin-bottom:20px"></div>
-          <div class="panel-section-label">Zaman Trendi · <span id="ku-donem-etiket">günlük</span> işlem sayısı</div>
+          <div class="panel-section-label">Zaman Trendi · <span id="ku-donem-etiket">günlük</span> işlem sayısı <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">— bir çubuğa tıklayıp detaya inin</span></div>
           <div id="ku-trend" style="margin-bottom:6px"></div>
+          <div id="ku-drill"></div>
           <div class="panel-section-label" style="margin-top:18px">Analist Özeti</div>
           <div id="ku-analist" style="overflow-x:auto"></div>
           <div class="panel-section-label" style="margin-top:18px">Kim Hangi İşi Kaç Kez? · Analist × İşlem Tipi</div>
@@ -3393,6 +3394,65 @@ function _kuTrendEtiket(e, donem) {
   if (donem === 'hafta') { return (e.split('-')[1] || e).replace('H', 'Hf '); }   // 2026-H36 → Hf 36
   const p = e.split('-'); return (p[2] || '') + ' ' + (_KU_AYLAR[+p[1] - 1] || '');  // 2026-09-04 → 04 Eyl
 }
+const _KU_TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'mockup', 'gorev_analiz', 'gorev_guncelle', 'jira_gonder', 'mutabakat'];
+// ── Drill-down: trend çubuğuna tıklayınca o dönemin detayı ──────────────────────
+function _kuPad(n) { return String(n).padStart(2, '0'); }
+function _kuFmtISO(dt) { return dt.getUTCFullYear() + '-' + _kuPad(dt.getUTCMonth() + 1) + '-' + _kuPad(dt.getUTCDate()); }
+function _kuIsoWeekMonday(y, w) {
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const jan4dow = (jan4.getUTCDay() + 6) % 7;            // 0=Pzt..6=Paz
+  const mon = new Date(jan4); mon.setUTCDate(jan4.getUTCDate() - jan4dow + (w - 1) * 7);
+  return mon;
+}
+function _kuAralik(etiket, donem) {
+  if (donem === 'gun') return [etiket, etiket];
+  if (donem === 'hafta') { const [ys, ws] = etiket.split('-H'); const mon = _kuIsoWeekMonday(+ys, +ws); const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6); return [_kuFmtISO(mon), _kuFmtISO(sun)]; }
+  const [ym, mm] = etiket.split('-'); const last = new Date(Date.UTC(+ym, +mm, 0)).getUTCDate(); return [`${ym}-${mm}-01`, `${ym}-${mm}-${_kuPad(last)}`];
+}
+function _kuDonemBaslik(etiket, donem) {
+  if (donem === 'gun') { const p = etiket.split('-'); return _kuTrendEtiket(etiket, 'gun') + ' ' + p[0]; }
+  if (donem === 'hafta') { const [b, s] = _kuAralik(etiket, 'hafta'); return _kuTrendEtiket(etiket, 'hafta') + ' (' + _kuTrendEtiket(b, 'gun') + '–' + _kuTrendEtiket(s, 'gun') + ')'; }
+  return _kuTrendEtiket(etiket, 'ay');
+}
+async function kuDrill(etiket, donem) {
+  const [b, s] = _kuAralik(etiket, donem);
+  const el = document.getElementById('ku-drill');
+  el.innerHTML = '<div style="padding:12px 0;font-size:12px;color:var(--text3)">Yükleniyor…</div>';
+  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  try {
+    const d = await (await fetch(`/api/usage/donem-detay?baslangic=${b}&bitis=${s}`)).json();
+    const th = 'padding:7px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap';
+    const thc = th + ';text-align:center';
+    const td = 'padding:7px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';
+    const tdc = td + ';text-align:center;font-variant-numeric:tabular-nums';
+    const bugunKey = new Date().toISOString().slice(0, 10);
+    // Alt günlük dağılım (hafta/ay için) — günlere de tıklanır
+    let sub = '';
+    if (donem !== 'gun' && (d.gunluk || []).length) {
+      const gs = d.gunluk; const gm = Math.max(1, ...gs.map(x => x.adet));
+      sub = `<div class="ku-grup-lbl" style="margin:12px 0 8px">Günlük Dağılım — güne tıklayıp o günü görün</div><div class="ku-chart" style="height:120px">${gs.map(x => { const h = Math.round(x.adet / gm * 85); const bg = x.etiket === bugunKey; return `<div class="ku-col${bg ? ' bugun' : ''}" onclick="kuDrill('${x.etiket}','gun')" style="cursor:pointer" title="${_kuTrendEtiket(x.etiket, 'gun')}: ${x.adet}"><div class="ku-col-ba"><span class="cv">${x.adet}</span><span class="cb" style="height:${h}%"></span></div><span class="cl">${_kuTrendEtiket(x.etiket, 'gun')}</span></div>`; }).join('')}</div>`;
+    }
+    // Analist × tür matrisi (o dönem, yalnız veri olan tipler)
+    const aktif = _KU_TIP_SIRA.filter(t => (d.tip_toplam || {})[t]);
+    let matris;
+    if (!(d.analistler || []).length) {
+      matris = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Bu dönemde kayıt yok.</div>';
+    } else {
+      const bas = `<th style="${th}">Analist</th>` + aktif.map(t => `<th style="${thc}">${_KU_TIP_ETIKET[t] || t}</th>`).join('') + `<th style="${thc}">Toplam</th>`;
+      const gov = d.analistler.map(a => `<tr><td style="${td};font-weight:600">${a.analist}</td>${aktif.map(t => { const n = (a.tipler || {})[t] || 0; return `<td style="${tdc};color:${n ? 'var(--text)' : 'var(--text3)'}">${n || '·'}</td>`; }).join('')}<td style="${tdc};font-weight:600">${a.toplam}</td></tr>`).join('');
+      matris = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:480px"><thead><tr>${bas}</tr></thead><tbody>${gov}</tbody></table></div>`;
+    }
+    el.innerHTML = `<div style="margin-top:14px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border-strong);border-radius:var(--radius)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px">
+        <div style="font-weight:600;font-size:14px">${_kuDonemBaslik(etiket, donem)} · Detay <span style="color:var(--text3);font-weight:400;font-size:12px">· ${d.toplam} işlem</span></div>
+        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('ku-drill').innerHTML=''">Kapat ✕</button>
+      </div>
+      ${sub}
+      <div class="ku-grup-lbl" style="margin:12px 0 8px">Kim Hangi İşi Yaptı?</div>
+      ${matris}
+    </div>`;
+  } catch (e) { el.innerHTML = '<div style="padding:12px 0;font-size:12px;color:var(--text3)">Detay yüklenemedi.</div>'; }
+}
 function kuDonemSec(d) {
   _kuDonem = d;
   document.querySelectorAll('.ku-donem-btn').forEach(b => b.classList.toggle('aktif', b.dataset.donem === d));
@@ -3417,16 +3477,16 @@ async function kullanimYukle() {
     document.getElementById('ku-ozet').innerHTML =
       `<div class="ku-grup"><div class="ku-grup-lbl">Aktivite (kümülatif)</div><div class="ku-cards">${kart(oz.bugun || 0, 'Bugün', true)}${kart(oz.bu_hafta || 0, 'Bu Hafta', true)}${kart(oz.bu_ay || 0, 'Bu Ay', true)}</div></div>` +
       `<div class="ku-grup"><div class="ku-grup-lbl">Seçili Aralık Toplamı</div><div class="ku-cards">${kart(d.toplam_analiz, 'Toplam İşlem')}${kart(d.toplam_jira_task, 'Açılan Task')}${kart(d.analist_sayisi, 'Analist')}</div></div>`;
-    // Zaman trendi — dikey bar chart, okunur tarih etiketleri
+    // Zaman trendi — dikey bar chart, okunur tarih etiketleri, TIKLANABİLİR (drill-down)
     const trend = d.trend || []; const maxv = Math.max(1, ...trend.map(t => t.adet));
     const bugunKey = new Date().toISOString().slice(0, 10);
+    document.getElementById('ku-drill').innerHTML = '';   // dönem/analist değişince drill'i sıfırla
     document.getElementById('ku-trend').innerHTML = trend.length
-      ? `<div class="ku-chart">${trend.map(t => { const h = Math.round(t.adet / maxv * 85); const bug = (_kuDonem === 'gun' && t.etiket === bugunKey); return `<div class="ku-col${bug ? ' bugun' : ''}" title="${_kuTrendEtiket(t.etiket, _kuDonem)}: ${t.adet} işlem"><div class="ku-col-ba"><span class="cv">${t.adet}</span><span class="cb" style="height:${h}%"></span></div><span class="cl">${_kuTrendEtiket(t.etiket, _kuDonem)}</span></div>`; }).join('')}</div>`
+      ? `<div class="ku-chart">${trend.map(t => { const h = Math.round(t.adet / maxv * 85); const bug = (_kuDonem === 'gun' && t.etiket === bugunKey); return `<div class="ku-col${bug ? ' bugun' : ''}" onclick="kuDrill('${t.etiket}','${_kuDonem}')" style="cursor:pointer" title="${_kuTrendEtiket(t.etiket, _kuDonem)}: ${t.adet} işlem — detay için tıkla"><div class="ku-col-ba"><span class="cv">${t.adet}</span><span class="cb" style="height:${h}%"></span></div><span class="cl">${_kuTrendEtiket(t.etiket, _kuDonem)}</span></div>`; }).join('')}</div>`
       : '<div style="font-size:12px;color:var(--text3);padding:16px 0">Bu dönemde veri yok.</div>';
     // Süre biçimlendirme (sn/dk/sa)
     const sureFmt = (ms) => { const s = Math.round((ms || 0) / 1000); if (s < 60) return s + ' sn'; const dk = Math.floor(s / 60), sn = s % 60; if (dk < 60) return dk + ' dk' + (sn ? (' ' + sn + ' sn') : ''); return Math.floor(dk / 60) + ' sa ' + (dk % 60) + ' dk'; };
-    const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'mockup', 'gorev_analiz', 'gorev_guncelle', 'jira_gonder', 'mutabakat'];
-    const aktifTipler = TIP_SIRA;   // Tüm iş tiplerini SABİT sütun göster (0 olsa bile) — ölçüm tam
+    const aktifTipler = _KU_TIP_SIRA;   // Tüm iş tiplerini SABİT sütun göster (0 olsa bile) — ölçüm tam
     const th = 'padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap';
     const thc = th + ';text-align:center';
     const td = 'padding:8px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';

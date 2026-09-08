@@ -72,6 +72,10 @@ GET  /api/usage/stats?gun=90&donem=gun|hafta|ay&analist=<ad>
                                      403 eğer USAGE_DASHBOARD yok. Dönüş: ozet{bugun,bu_hafta,bu_ay},
                                      analistler[] (isim sıralı sabit id), tum_analistler, tip_toplam,
                                      trend[], son_tasklar[] (açılan/güncellenen jira key'leri).
+GET  /api/usage/donem-detay?baslangic=YYYY-MM-DD&bitis=YYYY-MM-DD
+                                     Owner-only drill-down: verilen tarih aralığı için analist×tür
+                                     matrisi + günlük dağılım. Trend'de hafta/ay bloğuna tıklayınca
+                                     günler, güne tıklayınca "o gün kim hangi işi yaptı" gösterir.
 POST /api/usage/pull               Owner-only. Uzak sink'ten (Apps Script GET, USAGE_SINK_KEY) ekip
                                      olaylarını çekip logs/usage/remote.jsonl'e yazar. Dönüş: {ok, mesaj}.
 GET  /api/usage/export?gun=90      Owner-only. .xlsx: Analist Özeti + Tür Kırılımı + **Detay** sayfaları

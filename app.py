@@ -1382,6 +1382,18 @@ def usage_stats():
     return jsonify(telemetri.istatistik(gun=gun, donem=donem, analist=analist))
 
 
+@app.route("/api/usage/donem-detay", methods=["GET"])
+@usage_gerekli
+def usage_donem_detay():
+    """Owner-only drill-down: [baslangic, bitis] aralığı için analist×tür + günlük dağılım."""
+    baslangic = (request.args.get("baslangic") or "").strip()
+    bitis = (request.args.get("bitis") or "").strip()
+    if not baslangic or not bitis:
+        return jsonify({"error": "baslangic ve bitis gerekli"}), 400
+    from skills import telemetri
+    return jsonify(telemetri.donem_detay(baslangic, bitis))
+
+
 @app.route("/api/usage/pull", methods=["POST"])
 @usage_gerekli
 def usage_pull():
