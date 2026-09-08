@@ -2630,15 +2630,31 @@ function temaDegistir() {
     </div>
 
     <style>
-      .ku-donem-btn{background:var(--surface);border:none;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer;font-family:inherit;border-right:1px solid var(--border)}
+      .ku-donem-btn{background:var(--surface);border:none;padding:6px 15px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;border-right:1px solid var(--border);transition:background .15s}
       .ku-donem-btn:last-child{border-right:none}
-      .ku-donem-btn.aktif{background:var(--accent,#5b5ef4);color:#fff}
+      .ku-donem-btn.aktif{background:var(--accent);color:#04201c}
       .ku-donem-btn:hover:not(.aktif){background:var(--surface2)}
-      .ku-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:5px}
-      .ku-bar-lbl{font-size:11px;color:var(--text3);width:90px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
-      .ku-bar-track{flex:1;background:var(--surface2);border-radius:3px;height:16px;overflow:hidden}
-      .ku-bar-fill{height:100%;background:var(--accent,#5b5ef4);border-radius:3px}
-      .ku-bar-val{font-size:11px;color:var(--text2);width:32px;font-variant-numeric:tabular-nums}
+      /* İstatistik kart grupları */
+      .ku-ozet-wrap{display:flex;gap:0;flex-wrap:wrap;align-items:stretch}
+      .ku-grup{display:flex;flex-direction:column}
+      .ku-grup + .ku-grup{margin-left:18px;padding-left:18px;border-left:1px solid var(--border)}
+      .ku-grup-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);font-weight:600;margin-bottom:8px}
+      .ku-cards{display:flex;gap:10px;flex-wrap:wrap}
+      .ku-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;min-width:92px;display:flex;flex-direction:column;gap:4px}
+      .ku-card .n{font-size:25px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.015em;color:var(--text)}
+      .ku-card .k{font-size:11px;color:var(--text3);font-weight:500}
+      .ku-card.vurgu{border-color:var(--accent-soft);background:linear-gradient(180deg,var(--accent-soft),var(--surface2))}
+      .ku-card.vurgu .n{color:var(--accent)}
+      /* Dikey bar chart */
+      .ku-chart{display:flex;align-items:stretch;gap:5px;height:168px;padding-top:2px;overflow-x:auto}
+      .ku-col{display:flex;flex-direction:column;min-width:34px;flex:1}
+      .ku-col-ba{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;min-height:0}
+      .ku-col .cv{font-size:11px;font-weight:600;color:var(--text2);font-variant-numeric:tabular-nums}
+      .ku-col .cb{width:62%;max-width:30px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:4px 4px 0 0;min-height:3px}
+      .ku-col .cl{font-size:10px;color:var(--text3);text-align:center;white-space:nowrap;padding-top:7px;margin-top:5px;border-top:1px solid var(--border)}
+      .ku-col:hover .cb{filter:brightness(1.18)}
+      .ku-col.bugun .cb{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
+      .spin-sm{display:inline-block;width:12px;height:12px;border:2px solid rgba(45,212,191,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:-1px}
     </style>
     <div class="page" id="page-kullanim">
       <div class="panel">
@@ -2646,7 +2662,8 @@ function temaDegistir() {
           <div class="panel-title">Kullanım İzleme</div>
           <span class="panel-tag">yalnız owner</span>
           <div class="panel-spacer"></div>
-          <button class="btn btn-outline btn-sm" onclick="kullanimUzaktanCek()" title="Uzak sink'ten (Apps Script) ekip verisini çek">Uzaktan Çek</button>
+          <span id="ku-son-guncelleme" style="font-size:11px;color:var(--text3);margin-right:6px"></span>
+          <button class="btn btn-outline btn-sm" id="ku-cek-btn" onclick="kullanimUzaktanCek()" title="Ekip verisini Google Sheet'ten çeker (owner)">Uzaktan Çek</button>
           <button class="btn btn-outline btn-sm" onclick="kullanimExcel()">Excel Rapor</button>
           <button class="btn btn-ghost btn-sm" onclick="kullanimYukle()">Yenile</button>
         </div>
@@ -2677,8 +2694,8 @@ function temaDegistir() {
               </select>
             </div>
           </div>
-          <div id="ku-ozet" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px"></div>
-          <div class="panel-section-label">Zaman Trendi (<span id="ku-donem-etiket">günlük</span>)</div>
+          <div id="ku-ozet" class="ku-ozet-wrap" style="margin-bottom:20px"></div>
+          <div class="panel-section-label">Zaman Trendi · <span id="ku-donem-etiket">günlük</span> işlem sayısı</div>
           <div id="ku-trend" style="margin-bottom:6px"></div>
           <div class="panel-section-label" style="margin-top:18px">Analist Özeti</div>
           <div id="ku-analist" style="overflow-x:auto"></div>
@@ -3370,6 +3387,12 @@ function kilavuzYukle() {
 // ─── Kullanım İzleme (owner-only) ───────────────────────────────────────────────
 const _KU_TIP_ETIKET = {surec_analizi:'Süreç Analizi',teknik_analiz:'Teknik Analiz',brd_analizi:'BRD Analizi',kapsam_analizi:'Kapsam Analizi',gorev_analiz:'Görev Analizi',gorev_guncelle:'Görev Güncelleme',jira_gonder:'Task Açma',mutabakat:'UAT Mutabakat'};
 let _kuDonem = 'gun';
+const _KU_AYLAR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+function _kuTrendEtiket(e, donem) {
+  if (donem === 'ay') { const p = e.split('-'); return (_KU_AYLAR[+p[1] - 1] || p[1]) + ' ' + p[0]; }
+  if (donem === 'hafta') { return (e.split('-')[1] || e).replace('H', 'Hf '); }   // 2026-H36 → Hf 36
+  const p = e.split('-'); return (p[2] || '') + ' ' + (_KU_AYLAR[+p[1] - 1] || '');  // 2026-09-04 → 04 Eyl
+}
 function kuDonemSec(d) {
   _kuDonem = d;
   document.querySelectorAll('.ku-donem-btn').forEach(b => b.classList.toggle('aktif', b.dataset.donem === d));
@@ -3388,17 +3411,18 @@ async function kullanimYukle() {
     // Analist dropdown (seçimi koru)
     const sec = document.getElementById('ku-analist-sec');
     if (sec) { const m = sec.value; sec.innerHTML = '<option value="">Tümü</option>' + (d.tum_analistler || []).map(a => `<option value="${a}">${a}</option>`).join(''); sec.value = m; }
-    // Özet kartlar: Bugün / Bu Hafta / Bu Ay + aralık toplamları
-    const kart = (v, k, vurgu) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;min-width:104px"><div style="font-size:24px;font-weight:700;color:${vurgu ? 'var(--accent,#5b5ef4)' : 'var(--text)'}">${v}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${k}</div></div>`;
+    // Özet: iki anlamlı grup — Aktivite (kümülatif zaman pencereleri) + Seçili Aralık toplamları
     const oz = d.ozet || {};
+    const kart = (v, k, vurgu) => `<div class="ku-card${vurgu ? ' vurgu' : ''}"><div class="n">${v}</div><div class="k">${k}</div></div>`;
     document.getElementById('ku-ozet').innerHTML =
-      kart(oz.bugun || 0, 'Bugün', true) + kart(oz.bu_hafta || 0, 'Bu Hafta', true) + kart(oz.bu_ay || 0, 'Bu Ay', true) +
-      kart(d.toplam_analiz, 'Aralık Toplam') + kart(d.toplam_jira_task, 'Açılan Task') + kart(d.analist_sayisi, 'Analist');
-    // Zaman trendi (bar)
+      `<div class="ku-grup"><div class="ku-grup-lbl">Aktivite (kümülatif)</div><div class="ku-cards">${kart(oz.bugun || 0, 'Bugün', true)}${kart(oz.bu_hafta || 0, 'Bu Hafta', true)}${kart(oz.bu_ay || 0, 'Bu Ay', true)}</div></div>` +
+      `<div class="ku-grup"><div class="ku-grup-lbl">Seçili Aralık Toplamı</div><div class="ku-cards">${kart(d.toplam_analiz, 'Toplam İşlem')}${kart(d.toplam_jira_task, 'Açılan Task')}${kart(d.analist_sayisi, 'Analist')}</div></div>`;
+    // Zaman trendi — dikey bar chart, okunur tarih etiketleri
     const trend = d.trend || []; const maxv = Math.max(1, ...trend.map(t => t.adet));
+    const bugunKey = new Date().toISOString().slice(0, 10);
     document.getElementById('ku-trend').innerHTML = trend.length
-      ? trend.map(t => `<div class="ku-bar-row"><span class="ku-bar-lbl">${t.etiket}</span><span class="ku-bar-track"><span class="ku-bar-fill" style="width:${Math.round(t.adet / maxv * 100)}%"></span></span><span class="ku-bar-val">${t.adet}</span></div>`).join('')
-      : '<div style="font-size:12px;color:var(--text3)">—</div>';
+      ? `<div class="ku-chart">${trend.map(t => { const h = Math.round(t.adet / maxv * 85); const bug = (_kuDonem === 'gun' && t.etiket === bugunKey); return `<div class="ku-col${bug ? ' bugun' : ''}" title="${_kuTrendEtiket(t.etiket, _kuDonem)}: ${t.adet} işlem"><div class="ku-col-ba"><span class="cv">${t.adet}</span><span class="cb" style="height:${h}%"></span></div><span class="cl">${_kuTrendEtiket(t.etiket, _kuDonem)}</span></div>`; }).join('')}</div>`
+      : '<div style="font-size:12px;color:var(--text3);padding:16px 0">Bu dönemde veri yok.</div>';
     // Süre biçimlendirme (sn/dk/sa)
     const sureFmt = (ms) => { const s = Math.round((ms || 0) / 1000); if (s < 60) return s + ' sn'; const dk = Math.floor(s / 60), sn = s % 60; if (dk < 60) return dk + ' dk' + (sn ? (' ' + sn + ' sn') : ''); return Math.floor(dk / 60) + ' sa ' + (dk % 60) + ' dk'; };
     const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'gorev_analiz', 'gorev_guncelle', 'jira_gonder', 'mutabakat'];
@@ -3457,6 +3481,8 @@ async function kullanimYukle() {
       '<b>Task Açma</b> = Jira\'ya yeni issue oluşturma · ' +
       '<b>UAT Mutabakat</b> = board karşılaştırma.</div>' +
       '<div><b>Metrikler:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir.</div>';
+    const sg = document.getElementById('ku-son-guncelleme');
+    if (sg) sg.textContent = 'Son güncelleme ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
     if (analistEl) analistEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:10px 0">Yüklenemedi.</div>';
   }
@@ -3466,13 +3492,20 @@ function kullanimExcel() {
   window.location = '/api/usage/export?gun=' + gun;
 }
 async function kullanimUzaktanCek() {
+  const btn = document.getElementById('ku-cek-btn');
+  const eski = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin-sm"></span> Çekiliyor…'; }
   try {
     const r = await fetch('/api/usage/pull', { method: 'POST' });
     const d = await r.json();
-    if (typeof toast === 'function') toast(d.ok ? 'ok' : 'warn', d.ok ? 'Çekildi' : 'Uyarı', d.mesaj || '');
+    if (typeof toast === 'function') toast(d.ok ? 'ok' : 'warn', d.ok ? 'Ekip verisi çekildi' : 'Uyarı', d.mesaj || '');
     else alert(d.mesaj || '');
-    kullanimYukle();
-  } catch (e) { alert('Uzaktan çekme başarısız.'); }
+    await kullanimYukle();
+  } catch (e) {
+    if (typeof toast === 'function') toast('warn', 'Hata', 'Uzaktan çekme başarısız.'); else alert('Uzaktan çekme başarısız.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = eski || 'Uzaktan Çek'; }
+  }
 }
 // Owner ise "Kullanım" sekmesini göster (aksi halde gizli kalır — ekip göremez).
 (async () => {
