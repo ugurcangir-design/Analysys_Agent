@@ -16,7 +16,6 @@ import getpass
 import json
 import os
 import socket
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -55,8 +54,8 @@ def analist_yaz(ad_soyad: str) -> None:
 
 # Geçerli olay tipleri (dashboard kırılımı bunlara göre)
 OLAY_TIPLERI = (
-    "surec_analizi", "teknik_analiz", "brd_analizi",
-    "kapsam_analizi", "gorev_analiz", "mutabakat", "jira_gonder",
+    "surec_analizi", "teknik_analiz", "brd_analizi", "kapsam_analizi",
+    "mockup", "gorev_analiz", "gorev_guncelle", "mutabakat", "jira_gonder",
 )
 
 
@@ -116,19 +115,21 @@ def _app_versiyon() -> str:
 
 
 def _sink_gonder(olay: dict) -> None:
-    """Uzak toplayıcıya (Apps Script vb.) fire-and-forget POST. Hata yutulur."""
+    """Uzak toplayıcıya (Apps Script) SENKRON POST. Hata yutulur.
+
+    Neden senkron: `olay_yaz` işlemin EN SONUNDA çağrılır (analizi bloklayacak bir şey yok),
+    bu yüzden birkaç saniye beklemek sorun değil. Fire-and-forget daemon thread, `run.py`
+    gibi KISA ÖMÜRLÜ subprocess'te süreç çıkışından önce öldürülüp POST kayboluyordu →
+    süreç/teknik/BRD/kapsam olayları Sheet'e HİÇ ulaşmıyordu (in-process Flask'ta çalışıyordu).
+    Senkron POST bu yarışı bitirir; başarısızsa lokal JSONL yedek zaten var."""
     url = _sink_url()
     if not url:
         return
-
-    def _gonder():
-        try:
-            import requests  # certifi CA paketi → macOS SSL doğrulaması sorunsuz
-            requests.post(url, json=olay, timeout=5)
-        except Exception:
-            pass  # transport başarısız → lokal JSONL yedek zaten var
-
-    threading.Thread(target=_gonder, daemon=True).start()
+    try:
+        import requests  # certifi CA paketi → macOS SSL doğrulaması sorunsuz
+        requests.post(url, json=olay, timeout=8)
+    except Exception:
+        pass
 
 
 def olay_yaz(

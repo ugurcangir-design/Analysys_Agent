@@ -1409,10 +1409,11 @@ def usage_export():
     ws = wb.active
     ws.title = "Analist Özeti"
     TIP_SIRA = ["surec_analizi", "teknik_analiz", "brd_analizi", "kapsam_analizi",
-                "gorev_analiz", "gorev_guncelle", "jira_gonder", "mutabakat"]
+                "mockup", "gorev_analiz", "gorev_guncelle", "jira_gonder", "mutabakat"]
     TIP_ETIKET = {"surec_analizi": "Süreç Analizi", "teknik_analiz": "Teknik Analiz",
                   "brd_analizi": "BRD Analizi", "kapsam_analizi": "Kapsam Analizi",
-                  "gorev_analiz": "Görev Analizi", "gorev_guncelle": "Görev Güncelleme",
+                  "mockup": "Prototip", "gorev_analiz": "Görev Analizi",
+                  "gorev_guncelle": "Görev Güncelleme",
                   "jira_gonder": "Task Açma", "mutabakat": "UAT Mutabakat"}
     ws.append(["ID", "Analist", "Toplam İşlem", "Başarılı", "Hatalı",
                "Açılan Task", "Toplam Süre (sn)"])
@@ -2841,11 +2842,19 @@ def mockup_generate():
     surec_dosya = OUTPUT_DIR / "surec-analizi.md"
     if not surec_dosya.exists():
         return jsonify({"ok": False, "error": "surec-analizi.md bulunamadı. Önce süreç analizi yapın."}), 400
+    _bas = time.time()
+    from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    _ai = "cli" if USE_CLAUDE_CLI else "api"
+    _model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
     try:
         from skills.html_mockup import html_mockup_uret
         yol = html_mockup_uret()
+        _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000),
+                        model=_model, ai_modu=_ai)
         return jsonify({"ok": True, "dosya": yol.name, "boyut": yol.stat().st_size})
     except Exception as e:
+        _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000),
+                        model=_model, ai_modu=_ai)
         logger.error(f"Mockup üretim hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 

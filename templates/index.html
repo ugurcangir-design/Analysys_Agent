@@ -3385,7 +3385,7 @@ function kilavuzYukle() {
 }
 
 // ─── Kullanım İzleme (owner-only) ───────────────────────────────────────────────
-const _KU_TIP_ETIKET = {surec_analizi:'Süreç Analizi',teknik_analiz:'Teknik Analiz',brd_analizi:'BRD Analizi',kapsam_analizi:'Kapsam Analizi',gorev_analiz:'Görev Analizi',gorev_guncelle:'Görev Güncelleme',jira_gonder:'Task Açma',mutabakat:'UAT Mutabakat'};
+const _KU_TIP_ETIKET = {surec_analizi:'Süreç Analizi',teknik_analiz:'Teknik Analiz',brd_analizi:'BRD Analizi',kapsam_analizi:'Kapsam Analizi',mockup:'Prototip',gorev_analiz:'Görev Analizi',gorev_guncelle:'Görev Güncelleme',jira_gonder:'Task Açma',mutabakat:'UAT Mutabakat'};
 let _kuDonem = 'gun';
 const _KU_AYLAR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 function _kuTrendEtiket(e, donem) {
@@ -3425,7 +3425,7 @@ async function kullanimYukle() {
       : '<div style="font-size:12px;color:var(--text3);padding:16px 0">Bu dönemde veri yok.</div>';
     // Süre biçimlendirme (sn/dk/sa)
     const sureFmt = (ms) => { const s = Math.round((ms || 0) / 1000); if (s < 60) return s + ' sn'; const dk = Math.floor(s / 60), sn = s % 60; if (dk < 60) return dk + ' dk' + (sn ? (' ' + sn + ' sn') : ''); return Math.floor(dk / 60) + ' sa ' + (dk % 60) + ' dk'; };
-    const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'gorev_analiz', 'gorev_guncelle', 'jira_gonder', 'mutabakat'];
+    const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'mockup', 'gorev_analiz', 'gorev_guncelle', 'jira_gonder', 'mutabakat'];
     const aktifTipler = TIP_SIRA;   // Tüm iş tiplerini SABİT sütun göster (0 olsa bile) — ölçüm tam
     const th = 'padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap';
     const thc = th + ';text-align:center';
