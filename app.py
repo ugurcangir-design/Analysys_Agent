@@ -961,18 +961,27 @@ def run_teknik():
     # Çözüm: yüklenen .md/.txt, mevcut surec-analizi.md'den DAHA YENİ ise onu kullan
     # (kullanıcı yeni analiz yükledi). Aksi halde (AI'ın ürettiği surec-analizi.md daha
     # yeni) üretilmiş analiz korunur — böylece hem yeni yükleme hem AI çıktısı doğru işlenir.
+    # Desteklenen süreç analizi dokümanları: .md/.txt doğrudan; .docx/.pdf metne çıkarılır.
+    _TEKNIK_DESTEK = (".md", ".txt", ".docx", ".pdf")
     input_dosyalar = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
-    md_dosya = next((f for f in input_dosyalar if f.suffix.lower() in (".md", ".txt")), None)
-    yeni_yukleme = bool(md_dosya) and (
-        not surec_cikti.exists() or md_dosya.stat().st_mtime > surec_cikti.stat().st_mtime
+    adaylar = [f for f in input_dosyalar if f.suffix.lower() in _TEKNIK_DESTEK]
+    kaynak = max(adaylar, key=lambda f: f.stat().st_mtime) if adaylar else None
+    yeni_yukleme = bool(kaynak) and (
+        not surec_cikti.exists() or kaynak.stat().st_mtime > surec_cikti.stat().st_mtime
     )
     if yeni_yukleme:
-        shutil.copy2(md_dosya, surec_cikti)
-        logger.info(f"Yeni yüklenen doküman süreç analizi olarak kullanılıyor: {md_dosya.name}")
+        if kaynak.suffix.lower() in (".docx", ".pdf"):
+            from skills.base import dosya_oku
+            metin = dosya_oku(kaynak)
+            surec_cikti.write_text(metin, encoding="utf-8")
+            logger.info(f"Yüklenen {kaynak.suffix} metne çıkarılıp süreç analizi olarak kullanılıyor: {kaynak.name}")
+        else:
+            shutil.copy2(kaynak, surec_cikti)
+            logger.info(f"Yeni yüklenen doküman süreç analizi olarak kullanılıyor: {kaynak.name}")
     elif surec_cikti.exists():
         logger.info("Mevcut surec-analizi.md korunuyor (yeni/daha yeni yükleme yok) — teknik analiz onunla başlatılıyor.")
     else:
-        return jsonify({"error": "Süreç analizi bulunamadı. Bir süreç analizi dokümanı (.md / .txt) yükleyin ya da önce tam pipeline çalıştırın."}), 400
+        return jsonify({"error": "Süreç analizi bulunamadı. Bir doküman (.md / .txt / .docx / .pdf) yükleyin ya da önce tam pipeline çalıştırın."}), 400
 
     try:
         wf.baslat_teknik()

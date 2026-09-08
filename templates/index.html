@@ -4974,11 +4974,12 @@ function dosyaSec(input, pipeline) {
     const btnTeknik = document.getElementById('btn-sadece-teknik');
     if (btnTeknik) {
       const ext = file.name.split('.').pop().toLowerCase();
+      const destekli = ['md', 'txt', 'docx', 'pdf'];
       btnTeknik.style.display = '';
-      btnTeknik.disabled = !['md','txt'].includes(ext);
-      btnTeknik.title = ['md','txt'].includes(ext)
-        ? 'Yüklenen süreç analizi dokümanını kullanarak teknik analiz oluştur'
-        : 'Sadece .md veya .txt dosyası desteklenir';
+      btnTeknik.disabled = !destekli.includes(ext);
+      btnTeknik.title = destekli.includes(ext)
+        ? 'Yüklenen süreç analizi dokümanını kullanarak teknik analiz oluştur (docx/pdf metne çıkarılır)'
+        : 'Sadece .md, .txt, .docx veya .pdf dosyası desteklenir';
     }
   }
 }
