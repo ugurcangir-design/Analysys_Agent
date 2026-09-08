@@ -1408,15 +1408,31 @@ def usage_export():
     wb = Workbook()
     ws = wb.active
     ws.title = "Analist Özeti"
-    ws.append(["ID", "Analist", "Toplam Analiz", "Başarılı", "Hatalı",
-               "Jira Task", "Ort. Süre (sn)"])
+    TIP_SIRA = ["surec_analizi", "teknik_analiz", "brd_analizi", "kapsam_analizi",
+                "gorev_analiz", "gorev_guncelle", "jira_gonder", "mutabakat"]
+    TIP_ETIKET = {"surec_analizi": "Süreç Analizi", "teknik_analiz": "Teknik Analiz",
+                  "brd_analizi": "BRD Analizi", "kapsam_analizi": "Kapsam Analizi",
+                  "gorev_analiz": "Görev Analizi", "gorev_guncelle": "Görev Güncelleme",
+                  "jira_gonder": "Task Açma", "mutabakat": "UAT Mutabakat"}
+    ws.append(["ID", "Analist", "Toplam İşlem", "Başarılı", "Hatalı",
+               "Açılan Task", "Toplam Süre (sn)"])
     for a in stat["analistler"]:
         ws.append([a.get("id"), a["analist"], a["toplam"], a["basarili"], a["hatali"],
-                   a["jira_task"], round(a["ort_sure_ms"] / 1000, 1)])
+                   a["jira_task"], round(a["sure_ms_toplam"] / 1000, 1)])
+
+    # Analist × Tür matrisi (kim hangi işi kaç kez)
+    wsm = wb.create_sheet("Analist × Tür")
+    wsm.append(["Analist"] + [TIP_ETIKET[t] for t in TIP_SIRA] + ["Toplam"])
+    for a in stat["analistler"]:
+        tp = a.get("tipler", {})
+        wsm.append([a["analist"]] + [tp.get(t, 0) for t in TIP_SIRA] + [a["toplam"]])
+    wsm.append(["TOPLAM"] + [(stat["tip_toplam"] or {}).get(t, 0) for t in TIP_SIRA]
+               + [stat["toplam_analiz"]])
+
     ws2 = wb.create_sheet("Tür Kırılımı")
-    ws2.append(["Olay Tipi", "Adet"])
+    ws2.append(["İş Tipi", "Adet"])
     for tip, adet in sorted(stat["tip_toplam"].items(), key=lambda x: -x[1]):
-        ws2.append([tip, adet])
+        ws2.append([TIP_ETIKET.get(tip, tip), adet])
 
     # Detay / Olaylar — her olay tek satır (task key + açıldı/güncellendi dahil)
     ws3 = wb.create_sheet("Detay")

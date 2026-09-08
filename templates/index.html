@@ -3368,7 +3368,7 @@ function kilavuzYukle() {
 }
 
 // ─── Kullanım İzleme (owner-only) ───────────────────────────────────────────────
-const _KU_TIP_ETIKET = {surec_analizi:'Süreç',teknik_analiz:'Teknik',brd_analizi:'BRD',kapsam_analizi:'Kapsam',gorev_analiz:'Görev',gorev_guncelle:'Görev Günc.',mutabakat:'Mutabakat',jira_gonder:'Task Açma'};
+const _KU_TIP_ETIKET = {surec_analizi:'Süreç Analizi',teknik_analiz:'Teknik Analiz',brd_analizi:'BRD Analizi',kapsam_analizi:'Kapsam Analizi',gorev_analiz:'Görev Analizi',gorev_guncelle:'Görev Güncelleme',jira_gonder:'Task Açma',mutabakat:'UAT Mutabakat'};
 let _kuDonem = 'gun';
 function kuDonemSec(d) {
   _kuDonem = d;
@@ -3401,8 +3401,8 @@ async function kullanimYukle() {
       : '<div style="font-size:12px;color:var(--text3)">—</div>';
     // Süre biçimlendirme (sn/dk/sa)
     const sureFmt = (ms) => { const s = Math.round((ms || 0) / 1000); if (s < 60) return s + ' sn'; const dk = Math.floor(s / 60), sn = s % 60; if (dk < 60) return dk + ' dk' + (sn ? (' ' + sn + ' sn') : ''); return Math.floor(dk / 60) + ' sa ' + (dk % 60) + ' dk'; };
-    const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'gorev_analiz', 'jira_gonder', 'gorev_guncelle', 'mutabakat'];
-    const aktifTipler = TIP_SIRA.filter(t => (d.tip_toplam || {})[t]);
+    const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'gorev_analiz', 'gorev_guncelle', 'jira_gonder', 'mutabakat'];
+    const aktifTipler = TIP_SIRA;   // Tüm iş tiplerini SABİT sütun göster (0 olsa bile) — ölçüm tam
     const th = 'padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap';
     const thc = th + ';text-align:center';
     const td = 'padding:8px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';
@@ -3446,9 +3446,17 @@ async function kullanimYukle() {
       ? '<div style="display:flex;flex-direction:column;gap:5px">' + tasklar.map(t => `<div style="font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:var(--text3);font-variant-numeric:tabular-nums;font-size:11px">${String(t.ts || '').replace('T', ' ').slice(0, 16)}</span><span style="font-weight:600">${t.analist}</span><span class="panel-tag">${t.islem === 'guncellendi' ? 'güncelledi' : 'açtı'}</span><span style="font-family:'Geist Mono',monospace;color:var(--accent,#5b5ef4)">${(t.keyler || []).join(', ')}</span></div>`).join('') + '</div>'
       : '<div style="font-size:12px;color:var(--text3)">Henüz task açma/güncelleme kaydı yok.</div>';
 
-    // 5) Legend
+    // 5) Legend (iş tipleri + metrikler)
     document.getElementById('ku-legend').innerHTML =
-      '<b>Açıklamalar:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (analiz çalışma süresi; farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir (aynı tip içinde anlamlı).';
+      '<div style="margin-bottom:8px"><b>İş tipleri:</b> ' +
+      '<b>Süreç Analizi</b> = doküman → süreç analizi · ' +
+      '<b>Teknik Analiz</b> = Süreç/Teknik ekranındaki süreç→teknik akışı · ' +
+      '<b>BRD Analizi</b> / <b>Kapsam Analizi</b> = BRD akışı · ' +
+      '<b>Görev Analizi</b> = Jira Görevleri ekranından tek Jira task\'ı üzerinden teknik analiz · ' +
+      '<b>Görev Güncelleme</b> = mevcut Jira task\'ının analizle güncellenmesi · ' +
+      '<b>Task Açma</b> = Jira\'ya yeni issue oluşturma · ' +
+      '<b>UAT Mutabakat</b> = board karşılaştırma.</div>' +
+      '<div><b>Metrikler:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir.</div>';
   } catch (e) {
     if (analistEl) analistEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:10px 0">Yüklenemedi.</div>';
   }
