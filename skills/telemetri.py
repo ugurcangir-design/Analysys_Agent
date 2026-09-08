@@ -249,13 +249,14 @@ def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) ->
 
         an = analistler.setdefault(a, {
             "analist": a, "toplam": 0, "basarili": 0, "hatali": 0,
-            "sure_ms_toplam": 0, "jira_task": 0, "tipler": {},
+            "sure_ms_toplam": 0, "jira_task": 0, "tipler": {}, "tip_sure_ms": {},
         })
         an["toplam"] += 1
         an["basarili" if durum == "ok" else "hatali"] += 1
         an["sure_ms_toplam"] += sure
         an["jira_task"] += task_adedi
         an["tipler"][olay] = an["tipler"].get(olay, 0) + 1
+        an["tip_sure_ms"][olay] = an["tip_sure_ms"].get(olay, 0) + sure
 
         tip_toplam[olay] = tip_toplam.get(olay, 0) + 1
         toplam_task += task_adedi

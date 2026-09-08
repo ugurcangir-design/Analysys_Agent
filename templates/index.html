@@ -2680,12 +2680,14 @@ function temaDegistir() {
           <div id="ku-ozet" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px"></div>
           <div class="panel-section-label">Zaman Trendi (<span id="ku-donem-etiket">günlük</span>)</div>
           <div id="ku-trend" style="margin-bottom:6px"></div>
-          <div class="panel-section-label" style="margin-top:18px">Analist Bazında</div>
+          <div class="panel-section-label" style="margin-top:18px">Analist Özeti</div>
           <div id="ku-analist" style="overflow-x:auto"></div>
+          <div class="panel-section-label" style="margin-top:18px">Kim Hangi İşi Kaç Kez? · Analist × İşlem Tipi</div>
+          <div id="ku-matris" style="overflow-x:auto"></div>
+          <div id="ku-detay"></div>
           <div class="panel-section-label" style="margin-top:18px">Son Task İşlemleri</div>
           <div id="ku-tasklar"></div>
-          <div class="panel-section-label" style="margin-top:18px">Analiz Türü Kırılımı</div>
-          <div id="ku-tip"></div>
+          <div id="ku-legend" style="margin-top:16px;font-size:11.5px;color:var(--text3);line-height:1.7"></div>
         </div>
       </div>
     </div>
@@ -3397,26 +3399,56 @@ async function kullanimYukle() {
     document.getElementById('ku-trend').innerHTML = trend.length
       ? trend.map(t => `<div class="ku-bar-row"><span class="ku-bar-lbl">${t.etiket}</span><span class="ku-bar-track"><span class="ku-bar-fill" style="width:${Math.round(t.adet / maxv * 100)}%"></span></span><span class="ku-bar-val">${t.adet}</span></div>`).join('')
       : '<div style="font-size:12px;color:var(--text3)">—</div>';
-    // Analist tablosu
-    const th = 'padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);border-bottom:1px solid var(--border)';
+    // Süre biçimlendirme (sn/dk/sa)
+    const sureFmt = (ms) => { const s = Math.round((ms || 0) / 1000); if (s < 60) return s + ' sn'; const dk = Math.floor(s / 60), sn = s % 60; if (dk < 60) return dk + ' dk' + (sn ? (' ' + sn + ' sn') : ''); return Math.floor(dk / 60) + ' sa ' + (dk % 60) + ' dk'; };
+    const TIP_SIRA = ['surec_analizi', 'teknik_analiz', 'brd_analizi', 'kapsam_analizi', 'gorev_analiz', 'jira_gonder', 'gorev_guncelle', 'mutabakat'];
+    const aktifTipler = TIP_SIRA.filter(t => (d.tip_toplam || {})[t]);
+    const th = 'padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap';
+    const thc = th + ';text-align:center';
     const td = 'padding:8px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';
-    let satirlar = (d.analistler || []).map(a => {
-      const tipler = Object.entries(a.tipler || {}).map(([t, n]) => `${_KU_TIP_ETIKET[t] || t}: ${n}`).join(' · ');
-      return `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${td}">${a.toplam}</td><td style="${td};color:var(--ok,#15803d)">${a.basarili}</td><td style="${td};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${td}">${a.jira_task}</td><td style="${td}">${(a.ort_sure_ms/1000).toFixed(1)} sn</td><td style="${td};color:var(--text3);font-size:12px">${tipler}</td></tr>`;
-    }).join('');
-    if (!satirlar) satirlar = `<tr><td colspan="8" style="${td};color:var(--text3)">Kayıt yok. ("Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
-    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:680px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${th}">Toplam</th><th style="${th}">Başarılı</th><th style="${th}">Hatalı</th><th style="${th}">Task</th><th style="${th}">Ort. Süre</th><th style="${th}">Tür Kırılımı</th></tr></thead><tbody>${satirlar}</tbody></table>`;
-    // Son task işlemleri (key + açtı/güncelledi)
+    const tdc = td + ';text-align:center;font-variant-numeric:tabular-nums';
+
+    // 1) Özet tablo
+    let satirlar = (d.analistler || []).map(a =>
+      `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${tdc}">${a.toplam}</td><td style="${tdc};color:var(--ok,#15803d)">${a.basarili}</td><td style="${tdc};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${tdc}">${a.jira_task}</td><td style="${td};text-align:right">${sureFmt(a.sure_ms_toplam)}</td></tr>`
+    ).join('');
+    if (!satirlar) satirlar = `<tr><td colspan="7" style="${td};color:var(--text3)">Kayıt yok. ("Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
+    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${thc}" title="Yaptığı toplam işlem sayısı">Toplam İşlem</th><th style="${thc}" title="Başarıyla tamamlanan">Başarılı</th><th style="${thc}" title="Hata / zaman aşımı">Hatalı</th><th style="${thc}" title="Jira'ya açılan issue adedi">Açılan Task</th><th style="${th};text-align:right" title="İşlemlerin başlangıç→bitiş sürelerinin toplamı (efor)">Toplam Süre</th></tr></thead><tbody>${satirlar}</tbody></table>`;
+
+    // 2) Analist × Tür matrisi
+    const matEl = document.getElementById('ku-matris');
+    if (!(d.analistler || []).length || !aktifTipler.length) {
+      matEl.innerHTML = '<div style="font-size:12px;color:var(--text3)">—</div>';
+    } else {
+      const baslik = `<th style="${th}">Analist</th>` + aktifTipler.map(t => `<th style="${thc}">${_KU_TIP_ETIKET[t] || t}</th>`).join('') + `<th style="${thc}">Toplam</th>`;
+      const govde = d.analistler.map(a => {
+        const huc = aktifTipler.map(t => { const n = (a.tipler || {})[t] || 0; return `<td style="${tdc};color:${n ? 'var(--text)' : 'var(--text3)'}">${n || '·'}</td>`; }).join('');
+        return `<tr><td style="${td};font-weight:600">${a.analist}</td>${huc}<td style="${tdc};font-weight:600">${a.toplam}</td></tr>`;
+      }).join('');
+      const toplamHuc = aktifTipler.map(t => `<td style="${tdc};font-weight:600">${(d.tip_toplam || {})[t] || 0}</td>`).join('');
+      matEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr>${baslik}</tr></thead><tbody>${govde}<tr style="background:var(--surface2)"><td style="${td};font-weight:700">TOPLAM</td>${toplamHuc}<td style="${tdc};font-weight:700">${d.toplam_analiz}</td></tr></tbody></table>`;
+    }
+
+    // 3) Seçili analist detayı (tür bazında adet + ort. süre)
+    const detEl = document.getElementById('ku-detay');
+    if (analist && (d.analistler || []).length) {
+      const a = d.analistler[0];
+      const rows = aktifTipler.filter(t => (a.tipler || {})[t]).map(t => {
+        const n = a.tipler[t]; const ort = n ? ((a.tip_sure_ms || {})[t] || 0) / n : 0;
+        return `<tr><td style="${td}">${_KU_TIP_ETIKET[t] || t}</td><td style="${tdc}">${n}</td><td style="${td};text-align:right">${sureFmt(ort)}</td></tr>`;
+      }).join('');
+      detEl.innerHTML = `<div class="panel-section-label" style="margin-top:18px">${a.analist} · Tür Bazında Detay</div><table style="width:100%;border-collapse:collapse;max-width:460px"><thead><tr><th style="${th}">İşlem Tipi</th><th style="${thc}">Adet</th><th style="${th};text-align:right" title="Bu tipteki işlemlerin ortalama çalışma süresi">Ort. Süre</th></tr></thead><tbody>${rows}</tbody></table>`;
+    } else { detEl.innerHTML = ''; }
+
+    // 4) Son task işlemleri (key + açtı/güncelledi)
     const tasklar = d.son_tasklar || [];
     document.getElementById('ku-tasklar').innerHTML = tasklar.length
       ? '<div style="display:flex;flex-direction:column;gap:5px">' + tasklar.map(t => `<div style="font-size:12.5px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:var(--text3);font-variant-numeric:tabular-nums;font-size:11px">${String(t.ts || '').replace('T', ' ').slice(0, 16)}</span><span style="font-weight:600">${t.analist}</span><span class="panel-tag">${t.islem === 'guncellendi' ? 'güncelledi' : 'açtı'}</span><span style="font-family:'Geist Mono',monospace;color:var(--accent,#5b5ef4)">${(t.keyler || []).join(', ')}</span></div>`).join('') + '</div>'
       : '<div style="font-size:12px;color:var(--text3)">Henüz task açma/güncelleme kaydı yok.</div>';
-    // Tür kırılımı
-    const tipEl = document.getElementById('ku-tip');
-    const tipler = Object.entries(d.tip_toplam || {}).sort((a, b) => b[1] - a[1]);
-    tipEl.innerHTML = tipler.length
-      ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + tipler.map(([t, n]) => `<span class="panel-tag">${_KU_TIP_ETIKET[t] || t}: <b>${n}</b></span>`).join('') + '</div>'
-      : '<div style="font-size:12px;color:var(--text3)">—</div>';
+
+    // 5) Legend
+    document.getElementById('ku-legend').innerHTML =
+      '<b>Açıklamalar:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (analiz çalışma süresi; farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir (aynı tip içinde anlamlı).';
   } catch (e) {
     if (analistEl) analistEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:10px 0">Yüklenemedi.</div>';
   }
