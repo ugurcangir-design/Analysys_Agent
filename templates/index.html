@@ -618,28 +618,32 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
   letter-spacing: 0.06em; text-transform: uppercase;
   margin-bottom: 5px;
 }
-.field-sub { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
-.field-hint { font-size: 11px; color: var(--text3); margin-top: 5px; display: block; }
-.field-input,
-input[type="text"].field-input,
-input[type="password"].field-input,
-input[type="email"].field-input,
-.ctx-input,
-.source-add-row input,
-.form-group input,
-.conf-publish-row select {
+.field-sub { font-size: 12px; color: var(--text2); margin-bottom: 6px; line-height: 1.55; max-width: 760px; }
+.field-hint { font-size: 12px; color: var(--text2); margin-top: 6px; display: block; line-height: 1.55; max-width: 760px; }
+/* ── Giriş alanları — TEK tutarlı stil, tüm ekranlar ───────────────────────
+   Form reset: hiçbir giriş TARAYICI-VARSAYILANI (beyaz) kalmaz. Okunaklı, göz
+   yormayan ortak taban. Bespoke sınıflar (.prompt-textarea vb.) daha yüksek
+   özgüllükle üzerine yazar; bu taban yalnız "zemin"dir. */
+.field-input, .ctx-input, .setting-input, .source-add-row input,
+.form-group input, .conf-publish-row select {
   width: 100%;
+}
+.field-input, .ctx-input, .setting-input, .source-add-row input,
+.form-group input, .conf-publish-row select,
+input[type="text"], input[type="url"], input[type="email"], input[type="password"],
+input[type="number"], input[type="search"], input[type="tel"], textarea, select {
   background: var(--surface2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 7px 10px;
+  padding: 8px 11px;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 13px;
+  line-height: 1.45;
   font-family: inherit;
   outline: none;
   transition: border-color .12s, box-shadow .12s;
 }
-.field-input:focus,
+input::placeholder, textarea::placeholder { color: var(--text3); opacity: 1; }
 /* ── Canlı uygulama (Chrome MCP) erişim durumu ── */
 .la-durum { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); }
 .la-satir { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -648,13 +652,14 @@ input[type="email"].field-input,
 .la-nokta.ok { background: var(--green); }
 .la-nokta.warn { background: var(--yellow); }
 .la-nokta.err { background: var(--red); }
-.la-ipucu { font-size: 11.5px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+.la-ipucu { font-size: 12px; color: var(--text2); margin-top: 6px; line-height: 1.55; max-width: 760px; }
 textarea.ctx-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 
-.ctx-input:focus,
-.source-add-row input:focus,
-.form-group input:focus,
-.conf-publish-row select:focus {
+.field-input:focus, .ctx-input:focus, .setting-input:focus, .source-add-row input:focus,
+.form-group input:focus, .conf-publish-row select:focus,
+input[type="text"]:focus, input[type="url"]:focus, input[type="email"]:focus,
+input[type="password"]:focus, input[type="number"]:focus, input[type="search"]:focus,
+input[type="tel"]:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: var(--focus-ring);
 }
@@ -711,7 +716,7 @@ textarea.ctx-input { resize: vertical; min-height: 72px; line-height: 1.5; }
   letter-spacing: 0.06em; text-transform: uppercase;
   margin-bottom: 4px;
 }
-.ctx-field-sub { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+.ctx-field-sub { font-size: 12px; color: var(--text2); margin-bottom: 6px; line-height: 1.55; max-width: 760px; }
 .ctx-active-badge {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; padding: 1px 8px;
@@ -1709,7 +1714,7 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .jg-dot.ok { background: var(--green); }
 .jg-dot.warn { background: var(--yellow); }
-.jg-sub { font-size: 11.5px; color: var(--text3); }
+.jg-sub { font-size: 12px; color: var(--text2); line-height: 1.55; }
 .jg-group-head { cursor: pointer; user-select: none; gap: 8px; }
 .jg-group-head:hover { background: var(--surface2); }
 /* Grup başlığındaki export kontrolleri — başlığa tıklayınca grup katlanır,
