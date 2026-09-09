@@ -35,8 +35,9 @@ olduğu gibi yerleştirir). Böylece:
 - **`ciktilar.html`** — Faz 2.1: aktif oturum + tazelik/köken/sürüm + arşiv (`/api/oturum`, `ds-*`).
 - **`delta.html`** — Faz 2.2: Delta/CR analizi Süreç ekranından ayrı ekrana taşındı (`da-*` ID'leri
   korundu; JS index.html'de). Statik — `switchTab` kancası gerekmez.
-- **`yetki.html`** — Faz 2.4: görünürlük yönetimi + denetim kaydı (owner-only, Yönetim).
-- **`saglik.html`** — Faz 2.6: sistem sağlığı paneli (`/api/saglik`, owner-only).
+- **`yetki.html`** — görünürlük yönetimi (owner-only, Yönetim; ekran adı **Yetki**). Denetim/audit v3'te KALDIRILDI.
+- **`pano.html`** — v3: Ana Sayfa/dashboard (kart tabanlı: aktif oturum + hızlı-eylem kartları + sistem-sağlığı
+  kart ızgarası `/api/saglik`, owner-only). Ayrı `saglik.html` yok — sağlık panosuna taşındı.
 - **`_guncelleme.html`**, **`_palet.html`** — alt çizgili = ekran DEĞİL, script/overlay parçası
   (otomatik güncelleme banner'ı; ⌘K komut paleti). `.main` içinde, sayfalardan önce include edilir.
 - Bileşen dili: `static/ds.css` (`ds-*`). Yeni ekranlar bu vokabülerden kurulur.

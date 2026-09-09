@@ -3144,7 +3144,11 @@ _API_CACHE_AKTIF = os.getenv("API_CACHE", "true").lower() in ("1", "true", "yes"
 
 def _api_cache_key(sistem, mesajlar, model, max_tokens, thinking) -> str:
     h = hashlib.sha256()
-    h.update(f"{model}|{max_tokens}|{thinking}|".encode())
+    # CLI modunda gerçek model `model` paramında DEĞİL, aktif_cli_model()'dedir. Anahtar
+    # bunu da içermeli — yoksa analist modeli değiştirince (Sonnet→Opus) aynı girdide ESKİ
+    # modelin sonucu yanlışlıkla "önbellek hit" olarak döner (model seçimi etkisiz kalır).
+    _mod = f"cli:{aktif_cli_model()}" if USE_CLAUDE_CLI else "api"
+    h.update(f"{model}|{_mod}|{max_tokens}|{thinking}|".encode())
     h.update(sistem.encode("utf-8", "ignore"))
     h.update(json.dumps(mesajlar, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8", "ignore"))
     return h.hexdigest()[:40]

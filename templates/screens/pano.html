@@ -1,6 +1,6 @@
-    <!-- EKRAN: Ana Sayfa / Pano (v2.1) — ilk açılışta gelen dashboard.
-         Üstte aktif oturum + hızlı eylemler; altında sistem sağlığı (owner; değilse gizli).
-         Backend: /api/oturum (herkes) + /api/saglik (owner). ds-* bileşenleri. -->
+    <!-- EKRAN: Ana Sayfa / Pano (v3) — ilk açılışta gelen dashboard, KART tabanlı.
+         Üstte aktif oturum + hızlı eylem kartları; altında sistem sağlığı kartları
+         (owner; değilse gizli). Backend: /api/oturum (herkes) + /api/saglik (owner). -->
     <div class="page active" id="page-pano">
       <div class="ph">
         <div class="ph-text">
@@ -13,52 +13,63 @@
       <div id="pano-oturum"></div>
 
       <div class="ds-sec-label" style="margin-top:6px">Hızlı eylemler</div>
-      <div class="pano-actions">
-        <div class="pano-act" onclick="switchTab('surec')">
-          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="7" cy="5" r="1.6" fill="currentColor"/><circle cx="14" cy="12" r="1.6" fill="currentColor"/><circle cx="10" cy="19" r="1.6" fill="currentColor"/></svg></div>
-          <div><div class="pa-t">Süreç / Teknik Analiz</div><div class="pa-s">Doküman yükle, analiz üret</div></div>
+      <div class="pano-cards">
+        <div class="pano-card act" onclick="switchTab('surec')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="7" cy="5" r="1.6" fill="currentColor"/><circle cx="14" cy="12" r="1.6" fill="currentColor"/><circle cx="10" cy="19" r="1.6" fill="currentColor"/></svg></div>
+          <div class="pc-t">Süreç / Teknik Analiz</div>
+          <div class="pc-s">Doküman yükle, analiz üret</div>
         </div>
-        <div class="pano-act" onclick="switchTab('ciktilar')">
-          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg></div>
-          <div><div class="pa-t">Çıktılar</div><div class="pa-s">Güncel çıktılar & sürümler</div></div>
+        <div class="pano-card act" onclick="switchTab('ciktilar')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg></div>
+          <div class="pc-t">Çıktılar</div>
+          <div class="pc-s">Güncel çıktılar &amp; sürümler</div>
         </div>
-        <div class="pano-act" onclick="switchTab('revizyon')">
-          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
-          <div><div class="pa-t">Revizyon</div><div class="pa-s">Konuşarak bölüm düzelt</div></div>
+        <div class="pano-card act" onclick="switchTab('revizyon')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <div class="pc-t">Revizyon</div>
+          <div class="pc-s">Konuşarak bölüm düzelt</div>
         </div>
-        <div class="pano-act" onclick="switchTab('jira-gorevler')">
-          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9l8-5 8 5v6l-8 5-8-5z"/></svg></div>
-          <div><div class="pa-t">Jira Görevleri</div><div class="pa-s">Task çek, analiz et</div></div>
+        <div class="pano-card act" onclick="switchTab('jira-gorevler')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9l8-5 8 5v6l-8 5-8-5z"/></svg></div>
+          <div class="pc-t">Task Analizi</div>
+          <div class="pc-s">Task çek, analiz et</div>
         </div>
       </div>
 
       <div id="pano-saglik-bolum" style="display:none">
         <div class="ds-sec-label" style="margin-top:18px">Sistem sağlığı</div>
-        <div id="pano-saglik" class="ds-olist"><div class="mono-meta">Yükleniyor…</div></div>
+        <div id="pano-saglik" class="pano-cards"><div class="mono-meta">Yükleniyor…</div></div>
       </div>
     </div>
 
     <style>
-      #page-pano .pano-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-      #page-pano .pano-act{display:flex;align-items:center;gap:12px;padding:15px 16px;background:var(--surface);
-        border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,transform .1s}
-      #page-pano .pano-act:hover{border-color:var(--accent);transform:translateY(-1px)}
-      #page-pano .pa-ic{width:38px;height:38px;border-radius:9px;background:var(--accent-soft);color:var(--accent);
-        display:flex;align-items:center;justify-content:center;flex-shrink:0}
-      #page-pano .pa-ic svg{width:19px;height:19px}
-      #page-pano .pa-t{font-size:13.5px;font-weight:600;color:var(--text)}
-      #page-pano .pa-s{font-size:11.5px;color:var(--text3);margin-top:1px}
+      #page-pano .pano-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+      #page-pano .pano-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+        padding:15px 16px;display:flex;flex-direction:column;min-width:0}
+      #page-pano .pano-card.act{cursor:pointer;transition:border-color .15s,transform .1s,box-shadow .15s}
+      #page-pano .pano-card.act:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+      #page-pano .pc-ic{width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:11px}
+      #page-pano .pc-ic svg{width:18px;height:18px}
+      #page-pano .pc-t{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--text)}
+      #page-pano .pc-s{font-size:11.5px;color:var(--text3);margin-top:2px}
+      /* sağlık kartı */
+      #page-pano .pc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px}
+      #page-pano .pc-label{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.07em;color:var(--text3);text-transform:uppercase}
+      #page-pano .pc-value{font-family:'Geist Mono',monospace;font-size:17px;color:var(--text);margin-top:10px;overflow-wrap:anywhere}
+      #page-pano .pc-sub{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.55;overflow-wrap:anywhere}
     </style>
 
     <script>
-    // ─── Ana Sayfa / Pano (v2.1) ────────────────────────────────────────────────
+    // ─── Ana Sayfa / Pano (v3, kart tabanlı) ────────────────────────────────────
     function _pnEsc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
     function _pnZ(ts){return ts?new Date(ts*1000).toLocaleString('tr-TR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}):'—';}
     const _PN={ok:'ok',warn:'warn',bad:'old'};
     function _pnChip(t,tip){return `<span class="ds-chip ${_PN[tip]||'neu'}"><span class="d"></span>${_pnEsc(t)}</span>`;}
-    function _pnKart(baslik,chip,satirlar){
-      return `<div class="ds-ocard"><div class="ds-ometa"><div class="ds-otitle">${_pnEsc(baslik)} ${chip||''}</div>
-        <div class="ds-ometa-row">${satirlar.map(([k,v])=>`<span>${_pnEsc(k)} <b>${_pnEsc(v)}</b></span>`).join('')}</div></div></div>`;
+    // Sağlık kartı: mono etiket + durum çipi (üst), büyük değer, alt açıklama. valueHtml ham HTML olabilir.
+    function _pnStatCard(label,chip,valueHtml,sub){
+      return `<div class="pano-card"><div class="pc-head"><span class="pc-label">${_pnEsc(label)}</span>${chip||''}</div>
+        <div class="pc-value">${valueHtml}</div><div class="pc-sub">${_pnEsc(sub||'')}</div></div>`;
     }
 
     async function panoYukle(){
@@ -101,35 +112,28 @@
       bolum.style.display='';
       const ai=d.ai,g=d.guncelleme,w=d.workflow,vk=(d.veri_kaynak||{}).analiz_mcp||{};
       const aiChip=ai.modu==='api'?_pnChip('API modu','ok'):ai.cli_uygun===true?_pnChip('CLI hazır','ok'):ai.cli_uygun===false?_pnChip('CLI limitte','bad'):_pnChip('CLI bilinmiyor','warn');
-      // CLI modunda analiz modeli arayüzden seçilir (API key gerekmez; Fable gibi
-      // kredi-gerektiren modeller listede yok). Seçenekler: {ad, id}.
-      let modelSecici=null;
+      // CLI modunda analiz modeli arayüzden seçilir (API key gerekmez; kredi-gerektiren modeller listede yok).
+      let modelHtml='<b>'+_pnEsc(ai.model||'—')+'</b>';
       if(ai.modu==='cli' && (ai.model_secenekler||[]).length){
         const secenekler=ai.model_secenekler.slice();
-        // Mevcut değer listede yoksa (ör. 'sonnet' takma adı) başa ekle ki görünsün
         if(!secenekler.some(m=>m.id===ai.model)) secenekler.unshift({ad:ai.model,id:ai.model});
-        modelSecici=`<select id="pano-model" onchange="panoModelKaydet(this.value)" title="Analiz modeli (mevcut abonelik/lisans ile — API key gerekmez)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border-strong);border-radius:5px;padding:2px 8px;font:inherit;font-size:12px">
+        modelHtml=`<select id="pano-model" onchange="panoModelKaydet(this.value)" title="Analiz modeli (mevcut abonelik/lisans ile — API key gerekmez)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border-strong);border-radius:5px;padding:3px 8px;font:inherit;font-size:13px;max-width:100%">
           ${secenekler.map(m=>`<option value="${_pnEsc(m.id)}" ${m.id===ai.model?'selected':''}>${_pnEsc(m.ad)}</option>`).join('')}
         </select>`;
       }
-      const gChip=g.hata?_pnChip('Kontrol hatası','bad'):g.yeni_surum?_pnChip(`Yeni sürüm (${g.behind})`,'warn'):_pnChip(g.otomatik?'Güncel · otomatik':'Güncel · elle','ok');
+      const gChip=g.hata?_pnChip('Kontrol hatası','bad'):g.yeni_surum?_pnChip(`Yeni sürüm (${g.behind})`,'warn'):_pnChip(g.otomatik?'Güncel':'Elle','ok');
       const wChip=w.calisiyor?_pnChip(w.etiket,'warn'):_pnChip(w.etiket||'Hazır','ok');
       const diskToplam=Object.values(d.disk||{}).reduce((s,x)=>s+x.mb,0);
       const kodRepo=(d.veri_kaynak||{}).kod_repo;
-      // AI/Kota kartı: model satırı bir <select> (CLI modunda); ham HTML olduğu için özel render
-      const aiKart=`<div class="ds-ocard"><div class="ds-ometa"><div class="ds-otitle">AI / Kota ${aiChip}</div>
-        <div class="ds-ometa-row" style="align-items:center">
-          <span>mod <b>${_pnEsc(ai.modu)}</b></span>
-          <span style="display:inline-flex;align-items:center;gap:6px">model ${modelSecici||('<b>'+_pnEsc(ai.model||'—')+'</b>')}</span>
-          <span>reset <b>${_pnEsc(ai.cli_reset||'—')}</b></span>
-        </div></div></div>`;
+      const vkChip=(vk.hazir_sunucular&&vk.hazir_sunucular.length)?_pnChip('MCP bağlı','ok'):_pnChip('kapalı','neu');
       el.innerHTML=[
-        _pnKart('Sürüm',_pnChip(d.surum.hash||'?','ok'),[['dal',d.surum.dal||'—'],['son commit',d.surum.mesaj||'—'],['tarih',d.surum.tarih||'—']]),
-        aiKart,
-        _pnKart('Güncelleme',gChip,[['otomatik',g.otomatik?'açık':'kapalı'],['engel',g.engel||'—'],['son kontrol',_pnZ(g.son_kontrol)]]),
-        _pnKart('İş akışı',wChip,[['durum',w.durum||'idle'],['meşgul',w.mesgul||'hayır']]),
-        _pnKart('Veri kaynakları',(vk.hazir_sunucular&&vk.hazir_sunucular.length)?_pnChip('MCP bağlı','ok'):_pnChip('kapalı','neu'),[['Postgres',vk.postgres&&vk.postgres.aktif?'açık':'kapalı'],['Jira',vk.jira&&vk.jira.aktif?'açık':'kapalı'],['Kod reposu',kodRepo?'bağlı':'yok']]),
-        _pnKart('Disk',_pnChip(diskToplam.toFixed(0)+' MB',diskToplam>2048?'warn':'ok'),Object.entries(d.disk||{}).map(([k,v])=>[k,`${v.mb} MB`]).concat([['denetim',(d.denetim||{}).kayit_mb+' MB']])),
+        _pnStatCard('Sürüm',_pnChip(d.surum.hash||'?','ok'),'<b>'+_pnEsc(d.surum.hash||'?')+'</b>',`dal ${d.surum.dal||'—'} · ${d.surum.tarih||'—'}`),
+        `<div class="pano-card"><div class="pc-head"><span class="pc-label">AI / Kota</span>${aiChip}</div>
+          <div class="pc-value">${modelHtml}</div><div class="pc-sub">mod ${_pnEsc(ai.modu)} · reset ${_pnEsc(ai.cli_reset||'—')}</div></div>`,
+        _pnStatCard('Güncelleme',gChip,'<b>'+(g.otomatik?'otomatik':'elle')+'</b>',`engel ${g.engel||'—'} · son kontrol ${_pnZ(g.son_kontrol)}`),
+        _pnStatCard('İş akışı',wChip,'<b>'+_pnEsc(w.durum||'idle')+'</b>',`meşgul: ${w.mesgul||'hayır'}`),
+        _pnStatCard('Veri kaynakları',vkChip,'<b>'+((vk.hazir_sunucular&&vk.hazir_sunucular.length)?'bağlı':'kapalı')+'</b>',`Postgres ${vk.postgres&&vk.postgres.aktif?'açık':'kapalı'} · Jira ${vk.jira&&vk.jira.aktif?'açık':'kapalı'} · Kod ${kodRepo?'bağlı':'yok'}`),
+        _pnStatCard('Disk',_pnChip(diskToplam.toFixed(0)+' MB',diskToplam>2048?'warn':'ok'),'<b>'+diskToplam.toFixed(0)+' MB</b>',Object.entries(d.disk||{}).map(([k,v])=>`${k} ${v.mb}MB`).join(' · ')),
       ].join('');
     }
     </script>

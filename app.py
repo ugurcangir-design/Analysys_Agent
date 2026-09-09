@@ -205,7 +205,8 @@ def usage_gerekli(fn):
 # İki rol: OWNER (AUTH kapalıyken tek kullanıcı; AUTH açıkken ADMIN_USER) ve ANALİST
 # (diğer herkes). Analist, owner'ın gorunurluk.json'da gizlediği ekran/aksiyonlar
 # HARİÇ her şeyi kullanır. Gizleme hem UI'da (nav/element) hem sunucuda (endpoint
-# ön eki) uygulanır. Denetim kaydı: skills/denetim.py → logs/audit.jsonl.
+# ön eki) uygulanır. (Denetim/audit kaydı v2'de kaldırıldı — analist iş takibi
+# Kullanım Raporu'ndadır: skills/telemetri.)
 GORUNURLUK_PATH = BASE_DIR / "gorunurluk.json"
 # id = nav-item / element id (UI gizleme) · endpoints = sunucu tarafı engellenen ön ekler
 GIZLENEBILIR_KATALOG = [
@@ -213,7 +214,7 @@ GIZLENEBILIR_KATALOG = [
     {"id": "brd",             "ad": "BRD Analizi",          "grup": "Analiz",   "aciklama": "BRD → Kapsam akışı", "endpoints": ["/api/run/brd", "/api/brd"]},
     {"id": "revizyon",        "ad": "Revizyon",             "grup": "Çıktılar", "aciklama": "Sohbetle bölüm-hedefli düzeltme + onay", "endpoints": ["/api/revizyon"]},
     {"id": "history",         "ad": "Geçmiş",               "grup": "Çıktılar", "aciklama": "Önceki oturum arşivi", "endpoints": ["/api/history"]},
-    {"id": "jira-gorevler",   "ad": "Jira Görevleri",       "grup": "Jira",     "aciklama": "Task çekme / görev analizi / güncelleme", "endpoints": ["/api/jira/gorev"]},
+    {"id": "jira-gorevler",   "ad": "Task Analizi",         "grup": "Jira",     "aciklama": "Task çekme / görev analizi / güncelleme", "endpoints": ["/api/jira/gorev"]},
     {"id": "backlog-senkron", "ad": "UAT Mutabakat",        "grup": "Jira",     "aciklama": "UAT ↔ hedef board karşılaştırma", "endpoints": ["/api/backlog"]},
     {"id": "referanslar",     "ad": "Referanslar",          "grup": "Kaynaklar","aciklama": "Confluence/Jira kaynak senkronu", "endpoints": ["/api/sources/sync"]},
     {"id": "btn-mockup-onay", "ad": "Prototip üretme",      "grup": "Aksiyon",  "aciklama": "Süreç analizinden HTML prototip (Chrome MCP)", "endpoints": ["/api/mockup/generate"]},
@@ -254,13 +255,9 @@ def _gorunurluk_yaz(gizli: list[str]) -> None:
 
 
 def _denetim(islem: str, hedef: str = "", **detay) -> None:
-    """Denetim kaydı (fail-safe). Kullanıcı: oturum > analist kimliği."""
-    try:
-        from skills import denetim
-        denetim.yaz(islem, hedef, detay or None,
-                    kullanici=session.get("username"), ip=request.remote_addr)
-    except Exception:
-        pass
+    """No-op — denetim (audit) kaydı kaldırıldı (v2). Analist iş takibi Kullanım
+    Raporu'ndadır (skills/telemetri). Çağrı yerleri zararsız kalsın diye imza korunur."""
+    return None
 
 
 @app.before_request
@@ -1597,20 +1594,6 @@ def gorunurluk_kaydet():
     return jsonify({"ok": True, "gizli": sorted(yeni)})
 
 
-@app.route("/api/denetim", methods=["GET"])
-@admin_gerekli
-def denetim_getir():
-    """Denetim kaydı (en yeni önce). Query: ?islem=&kullanici=&limit="""
-    from skills import denetim
-    try:
-        limit = int(request.args.get("limit", denetim.VARSAYILAN_LIMIT))
-    except ValueError:
-        limit = denetim.VARSAYILAN_LIMIT
-    kayitlar = denetim.oku(limit=limit, islem=request.args.get("islem") or None,
-                           kullanici=request.args.get("kullanici") or None)
-    return jsonify({"ok": True, "kayitlar": kayitlar, "tipler": denetim.islem_tipleri()})
-
-
 # ─── Otomatik Güncelleme — v2 Faz 2.5 (bildirimli otomatik) ──────────────────
 # Arka planda periyodik `git fetch`; uzak dal öndeyse "yeni sürüm hazır" bildirimi.
 # İş YOKKEN (workflow çalışmıyor + rerun/revizyon kilidi boş) sessizce `pull --ff-only`
@@ -1699,11 +1682,6 @@ def _guncelleme_uygula(kaynak: str = "otomatik") -> tuple[bool, str]:
         subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(BASE_DIR / "requirements.txt"), "-q"],
                        capture_output=True, timeout=180)
         logger.info("Otomatik güncelleme uygulandı (%s): %s", kaynak, cikti[:120])
-        try:
-            from skills import denetim
-            denetim.yaz("oto_guncelleme", "git pull --ff-only", {"kaynak": kaynak, "ozet": cikti[:200]})
-        except Exception:
-            pass
         _yeniden_baslat_zamanla()
         return True, cikti[:300]
     finally:
@@ -1804,7 +1782,6 @@ def saglik():
     for ad in ("output", "logs", "history", "input", "reference"):
         b, n = _dizin_boyut(BASE_DIR / ad)
         disk[ad] = {"mb": round(b / 1_048_576, 1), "dosya": n}
-    audit = BASE_DIR / "logs" / "audit.jsonl"
     users = _kullanicilari_oku()
     try:
         from skills import analiz_mcp, kod_kaynagi
@@ -1825,7 +1802,6 @@ def saglik():
                      "mesgul": _mesgul_mu()},
         "mcp": mcp,
         "disk": disk,
-        "denetim": {"kayit_mb": round(audit.stat().st_size / 1_048_576, 2) if audit.exists() else 0},
         "auth": {"aktif": _auth_aktif_mi(), "kullanici_sayisi": len(users), "rol": _rol(),
                  "gizli_sayisi": len(_gorunurluk_oku())},
         "ortam": {"python": platform.python_version(), "flask": flask_surumu, "port": request.host.split(":")[-1]},

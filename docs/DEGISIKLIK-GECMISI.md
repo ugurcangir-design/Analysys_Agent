@@ -3,6 +3,21 @@
 > Ana referans: [CLAUDE.md](../CLAUDE.md). Tarihsel kayıt — büyük bir faz/özellik
 > tamamlandığında buraya özet ekle.
 
+## UI v3 — yeniden tasarım + ekran/menü düzeni (YALNIZ v2) ✅
+- **Görsel dil:** slate + indigo palet (koyu/açık tema), Space Grotesk başlık, yüksek kontrast, 10px köşe;
+  token tabanlı (`:root`/`[data-theme]`) → tüm ekranlara yansır. Renk anlamı: kırmızı=çalışan işlem,
+  amber=analist onayı, yeşil=başarı, indigo=marka.
+- **İşlem göstergeleri:** üst barda kalıcı işlem çipi (`#run-chip`, her ekran) + tam-ekran İşlem Modu HUD
+  (`#islem-modu`, JARVIS tarzı kırmızı reaktör; kapatınca iş arka planda sürer).
+- **Menü/ekran:** açılır-kapanır sol menü + katlanır grup başlıkları; kart tabanlı Ana Sayfa (`pano.html`);
+  sol altta analist adı/rolü (`/api/analist`) + üst-bar avatarı; Kılavuz menüden alındı, üst-bar **?** düğmesi açar;
+  sağ-üst Ayarlar düğmesi kaldırıldı.
+- **Yeniden adlandırma:** Jira Görevleri → **Task Analizi** (iç anahtar `jira-gorevler` korundu), Kullanım →
+  **Kullanım Raporu**, Yetki & Denetim → **Yetki**.
+- **Denetim (audit) KALDIRILDI:** `skills/denetim.py`, `/api/denetim`, `logs/audit.jsonl`, `_denetim()` emitleri,
+  `/api/saglik` `denetim{}`, Yetki'deki Denetim paneli — hepsi çıkarıldı. Analist iş takibi tamamen Kullanım Raporu
+  (telemetri). Testler güncellendi (smoke 27, auth/rol 20).
+
 ## Kullanım İzleme (Telemetri) ✅
 - **`skills/telemetri.py`** — analiz olaylarını yalnız metadata olarak loglar (analist, olay tipi,
   durum, süre, model, AI modu, açılan Jira task adedi, bağlam proje/doküman). Doküman içeriği ASLA.

@@ -217,6 +217,7 @@ def ara(ad: str, sorgu: str, limit: int = MAX_ARAMA_SONUC) -> dict:
 
     rg = shutil.which("rg")
     eslesme = []
+    rg_calisti = False   # ripgrep KURULU olsa da exception atarsa fallback yine çalışmalı
     if rg:
         try:
             args = [rg, "--line-number", "--no-heading", "--color", "never",
@@ -231,9 +232,10 @@ def ara(ad: str, sorgu: str, limit: int = MAX_ARAMA_SONUC) -> dict:
                 if len(p) == 3:
                     eslesme.append({"yol": p[0], "satir_no": int(p[1]) if p[1].isdigit() else 0,
                                     "satir": p[2].strip()[:300]})
+            rg_calisti = True
         except Exception:
             eslesme = []
-    if not eslesme and not rg:
+    if not eslesme and not rg_calisti:
         alt = sorgu.lower()
         taranan = 0
         for p in _dosyalari_gez(kok):

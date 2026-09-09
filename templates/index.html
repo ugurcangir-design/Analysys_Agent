@@ -227,7 +227,31 @@ a:hover { text-decoration: underline; }
   padding: 10px 8px 5px;
   font-size: 9.5px; font-weight: 600; color: var(--text3);
   text-transform: uppercase; letter-spacing: 0.1em;
+  display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
 }
+.nav-section:hover { color: var(--text2); }
+.nav-sec-chevron { margin-left: auto; width: 11px; height: 11px; flex-shrink: 0; transition: transform .18s; }
+.nav-section.collapsed .nav-sec-chevron { transform: rotate(-90deg); }
+
+/* ── Sidebar daralt/genişlet (Görev 7) ─────────────────────────── */
+.sidebar-toggle {
+  margin-left: auto; background: transparent; border: none; color: var(--text3);
+  cursor: pointer; padding: 3px; border-radius: 4px; display: inline-flex; align-items: center;
+}
+.sidebar-toggle:hover { color: var(--text); background: var(--surface2); }
+.sidebar-toggle .ico { width: 15px; height: 15px; }
+.layout.sidebar-collapsed .sidebar { width: 60px; }
+.layout.sidebar-collapsed .brand-mark,
+.layout.sidebar-collapsed .brand-meta,
+.layout.sidebar-collapsed .nav-label,
+.layout.sidebar-collapsed .nav-section,
+.layout.sidebar-collapsed .sidebar-search span,
+.layout.sidebar-collapsed .sidebar-search .kbd,
+.layout.sidebar-collapsed .analist-kimlik { display: none; }
+.layout.sidebar-collapsed .sidebar-brand { justify-content: center; padding: 14px 0; }
+.layout.sidebar-collapsed .sidebar-search-inner { justify-content: center; padding: 6px; }
+.layout.sidebar-collapsed .nav-item { justify-content: center; padding: 8px; }
+.layout.sidebar-collapsed .sidebar-footer { justify-content: center; }
 .nav-item {
   display: flex; align-items: center; gap: 9px;
   padding: 6px 8px; border-radius: 4px;
@@ -273,6 +297,16 @@ a:hover { text-decoration: underline; }
   font-size: 11px; font-family: inherit;
 }
 .sidebar-footer .theme-toggle:hover { color: var(--text); background: var(--surface2); }
+.analist-kimlik { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; border-radius: 6px; padding: 2px 4px; }
+.analist-kimlik:hover { background: var(--surface2); }
+.analist-kimlik .ak-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(145deg, var(--accent), var(--accent2)); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;
+}
+.analist-kimlik .ak-meta { min-width: 0; line-height: 1.2; }
+.analist-kimlik .ak-ad { font-size: 11.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.analist-kimlik .ak-rol { font-size: 9.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
 html[data-theme="light"] .theme-toggle .ico-sun,
 html[data-theme="dark"] .theme-toggle .ico-moon { display: inline; }
 html[data-theme="light"] .theme-toggle .ico-moon,
@@ -1851,6 +1885,9 @@ function temaDegistir() {
         <div class="brand-title">Analyst Studio</div>
         <div class="brand-sub">v2.1</div>
       </div>
+      <button class="sidebar-toggle" onclick="sidebarAcKapa()" title="Menüyü daralt / genişlet">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
     </div>
 
     <div class="sidebar-search">
@@ -1897,7 +1934,7 @@ function temaDegistir() {
       <div class="nav-section" data-grup="jira-gorevler">Jira</div>
       <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
         <svg class="ico"><use href="#i-ticket"/></svg>
-        <span class="nav-label">Jira Görevleri</span>
+        <span class="nav-label">Task Analizi</span>
       </div>
       <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
         <svg class="ico"><use href="#i-refresh"/></svg>
@@ -1912,10 +1949,6 @@ function temaDegistir() {
       <div class="nav-item" id="nav-kod" onclick="switchTab('kod')">
         <svg class="ico"><use href="#i-code"/></svg>
         <span class="nav-label">Kod Kaynağı</span>
-      </div>
-      <div class="nav-item" id="nav-kilavuz" onclick="switchTab('kilavuz')">
-        <svg class="ico"><use href="#i-book"/></svg>
-        <span class="nav-label">Kılavuz</span>
       </div>
 
       <div class="nav-section" data-grup="settings">Yönetim<svg class="ds-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
@@ -1937,15 +1970,22 @@ function temaDegistir() {
       </div>
       <div class="nav-item" id="nav-kullanim" onclick="switchTab('kullanim')" style="display:none">
         <svg class="ico"><use href="#i-clock"/></svg>
-        <span class="nav-label">Kullanım</span>
+        <span class="nav-label">Kullanım Raporu</span>
       </div>
       <div class="nav-item" id="nav-yetki" onclick="switchTab('yetki')">
         <svg class="ico"><use href="#i-settings"/></svg>
-        <span class="nav-label">Yetki &amp; Denetim</span>
+        <span class="nav-label">Yetki</span>
       </div>
     </nav>
 
     <div class="sidebar-footer">
+      <div class="analist-kimlik" id="analist-kimlik" onclick="switchTab('settings')" title="Adını Ayarlar'dan düzenle">
+        <div class="ak-avatar" id="ak-avatar">A</div>
+        <div class="ak-meta">
+          <div class="ak-ad" id="ak-ad">Analist adı girin</div>
+          <div class="ak-rol" id="ak-rol">Analist</div>
+        </div>
+      </div>
       <button class="theme-toggle" onclick="temaDegistir()" title="Tema değiştir">
         <svg class="ico ico-sun" style="width:12px;height:12px"><use href="#i-sun"/></svg>
         <svg class="ico ico-moon" style="width:12px;height:12px"><use href="#i-moon"/></svg>
@@ -1999,10 +2039,10 @@ function temaDegistir() {
         </div>
       </div>
       <span class="topbar-sep"></span>
-      <button class="btn btn-ghost btn-sm" onclick="switchTab('settings')" title="Ayarlar">
-        <svg class="ico"><use href="#i-settings"/></svg>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('kilavuz')" title="Kılavuz / Yardım">
+        <svg class="ico"><use href="#i-help"/></svg>
       </button>
-      <div class="user-avatar" title="Kullanıcı">A</div>
+      <div class="user-avatar" id="topbar-avatar" title="Analist">A</div>
     </div>
 
     <!-- İşlem Modu (JARVIS HUD) — analiz çalışırken zengin görsel; kapatınca iş arka planda sürer -->
@@ -2244,7 +2284,7 @@ function temaDegistir() {
           <div class="ctx-group-title"><svg class="ico ico-sm"><use href="#i-monitor"/></svg> Canlı Uygulama (Chrome MCP)</div>
           <div>
             <div class="ctx-field-label">Ana Uygulama URL</div>
-            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler · <strong>Yalnızca bu ekran (Süreç/Teknik Analiz) içindir</strong> — Jira Görevleri ekranının kendi ayrı URL'i vardır, oraya yansımaz</div>
+            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler · <strong>Yalnızca bu ekran (Süreç/Teknik Analiz) içindir</strong> — Task Analizi ekranının kendi ayrı URL'i vardır, oraya yansımaz</div>
             <input class="ctx-input" id="ctx-live-target" type="url" placeholder="https://dev.example.com/app" oninput="updateCtxBadge()">
             <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
               Örnek ekran olarak kullan
@@ -2285,7 +2325,7 @@ function temaDegistir() {
           </details>
 
           <details class="ctx-more" id="ctx-more-auth">
-            <summary>Giriş Bilgileri <span class="mono-meta">(login duvarında otomatik giriş — Jira Görevleri ile paylaşılır)</span></summary>
+            <summary>Giriş Bilgileri <span class="mono-meta">(login duvarında otomatik giriş — Task Analizi ile paylaşılır)</span></summary>
             <div class="ctx-more-body">
               <div class="ctx-grid2">
                 <input class="ctx-input" id="ctx-live-username" type="text" placeholder="Kullanıcı adı / e-posta" autocomplete="off" oninput="updateCtxBadge()">
@@ -2463,11 +2503,11 @@ function temaDegistir() {
     </div>
 
     <!-- ─── ÇIKTILAR ─── -->
-    <!-- ── Jira Görevleri ── -->
+    <!-- ── Task Analizi (iç tab anahtarı 'jira-gorevler' — tarihsel) ── -->
     <div class="page" id="page-jira-gorevler">
       <div class="ph">
         <div class="ph-text">
-          <h1>Jira Görevleri</h1>
+          <h1>Task Analizi</h1>
           <p>Epic/Story altındaki görevleri veya tek bir görevi (kendisi + bağlı task'ları) çek ve iki gruba ayır: hızlı işleme alınacaklar vs. detaylı analiz gerekenler.</p>
         </div>
       </div>
@@ -2770,7 +2810,7 @@ function temaDegistir() {
     <div class="page" id="page-kullanim">
       <div class="panel">
         <div class="panel-head">
-          <div class="panel-title">Kullanım İzleme</div>
+          <div class="panel-title">Kullanım Raporu</div>
           <span class="panel-tag">yalnız owner</span>
           <div class="panel-spacer"></div>
           <span id="ku-son-guncelleme" style="font-size:11px;color:var(--text3);margin-right:6px"></span>
@@ -3468,13 +3508,13 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {pano:'Ana Sayfa',surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki & Denetim',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
+  const _crumbLabels = {pano:'Ana Sayfa',surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Task Analizi','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım Raporu',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.
   _jgTabAktif = (tab === 'jira-gorevler');
   if (_jgTabAktif) {
-    _jgTopbar(_jgSonDurum || 'Jira Görevleri', false);   // JG'ye dönünce son JG durumu
+    _jgTopbar(_jgSonDurum || 'Task Analizi', false);   // JG'ye dönünce son JG durumu
     jgCtxBilgiYukle();
   } else if ((tab === 'surec' || tab === 'brd') && _lastState) {
     updateUI(_lastState);          // Süreç/BRD: workflow durumunu geri yükle
@@ -3695,25 +3735,75 @@ async function kullanimUzaktanCek() {
 // engel ayrıca uygulanır (gorunurluk_kontrol) — UI gizleme yalnız deneyim içindir.
 const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullanim', 'yetki'];
 function _rolUygula(me) {
+  const akRol = document.getElementById('ak-rol'); if (akRol) akRol.textContent = (me.rol === 'owner') ? 'Owner' : 'Analist';
   if (me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
   if (me.rol === 'owner') return;
   const sec = document.querySelector('.nav-section[data-grup="settings"]'); if (sec) sec.style.display = 'none';
-  _YONETIM_NAV.forEach(id => { const n = document.getElementById('nav-' + id); if (n) n.style.display = 'none'; });
+  _YONETIM_NAV.forEach(id => { const n = document.getElementById('nav-' + id); if (n) { n.style.display = 'none'; n.classList.add('rol-gizli'); } });
   (me.gizli || []).forEach(id => {
-    const n = document.getElementById('nav-' + id); if (n) n.style.display = 'none';
+    const n = document.getElementById('nav-' + id); if (n) { n.style.display = 'none'; n.classList.add('rol-gizli'); }
     const el = document.getElementById(id); if (el && !el.classList.contains('page')) el.style.display = 'none';
   });
 }
+
+// ─── Sidebar daralt/genişlet + nav bölümleri aç/kapa (Görev 3a, 7) ───────────
+function sidebarAcKapa() {
+  const kapali = document.querySelector('.layout').classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebar-collapsed', kapali ? '1' : '0'); } catch (e) {}
+  // Daralınca ikon-üstü ipucu için başlıkları title'a taşı
+  document.querySelectorAll('.sidebar-nav .nav-item').forEach(n => {
+    const lbl = n.querySelector('.nav-label');
+    if (lbl) n.title = kapali ? lbl.textContent.trim() : '';
+  });
+}
+function navBolumAcKapa(sec, force) {
+  const yeni = (force !== undefined) ? force : !sec.classList.contains('collapsed');
+  sec.classList.toggle('collapsed', yeni);
+  let el = sec.nextElementSibling;
+  while (el && !el.classList.contains('nav-section')) {
+    el.style.display = yeni ? 'none' : (el.classList.contains('rol-gizli') ? 'none' : '');
+    el = el.nextElementSibling;
+  }
+  if (sec.dataset.grup) { try { localStorage.setItem('nav-collapsed-' + sec.dataset.grup, yeni ? '1' : '0'); } catch (e) {} }
+}
+(function _menuHazirla() {
+  // Sidebar daralt durumunu geri yükle
+  try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.layout').classList.add('sidebar-collapsed'); } catch (e) {}
+  // Nav bölümlerine chevron + tıklama; kayıtlı kapalı durumları uygula
+  document.querySelectorAll('.sidebar-nav .nav-section').forEach(sec => {
+    if (!sec.querySelector('.nav-sec-chevron')) {
+      sec.insertAdjacentHTML('beforeend', '<svg class="nav-sec-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    }
+    sec.addEventListener('click', () => navBolumAcKapa(sec));
+    const g = sec.dataset.grup;
+    if (g) { try { if (localStorage.getItem('nav-collapsed-' + g) === '1') navBolumAcKapa(sec, true); } catch (e) {} }
+  });
+})();
 (async () => {
   try { _rolUygula(await (await fetch('/api/auth/me')).json() || {}); } catch (e) {}
+  try { const a = await (await fetch('/api/analist')).json(); _analistKimligiUygula(a.ad_soyad || ''); } catch (e) {}
 })();
 
 // ─── Analist Kimliği (Ayarlar) ─────────────────────────────────────────────────
+function _basHarfler(ad) {
+  const p = (ad || '').trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return 'A';
+  return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
+}
+// Analist adını uygulamanın kalıcı yerlerine yansıt: sidebar kimliği + üst bar avatarı.
+function _analistKimligiUygula(ad) {
+  ad = (ad || '').trim();
+  const ini = _basHarfler(ad);
+  const akAd = document.getElementById('ak-ad'); if (akAd) akAd.textContent = ad || 'Analist adı girin';
+  const akAv = document.getElementById('ak-avatar'); if (akAv) akAv.textContent = ini;
+  const tbAv = document.getElementById('topbar-avatar'); if (tbAv) { tbAv.textContent = ini; tbAv.title = ad || 'Analist'; }
+}
 async function analistYukle() {
   try {
     const d = await (await fetch('/api/analist')).json();
     const el = document.getElementById('analist-input');
     if (el) el.value = d.ad_soyad || '';
+    _analistKimligiUygula(d.ad_soyad || '');
   } catch (e) {}
 }
 async function analistKaydet() {
@@ -3728,6 +3818,7 @@ async function analistKaydet() {
     });
     const d = await r.json();
     if (durum) durum.textContent = d.ok ? ('Kaydedildi: ' + d.ad_soyad) : ('Hata: ' + (d.error || ''));
+    if (d.ok) _analistKimligiUygula(d.ad_soyad);
     if (d.ok && typeof toast === 'function') toast('ok', 'Kaydedildi', 'Analist: ' + d.ad_soyad);
   } catch (e) { if (durum) durum.textContent = 'Kaydedilemedi.'; }
 }

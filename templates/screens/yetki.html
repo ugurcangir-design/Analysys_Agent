@@ -1,11 +1,11 @@
-    <!-- EKRAN: Yetki & Denetim (v2 Faz 2.4) — owner-only. Görünürlük yönetimi
-         (analistlerden gizlenen ekran/aksiyonlar) + denetim kaydı (kim ne yaptı).
-         Backend: /api/gorunurluk, /api/denetim. Kullanıcı yönetimi Ayarlar'da (/api/users). -->
+    <!-- EKRAN: Yetki (v2) — owner-only. Görünürlük yönetimi: analistlerden gizlenen
+         ekran/aksiyonlar. Backend: /api/gorunurluk. Kullanıcı yönetimi Ayarlar'da (/api/users).
+         Not: Denetim/audit kaydı v2'de kaldırıldı — analist iş takibi Kullanım Raporu'nda. -->
     <div class="page" id="page-yetki">
       <div class="ph">
         <div class="ph-text">
-          <h1>Yetki &amp; Denetim</h1>
-          <p>Analistlerin görmeyeceği ekran/aksiyonları seç; tüm önemli işlemleri kim-ne-ne zaman olarak izle.</p>
+          <h1>Yetki</h1>
+          <p>Analistlerin görmeyeceği ekran ve aksiyonları seç. Seçim tüm analistlere güncellemeyle iner.</p>
         </div>
         <div class="ph-actions">
           <button class="btn btn-outline btn-sm" onclick="switchTab('settings')">Kullanıcılar (Ayarlar)</button>
@@ -17,7 +17,7 @@
           <p><b>Owner</b> (bu makine / <code>ADMIN_USER</code>) her şeyi görür ve yönetir. <b>Analist</b> aşağıda işaretlediklerin hariç tüm ekran ve işlemleri kullanır. Seçim <code>gorunurluk.json</code>'a yazılır; analistlere güncellemeyle iner. Sunucu tarafında da uygulanır.</p></div>
       </div>
 
-      <div class="panel" style="margin-bottom:14px">
+      <div class="panel">
         <div class="panel-head">
           <span class="panel-title">Görünürlük — analistlerden gizle</span>
           <span class="ds-panel-tag">OWNER</span>
@@ -27,37 +27,14 @@
         </div>
         <div class="panel-body" id="yt-gor-liste"><div class="mono-meta">Yükleniyor…</div></div>
       </div>
-
-      <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">Denetim kaydı</span>
-          <span class="ds-panel-tag">KİM · NE · NE ZAMAN</span>
-          <span class="panel-spacer"></span>
-          <select id="yt-den-islem" class="ds-inp" style="width:auto;padding:4px 8px;font-size:11.5px" onchange="ytDenYukle()"><option value="">Tüm işlemler</option></select>
-          <button class="btn btn-outline btn-sm" onclick="ytDenYukle()">↻ Yenile</button>
-        </div>
-        <div class="panel-body" style="padding:0;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px" id="yt-den-tablo">
-            <thead><tr style="color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
-              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Zaman</th>
-              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Kullanıcı</th>
-              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">İşlem</th>
-              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Hedef</th>
-              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Detay</th>
-            </tr></thead>
-            <tbody id="yt-den-govde"></tbody>
-          </table>
-          <div id="yt-den-bos" class="ds-empty" style="display:none;margin:14px"><div class="t">Henüz denetim kaydı yok</div><div>Giriş, onay/ret, yeniden üretim, güncelleme ve yetki değişiklikleri burada görünür.</div></div>
-        </div>
-      </div>
     </div>
 
     <script>
-    // ─── Yetki & Denetim ekranı (v2 Faz 2.4) ────────────────────────────────
+    // ─── Yetki ekranı (v2) — görünürlük yönetimi ────────────────────────────
     function _ytEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
     let _ytKatalog = [];
 
-    async function ytYukle() { await Promise.all([ytGorYukle(), ytDenYukle()]); }
+    async function ytYukle() { await ytGorYukle(); }
 
     async function ytGorYukle() {
       const el = document.getElementById('yt-gor-liste');
@@ -85,26 +62,7 @@
       const r = await fetch('/api/gorunurluk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ gizli }) });
       const d = await r.json();
       const st = document.getElementById('yt-gor-durum');
-      if (d.ok) { st.textContent = '✓ Kaydedildi'; toast('Görünürlük kaydedildi — analistlere güncellemeyle iner', 'success'); setTimeout(() => st.textContent = '', 2500); ytDenYukle(); }
+      if (d.ok) { st.textContent = '✓ Kaydedildi'; toast('Görünürlük kaydedildi — analistlere güncellemeyle iner', 'success'); setTimeout(() => st.textContent = '', 2500); }
       else toast(d.error || 'Kaydedilemedi', 'error');
-    }
-
-    async function ytDenYukle() {
-      const sel = document.getElementById('yt-den-islem');
-      const q = sel.value ? '?islem=' + encodeURIComponent(sel.value) : '';
-      const d = await (await fetch('/api/denetim' + q)).json();
-      const tb = document.getElementById('yt-den-govde'); const bos = document.getElementById('yt-den-bos');
-      if (!d.ok) { tb.innerHTML = ''; return; }
-      if (sel.options.length <= 1 && d.tipler) d.tipler.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o); });
-      const rows = d.kayitlar || [];
-      bos.style.display = rows.length ? 'none' : '';
-      const td = 'padding:8px 14px;border-bottom:1px solid var(--border);vertical-align:top';
-      tb.innerHTML = rows.map(k => `<tr>
-        <td style="${td};white-space:nowrap;font-family:'Geist Mono',monospace;color:var(--text2)">${_ytEsc((k.zaman||'').replace('T',' '))}</td>
-        <td style="${td};font-weight:500">${_ytEsc(k.kullanici)}</td>
-        <td style="${td}"><span class="ds-chip acc mono">${_ytEsc(k.islem)}</span></td>
-        <td style="${td};color:var(--text2)">${_ytEsc(k.hedef)}</td>
-        <td style="${td};color:var(--text3);font-size:11px;max-width:360px;overflow-wrap:anywhere">${_ytEsc(Object.entries(k.detay||{}).map(([a,b])=>a+': '+b).join(' · '))}</td>
-      </tr>`).join('');
     }
     </script>

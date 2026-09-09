@@ -59,7 +59,6 @@ kontrol("owner /api/gorunurluk 200", owner.get("/api/gorunurluk").status_code ==
 r = owner.post("/api/gorunurluk", json={"gizli": ["delta", "backlog-senkron"]}, headers=ORIGIN)
 kontrol("owner gizle: delta + backlog", r.get_json()["gizli"] == ["backlog-senkron", "delta"], str(r.get_json()))
 kontrol("owner delta endpoint engellenmez (403 değil)", owner.post("/api/delta-analiz", json={}, headers=ORIGIN).status_code != 403)
-kontrol("owner /api/denetim 200", owner.get("/api/denetim").status_code == 200)
 
 # ── Analist ──────────────────────────────────────────────────────────────────
 an = uygulama.app.test_client()
@@ -72,7 +71,6 @@ r = an.post("/api/delta-analiz", json={"cr": "x"}, headers=ORIGIN)
 kontrol("analist gizli endpoint /api/delta-analiz → 403", r.status_code == 403 and r.get_json().get("gizli") == "delta", str(r.get_json()))
 kontrol("analist gizli endpoint /api/backlog/* → 403", an.get("/api/backlog/durum").status_code == 403)
 kontrol("analist yönetim: /api/gorunurluk → 403", an.get("/api/gorunurluk").status_code == 403)
-kontrol("analist yönetim: /api/denetim → 403", an.get("/api/denetim").status_code == 403)
 kontrol("analist yönetim: /api/saglik → 403", an.get("/api/saglik").status_code == 403)
 kontrol("analist yönetim: /api/users → 403", an.get("/api/users").status_code == 403)
 kontrol("analist gizli olmayan: /api/revizyon/x 200", an.get("/api/revizyon/surec-analizi.md").status_code == 200)
@@ -81,9 +79,6 @@ kontrol("analist gizli olmayan: /api/revizyon/x 200", an.get("/api/revizyon/sure
 owner.post("/api/gorunurluk", json={"gizli": []}, headers=ORIGIN)
 kontrol("gizleme kalkınca analist delta 403 değil", an.post("/api/delta-analiz", json={}, headers=ORIGIN).status_code != 403)
 
-# ── Denetim kaydında giriş + görünürlük izleri ───────────────────────────────
-tipler = set(owner.get("/api/denetim").get_json()["tipler"])
-kontrol("denetim: giris + gorunurluk kaydedildi", {"giris", "gorunurluk"} <= tipler, str(tipler))
 kontrol("çıkış", an.post("/api/auth/logout", headers=ORIGIN).status_code == 200 and an.get("/api/oturum").status_code == 401)
 
 print(f"\nAUTH/ROL TESTLERİ GEÇTİ ({ok} kontrol)")

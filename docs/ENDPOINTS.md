@@ -44,7 +44,7 @@ POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detayland
                                    Analist Notu (context_filter → gorev_analist_notu) doluysa dikkate alır
 POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'da güncelle (markdown→ADF)
 ```
-UI (Jira Görevleri, 0 token / tamamen frontend): "Tüm Görevler" ana başlığı + Jira
+UI (Task Analizi, 0 token / tamamen frontend): "Tüm Görevler" ana başlığı + Jira
 statü filtresi (çoklu seçim chip'ler); "Analist Notu" alanı (kalıcı, gorev_analist_notu).
 
 ## UAT Mutabakat (UAT board ↔ TRADE/OPS board karşılaştırma — 0 token, deterministik)
@@ -61,7 +61,7 @@ GET  /api/backlog/indir/<dosya>    Üretilen .xlsx raporu indir (binary send_fil
 Not: Excel yükleme (`/api/backlog/upload`) ve senkron (`/api/backlog/senkronize`) KALDIRILDI;
 eski takip-Excel senkron akışının yerini board-to-board mutabakat aldı.
 
-## Kullanım İzleme (Telemetri — owner-only, 0 token; skills/telemetri.py)
+## Kullanım Raporu (Telemetri — owner-only, 0 token; skills/telemetri.py)
 ```
 GET  /api/auth/me                  → {username, is_admin, usage_admin}. usage_admin = USAGE_DASHBOARD
                                      bayrağı (AUTH'tan bağımsız owner-gate).
@@ -123,18 +123,18 @@ GET  /api/oturum   Aktif oturum: girdi dokümanı, başlangıç (workflow ilk ad
 Tazelik kuralı: çıktı mtime ≥ oturum başlangıcı → **güncel**, değilse **eski** (önceki oturumdan).
 Katalog: `_CIKTI_KATALOGU` (app.py) — yeni çıktı dosyası eklenince buraya da (etiket + köken) eklenir.
 
-## Roller · Görünürlük · Denetim — v2 Faz 2.4 (owner-only; skills/denetim.py)
+## Roller · Görünürlük (Yetki) — owner-only
 İki rol: **owner** (AUTH kapalıyken tek kullanıcı; AUTH açıkken `ADMIN_USER`) · **analist** (diğer herkes).
 Analist, owner'ın gizlediği ekran/aksiyonlar HARİÇ her şeyi kullanır. `/api/auth/me` artık `rol` + `gizli[]` döner.
+Ekran adı: **Yetki** (`screens/yetki.html`; eski "Yetki & Denetim").
 ```
 GET  /api/gorunurluk   Gizlenebilir katalog (GIZLENEBILIR_KATALOG: id/ad/grup/endpoints) + gizli[]
 POST /api/gorunurluk   {gizli:[id]} → gorunurluk.json (repoda İZLENİR; analistlere güncellemeyle iner)
-GET  /api/denetim      Denetim kaydı, en yeni önce (?islem=&kullanici=&limit=) + tipler[]
 ```
 Sunucu tarafı: `gorunurluk_kontrol` before_request — analist için gizli id'lerin `endpoints` ön ekleri 403.
 UI: `_rolUygula()` (index.html) analistte Yönetim grubunu + gizli id'leri (nav + element) saklar.
-Denetim emit noktaları: giris/cikis, revizyon_onay/ret/geri_al, yeniden_uret, yeniden_baslat,
-guncelleme, kullanici_ekle/sil, gorunurluk → `logs/audit.jsonl` (gitignore'daki logs/ altında).
+**Denetim (audit) v3'te KALDIRILDI:** `skills/denetim.py` silindi, `_denetim()` no-op, `/api/denetim` +
+`logs/audit.jsonl` yok. Analist iş takibi tamamen **Kullanım Raporu** (skills/telemetri).
 
 ## Otomatik Güncelleme — v2 Faz 2.5 (bildirimli otomatik)
 Arka plan thread'i (`_oto_guncelleme_dongusu`, boot'ta `_oto_guncelleme_baslat`): `AUTO_UPDATE_INTERVAL`
@@ -148,14 +148,14 @@ POST /api/guncelleme/simdi              iş yoksa hemen uygula (engel → 409; i
 ```
 UI: `screens/_guncelleme.html` (script partial) — 60 sn'de bir sorar; banner "Yeni sürüm hazır · n commit"
 + değişiklik listesi + "Şimdi güncelle"; uygulanınca `/api/version` hash değişince sayfayı yeniler.
-Mevcut `/api/update` (elle) ve `/api/restart` dokunulmadan durur. Denetim: `oto_guncelleme`.
+Mevcut `/api/update` (elle) ve `/api/restart` dokunulmadan durur.
 
 ## Sistem Sağlığı — v2 Faz 2.6 (owner-only; 0 token)
 ```
 GET  /api/saglik   surum{hash,mesaj,tarih,dal} · ai{modu,model,cli_uygun,cli_reset} · guncelleme{otomatik,
                    yeni_surum,behind,engel,son_kontrol} · workflow{durum,calisiyor,mesgul} · mcp{chrome_config,
                    mcp_json,live_app_profil} · disk{output,logs,history,input,reference: mb,dosya} ·
-                   denetim{kayit_mb} · auth{aktif,kullanici_sayisi,rol,gizli_sayisi} · ortam{python,flask,port}
+                   auth{aktif,kullanici_sayisi,rol,gizli_sayisi} · ortam{python,flask,port}
 ```
 UI (v2.1): `/api/saglik` artık **Ana Sayfa** panosunda (`screens/pano.html`) gösterilir — ilk açılışta gelen
 dashboard (aktif oturum + hızlı eylemler + sağlık; owner değilse sağlık kısmı gizli). Ayrı "Sistem Sağlığı"
@@ -169,7 +169,7 @@ Analizi gerçek koda bağlamanın ALTYAPISI (repo bağlı değilse zarifçe boş
 Config makineye özel: `reference/kod_kaynagi.json` (gitignore; `.example` seed).
 ```
 GET  /api/kod/repolar   Yapılandırılmış repolar + durum (var/git/branch/commit/dosya/diller)
-POST /api/kod/repolar   {repolar:[{ad,yol,aktif}]} → kod_kaynagi.json (owner-only; denetim: kod_kaynagi_config)
+POST /api/kod/repolar   {repolar:[{ad,yol,aktif}]} → kod_kaynagi.json (owner-only)
 GET  /api/kod/agac      ?repo=&yol=  tek seviye ağaç (klasörler+dosyalar; node_modules/venv/.git hariç)
 GET  /api/kod/dosya     ?repo=&yol=  dosya içeriği (yol-güvenli, ≤512KB, metin/kod uzantıları)
 GET  /api/kod/ara       ?repo=&sorgu=  metin araması (ripgrep varsa; yoksa python fallback)

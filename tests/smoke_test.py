@@ -62,9 +62,6 @@ kontrol("oturum ok + katalog", o.get("ok") and len(o.get("ciktilar", [])) >= 9)
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog", g.get("ok") and len(g.get("katalog", [])) >= 10)
 
-d = json_al(istemci.get("/api/denetim"))
-kontrol("denetim ok", d.get("ok") and isinstance(d.get("kayitlar"), list))
-
 u = json_al(istemci.get("/api/guncelleme/durum"))
 kontrol("guncelleme/durum ok (fetch yok)", u.get("ok") and "yeni_surum" in u)
 
