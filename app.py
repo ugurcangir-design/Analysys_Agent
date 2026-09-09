@@ -2242,10 +2242,10 @@ def settings_kaydet():
         os.environ["EXTENDED_THINKING"] = deger
 
     if "cli_model" in data:
-        from skills.base import CLI_MODEL_SECENEKLER
+        from skills.base import cli_model_gecerli_mi
         m = (data.get("cli_model") or "").strip()
-        if m not in CLI_MODEL_SECENEKLER:
-            return jsonify({"error": f"Geçersiz model. Seçenekler: {', '.join(CLI_MODEL_SECENEKLER)}"}), 400
+        if not cli_model_gecerli_mi(m):
+            return jsonify({"error": "Geçersiz model değeri"}), 400
         degisiklikler["CLAUDE_CLI_MODEL"] = m
         os.environ["CLAUDE_CLI_MODEL"] = m   # canlı okuma (aktif_cli_model) hemen görür — restart gerekmez
 

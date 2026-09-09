@@ -101,11 +101,17 @@
       bolum.style.display='';
       const ai=d.ai,g=d.guncelleme,w=d.workflow,vk=(d.veri_kaynak||{}).analiz_mcp||{};
       const aiChip=ai.modu==='api'?_pnChip('API modu','ok'):ai.cli_uygun===true?_pnChip('CLI hazır','ok'):ai.cli_uygun===false?_pnChip('CLI limitte','bad'):_pnChip('CLI bilinmiyor','warn');
-      // CLI modunda analiz modeli arayüzden seçilir (API key gerekmez)
-      const modelSecici = (ai.modu==='cli' && (ai.model_secenekler||[]).length)
-        ? `<select id="pano-model" onchange="panoModelKaydet(this.value)" title="Analiz modeli (mevcut lisans/abonelik ile)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border-strong);border-radius:5px;padding:2px 8px;font:inherit;font-size:12px">
-             ${ai.model_secenekler.map(m=>`<option value="${_pnEsc(m)}" ${m===ai.model?'selected':''}>${_pnEsc(m)}</option>`).join('')}
-           </select>` : null;
+      // CLI modunda analiz modeli arayüzden seçilir (API key gerekmez; Fable gibi
+      // kredi-gerektiren modeller listede yok). Seçenekler: {ad, id}.
+      let modelSecici=null;
+      if(ai.modu==='cli' && (ai.model_secenekler||[]).length){
+        const secenekler=ai.model_secenekler.slice();
+        // Mevcut değer listede yoksa (ör. 'sonnet' takma adı) başa ekle ki görünsün
+        if(!secenekler.some(m=>m.id===ai.model)) secenekler.unshift({ad:ai.model,id:ai.model});
+        modelSecici=`<select id="pano-model" onchange="panoModelKaydet(this.value)" title="Analiz modeli (mevcut abonelik/lisans ile — API key gerekmez)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border-strong);border-radius:5px;padding:2px 8px;font:inherit;font-size:12px">
+          ${secenekler.map(m=>`<option value="${_pnEsc(m.id)}" ${m.id===ai.model?'selected':''}>${_pnEsc(m.ad)}</option>`).join('')}
+        </select>`;
+      }
       const gChip=g.hata?_pnChip('Kontrol hatası','bad'):g.yeni_surum?_pnChip(`Yeni sürüm (${g.behind})`,'warn'):_pnChip(g.otomatik?'Güncel · otomatik':'Güncel · elle','ok');
       const wChip=w.calisiyor?_pnChip(w.etiket,'warn'):_pnChip(w.etiket||'Hazır','ok');
       const diskToplam=Object.values(d.disk||{}).reduce((s,x)=>s+x.mb,0);

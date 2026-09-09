@@ -33,9 +33,31 @@ USE_CLAUDE_CLI = os.getenv("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "
 # Varsayılan "sonnet" (analiz için dengeli; Fable/Opus premium modellerinden kaçınır).
 CLAUDE_CLI_MODEL = os.getenv("CLAUDE_CLI_MODEL", "sonnet").strip()
 
-# CLI modunda analistin arayüzden seçebileceği model takma adları (API key GEREKMEZ —
-# mevcut Claude.ai aboneliği/lisansı ile). Availability plana/kotaya bağlıdır.
-CLI_MODEL_SECENEKLER = ("sonnet", "opus", "haiku")
+# CLI modunda arayüzde ÖNERİLEN model seçenekleri (API key GEREKMEZ — mevcut Claude.ai
+# aboneliği/lisansı ile). Takma ad = o sınıfın EN YENİ modeli; ayrıca belirli sürümü
+# sabitlemek için tam model ID'leri. Availability plana/kotaya bağlıdır (yoksa analiz
+# hata verir, kullanıcı geri döner). Liste kapalı değildir — "Özel model ID" ile
+# herhangi bir geçerli model de girilebilir (bkz. _cli_model_gecerli_mi).
+# Etiketli seçenekler: (görünen ad, --model değeri). Fable gibi "usage credits"
+# (ek ücret/kredi) gerektiren modeller BİLİNÇLİ olarak DIŞLANDI — abonelik kapsamında
+# API key/kredi gerektirmeyen modeller. Kaynak: Claude Code model seçici.
+CLI_MODEL_SECENEKLER = (
+    {"ad": "Opus 5",     "id": "claude-opus-5"},
+    {"ad": "Sonnet 5",   "id": "claude-sonnet-5"},
+    {"ad": "Haiku 4.5",  "id": "claude-haiku-4-5-20251001"},
+    {"ad": "Opus 4.8",   "id": "claude-opus-4-8"},
+    {"ad": "Opus 4.7",   "id": "claude-opus-4-7"},
+    {"ad": "Opus 4.6",   "id": "claude-opus-4-6"},
+    {"ad": "Sonnet 4.6", "id": "claude-sonnet-4-6"},
+)
+
+# Güvenli model değeri: takma ad ya da model ID. Boşluk/kabuk metakarakteri YOK
+# (--model'e argüman olarak gider). Uzun-bağlam varyantı `sonnet[1m]` de kabul.
+_CLI_MODEL_DESEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\-\[\]]{0,60}")
+
+
+def cli_model_gecerli_mi(m: str) -> bool:
+    return bool(m) and _CLI_MODEL_DESEN.fullmatch(m.strip()) is not None
 
 
 def aktif_cli_model() -> str:
