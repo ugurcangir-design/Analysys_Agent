@@ -143,7 +143,10 @@ Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
   `gorunurluk.json` (repoda izlenir), `/api/gorunurluk` GET/POST, sunucu tarafı engel
   (`gorunurluk_kontrol`), `skills/denetim.py` + `/api/denetim` + 11 emit noktası, UI
   `_rolUygula()` + **Yetki & Denetim** ekranı (`screens/yetki.html`, Yönetim 🔒). Doğrulandı.
-- 2.5 Otomatik güncelleme & yeniden başlatma
+- ✅ 2.5 Otomatik güncelleme & yeniden başlatma — bildirimli otomatik: arka plan `git fetch`;
+  iş yokken sessiz `pull --ff-only` + restart, iş sürerken "yeni sürüm hazır" banner'ı ve iş bitince
+  uygulama; yerel değişiklik / push edilmemiş commit varsa yalnız bildirir (owner makinesi korunur).
+  `/api/guncelleme/durum|simdi`, `screens/_guncelleme.html`, `AUTO_UPDATE`/`AUTO_UPDATE_INTERVAL`.
 - 2.6 Ek özellikler (sağlık paneli, komut paleti, onboarding, changelog, erişilebilirlik, regresyon)
 - **Çıktı:** Verimli, ürün gibi hissettiren, yönetilebilir, kendini güncelleyen uygulama.
 

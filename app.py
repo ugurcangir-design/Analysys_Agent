@@ -1611,6 +1611,163 @@ def denetim_getir():
     return jsonify({"ok": True, "kayitlar": kayitlar, "tipler": denetim.islem_tipleri()})
 
 
+# ─── Otomatik Güncelleme — v2 Faz 2.5 (bildirimli otomatik) ──────────────────
+# Arka planda periyodik `git fetch`; uzak dal öndeyse "yeni sürüm hazır" bildirimi.
+# İş YOKKEN (workflow çalışmıyor + rerun/revizyon kilidi boş) sessizce `pull --ff-only`
+# + pip + temiz restart (_yeniden_baslat_zamanla). İş sürerken bekler, bitince uygular.
+# Güvenlik: yerel değişiklik (dirty tree) veya push edilmemiş commit varsa (owner'ın
+# geliştirme makinesi) ASLA otomatik pull yapmaz — yalnız bildirir.
+AUTO_UPDATE = os.getenv("AUTO_UPDATE", "true").lower() in ("1", "true", "yes")
+AUTO_UPDATE_ARALIK = max(60, int(os.getenv("AUTO_UPDATE_INTERVAL", "600") or 600))   # sn
+_guncelleme_lock = threading.Lock()
+_guncelleme_durumu: dict = {
+    "otomatik": AUTO_UPDATE, "yeni_surum": False, "behind": 0, "ahead": 0,
+    "uzak": None, "degisiklikler": [], "engel": None, "son_kontrol": None,
+    "uygulaniyor": False, "hata": None,
+}
+
+
+def _mesgul_mu() -> str | None:
+    """Uygulama şu an iş yapıyor mu? Dönen metin = bekleme nedeni; None = boş."""
+    try:
+        import workflow as _wf
+        if _wf.calisiyor_mu():
+            return "analiz sürüyor"
+    except Exception:
+        pass
+    if _rerun_lock.locked():
+        return "yeniden üretim sürüyor"
+    if _revizyon_lock.locked():
+        return "revizyon düzenlemesi sürüyor"
+    return None
+
+
+def _guncelleme_kontrol(fetch: bool = True) -> dict:
+    """Uzak dalı kontrol eder, _guncelleme_durumu'nu günceller (0 token)."""
+    d = _guncelleme_durumu
+    if not (BASE_DIR / ".git").exists():
+        d.update(engel="git deposu değil", son_kontrol=time.time())
+        return d
+    if fetch:
+        f = _git_calistir(["fetch", "origin", "--quiet"], timeout=60)
+        if not f["ok"]:
+            d.update(hata=(f.get("stderr") or "fetch başarısız")[:200], son_kontrol=time.time())
+            return d
+    branch = _git_calistir(["rev-parse", "--abbrev-ref", "HEAD"])
+    dal = branch["stdout"] if branch["ok"] else "main"
+    sayim = _git_calistir(["rev-list", "--left-right", "--count", f"HEAD...origin/{dal}"])
+    ahead, behind = 0, 0
+    if sayim["ok"] and "\t" in sayim["stdout"]:
+        try:
+            a, b = sayim["stdout"].split("\t")
+            ahead, behind = int(a), int(b)
+        except ValueError:
+            pass
+    kirli = _git_calistir(["status", "--porcelain", "--untracked-files=no"])
+    yerel_degisiklik = bool(kirli["ok"] and kirli["stdout"].strip())
+    uzak = None
+    degisiklikler: list[str] = []
+    if behind:
+        u = _git_calistir(["log", "-1", f"origin/{dal}", "--pretty=format:%h|%s|%ci"])
+        if u["ok"] and "|" in u["stdout"]:
+            h, s, c = u["stdout"].split("|", 2)
+            uzak = {"hash": h, "mesaj": s, "tarih": c[:19]}
+        lg = _git_calistir(["log", f"HEAD..origin/{dal}", "--pretty=format:%s", "-n", "10"])
+        if lg["ok"]:
+            degisiklikler = [x for x in lg["stdout"].splitlines() if x.strip()]
+    engel = None
+    if yerel_degisiklik:
+        engel = "yerel değişiklik var (geliştirme makinesi) — otomatik pull kapalı"
+    elif ahead:
+        engel = "push edilmemiş yerel commit var — otomatik pull kapalı"
+    d.update(yeni_surum=behind > 0, behind=behind, ahead=ahead, uzak=uzak, dal=dal,
+             degisiklikler=degisiklikler, engel=engel, son_kontrol=time.time(), hata=None)
+    return d
+
+
+def _guncelleme_uygula(kaynak: str = "otomatik") -> tuple[bool, str]:
+    """pull --ff-only + pip + restart. Dönen: (ok, mesaj)."""
+    if not _guncelleme_lock.acquire(blocking=False):
+        return False, "Güncelleme zaten uygulanıyor"
+    try:
+        _guncelleme_durumu["uygulaniyor"] = True
+        pull = _git_calistir(["pull", "--ff-only"], timeout=120)
+        cikti = (pull["stdout"] + "\n" + pull.get("stderr", "")).strip()
+        if not pull["ok"]:
+            _guncelleme_durumu.update(uygulaniyor=False, hata=cikti[:300])
+            return False, cikti[:300]
+        subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(BASE_DIR / "requirements.txt"), "-q"],
+                       capture_output=True, timeout=180)
+        logger.info("Otomatik güncelleme uygulandı (%s): %s", kaynak, cikti[:120])
+        try:
+            from skills import denetim
+            denetim.yaz("oto_guncelleme", "git pull --ff-only", {"kaynak": kaynak, "ozet": cikti[:200]})
+        except Exception:
+            pass
+        _yeniden_baslat_zamanla()
+        return True, cikti[:300]
+    finally:
+        _guncelleme_lock.release()
+
+
+def _oto_guncelleme_dongusu() -> None:
+    """Arka plan thread'i: periyodik kontrol; yeni sürüm + iş yok + engel yok → uygula."""
+    time.sleep(45)   # boot'u rahat bırak
+    bekleme = AUTO_UPDATE_ARALIK
+    while True:
+        try:
+            d = _guncelleme_kontrol(fetch=True)
+            if d.get("yeni_surum") and not d.get("engel"):
+                neden = _mesgul_mu()
+                if neden:
+                    d["bekleme_nedeni"] = neden
+                    bekleme = 60          # iş bitince hızlı yakala
+                else:
+                    d["bekleme_nedeni"] = None
+                    ok, _ = _guncelleme_uygula("otomatik")
+                    if ok:
+                        return            # süreç yeniden başlıyor
+                    bekleme = AUTO_UPDATE_ARALIK
+            else:
+                d["bekleme_nedeni"] = None
+                bekleme = AUTO_UPDATE_ARALIK
+        except Exception as e:
+            logger.warning("Otomatik güncelleme kontrolü hatası: %s", e)
+            bekleme = AUTO_UPDATE_ARALIK
+        time.sleep(bekleme)
+
+
+def _oto_guncelleme_baslat() -> None:
+    if AUTO_UPDATE and (BASE_DIR / ".git").exists():
+        threading.Thread(target=_oto_guncelleme_dongusu, daemon=True, name="oto-guncelleme").start()
+        logger.info("Otomatik güncelleme açık (kontrol aralığı %ss; iş yokken uygulanır).", AUTO_UPDATE_ARALIK)
+
+
+@app.route("/api/guncelleme/durum", methods=["GET"])
+def guncelleme_durum():
+    """Banner için: yeni sürüm var mı, neden bekliyor, değişiklik özeti. ?kontrol=1 → taze fetch."""
+    if request.args.get("kontrol") == "1":
+        _guncelleme_kontrol(fetch=True)
+    d = dict(_guncelleme_durumu)
+    d["bekleme_nedeni"] = d.get("bekleme_nedeni") or (_mesgul_mu() if d.get("yeni_surum") else None)
+    return jsonify({"ok": True, **d})
+
+
+@app.route("/api/guncelleme/simdi", methods=["POST"])
+def guncelleme_simdi():
+    """Kullanıcı 'Şimdi güncelle' dedi: iş yoksa hemen uygula (yerel değişiklik engeli yine geçerli)."""
+    d = _guncelleme_kontrol(fetch=True)
+    if not d.get("yeni_surum"):
+        return jsonify({"ok": True, "guncelleme_var": False, "mesaj": "Zaten en güncel sürümdesiniz."})
+    if d.get("engel"):
+        return jsonify({"ok": False, "error": d["engel"]}), 409
+    neden = _mesgul_mu()
+    if neden:
+        return jsonify({"ok": False, "error": f"Şu an {neden}; bitince otomatik uygulanacak."}), 409
+    ok, mesaj = _guncelleme_uygula("kullanıcı")
+    return jsonify({"ok": ok, "guncelleme_var": True, "mesaj": mesaj, "yeniden_basliyor": ok}), (200 if ok else 500)
+
+
 
 
 def _env_yaz(degiskenler: dict) -> None:
@@ -3453,4 +3610,5 @@ if __name__ == "__main__":
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
     else:
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  (sadece yerel; LAN için .env'de HOST=0.0.0.0)")
+    _oto_guncelleme_baslat()   # v2 Faz 2.5 — bildirimli otomatik güncelleme (AUTO_UPDATE=false ile kapatılır)
     app.run(host=host, port=port, debug=False)

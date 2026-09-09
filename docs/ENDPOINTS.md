@@ -136,6 +136,20 @@ UI: `_rolUygula()` (index.html) analistte Yönetim grubunu + gizli id'leri (nav 
 Denetim emit noktaları: giris/cikis, revizyon_onay/ret/geri_al, yeniden_uret, yeniden_baslat,
 guncelleme, kullanici_ekle/sil, gorunurluk → `logs/audit.jsonl` (gitignore'daki logs/ altında).
 
+## Otomatik Güncelleme — v2 Faz 2.5 (bildirimli otomatik)
+Arka plan thread'i (`_oto_guncelleme_dongusu`, boot'ta `_oto_guncelleme_baslat`): `AUTO_UPDATE_INTERVAL`
+(vars. 600 sn) aralıkla `git fetch`; uzak dal öndeyse **iş yokken** (`_mesgul_mu()` = workflow çalışmıyor +
+rerun/revizyon kilidi boş) `pull --ff-only` + pip + `_yeniden_baslat_zamanla()`; iş sürerken 60 sn'de bir
+yeniden dener. **Engel:** yerel değişiklik (dirty tree) veya push edilmemiş commit varsa asla otomatik pull
+yapmaz (owner geliştirme makinesi) — yalnız bildirir. `.env`: `AUTO_UPDATE=false` kapatır.
+```
+GET  /api/guncelleme/durum[?kontrol=1]  yeni_surum/behind/ahead/uzak/degisiklikler[]/engel/bekleme_nedeni/uygulaniyor
+POST /api/guncelleme/simdi              iş yoksa hemen uygula (engel → 409; iş sürüyor → 409)
+```
+UI: `screens/_guncelleme.html` (script partial) — 60 sn'de bir sorar; banner "Yeni sürüm hazır · n commit"
++ değişiklik listesi + "Şimdi güncelle"; uygulanınca `/api/version` hash değişince sayfayı yeniler.
+Mevcut `/api/update` (elle) ve `/api/restart` dokunulmadan durur. Denetim: `oto_guncelleme`.
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

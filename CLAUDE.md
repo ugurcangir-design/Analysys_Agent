@@ -22,6 +22,9 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   `gorunurluk.json`'da (repoda İZLENİR) gizlediği id'ler hariç her şeyi kullanır; sunucu tarafı
   `gorunurluk_kontrol` + UI `_rolUygula()`. **Denetim:** `skills/denetim.py` → `logs/audit.jsonl`
   (`_denetim()` emit; telemetriden AYRI). Yeni gizlenebilir ekran/aksiyon → `GIZLENEBILIR_KATALOG` (app.py).
+  **Otomatik güncelleme (2.5):** boot'ta `_oto_guncelleme_baslat()` — iş yokken `pull --ff-only` + restart;
+  dirty tree / push edilmemiş commit varsa yalnız bildirir. `.env` `AUTO_UPDATE=false` kapatır,
+  `AUTO_UPDATE_INTERVAL` (sn). Banner: `screens/_guncelleme.html`. `/api/update` elle akış aynen durur.
 
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
