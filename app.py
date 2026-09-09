@@ -2337,72 +2337,86 @@ def sorular_tumunu_sil():
     return jsonify({"ok": True, "silinen": silinen})
 
 
+# Cevap uygulama ARKA PLANDA yürür — bloklayan refine (yeniden_calistir, timeout 1200 sn)
+# istek thread'ini tutmasın (rerun deseni). UI /api/sorular/uygula-durum ile ilerlemeyi sorgular.
+_sorular_uygula_lock = threading.Lock()
+_sorular_uygula_durum = {"calisiyor": False, "toplam": 0, "tamamlanan": 0,
+                         "sonuclar": [], "mesaj": "", "bitti": None}
+
+
 @app.route("/api/sorular/uygula", methods=["POST"])
 def sorular_uygula():
-    """Cevaplanmış/varsayım sorularını refine ile ilgili analize işler.
+    """Cevaplanmış/varsayım sorularını refine ile ilgili analize ARKA PLANDA işler.
 
     Body: {"zorla": false}  → True ise zaten uygulanmış olanları da tekrar uygular.
     Her kaynak_dosya için ayrı refine çağrısı yapılır (atomik değil — birinde hata
-    olursa diğerleri devam eder; sonuç listesi durumu gösterir).
-    """
+    olursa diğerleri devam eder). İlerleme: /api/sorular/uygula-durum."""
     import workflow as wf
-    from skills.sorular import (
-        uygulanacak_sorular, duzeltme_notu_olustur, uygulandi_isaretle,
-        parse_ve_birlestir,
-    )
-    from skills.base import yeniden_calistir
+    from skills.sorular import uygulanacak_sorular
 
     if wf.ozet()["calisiyor"]:
         return jsonify({"ok": False, "error": "Başka bir analiz çalışıyor. Bitince tekrar deneyin."}), 409
+    if _sorular_uygula_durum["calisiyor"] or not _sorular_uygula_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Cevap uygulama zaten sürüyor."}), 409
 
     payload = request.get_json(silent=True) or {}
     zorla = bool(payload.get("zorla", False))
-
     gruplar = uygulanacak_sorular(zorla=zorla)
     if not gruplar:
-        return jsonify({
-            "ok": True,
-            "mesaj": "Uygulanacak yeni cevap/varsayım yok.",
-            "sonuclar": [],
-        })
+        _sorular_uygula_lock.release()
+        return jsonify({"ok": True, "baslatildi": False,
+                        "mesaj": "Uygulanacak yeni cevap/varsayım yok.", "sonuclar": []})
 
-    sonuclar = []
-    for kaynak, sorular in gruplar.items():
-        # Sadece bilinen analiz dosyalarına refine uygula
-        if kaynak not in IZIN_VERILEN_CIKTILAR:
-            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Bilinmeyen dosya, atlandı"})
-            continue
-        if not (OUTPUT_DIR / kaynak).exists():
-            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Dosya bulunamadı"})
-            continue
+    _sorular_uygula_durum.update({"calisiyor": True, "toplam": len(gruplar),
+                                  "tamamlanan": 0, "sonuclar": [], "mesaj": "", "bitti": None})
+
+    def _calistir(gruplar):
+        from skills.sorular import (duzeltme_notu_olustur, uygulandi_isaretle, parse_ve_birlestir)
+        from skills.base import yeniden_calistir
+        sonuclar = []
         try:
-            not_metni = duzeltme_notu_olustur(sorular)
-            yeniden_calistir(kaynak, not_metni)
-            for s in sorular:
-                uygulandi_isaretle(s["id"], kaynak)
-            sonuclar.append({
-                "kaynak_dosya": kaynak,
-                "ok": True,
-                "uygulanan_sayi": len(sorular),
-                "uygulanan_ids": [s["id"] for s in sorular],
-            })
-            logger.info("Sorular uygulandı: %s — %d soru", kaynak, len(sorular))
-        except Exception as e:
-            logger.error("Refine hatası (%s): %s", kaynak, e)
-            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": str(e)})
+            for kaynak, sorular in gruplar.items():
+                if kaynak not in IZIN_VERILEN_CIKTILAR:
+                    sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Bilinmeyen dosya, atlandı"})
+                elif not (OUTPUT_DIR / kaynak).exists():
+                    sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Dosya bulunamadı"})
+                else:
+                    try:
+                        yeniden_calistir(kaynak, duzeltme_notu_olustur(sorular))
+                        for s in sorular:
+                            uygulandi_isaretle(s["id"], kaynak)
+                        sonuclar.append({"kaynak_dosya": kaynak, "ok": True,
+                                         "uygulanan_sayi": len(sorular),
+                                         "uygulanan_ids": [s["id"] for s in sorular]})
+                        logger.info("Sorular uygulandı: %s — %d soru", kaynak, len(sorular))
+                    except Exception as e:
+                        logger.error("Refine hatası (%s): %s", kaynak, e)
+                        sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": str(e)})
+                _sorular_uygula_durum["tamamlanan"] = len(sonuclar)
+                _sorular_uygula_durum["sonuclar"] = list(sonuclar)
+            # AI çıktıyı değiştirdi — parser güncel veriyi alsın
+            try:
+                parse_ve_birlestir()
+            except Exception:
+                pass
+        finally:
+            basari = sum(1 for s in sonuclar if s.get("ok"))
+            _sorular_uygula_durum.update({"calisiyor": False, "sonuclar": sonuclar,
+                                          "mesaj": f"{basari}/{len(sonuclar)} dosya güncellendi",
+                                          "bitti": time.time()})
+            _sorular_uygula_lock.release()
 
-    # Soruları yeniden tara — AI çıktıyı değiştirdi, parser güncel veriyi alsın
-    try:
-        parse_ve_birlestir()
-    except Exception:
-        pass
+    threading.Thread(target=_calistir, args=(gruplar,), daemon=True).start()
+    return jsonify({"ok": True, "baslatildi": True, "toplam": len(gruplar)})
 
-    basari_sayisi = sum(1 for s in sonuclar if s["ok"])
-    return jsonify({
-        "ok": basari_sayisi > 0,
-        "mesaj": f"{basari_sayisi}/{len(sonuclar)} dosya güncellendi",
-        "sonuclar": sonuclar,
-    })
+
+@app.route("/api/sorular/uygula-durum")
+def sorular_uygula_durum():
+    """Arka plan cevap-uygulama ilerlemesi (UI polling)."""
+    d = _sorular_uygula_durum
+    return jsonify({"ok": True, "calisiyor": d["calisiyor"], "toplam": d["toplam"],
+                    "tamamlanan": d["tamamlanan"], "sonuclar": d["sonuclar"],
+                    "mesaj": d["mesaj"], "bitti": d["bitti"]})
 
 
 @app.route("/api/sorular/paylasim", methods=["GET"])

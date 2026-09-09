@@ -3,7 +3,7 @@
 import shutil
 from pathlib import Path
 from .base import (
-    _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
+    api_cagri_kapanisli, _kaydet, _xml_ayir, _metin_sikistir,
     input_hazirla, referans_dosyalari_hazirla, _ref_bloklari_olustur,
     prompt_yukle, extended_thinking_acik,
     INPUT_DIR, REF_DIR,
@@ -48,7 +48,9 @@ def brd_analizi_yap() -> tuple[Path, Path]:
         f"<brd_sorular>\nProduct Owner için en önemli 12 soru:\n{sorular_fmt}\n</brd_sorular>"
     )
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
-    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_BRD_CMB, thinking=extended_thinking_acik())
+    # Birleşik çağrı: ikinci blok (<brd_sorular>) limitte kesilirse kaybolmasın → kapanış-retry.
+    yanit = api_cagri_kapanisli(sistem, mesajlar, "</brd_sorular>",
+                                max_tokens=MAX_TOKENS_BRD_CMB, thinking=extended_thinking_acik())
     yanit = _metin_sikistir(yanit)
 
     analiz  = _xml_ayir(yanit, "brd_analizi")

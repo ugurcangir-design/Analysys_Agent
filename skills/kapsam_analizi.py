@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from .base import (
-    _api_cagri, _kaydet, _xml_ayir, _metin_sikistir,
+    api_cagri_kapanisli, _kaydet, _xml_ayir, _metin_sikistir,
     dosya_oku, input_hazirla, referans_brd_oku,
     referans_dosyalari_hazirla, _ref_bloklari_olustur,
     prompt_yukle,
@@ -69,7 +69,8 @@ def kapsam_analizi_yap() -> tuple[Path, Path]:
     )
 
     mesajlar = [{"role": "user", "content": icerik_parcalari}]
-    yanit = _api_cagri(sistem, mesajlar, max_tokens=MAX_TOKENS_KAPSAM)
+    # Birleşik çağrı: ikinci blok (<alternatif_surecler>) limitte kesilirse kaybolmasın → kapanış-retry.
+    yanit = api_cagri_kapanisli(sistem, mesajlar, "</alternatif_surecler>", max_tokens=MAX_TOKENS_KAPSAM)
     yanit = _metin_sikistir(yanit)
 
     kapsam     = _xml_ayir(yanit, "kapsam_analizi")

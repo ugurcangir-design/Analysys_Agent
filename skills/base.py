@@ -3233,6 +3233,31 @@ def _api_cagri(
     return sonuc
 
 
+def api_cagri_kapanisli(sistem: str, mesajlar: list, kapanis: str, max_tokens: int,
+                        thinking: bool = False, max_deneme: int = 2,
+                        canli_uygulama_kapsami: str | None = None) -> str:
+    """`kapanis` etiketi (ör. '</brd_sorular>') gelene kadar _api_cagri'yi yeniden dener.
+    Birden çok XML bloğu üreten BİRLEŞİK çağrılarda SON bloğun kapanışını kontrol eder:
+    çıktı limitte kesilirse ikinci blok (PO soruları / alternatif süreçler) SESSİZCE
+    kaybolmasın. Kesik gelirse 2+ denemede önbelleği BYPASS eder (yoksa cache aynı kesik
+    yanıtı döndürür); hiçbiri tam değilse en dolu ham yanıtı döndürür (_xml_ayir yarımı ayıklar).
+    _teknik_uret_tam ile aynı desen — teknik analiz kendi kopyasını kullanır (max_tokens farkı)."""
+    en_dolu = ""
+    for deneme in range(1, max_deneme + 1):
+        ham = _api_cagri(sistem, mesajlar, max_tokens=max_tokens, thinking=thinking,
+                         onbellek=(deneme == 1), canli_uygulama_kapsami=canli_uygulama_kapsami)
+        if kapanis in ham:
+            if deneme > 1:
+                print(f"  ✓ {deneme}. denemede tam çıktı üretildi ({kapanis})")
+            return ham
+        if len(ham) > len(en_dolu):
+            en_dolu = ham
+        if deneme < max_deneme:
+            print(f"  ⚠ Çıktı kesik ({kapanis} kapanışı yok) — yeniden deneniyor ({deneme}/{max_deneme})...")
+    print(f"  ⛔ Tam çıktı üretilemedi ({kapanis} yok) — eldeki en dolu kaydedilecek (eksik olabilir).")
+    return en_dolu
+
+
 def _kaydet(dosya_adi: str, icerik: str) -> Path:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     yol = OUTPUT_DIR / dosya_adi

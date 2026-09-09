@@ -6428,41 +6428,48 @@ async function sorularUygula() {
   const eskiMetin = btn.innerHTML;
   btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor...';
 
-  const ctrl = new AbortController();
-  const tid = setTimeout(() => ctrl.abort(), 240000);  // 4 dk
-
   try {
+    // İş ARKA PLANDA yürür (sunucu istek thread'ini tutmaz) — başlat + durum sorgula.
     const r = await fetch('/api/sorular/uygula', {
-      method: 'POST', signal: ctrl.signal,
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({})
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
     });
     const d = await r.json();
-    const basariliSayisi = (d.sonuclar || []).filter(s => s.ok).length;
-    if (d.ok) {
-      const detay = (d.sonuclar || []).map(s =>
-        s.ok ? `  ✓ ${s.kaynak_dosya} (${s.uygulanan_sayi} soru)`
-             : `  ✗ ${s.kaynak_dosya}: ${s.error}`
-      ).join('\n');
-      toast(d.mesaj, basariliSayisi === (d.sonuclar || []).length ? 'success' : 'info');
-      console.log('Sorular uygulandı:\n' + detay);
-      // Çıktı sekmesini yenile (içerik değişti) + soruları yeniden tara
-      await sorularYukleVeListele();
-      // Aktif outputu görüntülüyorsak yenile
-      const aktifTab = document.querySelector('.output-tab.active');
-      if (aktifTab && aktifTab.dataset.file !== '__sorular__') {
-        outputSec(aktifTab);
-      }
-    } else {
-      toast('Uygulama başarısız: ' + (d.error || d.mesaj || ''), 'error');
-    }
+    if (!d.ok) { toast('Uygulama başlatılamadı: ' + (d.error || ''), 'error'); return; }
+    if (!d.baslatildi) { toast(d.mesaj || 'Uygulanacak cevap yok', 'info'); return; }
+
+    const sonuc = await _sorularUygulaBekle();
+    const sonuclar = sonuc.sonuclar || [];
+    const basariliSayisi = sonuclar.filter(s => s.ok).length;
+    const detay = sonuclar.map(s =>
+      s.ok ? `  ✓ ${s.kaynak_dosya} (${s.uygulanan_sayi} soru)` : `  ✗ ${s.kaynak_dosya}: ${s.error}`
+    ).join('\n');
+    toast(sonuc.mesaj || 'Tamamlandı', basariliSayisi === sonuclar.length ? 'success' : 'info');
+    console.log('Sorular uygulandı:\n' + detay);
+    await sorularYukleVeListele();
+    const aktifTab = document.querySelector('.output-tab.active');
+    if (aktifTab && aktifTab.dataset.file !== '__sorular__') outputSec(aktifTab);
   } catch (e) {
-    toast(e.name === 'AbortError' ? 'Zaman aşımı (4 dk)' : ('Hata: ' + e.message), 'error');
+    toast('Hata: ' + e.message, 'error');
   } finally {
-    clearTimeout(tid);
     btn.disabled = false;
     btn.innerHTML = eskiMetin;
   }
+}
+
+// Arka plan cevap-uygulama bitene kadar durum sorgular; ilerlemeyi butonda gösterir.
+function _sorularUygulaBekle() {
+  return new Promise((resolve) => {
+    const btn = document.getElementById('btn-cevaplari-uygula');
+    const t = setInterval(async () => {
+      try {
+        const d = await (await fetch('/api/sorular/uygula-durum')).json();
+        if (btn && d.calisiyor && d.toplam) {
+          btn.innerHTML = `<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor ${d.tamamlanan}/${d.toplam}...`;
+        }
+        if (!d.calisiyor) { clearInterval(t); resolve(d); }
+      } catch (e) { /* geçici hata — bir sonraki tick'te tekrar dener */ }
+    }, 2000);
+  });
 }
 
 async function sorularPaylasimAc() {
