@@ -1787,7 +1787,7 @@ function temaDegistir() {
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section">Pipeline</div>
+      <div class="nav-section" data-grup="surec">Analiz</div>
       <div class="nav-item active" id="nav-surec" onclick="switchTab('surec')">
         <svg class="ico"><use href="#i-workflow"/></svg>
         <span class="nav-label">Süreç/Teknik Analiz</span>
@@ -1800,20 +1800,8 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">Delta / CR Analizi</span>
       </div>
-      <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
-        <svg class="ico"><use href="#i-ticket"/></svg>
-        <span class="nav-label">Jira Görevleri</span>
-      </div>
-      <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
-        <svg class="ico"><use href="#i-refresh"/></svg>
-        <span class="nav-label">UAT Mutabakat</span>
-      </div>
-      <div class="nav-item" id="nav-kullanim" onclick="switchTab('kullanim')" style="display:none">
-        <svg class="ico"><use href="#i-clock"/></svg>
-        <span class="nav-label">Kullanım</span>
-      </div>
 
-      <div class="nav-section">Çıktılar</div>
+      <div class="nav-section" data-grup="ciktilar">Çıktılar &amp; Revizyon</div>
       <div class="nav-item" id="nav-ciktilar" onclick="switchTab('ciktilar')">
         <svg class="ico"><use href="#i-file-text"/></svg>
         <span class="nav-label">Çıktılar</span>
@@ -1826,16 +1814,32 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">Revizyon</span>
       </div>
-      <div class="nav-item" id="nav-referanslar" onclick="switchTab('referanslar')">
-        <svg class="ico"><use href="#i-book"/></svg>
-        <span class="nav-label">Referanslar</span>
-      </div>
       <div class="nav-item" id="nav-history" onclick="switchTab('history')">
         <svg class="ico"><use href="#i-clock"/></svg>
         <span class="nav-label">Geçmiş</span>
       </div>
 
-      <div class="nav-section">Sistem</div>
+      <div class="nav-section" data-grup="jira-gorevler">Jira</div>
+      <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
+        <svg class="ico"><use href="#i-ticket"/></svg>
+        <span class="nav-label">Jira Görevleri</span>
+      </div>
+      <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="nav-label">UAT Mutabakat</span>
+      </div>
+
+      <div class="nav-section" data-grup="referanslar">Kaynaklar</div>
+      <div class="nav-item" id="nav-referanslar" onclick="switchTab('referanslar')">
+        <svg class="ico"><use href="#i-book"/></svg>
+        <span class="nav-label">Referanslar</span>
+      </div>
+      <div class="nav-item" id="nav-kilavuz" onclick="switchTab('kilavuz')">
+        <svg class="ico"><use href="#i-book"/></svg>
+        <span class="nav-label">Kılavuz</span>
+      </div>
+
+      <div class="nav-section" data-grup="settings">Yönetim<svg class="ds-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
       <div class="nav-item" id="nav-settings" onclick="switchTab('settings')">
         <svg class="ico"><use href="#i-settings"/></svg>
         <span class="nav-label">Ayarlar</span>
@@ -1852,9 +1856,9 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">Güncelleme</span>
       </div>
-      <div class="nav-item" id="nav-kilavuz" onclick="switchTab('kilavuz')">
-        <svg class="ico"><use href="#i-book"/></svg>
-        <span class="nav-label">Kılavuz</span>
+      <div class="nav-item" id="nav-kullanim" onclick="switchTab('kullanim')" style="display:none">
+        <svg class="ico"><use href="#i-clock"/></svg>
+        <span class="nav-label">Kullanım</span>
       </div>
     </nav>
 
