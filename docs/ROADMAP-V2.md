@@ -87,6 +87,13 @@ Analistin deneyimini tek-atıştan, konuşarak ilerleyen sürece çevirir — en
 - Değişiklik geçmişi & onay: her düzeltme izlenir, analist onaylar.
 - **Çıktı:** Daha doğru, kaliteli analiz; analist kontrolde.
 
+**Uygulama durumu (2026-09-09):**
+- ✅ **Artım 1 — belkemiği:** `skills/revizyon.py` — analiz-bağlı revizyon oturumu
+  (versiyon snapshot'ları, değişiklik geçmişi, onay/ret, geri-al, diff). Deterministik,
+  0 token; 20 assert'lik test geçti. Mevcut analiz akışına dokunmuyor (ayrı `output/revizyon/`).
+- ⏳ Artım 2 — `bolum_duzenle()`: bölüm-hedefli AI düzenleme (tam yeniden-üretim yok).
+- ⏳ Artım 3 — app.py endpoint'leri + revizyon ekranı (Faz 0 include mekanizması).
+
 ### Faz 2 — Süreç · BRD · Teknik ekran tasarımı (Deneyim · hedef 1·8)
 Üç çekirdek ekranı, Faz 1'in etkileşimli akışıyla entegre, gerçek uygulama kalitesinde.
 - App-like düzen: net durum, hızlı geri bildirim, performanslı büyük-çıktı gösterimi.
