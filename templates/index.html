@@ -1926,11 +1926,11 @@ function temaDegistir() {
       <div class="nav-section" data-grup="ciktilar">Çıktılar &amp; Revizyon</div>
       <div class="nav-item" id="nav-ciktilar" onclick="switchTab('ciktilar')">
         <svg class="ico"><use href="#i-file-text"/></svg>
-        <span class="nav-label">Çıktılar</span>
+        <span class="nav-label">Analiz Dosyaları</span>
       </div>
       <div class="nav-item" id="nav-output" onclick="switchTab('output')">
         <svg class="ico"><use href="#i-file-text"/></svg>
-        <span class="nav-label">Görüntüleyici</span>
+        <span class="nav-label">Çıktı Dosyaları</span>
       </div>
       <div class="nav-item" id="nav-revizyon" onclick="switchTab('revizyon')">
         <svg class="ico"><use href="#i-refresh"/></svg>
@@ -3526,7 +3526,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {pano:'Ana Sayfa',surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Task Analizi','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım Raporu',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
+  const _crumbLabels = {pano:'Ana Sayfa',surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Task Analizi','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım Raporu',output:'Çıktı Dosyaları',ciktilar:'Analiz Dosyaları',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.
@@ -4975,7 +4975,7 @@ const _ONBOARD_BANNER = {
   },
   output: {
     icon: '📂',
-    baslik: 'Çıktılar Sekmesi',
+    baslik: 'Çıktı Dosyaları',
     icerik: 'Üretilen analizler burada — sekmelerden seçip görüntüleyebilir, düzenleyebilir, indirebilirsiniz. ' +
             '"📋 Sorular" sekmesinde AI\'nın belirsiz bulduğu konuları cevaplayabilirsiniz.'
   },

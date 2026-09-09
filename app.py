@@ -912,6 +912,11 @@ def upload():
     if suffix not in IZIN_VERILEN_UZANTILAR:
         return jsonify({"error": f"Desteklenmeyen dosya türü: {suffix}"}), 400
 
+    # Çalışan bir analiz varken doküman değiştirilemez (state tutarsızlığı önlenir).
+    import workflow as wf
+    if wf.calisiyor_mu() and _analiz_calisiyor_mu():
+        return jsonify({"error": "Bir analiz çalışıyor. Bitince ya da 'Durdur' ile durdurunca yeni dosya yükleyin."}), 409
+
     # Mevcut input'u temizle
     for eski in INPUT_DIR.iterdir():
         if eski.is_file():
@@ -920,7 +925,11 @@ def upload():
     guvenli_ad = Path(f.filename).name
     hedef = INPUT_DIR / guvenli_ad
     f.save(str(hedef))
-    logger.info(f"Dosya yüklendi: {guvenli_ad}")
+    # YENİ doküman = YENİ oturum → önceki koşuya ait bayat workflow durumunu
+    # (onay_bekleniyor / tamamlandı vb.) SIFIRLA. Yoksa Çıktılar/oturum bu yeni
+    # dosya için yanlışlıkla "Analist onayı bekleniyor" gösterirdi (henüz analiz yok).
+    wf.sifirla()
+    logger.info(f"Dosya yüklendi: {guvenli_ad} (yeni oturum — workflow sıfırlandı)")
     return jsonify({"ok": True, "dosya": guvenli_ad})
 
 
@@ -1536,6 +1545,24 @@ _CIKTI_KATALOGU = [
     ("mockup.html",           "Prototip",             "süreç analizi"),
     ("jira-sonuc.txt",        "Jira Sonucu",          "teknik analiz"),
 ]
+
+
+def _oturum_baslangic() -> float | None:
+    """Aktif oturumun başlangıç zamanı (epoch): workflow ilk adımı, yoksa girdi dokümanı mtime.
+    Çıktı/soru tazelik filtresinde eşik olarak kullanılır — bu eşikten ESKİ üretilen çıktılar
+    (önceki oturuma ait) bayat sayılır. oturum_ozeti'ndeki `baslangic` ile aynı mantık."""
+    import workflow as _wf
+    st = _wf.oku()
+    adimlar = st.get("adimlar") or []
+    if adimlar:
+        return adimlar[0].get("zaman")
+    try:
+        girdiler = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+        if girdiler:
+            return max(f.stat().st_mtime for f in girdiler)
+    except Exception:
+        pass
+    return None
 
 
 @app.route("/api/oturum", methods=["GET"])
@@ -2286,25 +2313,23 @@ def settings_kaydet():
 
 @app.route("/api/sorular", methods=["GET"])
 def sorular_getir():
-    """Soru defterini döndürür. ?parse=true ile çıktıları yeniden tarar."""
-    from skills.sorular import sorular_yukle, parse_ve_birlestir
-    if request.args.get("parse") in ("1", "true", "yes"):
-        try:
-            data = parse_ve_birlestir()
-        except Exception as e:
-            logger.error("Soru parse hatası: %s", e)
-            return jsonify({"ok": False, "error": str(e)}), 500
-    else:
-        data = sorular_yukle()
+    """Soru defterini döndürür — YALNIZ bu oturuma ait TAZE çıktıların soruları
+    (bayat önceki-oturum soruları elenir; süreç analizi tamamlanmadan hayalet soru olmaz)."""
+    from skills.sorular import parse_ve_birlestir
+    try:
+        data = parse_ve_birlestir(taze_esik=_oturum_baslangic())
+    except Exception as e:
+        logger.error("Soru parse hatası: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True, **data})
 
 
 @app.route("/api/sorular/parse", methods=["POST"])
 def sorular_parse():
-    """Çıktıları yeniden tarar ve soru defterini günceller."""
+    """Çıktıları yeniden tarar ve soru defterini günceller (tazelik filtreli)."""
     from skills.sorular import parse_ve_birlestir
     try:
-        data = parse_ve_birlestir()
+        data = parse_ve_birlestir(taze_esik=_oturum_baslangic())
         return jsonify({"ok": True, **data})
     except Exception as e:
         logger.error("Soru parse hatası: %s", e)
@@ -2433,9 +2458,9 @@ def sorular_uygula():
                         sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": str(e)})
                 _sorular_uygula_durum["tamamlanan"] = len(sonuclar)
                 _sorular_uygula_durum["sonuclar"] = list(sonuclar)
-            # AI çıktıyı değiştirdi — parser güncel veriyi alsın
+            # AI çıktıyı değiştirdi — parser güncel veriyi alsın (tazelik filtreli)
             try:
-                parse_ve_birlestir()
+                parse_ve_birlestir(taze_esik=_oturum_baslangic())
             except Exception:
                 pass
         finally:

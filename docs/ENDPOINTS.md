@@ -87,7 +87,9 @@ Not: Olaylar `logs/usage/*.jsonl` (gitignore). Emit `run.py` + in-process endpoi
 
 ## Soru Defteri (skills/sorular.py)
 ```
-GET    /api/sorular[?parse=true]      Soru defteri + istatistik
+GET    /api/sorular                   Soru defteri + istatistik — YALNIZ bu oturuma ait TAZE çıktıların
+                                       soruları (bayat/önceki-oturum çıktıları `_oturum_baslangic()` eşiğiyle
+                                       elenir → süreç analizi tamamlanmadan hayalet soru olmaz)
 POST   /api/sorular/parse              Çıktılardan soruları yeniden tara
 POST   /api/sorular/<id>               Durum/cevap/varsayım güncelle
 DELETE /api/sorular/<id>?kaynak_dosya  Soruyu defterden sil

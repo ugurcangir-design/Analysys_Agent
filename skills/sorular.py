@@ -184,16 +184,30 @@ def parse_md_sorular(md_yol: Path) -> list[dict]:
 
 # ─── Birleştirme (Merge) ──────────────────────────────────────────────────────
 
-def parse_ve_birlestir() -> dict:
+def parse_ve_birlestir(taze_esik: float | None = None) -> dict:
     """Tüm kaynak çıktıları tara, mevcut soru defteriyle birleştir.
+
+    `taze_esik` (float, epoch): verilirse yalnız mtime >= taze_esik olan (bu OTURUMA ait)
+    çıktı dosyaları taranır; bayat (önceki oturumdan) çıktıların soruları GÖSTERİLMEZ ve
+    defterden düşürülür. Böylece yeni doküman yüklenip henüz analiz yapılmadıysa (eski
+    surec-analizi.md/acik-sorular.md bayat), Sorular ekranında hayalet soru kalmaz —
+    yalnız TAMAMLANMIŞ güncel analizin gerçek açık soruları görünür (tüm analiz tipleri).
 
     Birleştirme kuralları:
     - id + kaynak_dosya eşleşen mevcut soru: durum/cevap/varsayım/güncellenme KORUNUR,
       yeni içerik (soru metni vb.) güncellenir
     - Yeni soru: "acik" durumuyla eklenir
-    - Çıktıdan kaybolan eski soru: SİLİNMEZ (analist cevaplamış olabilir; durum=kapandi gibi
-      işaretlenmedi — analist bilinçli atla/cevapla seçtiyse zaten görünmez)
+    - Çıktıdan kaybolan (ama kaynak dosyası HÂLÂ TAZE) eski soru: SİLİNMEZ (analist cevaplamış olabilir)
+    - Kaynak dosyası BAYAT/eksik olan soru: düşürülür (önceki oturuma aitti)
     """
+    def _taze(dosya_adi: str) -> bool:
+        yol = OUTPUT_DIR / dosya_adi
+        if not yol.exists():
+            return False
+        if taze_esik is not None and yol.stat().st_mtime < taze_esik:
+            return False
+        return True
+
     mevcut = sorular_yukle()
     indeks = {(s["id"], s["kaynak_dosya"]): s for s in mevcut.get("sorular", [])}
 
@@ -203,6 +217,8 @@ def parse_ve_birlestir() -> dict:
     guncellenen = 0
 
     for dosya_adi in KAYNAK_DOSYALAR:
+        if not _taze(dosya_adi):
+            continue   # bayat/eksik kaynak → bu oturumun soruları değil, atla
         for parsed in parse_md_sorular(OUTPUT_DIR / dosya_adi):
             anahtar = (parsed["id"], parsed["kaynak_dosya"])
             eski = indeks.pop(anahtar, None)
@@ -223,9 +239,11 @@ def parse_ve_birlestir() -> dict:
                 eklenen += 1
             yeni_listesi.append(parsed)
 
-    # Çıktıda artık olmayan eski sorular — koruyalım (kaynak dosya silindi olabilir)
-    for kalanlar in indeks.values():
-        yeni_listesi.append(kalanlar)
+    # Çıktıda artık olmayan sorular: kaynak dosyası HÂLÂ TAZE ise koru (analist cevaplamış
+    # olabilir); BAYAT/eksik ise düşür (önceki oturuma aitti — hayalet soru bırakma).
+    for kalan in indeks.values():
+        if _taze(kalan.get("kaynak_dosya", "")):
+            yeni_listesi.append(kalan)
 
     yeni_veri = {
         "sorular": yeni_listesi,
