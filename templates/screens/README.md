@@ -24,11 +24,15 @@ olduğu gibi yerleştirir). Böylece:
 - Yeni ekran = yeni partial dosyası + bir `{% include %}` satırı + `switchTab` init kancası.
 - Ekran değişikliği tek, küçük dosyada; büyük `index.html` diff'i yok.
 
-## Mevcut durum (Faz 0 — başlangıç)
+## Mevcut durum
 
-- **Çıkarılan ilk ekran:** `kilavuz.html` (mekanizma kanıtı — kendi içinde kapalı, düşük risk).
-- Kalan ekranlar hâlâ `index.html` içinde satır-içi; **Faz 2**'de (ekran tasarımı)
-  kademeli olarak buraya taşınacak. Faz 0'da yalnız mekanizma kurulur, bir ekranla kanıtlanır.
+- **`kilavuz.html`** — Faz 0'da `index.html`'den ÇIKARILAN ilk ekran (mekanizma kanıtı).
+- **`revizyon.html`** — Faz 1'de bu mekanizmayla EKLENEN yeni ekran (sohbetle bölüm-hedefli
+  düzeltme + değişiklik geçmişi + onay/ret). Kendi `<style>` + `<script>`'ini taşır; nav item,
+  `switchTab` kancası (`rzYukle`) ve crumb etiketi `index.html`'de. **Dikkat:** partial Jinja ile
+  render edildiğinden CSS/JS'te `{#`, `{{`, `{%` dizilerinden kaçın (ör. `@media(...){ #id` —
+  `{` ile `#` arasına boşluk).
+- Kalan eski ekranlar hâlâ `index.html` içinde satır-içi; **Faz 2**'de kademeli taşınacak.
 
 ## Yeni ekran ekleme adımları (hedeflenen akış)
 
