@@ -91,7 +91,11 @@ Analistin deneyimini tek-atıştan, konuşarak ilerleyen sürece çevirir — en
 - ✅ **Artım 1 — belkemiği:** `skills/revizyon.py` — analiz-bağlı revizyon oturumu
   (versiyon snapshot'ları, değişiklik geçmişi, onay/ret, geri-al, diff). Deterministik,
   0 token; 20 assert'lik test geçti. Mevcut analiz akışına dokunmuyor (ayrı `output/revizyon/`).
-- ⏳ Artım 2 — `bolum_duzenle()`: bölüm-hedefli AI düzenleme (tam yeniden-üretim yok).
+- ✅ **Artım 2 — bölüm-hedefli düzenleme:** `skills/revizyon_ai.py` — `bolumlere_ayir`
+  (başlık-tabanlı, iç içe olmayan bölümleme), `bolum_bul` (ID/başlık ile), `bolum_duzenle`
+  (yalnız hedef bölümü AI'a gönderir, splice eder, `revizyon_oner` ile beklemede öneri).
+  Tam yeniden-üretim yok. Deterministik parçalar 11 assert ile test edildi; tek AI çağrısı
+  izole + enjekte-edilebilir (`_ai_fn`), kota harcanmadı.
 - ⏳ Artım 3 — app.py endpoint'leri + revizyon ekranı (Faz 0 include mekanizması).
 
 ### Faz 2 — Süreç · BRD · Teknik ekran tasarımı (Deneyim · hedef 1·8)
