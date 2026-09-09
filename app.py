@@ -571,6 +571,7 @@ _heartbeat_lock = threading.Lock()
 _suspended = False          # True → tarayıcı 2+ dakikadır bağlı değil
 _process: subprocess.Popen | None = None
 _process_lock = threading.Lock()
+_durduruldu = False          # analist "Durdur" dedi → _bekle bunu hata sanmasın, run.py state'i geri yazamasın
 
 SUSPEND_SURE = 30           # saniye — bu kadar heartbeat gelmezse uyku (overlay)
 # KAPAT_SURE: Chrome, 5+ dk arka planda kalan sekmelerde timer'ları 1/dakikaya
@@ -682,7 +683,7 @@ def _surec_calistir(mod: str) -> None:
         )
 
     def _bekle():
-        global _process
+        global _process, _durduruldu
         hata_mesaji: str | None = None
         # Zaman aşımı MOD-BAZLI: teknik/brd analizi ÇOK AŞAMALIDIR (Aşama 1 teknik +
         # canlı-uygulama MCP gezinme, Aşama 2 açık sorular = 2 ayrı claude çağrısı,
@@ -718,6 +719,12 @@ def _surec_calistir(mod: str) -> None:
             hata_mesaji = f"Beklenmeyen hata: {e}"
             logger.error(f"[{mod}] {hata_mesaji}", exc_info=True)
 
+        # Analist "Durdur" dediyse: bu bir hata DEĞİL. State'e dokunma (reset zaten IDLE'a
+        # çekti), run.py'nin geri-yazması engellendi (process öldürüldü), telemetriye hata yazma.
+        if _durduruldu:
+            _durduruldu = False
+            logger.info(f"[{mod}] analist tarafından durduruldu — IDLE korunuyor.")
+            return
         # Eğer alt süreç workflow state'i temizleyemediyse HATA'ya çek.
         if hata_mesaji:
             try:
@@ -1176,12 +1183,44 @@ def skip_kapsam():
     return jsonify({"ok": True})
 
 
+def _surec_durdur() -> None:
+    """Çalışan analiz alt-sürecini (varsa) PROCESS GRUBUYLA sonlandırır — manuel 'Durdur' için.
+    start_new_session=True olduğundan grup lideri = pid; killpg tüm torunları da (claude CLI,
+    Playwright) öldürür. `_durduruldu` bayrağı: _bekle bunu hata sanmasın; sifirla'dan ÖNCE
+    öldürülür ki run.py durumu tekrar 'çalışıyor'a yazamasın (aksi halde analiz kendi başlar)."""
+    global _durduruldu
+    with _process_lock:
+        p = _process
+    if not (p and p.poll() is None):
+        return
+    _durduruldu = True
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except Exception:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+    try:
+        p.wait(timeout=5)
+    except Exception:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except Exception:
+            try:
+                p.kill()
+            except Exception:
+                pass
+    logger.info("Analiz alt-süreci durduruldu (analist).")
+
+
 @app.route("/api/reset", methods=["POST"])
 @admin_gerekli
 def reset():
     import workflow as wf
-    wf.sifirla()
-    logger.info("Workflow sıfırlandı.")
+    _surec_durdur()          # ÖNCE çalışan alt-süreci öldür — yoksa run.py durumu geri yazar (kendi başlar)
+    wf.sifirla()             # SONRA state'i IDLE'a çek
+    logger.info("Workflow sıfırlandı (analiz durduruldu).")
     return jsonify({"ok": True})
 
 
@@ -2338,7 +2377,7 @@ def sorular_tumunu_sil():
 
 
 # Cevap uygulama ARKA PLANDA yürür — bloklayan refine (yeniden_calistir, timeout 1200 sn)
-# istek thread'ini tutmasın (rerun deseni). UI /api/sorular/uygula-durum ile ilerlemeyi sorgular.
+# istek thread'ini tutmasın (rerun deseni). UI /api/sorular/uygula/durum ile ilerlemeyi sorgular.
 _sorular_uygula_lock = threading.Lock()
 _sorular_uygula_durum = {"calisiyor": False, "toplam": 0, "tamamlanan": 0,
                          "sonuclar": [], "mesaj": "", "bitti": None}
@@ -2350,7 +2389,7 @@ def sorular_uygula():
 
     Body: {"zorla": false}  → True ise zaten uygulanmış olanları da tekrar uygular.
     Her kaynak_dosya için ayrı refine çağrısı yapılır (atomik değil — birinde hata
-    olursa diğerleri devam eder). İlerleme: /api/sorular/uygula-durum."""
+    olursa diğerleri devam eder). İlerleme: /api/sorular/uygula/durum."""
     import workflow as wf
     from skills.sorular import uygulanacak_sorular
 
@@ -2410,9 +2449,10 @@ def sorular_uygula():
     return jsonify({"ok": True, "baslatildi": True, "toplam": len(gruplar)})
 
 
-@app.route("/api/sorular/uygula-durum")
+@app.route("/api/sorular/uygula/durum")
 def sorular_uygula_durum():
-    """Arka plan cevap-uygulama ilerlemesi (UI polling)."""
+    """Arka plan cevap-uygulama ilerlemesi (UI polling). NOT: yol 3-segmentli —
+    2-segmentli olsaydı dinamik `/api/sorular/<id>` (POST/DELETE) ile çakışır, GET 405 verirdi."""
     d = _sorular_uygula_durum
     return jsonify({"ok": True, "calisiyor": d["calisiyor"], "toplam": d["toplam"],
                     "tamamlanan": d["tamamlanan"], "sonuclar": d["sonuclar"],

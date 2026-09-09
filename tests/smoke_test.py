@@ -59,7 +59,7 @@ kontrol("auth/me rol=owner (AUTH kapalı)", me.get("rol") == "owner" and me.get(
 o = json_al(istemci.get("/api/oturum"))
 kontrol("oturum ok + katalog", o.get("ok") and len(o.get("ciktilar", [])) >= 9)
 
-su = json_al(istemci.get("/api/sorular/uygula-durum"))
+su = json_al(istemci.get("/api/sorular/uygula/durum"))
 kontrol("sorular/uygula-durum ok (idle)", su.get("ok") and su.get("calisiyor") is False)
 
 g = json_al(istemci.get("/api/gorunurluk"))

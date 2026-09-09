@@ -1,6 +1,4 @@
 {
   "_aciklama": "v2 Faz 2.4 — Owner'ın analistlerden gizlediği ekran/aksiyon id'leri. UI: Yönetim › Yetki & Denetim. Repoda izlenir; analistlere güncellemeyle iner.",
-  "gizli": [
-    "backlog-senkron"
-  ]
+  "gizli": []
 }

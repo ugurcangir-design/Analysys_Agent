@@ -496,8 +496,8 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
   letter-spacing: -0.005em;
 }
 .panel-head .panel-tag {
-  font-size: 9.5px; font-weight: 600; padding: 1px 6px; border-radius: 3px;
-  background: var(--surface2); color: var(--text3);
+  font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+  background: var(--surface2); color: var(--text2);
   font-family: 'Geist Mono', monospace; letter-spacing: 0.04em;
 }
 .panel-head .panel-spacer { flex: 1; }
@@ -718,10 +718,11 @@ input[type="tel"]:focus, textarea:focus, select:focus {
 }
 .ctx-field-sub { font-size: 12px; color: var(--text2); margin-bottom: 6px; line-height: 1.55; max-width: 760px; }
 .ctx-active-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; padding: 1px 8px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 2px 9px;
   background: var(--accent-soft); color: var(--accent-deep);
-  border-radius: 10px; font-weight: 600;
+  border-radius: 999px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
 }
 
 /* ── Output tabs ───────────────────────────────────────────────── */
@@ -5336,6 +5337,11 @@ function _stepSureTakip(durum) {
 function resetWorkflowUI() {
   const _tbDot2 = document.getElementById('topbar-dot');     if (_tbDot2)  _tbDot2.className = 'status-dot status-idle';
   const _tbStat2 = document.getElementById('topbar-status'); if (_tbStat2) _tbStat2.textContent = 'Hazır';
+  // Kalıcı işlem çipini gizle + İşlem Modu HUD'u kapat (Durdur sonrası "çalışıyor" kalmasın)
+  const _rc = document.getElementById('run-chip'); if (_rc) _rc.className = 'run-chip';
+  const _rcSep = document.getElementById('run-chip-sep'); if (_rcSep) _rcSep.style.display = 'none';
+  if (typeof islemModuKapat === 'function') islemModuKapat();
+  _lastState = null;
   _activePipeline = null;
   _stepStart = {}; _lastDurum = null;
   document.querySelectorAll('.step-dur').forEach(el => el.textContent = '');
@@ -6467,7 +6473,7 @@ function _sorularUygulaBekle() {
     const btn = document.getElementById('btn-cevaplari-uygula');
     const t = setInterval(async () => {
       try {
-        const d = await (await fetch('/api/sorular/uygula-durum')).json();
+        const d = await (await fetch('/api/sorular/uygula/durum')).json();
         if (btn && d.calisiyor && d.toplam) {
           btn.innerHTML = `<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor ${d.tamamlanan}/${d.toplam}...`;
         }

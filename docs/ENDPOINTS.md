@@ -94,7 +94,7 @@ DELETE /api/sorular/<id>?kaynak_dosya  Soruyu defterden sil
 POST   /api/sorular/tumunu-sil         Tüm soruları sil (opsiyonel {"durum":...} filtresi)
 POST   /api/sorular/uygula             Cevapları refine ile analize işle — ARKA PLANDA (bloklamaz);
                                        {ok, baslatildi, toplam} döner. İş daemon thread'de (rerun deseni).
-GET    /api/sorular/uygula-durum       İlerleme (UI polling): {calisiyor, toplam, tamamlanan, sonuclar[], mesaj, bitti}
+GET    /api/sorular/uygula/durum       İlerleme (UI polling): {calisiyor, toplam, tamamlanan, sonuclar[], mesaj, bitti}
 GET    /api/sorular/paylasim           Bekleyen soruları metin export
 ```
 Durumlar: `acik / bekleniyor / cevaplandi / atlandi / varsayim`
