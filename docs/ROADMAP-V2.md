@@ -157,7 +157,9 @@ Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
 > **Faz 2 durumu (2026-09-09): 2.0–2.6 TAMAM.** Tüm ekranlar 5003'te doğrulandı, 5002 dokunulmadı.
 > Kalan bilinçli açık uçlar: (1) eski ekranların (Süreç/BRD/Jira/Ayarlar) gövdesi hâlâ `index.html`
 > içinde — partial'lara taşıma kademeli; (2) revizyon panelinin Süreç ekranına gömülmesi; (3) canlı AI
-> ile `bolum-duzenle` provası (kota uygunken); (4) analist makinesinde AUTH açık uçtan-uca deneme.
+> ile `bolum-duzenle` provası — **denendi (2026-09-09): plumbing uçtan uca çalıştı, CLI OAuth token
+> süresi dolmuş (401) → `claude` + `/login` sonrası tekrar**; (4) ✅ AUTH açık Owner/Analist enforcement
+> `tests/test_auth_roller.py` ile doğrulandı (23 kontrol; gerçek .env/users.json'a dokunmaz).
 
 ### Faz 3 — Gerçeğe dayanan analiz: kod, referans, MCP (Derinlik · hedef 5·6·7)
 Analizi gerçek uygulamanın çalışma prensibine bağla. Kod reposu bağlantısı **şimdi
