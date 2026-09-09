@@ -1768,6 +1768,63 @@ def guncelleme_simdi():
     return jsonify({"ok": ok, "guncelleme_var": True, "mesaj": mesaj, "yeniden_basliyor": ok}), (200 if ok else 500)
 
 
+# ─── Sistem Sağlığı — v2 Faz 2.6 (owner-only; 0 token, deterministik) ────────
+def _dizin_boyut(d: Path) -> tuple[int, int]:
+    """(bayt, dosya sayısı) — sembolik linkleri izlemez."""
+    toplam, adet = 0, 0
+    try:
+        for p in d.rglob("*"):
+            if p.is_file() and not p.is_symlink():
+                toplam += p.stat().st_size
+                adet += 1
+    except Exception:
+        pass
+    return toplam, adet
+
+
+@app.route("/api/saglik", methods=["GET"])
+@admin_gerekli
+def saglik():
+    """Tek bakışta sistem durumu: sürüm, AI/CLI, güncelleme, workflow, MCP, disk, auth."""
+    import platform
+    from flask import __version__ as flask_surumu
+    from skills.base import USE_CLAUDE_CLI, cli_durum_oku, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    import workflow as _wf
+
+    v = version_bilgi().get_json()
+    g = dict(_guncelleme_durumu)
+    wf = _wf.ozet()
+    cli = cli_durum_oku()
+    mcp = {
+        "chrome_config": (BASE_DIR / ".mcp.live-app.json").exists(),
+        "mcp_json": (BASE_DIR / ".mcp.json").exists(),
+        "live_app_profil": (BASE_DIR / ".live-app-profile").exists(),
+    }
+    disk = {}
+    for ad in ("output", "logs", "history", "input", "reference"):
+        b, n = _dizin_boyut(BASE_DIR / ad)
+        disk[ad] = {"mb": round(b / 1_048_576, 1), "dosya": n}
+    audit = BASE_DIR / "logs" / "audit.jsonl"
+    users = _kullanicilari_oku()
+    return jsonify({
+        "ok": True,
+        "surum": {"hash": v.get("hash"), "mesaj": v.get("mesaj"), "tarih": v.get("tarih"), "dal": g.get("dal")},
+        "ai": {"modu": "cli" if USE_CLAUDE_CLI else "api",
+               "model": CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ,
+               "cli_uygun": cli.get("available"), "cli_reset": cli.get("reset"), "cli_kontrol": cli.get("checked_at")},
+        "guncelleme": {"otomatik": g.get("otomatik"), "yeni_surum": g.get("yeni_surum"), "behind": g.get("behind"),
+                       "engel": g.get("engel"), "son_kontrol": g.get("son_kontrol"), "hata": g.get("hata")},
+        "workflow": {"durum": wf.get("durum"), "etiket": wf.get("etiket"), "calisiyor": wf.get("calisiyor"),
+                     "mesgul": _mesgul_mu()},
+        "mcp": mcp,
+        "disk": disk,
+        "denetim": {"kayit_mb": round(audit.stat().st_size / 1_048_576, 2) if audit.exists() else 0},
+        "auth": {"aktif": _auth_aktif_mi(), "kullanici_sayisi": len(users), "rol": _rol(),
+                 "gizli_sayisi": len(_gorunurluk_oku())},
+        "ortam": {"python": platform.python_version(), "flask": flask_surumu, "port": request.host.split(":")[-1]},
+    })
+
+
 
 
 def _env_yaz(degiskenler: dict) -> None:

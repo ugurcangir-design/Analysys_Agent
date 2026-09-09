@@ -1,0 +1,57 @@
+    <!-- PARÇA: Komut paleti ⌘K (v2 Faz 2.6) — ekran değil. Görünür nav öğeleri + hızlı
+         aksiyonlar; klavye ile gez, Enter ile git. Rol gizlemesine saygı duyar
+         (display:none nav öğeleri listelenmez). -->
+    <div id="pl-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;align-items:flex-start;justify-content:center;padding-top:12vh" onclick="if(event.target===this)paletKapat()">
+      <div style="width:min(560px,92vw);background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;box-shadow:var(--shadow-md);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border)">
+          <svg class="ico" style="color:var(--text3)"><use href="#i-search"/></svg>
+          <input id="pl-input" class="ds-inp" style="border:none;background:transparent;padding:2px 0;font-size:14px;box-shadow:none" placeholder="Ekran veya işlem ara…" autocomplete="off" oninput="_plFiltre()" onkeydown="_plTus(event)">
+          <span class="kbd">Esc</span>
+        </div>
+        <div id="pl-liste" style="max-height:52vh;overflow-y:auto;padding:6px"></div>
+      </div>
+    </div>
+    <script>
+    // ─── Komut paleti ──────────────────────────────────────────────────────────
+    let _plItems = [], _plSec = 0;
+    const _PL_AKSIYONLAR = [
+      { ad: 'Çıktıları yenile', ipucu: 'işlem', run: () => { switchTab('ciktilar'); if (typeof ciYukle === 'function') ciYukle(); } },
+      { ad: 'Revize et (Revizyon ekranı)', ipucu: 'işlem', run: () => switchTab('revizyon') },
+      { ad: 'Güncelleme kontrolü', ipucu: 'işlem', run: () => { if (typeof ogKontrol === 'function') ogKontrol(true); toast('Güncelleme kontrol ediliyor…', 'info'); } },
+      { ad: 'Temayı değiştir', ipucu: 'işlem', run: () => { const b = document.querySelector('[onclick*="toggleTheme"],#theme-toggle'); if (b) b.click(); else toast('Tema düğmesi bulunamadı', 'error'); } },
+    ];
+    function _plKaynak() {
+      const nav = [...document.querySelectorAll('.nav-item')]
+        .filter(n => n.id && n.id.startsWith('nav-') && n.style.display !== 'none' && n.offsetParent !== null)
+        .map(n => ({ ad: n.querySelector('.nav-label')?.textContent.trim() || n.id, ipucu: 'ekran', run: () => switchTab(n.id.slice(4)) }));
+      return nav.concat(_PL_AKSIYONLAR);
+    }
+    function paletAc() {
+      const ov = document.getElementById('pl-overlay'); ov.style.display = 'flex';
+      const inp = document.getElementById('pl-input'); inp.value = ''; _plFiltre(); setTimeout(() => inp.focus(), 0);
+    }
+    function paletKapat() { document.getElementById('pl-overlay').style.display = 'none'; }
+    function _plFiltre() {
+      const q = document.getElementById('pl-input').value.trim().toLocaleLowerCase('tr');
+      _plItems = _plKaynak().filter(i => !q || i.ad.toLocaleLowerCase('tr').includes(q)); _plSec = 0; _plCiz();
+    }
+    function _plCiz() {
+      const el = document.getElementById('pl-liste');
+      if (!_plItems.length) { el.innerHTML = '<div class="ds-empty" style="padding:18px"><div class="t">Sonuç yok</div></div>'; return; }
+      el.innerHTML = _plItems.map((i, k) => `<div class="pl-row" data-k="${k}" onclick="_plGit(${k})" onmousemove="_plSec=${k};_plVurgu()"
+          style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:5px;cursor:pointer;font-size:13px;${k === _plSec ? 'background:var(--surface2)' : ''}">
+          <span style="flex:1">${i.ad.replace(/</g,'&lt;')}</span><span class="ds-chip neu mono">${i.ipucu}</span></div>`).join('');
+    }
+    function _plVurgu() { document.querySelectorAll('.pl-row').forEach((r, k) => r.style.background = k === _plSec ? 'var(--surface2)' : ''); }
+    function _plGit(k) { const i = _plItems[k]; paletKapat(); if (i) i.run(); }
+    function _plTus(e) {
+      if (e.key === 'ArrowDown') { _plSec = Math.min(_plSec + 1, _plItems.length - 1); _plVurgu(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { _plSec = Math.max(_plSec - 1, 0); _plVurgu(); e.preventDefault(); }
+      else if (e.key === 'Enter' || e.key === 'Return' || e.code === 'NumpadEnter') { _plGit(_plSec); e.preventDefault(); }
+      else if (e.key === 'Escape') paletKapat();
+    }
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); paletAc(); }
+      else if (e.key === 'Escape' && document.getElementById('pl-overlay').style.display === 'flex') paletKapat();
+    });
+    </script>

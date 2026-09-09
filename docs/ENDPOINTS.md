@@ -150,6 +150,18 @@ UI: `screens/_guncelleme.html` (script partial) — 60 sn'de bir sorar; banner "
 + değişiklik listesi + "Şimdi güncelle"; uygulanınca `/api/version` hash değişince sayfayı yeniler.
 Mevcut `/api/update` (elle) ve `/api/restart` dokunulmadan durur. Denetim: `oto_guncelleme`.
 
+## Sistem Sağlığı — v2 Faz 2.6 (owner-only; 0 token)
+```
+GET  /api/saglik   surum{hash,mesaj,tarih,dal} · ai{modu,model,cli_uygun,cli_reset} · guncelleme{otomatik,
+                   yeni_surum,behind,engel,son_kontrol} · workflow{durum,calisiyor,mesgul} · mcp{chrome_config,
+                   mcp_json,live_app_profil} · disk{output,logs,history,input,reference: mb,dosya} ·
+                   denetim{kayit_mb} · auth{aktif,kullanici_sayisi,rol,gizli_sayisi} · ortam{python,flask,port}
+```
+UI: `screens/saglik.html` (Yönetim). **Komut paleti** `screens/_palet.html` — ⌘K/Ctrl+K veya sidebar arama
+kutusu; görünür nav öğeleri (rol gizlemesine saygılı) + hızlı aksiyonlar; klavye ile gezinme.
+**Regresyon:** `tests/smoke_test.py` (Flask test client, deterministik uçlar, 24 kontrol) +
+`tests/test_revizyon.py` (15 assert) — `venv/bin/python tests/smoke_test.py`.
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

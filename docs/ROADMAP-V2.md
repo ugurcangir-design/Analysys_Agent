@@ -147,8 +147,17 @@ Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
   iş yokken sessiz `pull --ff-only` + restart, iş sürerken "yeni sürüm hazır" banner'ı ve iş bitince
   uygulama; yerel değişiklik / push edilmemiş commit varsa yalnız bildirir (owner makinesi korunur).
   `/api/guncelleme/durum|simdi`, `screens/_guncelleme.html`, `AUTO_UPDATE`/`AUTO_UPDATE_INTERVAL`.
-- 2.6 Ek özellikler (sağlık paneli, komut paleti, onboarding, changelog, erişilebilirlik, regresyon)
+- ✅ 2.6 Ek özellikler — **Sistem Sağlığı** (`/api/saglik` + `screens/saglik.html`: sürüm, CLI kota,
+  güncelleme, workflow, MCP, disk, auth), **komut paleti** ⌘K (`screens/_palet.html`, rol-duyarlı),
+  **regresyon güvencesi** (`tests/smoke_test.py` 24 kontrol + `tests/test_revizyon.py` 15 assert),
+  rehberli boş durumlar (ds-empty; Çıktılar/Yetki/Sağlık), changelog banner'da (2.5), odak/azaltılmış
+  hareket (ds.css). Tarayıcıda doğrulandı.
 - **Çıktı:** Verimli, ürün gibi hissettiren, yönetilebilir, kendini güncelleyen uygulama.
+
+> **Faz 2 durumu (2026-09-09): 2.0–2.6 TAMAM.** Tüm ekranlar 5003'te doğrulandı, 5002 dokunulmadı.
+> Kalan bilinçli açık uçlar: (1) eski ekranların (Süreç/BRD/Jira/Ayarlar) gövdesi hâlâ `index.html`
+> içinde — partial'lara taşıma kademeli; (2) revizyon panelinin Süreç ekranına gömülmesi; (3) canlı AI
+> ile `bolum-duzenle` provası (kota uygunken); (4) analist makinesinde AUTH açık uçtan-uca deneme.
 
 ### Faz 3 — Gerçeğe dayanan analiz: kod, referans, MCP (Derinlik · hedef 5·6·7)
 Analizi gerçek uygulamanın çalışma prensibine bağla. Kod reposu bağlantısı **şimdi

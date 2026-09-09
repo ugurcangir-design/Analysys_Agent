@@ -1,0 +1,49 @@
+    <!-- EKRAN: Sistem Sağlığı (v2 Faz 2.6) — owner-only. Tek bakışta: sürüm, AI/CLI kota,
+         güncelleme, workflow, MCP, disk, auth. Backend: /api/saglik (0 token). -->
+    <div class="page" id="page-saglik">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Sistem Sağlığı</h1>
+          <p>Sorunları analist yaşamadan gör: kota, bağlantılar, güncelleme, disk.</p>
+        </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm" onclick="sgYukle()">↻ Yenile</button></div>
+      </div>
+      <div id="sg-govde" class="ds-olist"><div class="mono-meta">Yükleniyor…</div></div>
+    </div>
+
+    <script>
+    // ─── Sistem sağlığı ────────────────────────────────────────────────────────
+    function _sgEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+    function _sgZ(ts) { return ts ? new Date(ts * 1000).toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : '—'; }
+    function _sgKart(baslik, chip, satirlar) {
+      return `<div class="ds-ocard"><div class="ds-ometa">
+        <div class="ds-otitle">${_sgEsc(baslik)} ${chip || ''}</div>
+        <div class="ds-ometa-row">${satirlar.map(([k, v]) => `<span>${_sgEsc(k)} <b>${_sgEsc(v)}</b></span>`).join('')}</div>
+      </div></div>`;
+    }
+    const _SG = { ok: 'ok', warn: 'warn', bad: 'old' };
+    function _sgChip(t, tip) { return `<span class="ds-chip ${_SG[tip] || 'neu'}"><span class="d"></span>${_sgEsc(t)}</span>`; }
+
+    async function sgYukle() {
+      const el = document.getElementById('sg-govde');
+      let d; try { d = await (await fetch('/api/saglik')).json(); } catch (e) { el.innerHTML = '<div class="ds-callout warn"><div class="grow"><div class="ct">Sağlık bilgisi alınamadı</div></div></div>'; return; }
+      if (!d.ok) { el.innerHTML = `<div class="ds-callout warn"><div class="grow"><div class="ct">${_sgEsc(d.error || 'Yetkisiz')}</div></div></div>`; return; }
+      const ai = d.ai, g = d.guncelleme, w = d.workflow, m = d.mcp, a = d.auth;
+      const aiChip = ai.modu === 'api' ? _sgChip('API modu', 'ok')
+        : ai.cli_uygun === true ? _sgChip('CLI hazır', 'ok') : ai.cli_uygun === false ? _sgChip('CLI limitte', 'bad') : _sgChip('CLI bilinmiyor', 'warn');
+      const gChip = g.hata ? _sgChip('Kontrol hatası', 'bad') : g.yeni_surum ? _sgChip(`Yeni sürüm (${g.behind})`, 'warn') : _sgChip(g.otomatik ? 'Güncel · otomatik' : 'Güncel · elle', 'ok');
+      const wChip = w.calisiyor ? _sgChip(w.etiket, 'warn') : _sgChip(w.etiket || 'Hazır', 'ok');
+      const mcpOk = m.chrome_config && m.live_app_profil;
+      const diskToplam = Object.values(d.disk).reduce((s, x) => s + x.mb, 0);
+      el.innerHTML = [
+        _sgKart('Sürüm', _sgChip(d.surum.hash || '?', 'ok'), [['dal', d.surum.dal || '—'], ['son commit', d.surum.mesaj || '—'], ['tarih', d.surum.tarih || '—']]),
+        _sgKart('AI / Kota', aiChip, [['mod', ai.modu], ['model', ai.model || '—'], ['reset', ai.cli_reset || '—'], ['son kontrol', ai.cli_kontrol || '—']]),
+        _sgKart('Güncelleme', gChip, [['otomatik', g.otomatik ? 'açık' : 'kapalı'], ['engel', g.engel || '—'], ['son kontrol', _sgZ(g.son_kontrol)], ['hata', g.hata || '—']]),
+        _sgKart('İş akışı', wChip, [['durum', w.durum || 'idle'], ['meşgul', w.mesgul || 'hayır']]),
+        _sgKart('MCP / Canlı uygulama', mcpOk ? _sgChip('Yapılandırılmış', 'ok') : _sgChip('Eksik', 'warn'), [['chrome config', m.chrome_config ? 'var' : 'yok'], ['.mcp.json', m.mcp_json ? 'var' : 'yok'], ['tarayıcı profili', m.live_app_profil ? 'var' : 'yok']]),
+        _sgKart('Disk', _sgChip(diskToplam.toFixed(0) + ' MB', diskToplam > 2048 ? 'warn' : 'ok'), Object.entries(d.disk).map(([k, v]) => [k, `${v.mb} MB · ${v.dosya} dosya`]).concat([['denetim kaydı', d.denetim.kayit_mb + ' MB']])),
+        _sgKart('Kimlik & Yetki', _sgChip(a.aktif ? 'Auth açık' : 'Auth kapalı (tek kullanıcı)', a.aktif ? 'ok' : 'warn'), [['rolün', a.rol], ['kullanıcı', a.kullanici_sayisi], ['analistten gizli', a.gizli_sayisi]]),
+        _sgKart('Ortam', _sgChip('Python ' + d.ortam.python, 'ok'), [['flask', d.ortam.flask], ['port', d.ortam.port]]),
+      ].join('');
+    }
+    </script>

@@ -25,6 +25,10 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   **Otomatik güncelleme (2.5):** boot'ta `_oto_guncelleme_baslat()` — iş yokken `pull --ff-only` + restart;
   dirty tree / push edilmemiş commit varsa yalnız bildirir. `.env` `AUTO_UPDATE=false` kapatır,
   `AUTO_UPDATE_INTERVAL` (sn). Banner: `screens/_guncelleme.html`. `/api/update` elle akış aynen durur.
+  **2.6:** Sistem Sağlığı `/api/saglik` + `screens/saglik.html`; komut paleti ⌘K `screens/_palet.html`.
+- **Test (v2):** `venv/bin/python tests/smoke_test.py` (Flask test client, deterministik uçlar) +
+  `venv/bin/python tests/test_revizyon.py` — commit öncesi ruff ile birlikte çalıştır. AI/kota harcamaz.
+  Yeni deterministik endpoint → smoke_test'e bir satır ekle.
 
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)

@@ -35,7 +35,13 @@ olduğu gibi yerleştirir). Böylece:
 - **`ciktilar.html`** — Faz 2.1: aktif oturum + tazelik/köken/sürüm + arşiv (`/api/oturum`, `ds-*`).
 - **`delta.html`** — Faz 2.2: Delta/CR analizi Süreç ekranından ayrı ekrana taşındı (`da-*` ID'leri
   korundu; JS index.html'de). Statik — `switchTab` kancası gerekmez.
+- **`yetki.html`** — Faz 2.4: görünürlük yönetimi + denetim kaydı (owner-only, Yönetim).
+- **`saglik.html`** — Faz 2.6: sistem sağlığı paneli (`/api/saglik`, owner-only).
+- **`_guncelleme.html`**, **`_palet.html`** — alt çizgili = ekran DEĞİL, script/overlay parçası
+  (otomatik güncelleme banner'ı; ⌘K komut paleti). `.main` içinde, sayfalardan önce include edilir.
 - Bileşen dili: `static/ds.css` (`ds-*`). Yeni ekranlar bu vokabülerden kurulur.
+- Yeni ekran eklerken: partial + include + nav item + `switchTab` kancası + crumb etiketi; owner-only ise
+  `_YONETIM_NAV` listesine id'sini ekle; analistten gizlenebilir olacaksa `GIZLENEBILIR_KATALOG` (app.py).
 - Kalan eski ekranlar hâlâ `index.html` içinde satır-içi; kademeli taşınacak.
 
 ## Yeni ekran ekleme adımları (hedeflenen akış)
