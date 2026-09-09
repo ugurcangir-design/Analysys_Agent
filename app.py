@@ -1896,6 +1896,95 @@ def _oto_guncelleme_baslat() -> None:
         logger.info("Otomatik güncelleme açık (kontrol aralığı %ss; iş yokken uygulanır).", AUTO_UPDATE_ARALIK)
 
 
+# ─── Zamanlanmış disk temizliği (v2 Faz 3) — makine dolmasına karşı ───────────
+# Yalnız yeniden-üretilebilir/arşiv dosyaları (bkz. skills/disk_temizlik.py); analiz çıktısı ASLA.
+# DISK_TEMIZLIK=false ile kapatılır; DISK_TEMIZLIK_ARALIK sn (vars. 24 saat). İş varken ertelenir.
+def _disk_temizlik_dongusu() -> None:
+    from skills import disk_temizlik
+    time.sleep(90)   # boot + otomatik güncelleme kontrolünü rahat bırak
+    aralik = disk_temizlik.zamanlama_ayarlari()["aralik_sn"]
+    while True:
+        try:
+            if _mesgul_mu():
+                time.sleep(300)          # analiz sürüyor → 5 dk sonra tekrar bak
+                continue
+            p = disk_temizlik.plan()
+            if p["adet"]:
+                s = disk_temizlik.uygula("zamanlanmis")
+                logger.info("Zamanlanmış disk temizliği: %s dosya, %.1f MB", s["silinen"], s["kazanilan_mb"])
+        except Exception as e:
+            logger.warning("Disk temizliği hatası: %s", e)
+        time.sleep(aralik)
+
+
+def _disk_temizlik_baslat() -> None:
+    from skills import disk_temizlik
+    a = disk_temizlik.zamanlama_ayarlari()
+    if a["aktif"]:
+        threading.Thread(target=_disk_temizlik_dongusu, daemon=True, name="disk-temizlik").start()
+        logger.info("Zamanlanmış disk temizliği açık (aralık %ss; iş yokken çalışır).", a["aralik_sn"])
+
+
+@app.route("/api/disk/durum", methods=["GET"])
+@admin_gerekli
+def disk_durum():
+    """Disk sağlığı + temizlik planı (kuru çalışma): {dosya_sistemi, plan, son, zamanlama}."""
+    from skills import disk_temizlik
+    return jsonify({"ok": True, "dosya_sistemi": disk_temizlik.dosya_sistemi(), "plan": disk_temizlik.plan(),
+                    "son": disk_temizlik.son_calisma(), "zamanlama": disk_temizlik.zamanlama_ayarlari()})
+
+
+@app.route("/api/disk/temizle", methods=["POST"])
+@admin_gerekli
+def disk_temizle():
+    """Elle temizlik — analiz sürüyorsa 409 (çıktı/önbellek yarışına girmez)."""
+    from skills import disk_temizlik
+    neden = _mesgul_mu()
+    if neden:
+        return jsonify({"ok": False, "error": f"Şu an temizlenemez: {neden}"}), 409
+    s = disk_temizlik.uygula("elle")
+    return jsonify({"ok": True, **s})
+
+
+@app.route("/api/pano", methods=["GET"])
+def pano_ozet():
+    """Rol-duyarlı Ana Sayfa özeti (HERKES): analistin sırada ne yapacağı — bekleyen onay adımı,
+    açık/kritik soru sayısı, bekleyen revizyon önerileri, çalışan iş. Sağlık kartları ayrı (/api/saglik, owner)."""
+    import workflow as _wf
+    from skills import revizyon
+    from skills.sorular import parse_ve_birlestir, istatistik_hesapla
+    wf = _wf.ozet()
+    try:
+        sorular = parse_ve_birlestir(taze_esik=_oturum_baslangic()).get("sorular", [])
+        ist = istatistik_hesapla(sorular)
+    except Exception:
+        ist = {"acik": 0, "bekleniyor": 0, "kritik_acik": 0, "uygulanmamis": 0}
+    bekleyen_rev = []
+    for ad in ("surec-analizi.md", "teknik-analiz.md", "brd-analizi.md", "kapsam-analizi.md"):
+        try:
+            o = revizyon.ozet(ad)
+            if o and o.get("bekleyen"):
+                bekleyen_rev.append(ad)
+        except Exception:
+            pass
+    onay_adimi = None
+    if wf.get("onay_bekleniyor"):
+        onay_adimi = {"adim": "surec", "etiket": "Süreç analizi onayı", "dosya": "surec-analizi.md"}
+    elif wf.get("teknik_onay_bekleniyor"):
+        onay_adimi = {"adim": "teknik", "etiket": "Teknik analiz onayı", "dosya": "teknik-analiz.md"}
+    elif wf.get("brd_revize_bekleniyor"):
+        onay_adimi = {"adim": "brd", "etiket": "BRD revize kararı", "dosya": "brd-analizi.md"}
+    return jsonify({
+        "ok": True, "rol": _rol(),
+        "workflow": {"durum": wf.get("durum"), "etiket": wf.get("etiket"), "calisiyor": wf.get("calisiyor"),
+                     "tamamlandi": wf.get("tamamlandi")},
+        "onay": onay_adimi,
+        "sorular": {"acik": ist.get("acik", 0) + ist.get("bekleniyor", 0), "kritik": ist.get("kritik_acik", 0),
+                    "uygulanmamis": ist.get("uygulanmamis", 0)},
+        "bekleyen_revizyon": bekleyen_rev,
+    })
+
+
 @app.route("/api/guncelleme/durum", methods=["GET"])
 def guncelleme_durum():
     """Banner için: yeni sürüm var mı, neden bekliyor, değişiklik özeti. ?kontrol=1 → taze fetch."""
@@ -1954,9 +2043,16 @@ def saglik():
         "live_app_profil": (BASE_DIR / ".live-app-profile").exists(),
     }
     disk = {}
-    for ad in ("output", "logs", "history", "input", "reference"):
+    for ad in ("output", "logs", "history", "input", "reference", ".api_cache", "backlog"):
         b, n = _dizin_boyut(BASE_DIR / ad)
         disk[ad] = {"mb": round(b / 1_048_576, 1), "dosya": n}
+    try:
+        from skills import disk_temizlik
+        disk_temizlik_bilgi = {"dosya_sistemi": disk_temizlik.dosya_sistemi(),
+                               "temizlenebilir_mb": disk_temizlik.plan()["toplam_mb"],
+                               "son": disk_temizlik.son_calisma(), "zamanlama": disk_temizlik.zamanlama_ayarlari()}
+    except Exception:
+        disk_temizlik_bilgi = {}
     users = _kullanicilari_oku()
     try:
         from skills import analiz_mcp, kod_kaynagi
@@ -1977,6 +2073,7 @@ def saglik():
                      "mesgul": _mesgul_mu()},
         "mcp": mcp,
         "disk": disk,
+        "disk_temizlik": disk_temizlik_bilgi,
         "auth": {"aktif": _auth_aktif_mi(), "kullanici_sayisi": len(users), "rol": _rol(),
                  "gizli_sayisi": len(_gorunurluk_oku())},
         "ortam": {"python": platform.python_version(), "flask": flask_surumu, "port": request.host.split(":")[-1]},
@@ -4023,4 +4120,5 @@ if __name__ == "__main__":
     else:
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  (sadece yerel; LAN için .env'de HOST=0.0.0.0)")
     _oto_guncelleme_baslat()   # v2 Faz 2.5 — bildirimli otomatik güncelleme (AUTO_UPDATE=false ile kapatılır)
+    _disk_temizlik_baslat()    # v2 Faz 3 — zamanlanmış disk temizliği (DISK_TEMIZLIK=false ile kapatılır)
     app.run(host=host, port=port, debug=False)

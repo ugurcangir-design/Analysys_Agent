@@ -12,7 +12,12 @@
 
       <div id="pano-oturum"></div>
 
-      <div class="ds-sec-label" style="margin-top:6px">Hızlı eylemler</div>
+      <!-- Rol-duyarlı "sıradaki iş" (HERKES): bekleyen onay adımı, açık/kritik soru, bekleyen revizyon, çalışan iş.
+           Analist önce "ne yapmalıyım"ı görür; sağlık kartları (owner) aşağıda ayrı kalır. -->
+      <div class="ds-sec-label" style="margin-top:6px">Sıradaki iş</div>
+      <div id="pano-is" class="pano-cards"><div class="mono-meta">Yükleniyor…</div></div>
+
+      <div class="ds-sec-label" style="margin-top:18px">Hızlı eylemler</div>
       <div class="pano-cards">
         <div class="pano-card act" onclick="switchTab('surec')">
           <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="7" cy="5" r="1.6" fill="currentColor"/><circle cx="14" cy="12" r="1.6" fill="currentColor"/><circle cx="10" cy="19" r="1.6" fill="currentColor"/></svg></div>
@@ -58,6 +63,12 @@
       #page-pano .pc-label{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.07em;color:var(--text3);text-transform:uppercase}
       #page-pano .pc-value{font-family:'Geist Mono',monospace;font-size:17px;color:var(--text);margin-top:10px;overflow-wrap:anywhere}
       #page-pano .pc-sub{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.55;overflow-wrap:anywhere}
+      /* sıradaki iş kartı — sol kenar rengi: amber=analist sırası, kırmızı=çalışıyor, yeşil=temiz */
+      #page-pano .pano-card.is{border-left:3px solid var(--border-strong)}
+      #page-pano .pano-card.is.turn{border-left-color:var(--yellow)}
+      #page-pano .pano-card.is.run{border-left-color:var(--run)}
+      #page-pano .pano-card.is.ok{border-left-color:var(--green)}
+      #page-pano .pc-act{margin-top:10px}
     </style>
 
     <script>
@@ -74,7 +85,52 @@
 
     async function panoYukle(){
       _panoOturum();
+      _panoIs();
       _panoSaglik();
+    }
+
+    // Sıradaki iş (herkes) — /api/pano. Kartlar: bekleyen onay · açık sorular · bekleyen revizyon · çalışan iş.
+    async function _panoIs(){
+      const el=document.getElementById('pano-is');
+      let d; try{ d=await (await fetch('/api/pano')).json(); }catch(e){ el.innerHTML=''; return; }
+      if(!d.ok){ el.innerHTML=''; return; }
+      const w=d.workflow||{}, so=d.sorular||{}, rev=d.bekleyen_revizyon||[];
+      const kart=(cls,label,chip,val,sub,act)=>`<div class="pano-card is ${cls}"><div class="pc-head"><span class="pc-label">${_pnEsc(label)}</span>${chip||''}</div>
+        <div class="pc-value">${val}</div><div class="pc-sub">${_pnEsc(sub||'')}</div>${act?`<div class="pc-act">${act}</div>`:''}</div>`;
+      const k=[];
+      if(w.calisiyor && !d.onay){
+        k.push(kart('run','Çalışan iş',_pnChip('devam ediyor','warn'),'<b>'+_pnEsc(w.etiket||w.durum)+'</b>','Bitince onay adımı burada görünür.',
+          `<button class="btn btn-outline btn-xs" onclick="switchTab('surec')">İzle</button>`));
+      }else if(d.onay){
+        k.push(kart('turn','Sıra sende',_pnChip('onay bekliyor','warn'),'<b>'+_pnEsc(d.onay.etiket)+'</b>',
+          `${so.kritik?'⚠ '+so.kritik+' kritik açık soru · ':''}${so.acik} açık soru · hedefli düzeltme için "Bu adımı düzelt"`,
+          `<button class="btn btn-primary btn-xs" onclick="switchTab('surec')">Onay adımına git</button> <button class="btn btn-outline btn-xs" onclick="switchTab('output','${_pnEsc(d.onay.dosya)}')">Dosyayı incele</button>`));
+      }else if(w.tamamlandi){
+        k.push(kart('ok','İş akışı',_pnChip('tamamlandı','ok'),'<b>Tamamlandı</b>','Yeni doküman yükleyerek yeni oturum başlatabilirsin.',
+          `<button class="btn btn-outline btn-xs" onclick="switchTab('surec')">Yeni analiz</button>`));
+      }else{
+        k.push(kart('','İş akışı',_pnChip('hazır','neu'),'<b>Bekleyen iş yok</b>','Doküman yükleyip analize başla.',
+          `<button class="btn btn-primary btn-xs" onclick="switchTab('surec')">Analize başla</button>`));
+      }
+      k.push(kart(so.kritik?'turn':(so.acik?'':'ok'),'Açık sorular',so.kritik?_pnChip(so.kritik+' kritik','bad'):_pnChip(so.acik?'cevap bekliyor':'temiz',so.acik?'warn':'ok'),
+        '<b>'+so.acik+'</b>',so.uygulanmamis?`${so.uygulanmamis} cevap henüz analize işlenmedi`:'Cevaplanan sorular hedefli olarak analize işlenir.',
+        so.acik||so.uygulanmamis?`<button class="btn btn-outline btn-xs" onclick="switchTab('output','__sorular__')">Sorulara git</button>`:''));
+      if(rev.length){
+        k.push(kart('turn','Bekleyen revizyon',_pnChip(rev.length+' öneri','warn'),'<b>'+rev.length+'</b>','Onay bekleyen bölüm önerisi: '+rev.join(', '),
+          `<button class="btn btn-outline btn-xs" onclick="switchTab('revizyon')">Revizyona git</button>`));
+      }
+      el.innerHTML=k.join('');
+    }
+
+    // Elle disk temizliği (owner) — analiz sürüyorsa backend 409 döner.
+    async function panoDiskTemizle(btn){
+      if(!confirm('Eskimiş önbellek, log, rapor ve arşiv dosyaları silinecek (analiz çıktıları ve girdiler DOKUNULMAZ). Devam?')) return;
+      if(btn) btn.disabled=true;
+      try{
+        const r=await fetch('/api/disk/temizle',{method:'POST'}); const d=await r.json();
+        if(d.ok) toast(`Temizlendi: ${d.silinen} öğe · ${d.kazanilan_mb} MB`,'success'); else toast(d.error||'Temizlenemedi','error');
+      }catch(e){ toast('Bağlantı hatası','error'); }
+      finally{ if(btn) btn.disabled=false; _panoSaglik(); }
     }
 
     async function _panoOturum(){
@@ -133,7 +189,21 @@
         _pnStatCard('Güncelleme',gChip,'<b>'+(g.otomatik?'otomatik':'elle')+'</b>',`engel ${g.engel||'—'} · son kontrol ${_pnZ(g.son_kontrol)}`),
         _pnStatCard('İş akışı',wChip,'<b>'+_pnEsc(w.durum||'idle')+'</b>',`meşgul: ${w.mesgul||'hayır'}`),
         _pnStatCard('Veri kaynakları',vkChip,'<b>'+((vk.hazir_sunucular&&vk.hazir_sunucular.length)?'bağlı':'kapalı')+'</b>',`Postgres ${vk.postgres&&vk.postgres.aktif?'açık':'kapalı'} · Jira ${vk.jira&&vk.jira.aktif?'açık':'kapalı'} · Kod ${kodRepo?'bağlı':'yok'}`),
-        _pnStatCard('Disk',_pnChip(diskToplam.toFixed(0)+' MB',diskToplam>2048?'warn':'ok'),'<b>'+diskToplam.toFixed(0)+' MB</b>',Object.entries(d.disk||{}).map(([k,v])=>`${k} ${v.mb}MB`).join(' · ')),
+        _pnStatCard('Disk',_pnChip(diskToplam.toFixed(0)+' MB',diskToplam>2048?'warn':'ok'),'<b>'+diskToplam.toFixed(0)+' MB</b>',Object.entries(d.disk||{}).filter(([k,v])=>v.mb>0).map(([k,v])=>`${k} ${v.mb}MB`).join(' · ')||'boş'),
+        _panoDiskTemizlikKart(d.disk_temizlik||{}),
       ].join('');
+    }
+    // Disk temizlik kartı: birimin boş alanı + temizlenebilir miktar + son çalışma + zamanlama; "Şimdi temizle".
+    function _panoDiskTemizlikKart(t){
+      const fs=t.dosya_sistemi||{}, z=t.zamanlama||{}, son=t.son;
+      const bosYuzde=fs.bos_yuzde??null;
+      const chip=bosYuzde===null?_pnChip('bilinmiyor','warn'):bosYuzde<10?_pnChip(`%${bosYuzde} boş`,'bad'):bosYuzde<20?_pnChip(`%${bosYuzde} boş`,'warn'):_pnChip(`%${bosYuzde} boş`,'ok');
+      const temiz=t.temizlenebilir_mb??0;
+      const sonTxt=son?`son: ${_pnZ(son.zaman)} (${son.tetik}, ${son.silinen} öğe, ${son.kazanilan_mb} MB)`:'henüz çalışmadı';
+      const zamanTxt=z.aktif?`zamanlanmış: her ${Math.round((z.aralik_sn||86400)/3600)} sa (iş yokken)`:'zamanlanmış görev KAPALI (DISK_TEMIZLIK=false)';
+      return `<div class="pano-card"><div class="pc-head"><span class="pc-label">Disk temizlik</span>${chip}</div>
+        <div class="pc-value"><b>${fs.bos_gb??'—'} GB</b> <span style="font-size:12px;color:var(--text3)">/ ${fs.toplam_gb??'—'} GB boş</span></div>
+        <div class="pc-sub">temizlenebilir ${temiz} MB · ${_pnEsc(sonTxt)} · ${_pnEsc(zamanTxt)}</div>
+        <div class="pc-act"><button class="btn btn-outline btn-xs" onclick="panoDiskTemizle(this)" ${temiz>0?'':'disabled title="Temizlenecek eskimiş dosya yok"'}>Şimdi temizle</button></div></div>`;
     }
     </script>

@@ -7,6 +7,7 @@ Kural: her yeni deterministik endpoint buraya bir satır ekler. Gerçek output/'
 dokunmaz (geçici OUTPUT_DIR); 5002/5003 süreçlerinden bağımsız çalışır.
 """
 
+import importlib
 import os
 import sys
 import tempfile
@@ -68,6 +69,16 @@ r = istemci.post("/api/adim/duzelt", json={"dosya": "yok.md", "talimat": "x"}, h
 kontrol("adim/duzelt geçersiz dosya → 400", r.status_code == 400)
 r = istemci.post("/api/adim/duzelt", json={"dosya": "surec-analizi.md", "talimat": ""}, headers=ORIGIN)
 kontrol("adim/duzelt boş talimat → 400", r.status_code == 400)
+
+# ── Faz 3: rol-duyarlı pano + disk temizlik ──
+pn = json_al(istemci.get("/api/pano"))
+kontrol("pano ok + alanlar", pn.get("ok") and all(k in pn for k in ("workflow", "onay", "sorular", "bekleyen_revizyon", "rol")))
+dd = json_al(istemci.get("/api/disk/durum"))
+kontrol("disk/durum ok (plan kuru)", dd.get("ok") and "adaylar" in dd.get("plan", {}) and "bos_gb" in dd.get("dosya_sistemi", {}))
+_dt = importlib.import_module("skills.disk_temizlik")
+kontrol("disk_temizlik: output/ ve input/ kurallarda YOK",
+        not any(str(d).endswith(("/output", "/input")) for d, *_ in _dt._KURALLAR))
+kontrol("saglik disk_temizlik alanı", "disk_temizlik" in json_al(istemci.get("/api/saglik")))
 
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog", g.get("ok") and len(g.get("katalog", [])) >= 10)

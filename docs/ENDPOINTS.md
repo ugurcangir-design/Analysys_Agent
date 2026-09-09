@@ -164,11 +164,22 @@ Mevcut `/api/update` (elle) ve `/api/restart` dokunulmadan durur.
 ```
 GET  /api/saglik   surum{hash,mesaj,tarih,dal} · ai{modu,model,cli_uygun,cli_reset} · guncelleme{otomatik,
                    yeni_surum,behind,engel,son_kontrol} · workflow{durum,calisiyor,mesgul} · mcp{chrome_config,
-                   mcp_json,live_app_profil} · disk{output,logs,history,input,reference: mb,dosya} ·
+                   mcp_json,live_app_profil} · disk{output,logs,history,input,reference,.api_cache,backlog: mb,dosya} ·
+                   disk_temizlik{dosya_sistemi{toplam_gb,bos_gb,bos_yuzde},temizlenebilir_mb,son,zamanlama} ·
                    auth{aktif,kullanici_sayisi,rol,gizli_sayisi} · ortam{python,flask,port}
+GET  /api/pano     HERKES — rol-duyarlı Ana Sayfa "Sıradaki iş": rol · workflow{durum,etiket,calisiyor,tamamlandi} ·
+                   onay{adim:surec|teknik|brd,etiket,dosya}|null · sorular{acik,kritik,uygulanmamis} · bekleyen_revizyon[]
+GET  /api/disk/durum   owner — {dosya_sistemi, plan{adaylar[],adet,toplam_mb} (KURU), son, zamanlama}
+POST /api/disk/temizle owner — planı uygular; analiz sürüyorsa 409. {silinen, kazanilan_mb, hata[]}
 ```
+**Disk temizliği (Faz 3):** `skills/disk_temizlik.py` — kurallar `_KURALLAR` (yalnız yeniden-üretilebilir/arşiv:
+`.api_cache/*.txt` TTL, `reference/_filtered_cache` 7g, `reference/live-app` 30g, `logs/*.log(.N)` 30g [son 24 saatte
+yazılan aktif log korunur], `backlog/*.xlsx` 30g, `history/*` 60g). `output/`, `input/`, `logs/usage/`, referans
+kaynakları DOKUNULMAZ. Zamanlayıcı `_disk_temizlik_dongusu` (app.py): `DISK_TEMIZLIK` / `DISK_TEMIZLIK_ARALIK`,
+`_mesgul_mu()` doluysa 5 dk erteler. Durum `logs/disk-temizlik-durum.json`.
 UI (v2.1): `/api/saglik` artık **Ana Sayfa** panosunda (`screens/pano.html`) gösterilir — ilk açılışta gelen
-dashboard (aktif oturum + hızlı eylemler + sağlık; owner değilse sağlık kısmı gizli). Ayrı "Sistem Sağlığı"
+dashboard (aktif oturum + **Sıradaki iş** [`/api/pano`, herkes: bekleyen onay adımı / açık-kritik soru /
+bekleyen revizyon / çalışan iş] + hızlı eylemler + sağlık [owner: CLI durumu, Disk, **Disk temizlik** kartı + "Şimdi temizle"]). Ayrı "Sistem Sağlığı"
 menüsü kaldırıldı. "Geçmiş" menüsü de kaldırıldı — arşiv Çıktılar ekranında. **Komut paleti** `screens/_palet.html` — ⌘K/Ctrl+K veya sidebar arama
 kutusu; görünür nav öğeleri (rol gizlemesine saygılı) + hızlı aksiyonlar; klavye ile gezinme.
 **Regresyon:** `tests/smoke_test.py` (Flask test client, deterministik uçlar, 27 kontrol) +

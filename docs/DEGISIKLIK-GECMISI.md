@@ -481,3 +481,16 @@ yeniden çalıştırmak zorunda kalmamalı; tek sohbet karmaşık olmamalı". Uy
 - **Soru cevapları hedefli** (`_sorulari_hedefli_uygula`): `bagli_id` bölümü varsa yalnız o bölüm; kalanlar
   tam üretime düşer.
 Smoke test: geri-don 409 + adim/duzelt 400 doğrulamaları eklendi. ruff temiz.
+
+## Faz 3 — Rol-duyarlı pano + onay bağlamı + zamanlanmış disk temizliği ✅
+- **`GET /api/pano`** (herkes): Ana Sayfa'da "Sıradaki iş" kartları — bekleyen onay adımı (+ "Onay adımına git"),
+  açık/kritik soru sayısı, bekleyen revizyon önerileri, çalışan iş. Analist önce "ne yapmalıyım"ı görür.
+- **Karar bağlamı**: süreç/teknik onay kartlarında "N kritik · M açık soru · K bekleyen revizyon" satırı
+  (`_onayBaglamYukle`, 15 sn throttle).
+- **Sağlık kartları** (owner): CLI durumu ve Disk korundu; yeni **Disk temizlik** kartı (birimin boş alanı,
+  temizlenebilir MB, son çalışma, zamanlama, "Şimdi temizle").
+- **`skills/disk_temizlik.py`** + `_disk_temizlik_dongusu` zamanlayıcı: `DISK_TEMIZLIK` / `DISK_TEMIZLIK_ARALIK`
+  (vars. 24 sa, iş yokken). Yalnız yeniden-üretilebilir/arşiv dosyaları (.api_cache TTL, _filtered_cache 7g,
+  live-app 30g, eski loglar 30g [aktif log korunur], backlog xlsx 30g, history 60g). `output/ input/ logs/usage/`
+  ASLA. Endpoint'ler `/api/disk/durum` (kuru plan) · `/api/disk/temizle` (meşgulse 409).
+Smoke test +4 (35) + izole disk_temizlik testi (eski aday / taze korunur / aktif log korunur). ruff temiz.
