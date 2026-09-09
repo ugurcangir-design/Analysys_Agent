@@ -494,3 +494,10 @@ Smoke test: geri-don 409 + adim/duzelt 400 doğrulamaları eklendi. ruff temiz.
   live-app 30g, eski loglar 30g [aktif log korunur], backlog xlsx 30g, history 60g). `output/ input/ logs/usage/`
   ASLA. Endpoint'ler `/api/disk/durum` (kuru plan) · `/api/disk/temizle` (meşgulse 409).
 Smoke test +4 (35) + izole disk_temizlik testi (eski aday / taze korunur / aktif log korunur). ruff temiz.
+
+## Faz 4 — Analist-dostu hata mesajları ✅
+`skills/hatalar.py` (`insanlastir`): ham hata/traceback → {kategori, baslik, aciklama, oneri, ozet, ham} —
+deterministik regex kuralları (kullanım limiti, oturum düştü, API anahtarı, zaman aşımı, disk dolu, ağ, MCP/Chrome,
+model, dosya, doküman okunamadı, model yanıtı, alt süreç; eşleşmezse ilk satır başlık, traceback atılır).
+`workflow.ozet()` → `hata_ozet`; UI hata kartı başlık + ne oldu + **Ne yapmalı** + katlanabilir teknik iz; toast
+yalnız başlık. Smoke +6 (41). ruff temiz.

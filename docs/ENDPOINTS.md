@@ -6,7 +6,8 @@
 ## Çalıştırma / Workflow
 ```
 POST /api/run                  Analiz başlat
-GET  /api/workflow-state       Workflow durumu (UI polling 1.5s)
+GET  /api/workflow-state       Workflow durumu (UI polling 1.5s); `hata_ozet` {kategori,baslik,aciklama,oneri,ozet,ham}|null
+                               — analist-dostu hata (skills/hatalar.py, deterministik; UI hata kartı + katlanabilir teknik iz)
 POST /api/approve              Süreç analizi onayı
 POST /api/approve-teknik       Teknik analiz onayı (jira ile)
 POST /api/approve-teknik-no-jira

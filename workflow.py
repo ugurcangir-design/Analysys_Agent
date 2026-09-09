@@ -280,6 +280,17 @@ def calisiyor_mu() -> bool:
     return oku()["durum"] in CALISMA_DURUMLARI
 
 
+def _hata_ozet(hata: str | None) -> dict | None:
+    """Analist-dostu hata (Faz 4): skills.hatalar bağımsızdır (base import etmez) → run.py'de de ucuz."""
+    if not hata:
+        return None
+    try:
+        from skills.hatalar import insanlastir
+        return insanlastir(hata)
+    except Exception:
+        return None
+
+
 def ozet() -> dict:
     state = oku()
     durum = state["durum"]
@@ -289,6 +300,7 @@ def ozet() -> dict:
         "pipeline": state["pipeline"],
         "mesaj": state["mesaj"],
         "hata": state["hata"],
+        "hata_ozet": _hata_ozet(state["hata"]),   # {kategori,baslik,aciklama,oneri,ozet,ham} | None
         "onaylandi": state["onaylandi"],
         "calisiyor": durum in CALISMA_DURUMLARI,
         "onay_bekleniyor": durum == Durum.ONAY_BEKLENIYOR,

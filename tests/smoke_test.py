@@ -80,6 +80,16 @@ kontrol("disk_temizlik: output/ ve input/ kurallarda YOK",
         not any(str(d).endswith(("/output", "/input")) for d, *_ in _dt._KURALLAR))
 kontrol("saglik disk_temizlik alanı", "disk_temizlik" in json_al(istemci.get("/api/saglik")))
 
+# ── Faz 4: analist-dostu hata mesajları (deterministik sınıflandırma) ──
+_ht = importlib.import_module("skills.hatalar")
+kontrol("hatalar: 429 → cli_limit", _ht.insanlastir("Claude kullanım limitine ulaşıldı: resets 3pm")["kategori"] == "cli_limit")
+kontrol("hatalar: OAuth → cli_oturum", _ht.insanlastir("RuntimeError: OAuth token expired\nTraceback (most recent call last):\n x")["kategori"] == "cli_oturum")
+kontrol("hatalar: zaman aşımı", _ht.insanlastir("Zaman aşımı (20 dakika). Alt süreç sonlandırıldı.")["kategori"] == "zaman_asimi")
+_bil = _ht.insanlastir("Süreç analizi hatası: XyzError boom\nTraceback (most recent call last):\n  File ...")
+kontrol("hatalar: bilinmeyen → ilk satır başlık, traceback atıldı", _bil["kategori"] == "bilinmeyen" and _bil["baslik"].startswith("Süreç analizi hatası") and "Traceback" not in _bil["baslik"])
+kontrol("hatalar: None → None", _ht.insanlastir(None) is None)
+kontrol("workflow-state hata_ozet alanı", "hata_ozet" in json_al(istemci.get("/api/workflow-state")))
+
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog", g.get("ok") and len(g.get("katalog", [])) >= 10)
 
