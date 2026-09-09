@@ -98,6 +98,22 @@ GET    /api/sorular/paylasim           Bekleyen soruları metin export
 Durumlar: `acik / bekleniyor / cevaplandi / atlandi / varsayim`
 Kalıcı veri: `output/sorular.json` (atomik yazım)
 
+## Revizyon Oturumu — v2 Faz 1 (skills/revizyon.py + revizyon_ai.py)
+Analiz-bağlı, durumlu revizyon: bölüm-hedefli düzeltme (tam yeniden-üretim yok) +
+değişiklik geçmişi + onay/ret. `<dosya>` daima `IZIN_VERILEN_CIKTILAR`'da olmalı.
+```
+GET  /api/revizyon/<dosya>                 Oturum özeti (versiyonlar/geçmiş/bekleyen) + çalışma durumu
+POST /api/revizyon/<dosya>/baslat          Mevcut çıktıdan oturum aç (v1=mevcut; idempotent)
+POST /api/revizyon/<dosya>/bolum-duzenle   {anahtar, talimat} → bölümü AI ile düzenle (arka plan, BEKLEMEDE öneri)
+POST /api/revizyon/<dosya>/onayla          {revizyon_id} → aktif yap + GERÇEK çıktı dosyasına yaz
+POST /api/revizyon/<dosya>/reddet          {revizyon_id} → aktif değişmez
+POST /api/revizyon/<dosya>/geri-al         {versiyon_id} → eski sürüme dön + çıktıya yaz
+GET  /api/revizyon/<dosya>/diff?a=v1&b=v2  İki versiyon arası unified diff
+```
+Onay durumları: `beklemede / onaylandi / reddedildi`. Mevcut `/api/rerun` (tam
+yeniden-üretim) DOKUNULMADAN yanında durur.
+Kalıcı veri: `output/revizyon/<slug>.json` + `output/revizyon/<slug>/<vid>.md` (atomik yazım)
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

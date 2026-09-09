@@ -1257,6 +1257,151 @@ def rerun_status(dosya_adi: str):
     return jsonify({"var": True, "guncelleme": yol.stat().st_mtime})
 
 
+# ─── Revizyon Oturumu — v2 Faz 1 (sohbetle bölüm-hedefli düzeltme + onay) ─────
+# Belkemiği: skills/revizyon.py (deterministik) · AI düzenleme: skills/revizyon_ai.py
+# Mevcut /api/rerun (tam yeniden-üretim) akışına DOKUNMAZ — yanına eklenir.
+_revizyon_lock = threading.Lock()
+_revizyon_durum: dict = {}   # {dosya_adi: {"calisiyor": bool, "hata": str|None}}
+
+
+@app.route("/api/revizyon/<dosya_adi>", methods=["GET"])
+def revizyon_ozet_endpoint(dosya_adi: str):
+    """Revizyon oturumu özeti (versiyonlar, geçmiş, bekleyen öneri) + çalışma durumu."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    from skills import revizyon
+    oz = revizyon.ozet(dosya_adi)
+    durum = _revizyon_durum.get(dosya_adi, {})
+    return jsonify({
+        "ok": True, "var": oz is not None, "oturum": oz,
+        "calisiyor": durum.get("calisiyor", False), "hata": durum.get("hata"),
+    })
+
+
+@app.route("/api/revizyon/<dosya_adi>/baslat", methods=["POST"])
+def revizyon_baslat_endpoint(dosya_adi: str):
+    """Mevcut çıktı dosyasından revizyon oturumu açar (v1 = mevcut içerik). Idempotent."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    yol = OUTPUT_DIR / dosya_adi
+    if not yol.exists():
+        return jsonify({"ok": False, "error": "Çıktı dosyası yok"}), 404
+    from skills import revizyon
+    revizyon.baslat(dosya_adi, yol.read_text(encoding="utf-8"))
+    return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+
+
+@app.route("/api/revizyon/<dosya_adi>/bolum-duzenle", methods=["POST"])
+def revizyon_bolum_duzenle_endpoint(dosya_adi: str):
+    """Hedef bölümü AI ile düzenle → BEKLEMEDE öneri. Body: {anahtar, talimat}.
+
+    AI çağrısı içerdiğinden arka planda çalışır (rerun deseni). Sonucu GET ile
+    izle: `calisiyor` false olunca oturumda yeni `bekleyen` öneri belirir.
+    """
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    anahtar = (payload.get("anahtar") or "").strip()
+    talimat = (payload.get("talimat") or "").strip()
+    if not anahtar or not talimat:
+        return jsonify({"ok": False, "error": "anahtar ve talimat zorunlu"}), 400
+    if not _revizyon_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Başka bir düzenleme devam ediyor"}), 409
+    _revizyon_durum[dosya_adi] = {"calisiyor": True, "hata": None}
+
+    def _calistir():
+        try:
+            from skills import revizyon_ai
+            revizyon_ai.bolum_duzenle(dosya_adi, anahtar, talimat)
+            _revizyon_durum[dosya_adi] = {"calisiyor": False, "hata": None}
+            logger.info("Bölüm düzenleme tamamlandı: %s / %s", dosya_adi, anahtar)
+        except Exception as e:
+            logger.error("Bölüm düzenleme hatası: %s", e)
+            _revizyon_durum[dosya_adi] = {"calisiyor": False, "hata": str(e)}
+        finally:
+            _revizyon_lock.release()
+
+    threading.Thread(target=_calistir, daemon=True).start()
+    return jsonify({"ok": True, "calisiyor": True})
+
+
+@app.route("/api/revizyon/<dosya_adi>/onayla", methods=["POST"])
+def revizyon_onayla_endpoint(dosya_adi: str):
+    """Bekleyen revizyonu onayla → aktif yap ve GERÇEK çıktı dosyasına yaz.
+    Body: {revizyon_id}."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    revizyon_id = (payload.get("revizyon_id") or "").strip()
+    if not revizyon_id:
+        return jsonify({"ok": False, "error": "revizyon_id zorunlu"}), 400
+    from skills import revizyon
+    try:
+        revizyon.onayla(dosya_adi, revizyon_id)
+        # Onaylı içeriği gerçek çıktı dosyasına yansıt (dosya_adi zaten allowlist'te)
+        (OUTPUT_DIR / dosya_adi).write_text(revizyon.onayli_icerik(dosya_adi), encoding="utf-8")
+        logger.info("Revizyon onaylandı ve yazıldı: %s / %s", dosya_adi, revizyon_id)
+        return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error("Revizyon onay hatası: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/revizyon/<dosya_adi>/reddet", methods=["POST"])
+def revizyon_reddet_endpoint(dosya_adi: str):
+    """Bekleyen revizyonu reddet → aktif içerik değişmez. Body: {revizyon_id}."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    revizyon_id = (payload.get("revizyon_id") or "").strip()
+    if not revizyon_id:
+        return jsonify({"ok": False, "error": "revizyon_id zorunlu"}), 400
+    from skills import revizyon
+    try:
+        revizyon.reddet(dosya_adi, revizyon_id)
+        return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/revizyon/<dosya_adi>/geri-al", methods=["POST"])
+def revizyon_geri_al_endpoint(dosya_adi: str):
+    """Aktif içeriği eski bir versiyona döndür ve çıktı dosyasına yaz.
+    Body: {versiyon_id}."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    versiyon_id = (payload.get("versiyon_id") or "").strip()
+    if not versiyon_id:
+        return jsonify({"ok": False, "error": "versiyon_id zorunlu"}), 400
+    from skills import revizyon
+    try:
+        revizyon.geri_al(dosya_adi, versiyon_id)
+        (OUTPUT_DIR / dosya_adi).write_text(revizyon.onayli_icerik(dosya_adi), encoding="utf-8")
+        logger.info("Revizyon geri alındı: %s → %s", dosya_adi, versiyon_id)
+        return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/revizyon/<dosya_adi>/diff", methods=["GET"])
+def revizyon_diff_endpoint(dosya_adi: str):
+    """İki versiyon arası unified diff. Query: ?a=v1&b=v2."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    a = (request.args.get("a") or "").strip()
+    b = (request.args.get("b") or "").strip()
+    if not a or not b:
+        return jsonify({"ok": False, "error": "a ve b query parametreleri zorunlu"}), 400
+    from skills import revizyon
+    try:
+        return jsonify({"ok": True, "diff": revizyon.diff(dosya_adi, a, b)})
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+
+
 
 
 def _env_yaz(degiskenler: dict) -> None:

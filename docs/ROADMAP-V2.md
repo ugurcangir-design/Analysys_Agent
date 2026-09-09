@@ -96,7 +96,12 @@ Analistin deneyimini tek-atıştan, konuşarak ilerleyen sürece çevirir — en
   (yalnız hedef bölümü AI'a gönderir, splice eder, `revizyon_oner` ile beklemede öneri).
   Tam yeniden-üretim yok. Deterministik parçalar 11 assert ile test edildi; tek AI çağrısı
   izole + enjekte-edilebilir (`_ai_fn`), kota harcanmadı.
-- ⏳ Artım 3 — app.py endpoint'leri + revizyon ekranı (Faz 0 include mekanizması).
+- ◐ **Artım 3 — endpoint'ler (backend TAMAM):** `app.py` `/api/revizyon/*` (baslat, ozet,
+  bolum-duzenle, onayla, reddet, geri-al, diff). CSRF + `IZIN_VERILEN_CIKTILAR` korumalı;
+  `onayla`/`geri-al` gerçek çıktı dosyasını yazar. Deterministik uçlar (baslat/ozet/diff/
+  onayla/reddet/geri-al) uçtan uca doğrulandı (5003); `bolum-duzenle` AI kısmı çalıştırılmadı
+  (kota). Bkz. `docs/ENDPOINTS.md`. **Kalan:** revizyon ekranı/UI (Faz 0 include mekanizması) —
+  UX yerleşimi kararı bekliyor.
 
 ### Faz 2 — Süreç · BRD · Teknik ekran tasarımı (Deneyim · hedef 1·8)
 Üç çekirdek ekranı, Faz 1'in etkileşimli akışıyla entegre, gerçek uygulama kalitesinde.
