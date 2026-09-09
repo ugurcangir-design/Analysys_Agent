@@ -4,8 +4,13 @@
 
 set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="Analyst Studio"
+# v2: eski app (Analyst Studio, 5002) ile çakışmasın diye ayrı isim + port.
+# APP_NAME env ile override edilebilir; PORT .env'den türetilir (yoksa 5003).
+APP_NAME="${APP_NAME:-Analyst Studio v2}"
 APP_PATH="$HOME/Desktop/$APP_NAME.app"
+APP_PORT="${PORT:-$(grep -E '^PORT=' "$PROJECT_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2 | tr -d '"'"'"' ')}"
+APP_PORT="${APP_PORT:-5003}"
+echo "  Uygulama: $APP_NAME · port $APP_PORT · $PROJECT_DIR"
 
 echo "=== Masaüstü ikonu oluşturuluyor ==="
 
@@ -13,7 +18,7 @@ echo "=== Masaüstü ikonu oluşturuluyor ==="
 HELPER="$PROJECT_DIR/_start.sh"
 cat > "$HELPER" << SHEOF
 #!/bin/bash
-PORT=5002
+PORT=$APP_PORT
 URL="http://localhost:\$PORT"
 cd "$PROJECT_DIR"
 
@@ -30,7 +35,8 @@ if curl -s --max-time 1 "\$URL" > /dev/null 2>&1; then
 fi
 
 source venv/bin/activate
-DESKTOP_MODE=true nohup python app.py >> /tmp/brd-agent-desktop.log 2>&1 &
+export PORT   # app.py PORT'u env'den okur — helper'ın portuyla eşleşmeli (yoksa 5002'ye düşer)
+DESKTOP_MODE=true nohup python app.py >> /tmp/brd-agent-desktop-v2.log 2>&1 &
 disown
 
 for i in \$(seq 1 30); do

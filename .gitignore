@@ -78,3 +78,6 @@ reference/kod_kaynagi.json
 # Analiz veri kaynağı MCP (Faz 3.c; bağlantı dizesi içerir) + üretilen config
 reference/analiz_mcp.json
 .mcp-analiz.json
+
+# create_app.sh tarafından üretilen makineye-özel başlatıcı (yol+port içerir)
+_start.sh
