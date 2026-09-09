@@ -100,15 +100,15 @@ cat > "$APP_PATH/Contents/Info.plist" << PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Analyst Studio</string>
+    <string>$APP_NAME</string>
     <key>CFBundleDisplayName</key>
-    <string>Analyst Studio</string>
+    <string>$APP_NAME</string>
     <key>CFBundleIdentifier</key>
-    <string>com.analyst-studio</string>
+    <string>com.analyst-studio.v2</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>2.1</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.1</string>
     <key>CFBundleExecutable</key>
     <string>BRDAnalystAgent</string>
     <key>CFBundlePackageType</key>
@@ -149,84 +149,42 @@ def png_yaz(yol, w, h, piksel_fn):
         f.write(b'\x89PNG\r\n\x1a\n' + ihdr + idat + iend)
 
 def piksel(x, y, S=512):
-    BG   = (13,  20,  30,  255)   # koyu lacivert zemin
-    AC   = (45,  212, 191, 255)   # ana teal
-    AC2  = (20,  184, 166, 255)   # koyu teal (çubuk alt)
-    AC3  = (167, 243, 232, 255)   # açık teal (veri noktası / trend)
-    GRID = (22,  33,  48,  255)   # ızgara çizgisi rengi
-
-    # ── Yuvarlak köşeli kare arka plan ────────────────────────────
-    pad = int(S * .08)
-    rk  = int(S * .18)
+    # Marka ile tutarlı ikon: teal gradient yuvarlak kare + beyaz "analiz çizgileri"
+    # (uygulama sol üst brand-mark ile aynı dil). v2.1.
+    AC  = (45, 212, 191)     # ana teal
+    AC2 = (13, 148, 136)     # koyu teal
+    pad = int(S * .06)
+    rk  = int(S * .22)
     cx, cy = S // 2, S // 2
     ax, ay = abs(x - cx), abs(y - cy)
     lim = S // 2 - pad
+    # Yuvarlak kare DIŞI → şeffaf (macOS ikon köşeleri)
     qx, qy = ax - (lim - rk), ay - (lim - rk)
     if qx > 0 and qy > 0:
         if qx * qx + qy * qy > rk * rk:
-            return BG
+            return (0, 0, 0, 0)
     elif ax > lim or ay > lim:
-        return BG
-
-    # ── Yatay ızgara çizgileri (3 adet, soluk) ────────────────────
-    base_y = int(S * .75)
-    for gi in range(1, 4):
-        gy = base_y - int(S * .18 * gi)
-        if abs(y - gy) <= 1:
-            return GRID
-
-    # ── Çubuklar (4 adet, yükselen) ───────────────────────────────
-    n      = 4
-    bw     = int(S * .105)
-    bgap   = int(S * .048)
-    total  = n * bw + (n - 1) * bgap
-    ox     = (S - total) // 2
-    heights = [int(S * h) for h in (.20, .34, .50, .62)]
-    br     = int(bw * .35)   # üst köşe yarıçapı
-
-    for i in range(n):
-        x0, x1 = ox + i * (bw + bgap), ox + i * (bw + bgap) + bw
-        y0, y1 = base_y - heights[i], base_y
-        if x0 <= x < x1 and y0 <= y <= y1:
-            in_bar = True
-            if x - x0 < br and y - y0 < br:
-                ddx, ddy = x - (x0 + br), y - (y0 + br)
-                if ddx * ddx + ddy * ddy > br * br:
-                    in_bar = False
-            elif x1 - x <= br and y - y0 < br:
-                ddx, ddy = x - (x1 - br), y - (y0 + br)
-                if ddx * ddx + ddy * ddy > br * br:
-                    in_bar = False
-            if in_bar:
-                t  = (y - y0) / max(heights[i], 1)
-                r  = int(AC[0] + t * (AC2[0] - AC[0]))
-                g  = int(AC[1] + t * (AC2[1] - AC[1]))
-                b  = int(AC[2] + t * (AC2[2] - AC[2]))
-                return (r, g, b, 255)
-
-    # ── Veri noktaları (çubuk tepeleri) ───────────────────────────
-    pts = [(ox + i * (bw + bgap) + bw // 2, base_y - heights[i]) for i in range(n)]
-    dr  = int(S * .030)
-    for px, py in pts:
-        if (x - px) ** 2 + (y - py) ** 2 <= dr * dr:
-            return AC3
-
-    # ── Trend çizgisi ─────────────────────────────────────────────
-    lw2 = 2.8 ** 2   # çizgi yarı genişliği²
-    for i in range(len(pts) - 1):
-        x1p, y1p = pts[i];  x2p, y2p = pts[i + 1]
-        ddx, ddy = x2p - x1p, y2p - y1p
-        L2 = ddx * ddx + ddy * ddy
-        if L2 == 0:
-            continue
-        t = ((x - x1p) * ddx + (y - y1p) * ddy) / L2
-        t = max(0.0, min(1.0, t))
-        cx2 = x1p + t * ddx;  cy2 = y1p + t * ddy
-        dist2 = (x - cx2) ** 2 + (y - cy2) ** 2
-        if dist2 <= lw2:
-            return AC3
-
-    return (13, 20, 30, 255)
+        return (0, 0, 0, 0)
+    # Diyagonal (135°) teal gradient zemin
+    t = max(0.0, min(1.0, ((x - pad) + (y - pad)) / (2.0 * (S - 2 * pad))))
+    bg = (int(AC[0] + t * (AC2[0] - AC[0])),
+          int(AC[1] + t * (AC2[1] - AC[1])),
+          int(AC[2] + t * (AC2[2] - AC[2])), 255)
+    # Beyaz analiz çizgileri (3 yatay, sonuncusu kısa) — yuvarlak uçlu
+    lx = int(S * .30)
+    lh = int(S * .056)
+    lr = lh // 2
+    satirlar = [(.365, .40), (.50, .40), (.635, .24)]
+    for cyr, lenr in satirlar:
+        ly = int(S * cyr)
+        x0, x1 = lx, lx + int(S * lenr)
+        if abs(y - ly) <= lr:
+            if x0 + lr <= x <= x1 - lr:
+                return (255, 255, 255, 255)
+            for ex in (x0 + lr, x1 - lr):
+                if (x - ex) ** 2 + (y - ly) ** 2 <= lr * lr:
+                    return (255, 255, 255, 255)
+    return bg
 
 SIZE = 512
 tmp = tempfile.mkdtemp()

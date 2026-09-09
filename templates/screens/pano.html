@@ -1,0 +1,108 @@
+    <!-- EKRAN: Ana Sayfa / Pano (v2.1) — ilk açılışta gelen dashboard.
+         Üstte aktif oturum + hızlı eylemler; altında sistem sağlığı (owner; değilse gizli).
+         Backend: /api/oturum (herkes) + /api/saglik (owner). ds-* bileşenleri. -->
+    <div class="page active" id="page-pano">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Ana Sayfa</h1>
+          <p>Aktif işin ve sistemin durumu tek bakışta. Buradan analize başla, çıktılara ve revizyona geç.</p>
+        </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm" onclick="panoYukle()">↻ Yenile</button></div>
+      </div>
+
+      <div id="pano-oturum"></div>
+
+      <div class="ds-sec-label" style="margin-top:6px">Hızlı eylemler</div>
+      <div class="pano-actions">
+        <div class="pano-act" onclick="switchTab('surec')">
+          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="7" cy="5" r="1.6" fill="currentColor"/><circle cx="14" cy="12" r="1.6" fill="currentColor"/><circle cx="10" cy="19" r="1.6" fill="currentColor"/></svg></div>
+          <div><div class="pa-t">Süreç / Teknik Analiz</div><div class="pa-s">Doküman yükle, analiz üret</div></div>
+        </div>
+        <div class="pano-act" onclick="switchTab('ciktilar')">
+          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg></div>
+          <div><div class="pa-t">Çıktılar</div><div class="pa-s">Güncel çıktılar & sürümler</div></div>
+        </div>
+        <div class="pano-act" onclick="switchTab('revizyon')">
+          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <div><div class="pa-t">Revizyon</div><div class="pa-s">Konuşarak bölüm düzelt</div></div>
+        </div>
+        <div class="pano-act" onclick="switchTab('jira-gorevler')">
+          <div class="pa-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9l8-5 8 5v6l-8 5-8-5z"/></svg></div>
+          <div><div class="pa-t">Jira Görevleri</div><div class="pa-s">Task çek, analiz et</div></div>
+        </div>
+      </div>
+
+      <div id="pano-saglik-bolum" style="display:none">
+        <div class="ds-sec-label" style="margin-top:18px">Sistem sağlığı</div>
+        <div id="pano-saglik" class="ds-olist"><div class="mono-meta">Yükleniyor…</div></div>
+      </div>
+    </div>
+
+    <style>
+      #page-pano .pano-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+      #page-pano .pano-act{display:flex;align-items:center;gap:12px;padding:15px 16px;background:var(--surface);
+        border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,transform .1s}
+      #page-pano .pano-act:hover{border-color:var(--accent);transform:translateY(-1px)}
+      #page-pano .pa-ic{width:38px;height:38px;border-radius:9px;background:var(--accent-soft);color:var(--accent);
+        display:flex;align-items:center;justify-content:center;flex-shrink:0}
+      #page-pano .pa-ic svg{width:19px;height:19px}
+      #page-pano .pa-t{font-size:13.5px;font-weight:600;color:var(--text)}
+      #page-pano .pa-s{font-size:11.5px;color:var(--text3);margin-top:1px}
+    </style>
+
+    <script>
+    // ─── Ana Sayfa / Pano (v2.1) ────────────────────────────────────────────────
+    function _pnEsc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+    function _pnZ(ts){return ts?new Date(ts*1000).toLocaleString('tr-TR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}):'—';}
+    const _PN={ok:'ok',warn:'warn',bad:'old'};
+    function _pnChip(t,tip){return `<span class="ds-chip ${_PN[tip]||'neu'}"><span class="d"></span>${_pnEsc(t)}</span>`;}
+    function _pnKart(baslik,chip,satirlar){
+      return `<div class="ds-ocard"><div class="ds-ometa"><div class="ds-otitle">${_pnEsc(baslik)} ${chip||''}</div>
+        <div class="ds-ometa-row">${satirlar.map(([k,v])=>`<span>${_pnEsc(k)} <b>${_pnEsc(v)}</b></span>`).join('')}</div></div></div>`;
+    }
+
+    async function panoYukle(){
+      _panoOturum();
+      _panoSaglik();
+    }
+
+    async function _panoOturum(){
+      const el=document.getElementById('pano-oturum');
+      let d; try{ d=await (await fetch('/api/oturum')).json(); }catch(e){ el.innerHTML=''; return; }
+      if(!d.dokuman){
+        el.innerHTML=`<div class="ds-callout acc"><div class="grow"><div class="ct">Yeni bir analize başla</div><p>Henüz aktif oturum yok. Bir doküman yükleyip süreç veya BRD analizini başlat.</p></div><button class="btn btn-primary btn-sm" onclick="switchTab('surec')">Analize git</button></div>`;
+        return;
+      }
+      const wf=d.workflow||{};
+      const durum=wf.calisiyor?_pnChip(wf.etiket,'warn'):wf.tamamlandi?_pnChip(wf.etiket,'ok'):_pnChip(wf.etiket||'Hazır','neu');
+      const guncel=(d.ciktilar||[]).filter(c=>c.var&&c.tazelik==='guncel').length;
+      el.innerHTML=`<div class="ds-session">
+        <div><div class="si">Aktif oturum</div><div class="sv">${_pnEsc(d.dokuman.ad)}</div></div>
+        <div class="sep"></div><div><div class="si">Başladı</div><div class="sv">${_pnZ(d.baslangic)}</div></div>
+        <div class="sep"></div><div><div class="si">Güncel çıktı</div><div class="sv">${guncel}</div></div>
+        ${d.jira_key?`<div class="sep"></div><div><div class="si">Jira</div><div class="sv">${_pnEsc(d.jira_key)}</div></div>`:''}
+        <div class="end">${durum}</div></div>`;
+    }
+
+    async function _panoSaglik(){
+      const bolum=document.getElementById('pano-saglik-bolum');
+      const el=document.getElementById('pano-saglik');
+      let d; try{ d=await (await fetch('/api/saglik')).json(); }catch(e){ bolum.style.display='none'; return; }
+      if(!d.ok){ bolum.style.display='none'; return; }   // owner değil → sağlık gizli
+      bolum.style.display='';
+      const ai=d.ai,g=d.guncelleme,w=d.workflow,vk=(d.veri_kaynak||{}).analiz_mcp||{};
+      const aiChip=ai.modu==='api'?_pnChip('API modu','ok'):ai.cli_uygun===true?_pnChip('CLI hazır','ok'):ai.cli_uygun===false?_pnChip('CLI limitte','bad'):_pnChip('CLI bilinmiyor','warn');
+      const gChip=g.hata?_pnChip('Kontrol hatası','bad'):g.yeni_surum?_pnChip(`Yeni sürüm (${g.behind})`,'warn'):_pnChip(g.otomatik?'Güncel · otomatik':'Güncel · elle','ok');
+      const wChip=w.calisiyor?_pnChip(w.etiket,'warn'):_pnChip(w.etiket||'Hazır','ok');
+      const diskToplam=Object.values(d.disk||{}).reduce((s,x)=>s+x.mb,0);
+      const kodRepo=(d.veri_kaynak||{}).kod_repo;
+      el.innerHTML=[
+        _pnKart('Sürüm',_pnChip(d.surum.hash||'?','ok'),[['dal',d.surum.dal||'—'],['son commit',d.surum.mesaj||'—'],['tarih',d.surum.tarih||'—']]),
+        _pnKart('AI / Kota',aiChip,[['mod',ai.modu],['model',ai.model||'—'],['reset',ai.cli_reset||'—']]),
+        _pnKart('Güncelleme',gChip,[['otomatik',g.otomatik?'açık':'kapalı'],['engel',g.engel||'—'],['son kontrol',_pnZ(g.son_kontrol)]]),
+        _pnKart('İş akışı',wChip,[['durum',w.durum||'idle'],['meşgul',w.mesgul||'hayır']]),
+        _pnKart('Veri kaynakları',(vk.hazir_sunucular&&vk.hazir_sunucular.length)?_pnChip('MCP bağlı','ok'):_pnChip('kapalı','neu'),[['Postgres',vk.postgres&&vk.postgres.aktif?'açık':'kapalı'],['Jira',vk.jira&&vk.jira.aktif?'açık':'kapalı'],['Kod reposu',kodRepo?'bağlı':'yok']]),
+        _pnKart('Disk',_pnChip(diskToplam.toFixed(0)+' MB',diskToplam>2048?'warn':'ok'),Object.entries(d.disk||{}).map(([k,v])=>[k,`${v.mb} MB`]).concat([['denetim',(d.denetim||{}).kayit_mb+' MB']])),
+      ].join('');
+    }
+    </script>

@@ -157,7 +157,9 @@ GET  /api/saglik   surum{hash,mesaj,tarih,dal} · ai{modu,model,cli_uygun,cli_re
                    mcp_json,live_app_profil} · disk{output,logs,history,input,reference: mb,dosya} ·
                    denetim{kayit_mb} · auth{aktif,kullanici_sayisi,rol,gizli_sayisi} · ortam{python,flask,port}
 ```
-UI: `screens/saglik.html` (Yönetim). **Komut paleti** `screens/_palet.html` — ⌘K/Ctrl+K veya sidebar arama
+UI (v2.1): `/api/saglik` artık **Ana Sayfa** panosunda (`screens/pano.html`) gösterilir — ilk açılışta gelen
+dashboard (aktif oturum + hızlı eylemler + sağlık; owner değilse sağlık kısmı gizli). Ayrı "Sistem Sağlığı"
+menüsü kaldırıldı. "Geçmiş" menüsü de kaldırıldı — arşiv Çıktılar ekranında. **Komut paleti** `screens/_palet.html` — ⌘K/Ctrl+K veya sidebar arama
 kutusu; görünür nav öğeleri (rol gizlemesine saygılı) + hızlı aksiyonlar; klavye ile gezinme.
 **Regresyon:** `tests/smoke_test.py` (Flask test client, deterministik uçlar, 27 kontrol) +
 `tests/test_revizyon.py` (15) + `tests/test_auth_roller.py` (23) + `tests/test_kod_kaynagi.py` (17).

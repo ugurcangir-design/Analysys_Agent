@@ -1774,7 +1774,7 @@ function temaDegistir() {
       <div class="brand-mark"><svg class="ico"><use href="#i-layers"/></svg></div>
       <div class="brand-meta">
         <div class="brand-title">Analyst Studio</div>
-        <div class="brand-sub">v1.1 · local</div>
+        <div class="brand-sub">v2.1</div>
       </div>
     </div>
 
@@ -1787,8 +1787,12 @@ function temaDegistir() {
     </div>
 
     <nav class="sidebar-nav">
+      <div class="nav-item active" id="nav-pano" onclick="switchTab('pano')" style="margin-bottom:4px">
+        <svg class="ico"><use href="#i-server"/></svg>
+        <span class="nav-label">Ana Sayfa</span>
+      </div>
       <div class="nav-section" data-grup="surec">Analiz</div>
-      <div class="nav-item active" id="nav-surec" onclick="switchTab('surec')">
+      <div class="nav-item" id="nav-surec" onclick="switchTab('surec')">
         <svg class="ico"><use href="#i-workflow"/></svg>
         <span class="nav-label">Süreç/Teknik Analiz</span>
       </div>
@@ -1813,10 +1817,6 @@ function temaDegistir() {
       <div class="nav-item" id="nav-revizyon" onclick="switchTab('revizyon')">
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">Revizyon</span>
-      </div>
-      <div class="nav-item" id="nav-history" onclick="switchTab('history')">
-        <svg class="ico"><use href="#i-clock"/></svg>
-        <span class="nav-label">Geçmiş</span>
       </div>
 
       <div class="nav-section" data-grup="jira-gorevler">Jira</div>
@@ -1867,10 +1867,6 @@ function temaDegistir() {
       <div class="nav-item" id="nav-yetki" onclick="switchTab('yetki')">
         <svg class="ico"><use href="#i-settings"/></svg>
         <span class="nav-label">Yetki &amp; Denetim</span>
-      </div>
-      <div class="nav-item" id="nav-saglik" onclick="switchTab('saglik')">
-        <svg class="ico"><use href="#i-server"/></svg>
-        <span class="nav-label">Sistem Sağlığı</span>
       </div>
     </nav>
 
@@ -1932,7 +1928,7 @@ function temaDegistir() {
     {% include "screens/_guncelleme.html" %}
 
     <!-- ─── SÜREÇ ANALİZİ ─── -->
-    <div class="page active" id="page-surec">
+    <div class="page" id="page-surec">
       <div class="ph">
         <div class="ph-text">
           <h1>Süreç/Teknik Analiz</h1>
@@ -3307,7 +3303,7 @@ python cli.py ui ~/export.zip</pre>
        Her ekran kendi markup + davranışını ayrı dosyada taşır, burada include edilir. #}
     {% include "screens/delta.html" %}
     {% include "screens/yetki.html" %}
-    {% include "screens/saglik.html" %}
+    {% include "screens/pano.html" %}
     {% include "screens/kod.html" %}
     {% include "screens/_palet.html" %}
     {% include "screens/ciktilar.html" %}
@@ -3369,7 +3365,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki & Denetim',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
+  const _crumbLabels = {pano:'Ana Sayfa',surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki & Denetim',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.
@@ -3398,7 +3394,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'revizyon')      rzYukle();
   if (tab === 'ciktilar')      ciYukle();
   if (tab === 'yetki')         ytYukle();
-  if (tab === 'saglik')        sgYukle();
+  if (tab === 'pano')          panoYukle();
   if (tab === 'kod')           kodYukle();
 }
 
@@ -3594,7 +3590,7 @@ async function kullanimUzaktanCek() {
 // Owner: her şey görünür (+ Kullanım sekmesi USAGE_DASHBOARD ile). Analist: Yönetim
 // grubu + owner'ın gizlediği id'ler (nav item + element) gizlenir. Sunucu tarafı
 // engel ayrıca uygulanır (gorunurluk_kontrol) — UI gizleme yalnız deneyim içindir.
-const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullanim', 'yetki', 'saglik'];
+const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullanim', 'yetki'];
 function _rolUygula(me) {
   if (me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
   if (me.rol === 'owner') return;
@@ -7384,7 +7380,7 @@ async function confluenceDiagnose() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-  switchTab('surec');
+  switchTab('pano');
   await refreshOutputTabs();
   await ctxFilterYukle();
   await ozelPromptYukle();

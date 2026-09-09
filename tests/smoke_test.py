@@ -48,7 +48,7 @@ def json_al(r):
 r = istemci.get("/")
 kontrol("GET / 200", r.status_code == 200)
 govde = r.get_data(as_text=True)
-for pid in ("page-surec", "page-ciktilar", "page-revizyon", "page-delta", "page-yetki", "page-saglik", "og-banner", "pl-overlay"):
+for pid in ("page-pano", "page-surec", "page-ciktilar", "page-revizyon", "page-delta", "page-yetki", "og-banner", "pl-overlay"):
     kontrol(f"render {pid}", f'id="{pid}"' in govde)
 kontrol("ds.css link", "/static/ds.css" in govde)
 kontrol("GET /static/ds.css 200", istemci.get("/static/ds.css").status_code == 200)
