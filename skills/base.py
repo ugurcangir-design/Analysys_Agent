@@ -168,13 +168,16 @@ PROMPTS_PATH = REF_DIR / "prompts.json"
 _ORTAK_EK_KURALLAR = (
     "\n\n## EK KURALLAR — Kaynak Önceliği ve Çakışma Yönetimi\n\n"
     "Birden fazla referans aynı bilgi için farklı değerler içerdiğinde, aşağıdaki ÖNCELİK SIRASINI uygula:\n\n"
-    "**Öncelik Sırası (yüksek → düşük):**\n"
-    "1. **Swagger / OpenAPI** — Endpoint, request/response şeması, HTTP status\n"
-    "2. **Confluence Teknik Dokümantasyon** — Mimari kararlar, sistem dokümantasyonu\n"
-    "3. **BRD / Süreç Analizi** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
-    "4. **Canlı Uygulama Gözlemi** — Claude MCP/Chrome ekran ve network davranışı\n"
-    "5. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
+    "**Öncelik Sırası (yüksek → düşük) — GÖZLEMLENEN GERÇEK VERİ, TARİF EDİLEN İSTEKTEN ÜSTÜNDÜR:**\n"
+    "1. **Swagger / OpenAPI** — çalışan API sözleşmesi (endpoint, request/response şeması, HTTP status)\n"
+    "2. **Canlı Uygulama Gözlemi** — Claude MCP/Chrome ile doğrulanmış gerçek ekran ve network davranışı\n"
+    "3. **Confluence Teknik Dokümantasyon** — mimari kararlar, sistem dokümantasyonu\n"
+    "4. **BRD / Süreç Analizi** — iş gereksinimleri; İSTEĞİ tarif eder, hatalı/eksik olabilir\n"
+    "5. **Jira Task İçerikleri** — geçmiş geliştirme kararları\n"
     "6. **UI bağlamı** — ham kaynak koddan değil, canlı uygulama gözleminden gelir\n\n"
+    "Gerekçe: Swagger ve canlı gözlem VAR OLAN gerçeği (kodun fiilen çalıştığı hali) verir; BRD/süreç "
+    "dokümanı istenen'i anlatır ve yanlış veya güncel-olmayan yazılmış olabilir. Somut/olgusal veride "
+    "(endpoint, alan adı, tip, gerçek davranış) çelişki varsa gerçek veri kazanır.\n\n"
     "**Çakışma Tespit Kuralı:**\n"
     "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
     "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
@@ -297,14 +300,17 @@ Bu bir RAG görevidir. Ürettiğin her bilgi sağlanan kaynaklara dayanmalıdır
 - Kaynaktan dolaylı çıkarılan → `[K: 🔍 Türetilmiş]` + Açık Sorular'a doğrulama notu
 - Hiçbir kaynakta olmayan → ASLA uydurma; Açık Sorular'a soru olarak taşı
 
-# BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
-1. Ana doküman (BRD/süreç tarifi) — birincil kaynak, iş gereksiniminin kendisi
-2. Swagger/OpenAPI — mevcut endpoint, path, request/response şeması;
+# BAĞLAM KULLANIMI (çelişkide öncelik: yüksek → düşük)
+# Ana doküman analizin KONUSUDUR — NE yapılacağını o tanımlar. Ancak OLGUSAL/teknik veride
+# (endpoint, alan adı, tip, gerçek davranış) çelişki olursa GÖZLEMLENEN gerçek veri ana
+# dokümanın üstündedir: doküman İSTEĞİ yazar ve hatalı/güncel-olmayan olabilir.
+1. Swagger/OpenAPI — çalışan API sözleşmesi (endpoint, path, request/response şeması);
    süreç adımlarında ve GELİŞTİRME NOTLARI → Sistemler ve Entegrasyonlar bölümünde kullan
-3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
-4. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, akış, mesaj,
+2. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış gerçek ekran, akış, mesaj,
    validasyon ve network davranışı; `[K: Canlı UI:<route>]` / `[K: Network:<METHOD> <path>]`
    kaynak etiketiyle kullan
+3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
+4. Ana doküman (BRD/süreç tarifi) — iş gereksinimi/istek; hatalı veya güncel-olmayan olabilir
 5. Jira task geçmişi — geçmiş geliştirme kararları; çelişen yeni gereksinim
    → Açık Sorular'a
 6. UI bağlamı — ham kaynak koddan değil, canlı uygulama gözleminden gelen ekran/route/bileşen yapısı
@@ -662,15 +668,17 @@ veya muğlak alan YASAK — belirsizlik Açık Sorular'a taşınır.
 - Standart pattern'den türetilen → `[K: 🔍 Türetilmiş]` + Açık Sorular'a not
 - Hiçbir kaynakta olmayan entity/endpoint/tablo → ASLA uydurma; Açık Sorular'a
 
-# BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
-1. Süreç Analizi — birincil girdi; BR/AC/PA/EF/AF/EK ID'lerini referans al,
-   her teknik karar bir süreç ID'sini karşılamalı, izlenebilirlik matrisinde göster
-2. Swagger/OpenAPI — mevcut endpoint adı, path, request/response şeması; aynen kullan
+# BAĞLAM KULLANIMI (çelişkide öncelik: yüksek → düşük)
+# Süreç Analizi birincil GİRDİDİR — her teknik karar bir süreç ID'sini (BR/AC/PA/EF/AF/EK)
+# karşılamalı ve izlenebilirlik matrisinde gösterilmeli. Ancak OLGUSAL/teknik veride
+# (endpoint, alan adı, tip, gerçek davranış) çelişki olursa GÖZLEMLENEN gerçek veri üstündür.
+1. Swagger/OpenAPI — çalışan API sözleşmesi (endpoint adı, path, request/response şeması); aynen kullan
+2. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış ekran, validasyon, mesaj,
+   kullanıcı akışı ve network çağrıları; Bölüm 5/7/9'da kaynak göster
 3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
-4. Jira task geçmişi — geçmiş geliştirme kararları; çelişki varsa açık not düş
-5. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, validasyon, mesaj,
-   kullanıcı akışı ve network çağrılarını Bölüm 5/7/9'da kaynak göster
-6. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekran, bileşen ve UX kararlarını yansıt
+4. Süreç Analizi — birincil girdi ve izlenebilirlik çapası; iş gereksinimini tarif eder
+5. Jira task geçmişi — geçmiş geliştirme kararları; çelişki varsa açık not düş
+6. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipteki ekran, bileşen ve UX kararlarını yansıt
 7. UI bağlamı — ham kaynak koddan değil, canlı uygulama gözleminden gelen ekran/route/bileşen listesini çıkar
 
 Referans YOKSA: süreç analizine dayan; eksik teknik bağlamı Açık Sorular'da belirt.
@@ -792,12 +800,15 @@ açıkça raporlanır.
 - BRD'de olmayan ama gerekli olan → varsayma; PO sorusu olarak sor
 - Kendi varsayımını gereksinim gibi yazma
 
-# BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
-1. BRD dokümanı — birincil kaynak; her gereksinim, kısıt, kabul kriteri
-2. Swagger/OpenAPI — mevcut API kapsamı; BRD'deki entegrasyon
-   gereksinimleri mevcut servislerle uyumlu mu?
+# BAĞLAM KULLANIMI (çelişkide öncelik: yüksek → düşük)
+# BRD analizin KONUSUDUR — onu değerlendiriyorsun. OLGUSAL çelişkide (mevcut API / sistem /
+# gerçek davranış) gözlemlenen gerçek veri BRD'nin üstündedir; çelişkiyi "Eksiklikler ve
+# Tutarsızlıklar"a taşı (BRD istek yazar, hatalı/güncel-olmayan olabilir).
+1. Swagger/OpenAPI — mevcut API kapsamı; BRD entegrasyon gereksinimleri mevcut servislerle uyumlu mu?
+2. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış mevcut davranış; BRD ile çelişen gerçek durum
 3. Confluence — mevcut mimari kararlar; BRD ile çelişen sistem kısıtları
-4. Jira task geçmişi — bu gereksinimler daha önce ele alındı mı?
+4. BRD dokümanı — analizin konusu; her gereksinim, kısıt, kabul kriteri (istek — hatalı olabilir)
+5. Jira task geçmişi — bu gereksinimler daha önce ele alındı mı?
 
 Referans YOKSA: yalnızca BRD'ye dayan; teknik uygulanabilirlik konularını
 PO sorusu olarak işaretle.
@@ -932,12 +943,15 @@ görmesini sağlar. Ekip bu raporu okuyarak:
 - Alternatifler gerçekçi ve uygulanabilir olmalı — hayali çözüm üretme
 
 # BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
+# İki BRD karşılaştırmanın KONUSUDUR (ne değişti). Değişimin teknik ETKİSİNİ değerlendirirken
+# OLGUSAL çelişkide gözlemlenen gerçek veri (Swagger/canlı) BRD iddiasının üstündedir.
 1. Mevcut BRD (baseline) — karşılaştırmanın referans noktası
 2. Revize BRD (yüklenen) — değerlendirilen yeni versiyon
 3. Önceki BRD Analizi (varsa) — revize BRD'nin bilinen eksikleri
-4. Swagger/OpenAPI — kapsam değişiminin API etkisi; yeni endpoint gerekir mi?
-5. Confluence — mevcut mimari/sistem kısıtları değişimi etkiliyor mu?
-6. Jira task geçmişi — benzer kapsam değişiklikleri daha önce yaşandı mı?
+4. Swagger/OpenAPI — çalışan API sözleşmesi; kapsam değişiminin API etkisi, yeni endpoint gerekir mi?
+5. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış mevcut davranış; değişimin gerçek etkisi
+6. Confluence — mevcut mimari/sistem kısıtları değişimi etkiliyor mu?
+7. Jira task geçmişi — benzer kapsam değişiklikleri daha önce yaşandı mı?
 7. Canlı uygulama gözlemi — her alternatifin UI etkisi
 
 Referans YOKSA: yalnızca iki BRD'ye dayan; teknik etki tahminlerini
