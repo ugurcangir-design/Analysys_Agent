@@ -4,6 +4,15 @@ macOS masaüstü uygulaması. BRD/süreç dokümanı → RAG destekli analiz →
 Flask + Python **3.10+** (`str|None`), tarayıcı SPA `http://localhost:5002`.
 İki akış: **Süreç → Teknik → Jira** (ana, FE/BE ayrımı) · **BRD → Kapsam**.
 
+## ⚠️ Bu çalışma alanı = v2 KLONU (`brd-analyst-agent-v2`, dal `v2`, port **5003**)
+Bu dizin, üretimdeki eski uygulamanın (`/Users/dt/brd-analyst-agent`, port **5002**, dal `main`)
+**paralel klonudur**. Eski uygulamaya ve 5002'ye **dokunulmaz** — analistler kesintisiz kullanır.
+Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. Rollback çapası:
+`v1-stable` etiketi. Yol haritası (çapa, önce oku): **`docs/ROADMAP-V2.md`**.
+- **Ekran-eklenebilir arayüz** (Faz 0): ekran page blokları `templates/screens/*.html` partial'larına
+  çıkarılıp `index.html`'de `{% include %}` edilir — bkz. `templates/screens/README.md`.
+  İlk çıkarılan ekran: `kilavuz`. Kalan ekranlar Faz 2'de kademeli taşınır.
+
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
 - Çalışma GUI üzerinden (subprocess `run.py`); ayrı terminal test komutu yok.
