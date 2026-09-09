@@ -1869,6 +1869,15 @@ def kod_gecmis():
     return jsonify(kod_kaynagi.git_gecmis(request.args.get("repo", ""), request.args.get("yol", "")))
 
 
+@app.route("/api/etki/<dosya_adi>", methods=["GET"])
+def etki_analizi_endpoint(dosya_adi: str):
+    """Etki analizi iskeleti (0 token): çıktıdaki varlıklar → kod isabetleri. ?repo= opsiyonel."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    from skills import etki_analizi
+    return jsonify(etki_analizi.analiz(dosya_adi, repo=request.args.get("repo") or None))
+
+
 
 
 def _env_yaz(degiskenler: dict) -> None:

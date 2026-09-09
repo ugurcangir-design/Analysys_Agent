@@ -179,7 +179,11 @@ yapılmaz** — altyapı buna hazır kurulur.
   dosya okuma, arama (ripgrep/python), git geçmiş. Config makineye özel (`reference/kod_kaynagi.json`,
   gitignore + `.example` seed). `/api/kod/*` (config owner-only) + `screens/kod.html` (Kaynaklar).
   17 assert test (yol kaçışı reddi dahil). **Gerçek repo bağlantısı analiste bırakıldı** (yol haritası kararı).
-- ⏳ 3.b Etki analizi iskeleti — analiz çıktısındaki varlıkları (tablo/ekran/endpoint) kod aramasına bağla.
+- ✅ **3.b Etki analizi iskeleti:** `skills/etki_analizi.py` — çıktıdan teknik varlık çıkarımı
+  (backtick'li kod terimleri, endpoint yolları, yapısal ID'ler; deterministik, 0 token) → kod kaynağı
+  bağlıysa her varlığı arayıp **etkilenen dosya/satır** haritası. Repo yoksa yalnız varlık listesi.
+  `/api/etki/<dosya>?repo=` + Kod ekranında "Etki analizi" paneli. 12 assert test. Tarayıcıda doğrulandı
+  (v2 reposunda `bolum_duzenle`→revizyon.py/app.py vb. gerçek isabetler).
 - ⏳ 3.c Semantik referans retrieval + Postgres/Jira MCP entegrasyonu.
 
 ### Faz 4 — Genişletilebilirlik & yayın (Ölçek · hedef 4)

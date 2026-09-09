@@ -8,6 +8,14 @@
           <p>Analizi gerçek uygulama koduna bağla — dosya ağacı, arama ve git geçmişi (salt-okuma).</p>
         </div>
         <div class="ph-actions">
+          <select id="kod-etki-dosya" class="ds-inp" style="width:auto;padding:5px 10px" title="Etki analizi için çıktı">
+            <option value="surec-analizi.md">Süreç Analizi</option>
+            <option value="teknik-analiz.md">Teknik Analiz</option>
+            <option value="brd-analizi.md">BRD Analizi</option>
+            <option value="kapsam-analizi.md">Kapsam Analizi</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="kodEtki()" title="Bu çıktıdaki teknik varlıkları kodda ara">Etki analizi</button>
+          <span class="topbar-sep" style="height:20px"></span>
           <select id="kod-repo" class="ds-inp" style="width:auto;padding:5px 10px" onchange="kodAgac('')"></select>
           <button class="btn btn-outline btn-sm" onclick="kodConfigAc()" id="kod-config-btn">Repo ekle/düzenle</button>
         </div>
@@ -74,9 +82,17 @@
       const sel = document.getElementById('kod-repo');
       sel.innerHTML = varRepo.map(r=>`<option value="${_kEsc(r.ad)}">${_kEsc(r.ad)} · ${r.dosya} dosya</option>`).join('');
       sel.style.display = varRepo.length ? '' : 'none';
-      document.getElementById('kod-bos').style.display = varRepo.length ? 'none' : 'flex';
-      document.getElementById('kod-panolar').style.display = varRepo.length ? 'grid' : 'none';
-      if (varRepo.length) kodAgac('');
+      // Panolar her zaman görünür (etki analizi repo olmadan da çalışır); ağaç panelinde bilgi.
+      document.getElementById('kod-bos').style.display = 'none';
+      document.getElementById('kod-panolar').style.display = 'grid';
+      document.getElementById('kod-ara-input').style.display = varRepo.length ? '' : 'none';
+      if (varRepo.length) {
+        kodAgac('');
+      } else {
+        document.getElementById('kod-agac-govde').innerHTML =
+          '<div class="ds-empty" style="padding:24px"><div class="t">Repo bağlı değil</div><div>Owner "Repo ekle/düzenle" ile yerel bir repo yolu tanımlayınca ağaç ve arama açılır. Etki analizi (üstteki) repo olmadan da varlık haritası çıkarır.</div></div>';
+        document.getElementById('kod-dosya-govde').innerHTML = '<div class="mono-meta">Üstten bir çıktı seçip "Etki analizi" ile başla.</div>';
+      }
     }
 
     async function kodAgac(yol){
@@ -115,6 +131,39 @@
       if(!d.ok){g.innerHTML=`<div class="ds-callout warn"><div class="grow"><div class="ct">${_kEsc(d.error)}</div></div></div>`;return;}
       document.getElementById('kod-dosya-meta').textContent=`${d.adet} sonuç · ${d.motor}`;
       g.innerHTML = d.eslesmeler.map(e=>`<div class="kod-hit" onclick="kodDosya('${_kEsc(e.yol)}')"><b>${_kEsc(e.yol)}</b>:${e.satir_no} — ${_kEsc(e.satir)}</div>`).join('') || '<div class="mono-meta">Sonuç yok</div>';
+    }
+
+    // ── Etki analizi (3.b) ──
+    async function kodEtki(){
+      const dosya=document.getElementById('kod-etki-dosya').value;
+      const g=document.getElementById('kod-dosya-govde');
+      document.getElementById('kod-dosya-baslik').textContent='Etki analizi: '+dosya;
+      document.getElementById('kod-dosya-dil').style.display='none';
+      g.innerHTML='<div class="mono-meta">Varlıklar çıkarılıyor, kodda aranıyor…</div>';
+      const repo=kodRepo();
+      const d=await (await fetch(`/api/etki/${encodeURIComponent(dosya)}${repo?'?repo='+encodeURIComponent(repo):''}`)).json();
+      if(!d.ok){g.innerHTML=`<div class="ds-callout warn"><div class="grow"><div class="ct">${_kEsc(d.error)}</div></div></div>`;return;}
+      document.getElementById('kod-dosya-meta').textContent=`${d.varlik_sayisi} varlık · ${d.etkilenen_dosyalar.length} dosya`;
+      let h='';
+      if(!d.kod_bagli){
+        h+=`<div class="ds-callout" style="margin-bottom:12px"><div class="grow"><div class="ct">Repo bağlı değil — varlık haritası</div><p>Aşağıdaki teknik varlıklar çıktıdan çıkarıldı. Bir kod kaynağı bağlanınca her biri kodda aranıp etkilenen dosyalar burada dolar.</p></div></div>`;
+      } else if(d.etkiler.length){
+        h+=`<div class="ds-sec-label">Etkilenen kod (${d.etkilenen_dosyalar.length} dosya)</div>`;
+        h+=d.etkiler.map(e=>`<div style="margin-bottom:10px">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span class="ds-chip ${e.tip==='endpoint'?'info':'acc'} mono">${_kEsc(e.varlik)}</span><span class="mono-meta">${e.dosyalar.length} dosya · ${e.adet} isabet</span></div>
+          ${e.isabet.slice(0,4).map(i=>`<div class="kod-hit" onclick="kodDosya('${_kEsc(i.yol)}')"><b>${_kEsc(i.yol)}</b>:${i.satir_no} — ${_kEsc(i.satir)}</div>`).join('')}
+        </div>`).join('');
+      } else {
+        h+=`<div class="ds-empty" style="margin-bottom:12px"><div class="t">Kodda eşleşme yok</div><div>Çıktının teknik varlıkları seçili repo'da bulunamadı. Doğru repo mu seçili?</div></div>`;
+      }
+      const vh=d.varliklar;
+      h+=`<div class="ds-sec-label" style="margin-top:8px">Çıkarılan varlıklar</div>`;
+      h+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`;
+      h+=(vh.kod||[]).map(t=>`<span class="ds-chip neu mono" style="cursor:pointer" onclick="document.getElementById('kod-ara-input').value='${_kEsc(t)}';kodAra()">${_kEsc(t)}</span>`).join('');
+      h+=(vh.endpoint||[]).map(t=>`<span class="ds-chip info mono">${_kEsc(t)}</span>`).join('');
+      h+=`</div>`;
+      if((vh.yapisal||[]).length) h+=`<div class="mono-meta" style="margin-top:8px">Yapısal ID'ler: ${vh.yapisal.map(_kEsc).join(', ')}</div>`;
+      g.innerHTML=h;
     }
 
     // ── Owner config ──

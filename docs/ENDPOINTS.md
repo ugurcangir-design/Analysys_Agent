@@ -176,6 +176,15 @@ GET  /api/kod/gecmis    ?repo=&yol=  yola dokunan son git commit'leri
 Güvenlik: tüm yollar repo köküne hapsedilir (resolve + is_relative_to); yazma/komut YOK. UI: `screens/kod.html`
 (Kaynaklar). Gerçek repo bağlantısı analistin isteğine bırakıldı — bağlanınca etki analizi (3.b) dolar.
 
+## Etki Analizi — v2 Faz 3.b (skills/etki_analizi.py; 0 token, deterministik)
+```
+GET /api/etki/<dosya>[?repo=]   Çıktıdaki teknik varlıklar → (repo bağlıysa) etkilenen dosya/satır
+```
+Varlık çıkarımı: backtick'li kod terimleri (`snake_case`/`camelCase`), endpoint yolları, yapısal ID'ler
+(PA/BR/AC…). repo bağlıysa her varlık `kod_kaynagi.ara` ile aranır → `etkiler[]` (varlık→dosyalar→isabet)
++ `etkilenen_dosyalar[]`. Repo yoksa `kod_bagli:false`, yalnız `varliklar`. Kesin değil — analistin
+doğrulaması için ETKİ HARİTASI başlangıcı. UI: Kod ekranında "Etki analizi" paneli.
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

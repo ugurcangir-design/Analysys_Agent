@@ -74,6 +74,9 @@ kontrol("saglik ok + bölümler", s.get("ok") and all(k in s for k in ("surum", 
 k = json_al(istemci.get("/api/kod/repolar"))
 kontrol("kod/repolar ok (repo yok da olsa)", k.get("ok") and isinstance(k.get("repolar"), list))
 kontrol("kod/agac repo yok → ok:false", json_al(istemci.get("/api/kod/agac?repo=yok&yol=")).get("ok") is False)
+(_tmp / "surec-analizi.md").write_text("## AMAÇ\n`getWallet` ve `/api/x` kullanılır.\n", encoding="utf-8")
+ea = json_al(istemci.get("/api/etki/surec-analizi.md"))
+kontrol("etki analizi: repo yok → varlıklar var, etkiler boş", ea.get("ok") and not ea["kod_bagli"] and ea["varlik_sayisi"] >= 1)
 for pid in ("page-kod",):
     kontrol(f"render {pid}", f'id="{pid}"' in govde)
 
