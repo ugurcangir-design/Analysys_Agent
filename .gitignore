@@ -71,3 +71,6 @@ analist.json
 
 # App-üretimi RAG cache
 reference/_filtered_cache/
+
+# Makineye özel kod kaynağı repo yolu (Faz 3; .example seed edilir)
+reference/kod_kaynagi.json

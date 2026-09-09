@@ -71,6 +71,12 @@ kontrol("guncelleme/durum ok (fetch yok)", u.get("ok") and "yeni_surum" in u)
 s = json_al(istemci.get("/api/saglik"))
 kontrol("saglik ok + bölümler", s.get("ok") and all(k in s for k in ("surum", "ai", "guncelleme", "workflow", "disk", "auth")))
 
+k = json_al(istemci.get("/api/kod/repolar"))
+kontrol("kod/repolar ok (repo yok da olsa)", k.get("ok") and isinstance(k.get("repolar"), list))
+kontrol("kod/agac repo yok → ok:false", json_al(istemci.get("/api/kod/agac?repo=yok&yol=")).get("ok") is False)
+for pid in ("page-kod",):
+    kontrol(f"render {pid}", f'id="{pid}"' in govde)
+
 # ── Revizyon oturumu (geçici dizin) ───────────────────────────────────────────
 (_tmp / "surec-analizi.md").write_text("## A\nsatır\n", encoding="utf-8")
 r = istemci.post("/api/revizyon/surec-analizi.md/baslat", headers=ORIGIN)

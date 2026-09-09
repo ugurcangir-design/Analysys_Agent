@@ -398,7 +398,7 @@ def _runtime_config_seed() -> None:
     """Makineye özel çalışma-zamanı config dosyaları (context_filter/prompts/sources)
     git'te İZLENMEZ — pull çakışmasını önler. Eksiklerse .example varsayılanından
     oluşturulur. Böylece taze klon + güncelleme sonrası ekip varsayılanları korunur."""
-    for ad in ("context_filter.json", "prompts.json", "sources.json"):
+    for ad in ("context_filter.json", "prompts.json", "sources.json", "kod_kaynagi.json"):
         gercek = REF_DIR / ad
         ornek = REF_DIR / f"{ad}.example"
         if not gercek.exists() and ornek.exists():
@@ -1823,6 +1823,50 @@ def saglik():
                  "gizli_sayisi": len(_gorunurluk_oku())},
         "ortam": {"python": platform.python_version(), "flask": flask_surumu, "port": request.host.split(":")[-1]},
     })
+
+
+# ─── Kod Kaynağı — v2 Faz 3.a (salt-okuma; config owner-only) ─────────────────
+@app.route("/api/kod/repolar", methods=["GET"])
+def kod_repolar():
+    from skills import kod_kaynagi
+    return jsonify({"ok": True, "repolar": kod_kaynagi.repolar(), "yapilandi": kod_kaynagi.yapilandirildi_mi()})
+
+
+@app.route("/api/kod/repolar", methods=["POST"])
+@admin_gerekli
+def kod_repolar_kaydet():
+    from skills import kod_kaynagi
+    data = request.get_json(silent=True) or {}
+    repolar = data.get("repolar")
+    if not isinstance(repolar, list):
+        return jsonify({"ok": False, "error": "repolar listesi zorunlu"}), 400
+    kod_kaynagi.konfig_yaz(repolar)
+    _denetim("kod_kaynagi_config", "kod_kaynagi.json", repo_sayisi=len(kod_kaynagi.konfig_oku().get("repolar", [])))
+    return jsonify({"ok": True, "repolar": kod_kaynagi.repolar()})
+
+
+@app.route("/api/kod/agac", methods=["GET"])
+def kod_agac():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.dosya_agaci(request.args.get("repo", ""), request.args.get("yol", "")))
+
+
+@app.route("/api/kod/dosya", methods=["GET"])
+def kod_dosya():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.dosya_oku(request.args.get("repo", ""), request.args.get("yol", "")))
+
+
+@app.route("/api/kod/ara", methods=["GET"])
+def kod_ara():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.ara(request.args.get("repo", ""), request.args.get("sorgu", "")))
+
+
+@app.route("/api/kod/gecmis", methods=["GET"])
+def kod_gecmis():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.git_gecmis(request.args.get("repo", ""), request.args.get("yol", "")))
 
 
 

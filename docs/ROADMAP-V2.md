@@ -173,6 +173,15 @@ yapılmaz** — altyapı buna hazır kurulur.
 - Semantik referans retrieval + Postgres/Jira MCP'lerini analiz yoluna bağla (şimdi devrede).
 - **Çıktı:** Repoya hazır altyapı; bağlanınca gerçeğe dayanan analiz & etki analizi.
 
+**Uygulama durumu (2026-09-09):**
+- ✅ **3.a Kod-kaynağı soyutlaması:** `skills/kod_kaynagi.py` — salt-okuma, yol-güvenli (repo köküne
+  hapsedilmiş), deterministik (0 token) yerel git/dosya arayüzü: repo durumu (git/branch/dil), dosya ağacı,
+  dosya okuma, arama (ripgrep/python), git geçmiş. Config makineye özel (`reference/kod_kaynagi.json`,
+  gitignore + `.example` seed). `/api/kod/*` (config owner-only) + `screens/kod.html` (Kaynaklar).
+  17 assert test (yol kaçışı reddi dahil). **Gerçek repo bağlantısı analiste bırakıldı** (yol haritası kararı).
+- ⏳ 3.b Etki analizi iskeleti — analiz çıktısındaki varlıkları (tablo/ekran/endpoint) kod aramasına bağla.
+- ⏳ 3.c Semantik referans retrieval + Postgres/Jira MCP entegrasyonu.
+
 ### Faz 4 — Genişletilebilirlik & yayın (Ölçek · hedef 4)
 Yeni akışları kod yazmadan ekleyebilir hâle getir; v2'yi tüm ekibe aç.
 - Deklaratif akış tanımı — yeni istek/akış = konfigürasyon, kod değil.

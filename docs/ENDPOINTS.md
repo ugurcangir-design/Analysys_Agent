@@ -159,8 +159,22 @@ GET  /api/saglik   surum{hash,mesaj,tarih,dal} · ai{modu,model,cli_uygun,cli_re
 ```
 UI: `screens/saglik.html` (Yönetim). **Komut paleti** `screens/_palet.html` — ⌘K/Ctrl+K veya sidebar arama
 kutusu; görünür nav öğeleri (rol gizlemesine saygılı) + hızlı aksiyonlar; klavye ile gezinme.
-**Regresyon:** `tests/smoke_test.py` (Flask test client, deterministik uçlar, 24 kontrol) +
-`tests/test_revizyon.py` (15 assert) — `venv/bin/python tests/smoke_test.py`.
+**Regresyon:** `tests/smoke_test.py` (Flask test client, deterministik uçlar, 27 kontrol) +
+`tests/test_revizyon.py` (15) + `tests/test_auth_roller.py` (23) + `tests/test_kod_kaynagi.py` (17).
+
+## Kod Kaynağı — v2 Faz 3.a (salt-okuma; config owner-only; skills/kod_kaynagi.py)
+Analizi gerçek koda bağlamanın ALTYAPISI (repo bağlı değilse zarifçe boş; yol-güvenli, 0 token).
+Config makineye özel: `reference/kod_kaynagi.json` (gitignore; `.example` seed).
+```
+GET  /api/kod/repolar   Yapılandırılmış repolar + durum (var/git/branch/commit/dosya/diller)
+POST /api/kod/repolar   {repolar:[{ad,yol,aktif}]} → kod_kaynagi.json (owner-only; denetim: kod_kaynagi_config)
+GET  /api/kod/agac      ?repo=&yol=  tek seviye ağaç (klasörler+dosyalar; node_modules/venv/.git hariç)
+GET  /api/kod/dosya     ?repo=&yol=  dosya içeriği (yol-güvenli, ≤512KB, metin/kod uzantıları)
+GET  /api/kod/ara       ?repo=&sorgu=  metin araması (ripgrep varsa; yoksa python fallback)
+GET  /api/kod/gecmis    ?repo=&yol=  yola dokunan son git commit'leri
+```
+Güvenlik: tüm yollar repo köküne hapsedilir (resolve + is_relative_to); yazma/komut YOK. UI: `screens/kod.html`
+(Kaynaklar). Gerçek repo bağlantısı analistin isteğine bırakıldı — bağlanınca etki analizi (3.b) dolar.
 
 ## Confluence + diğer
 ```
