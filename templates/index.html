@@ -1996,7 +1996,8 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-clock"/></svg>
         <span class="nav-label">Kullanım Raporu</span>
       </div>
-      <div class="nav-item" id="nav-yetki" onclick="switchTab('yetki')">
+      <!-- Yetki: yalnız owner KURULUMUNDA (auth/me yetki_admin) — kendi makinesine kuran analist görmez -->
+      <div class="nav-item" id="nav-yetki" onclick="switchTab('yetki')" style="display:none">
         <svg class="ico"><use href="#i-settings"/></svg>
         <span class="nav-label">Yetki</span>
       </div>
@@ -3798,6 +3799,7 @@ const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullani
 function _rolUygula(me) {
   const akRol = document.getElementById('ak-rol'); if (akRol) akRol.textContent = (me.rol === 'owner') ? 'Owner' : 'Analist';
   if (me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
+  if (me.yetki_admin) { const n = document.getElementById('nav-yetki'); if (n) n.style.display = ''; }
   if (me.rol === 'owner') return;
   const sec = document.querySelector('.nav-section[data-grup="settings"]'); if (sec) sec.style.display = 'none';
   _YONETIM_NAV.forEach(id => { const n = document.getElementById('nav-' + id); if (n) { n.style.display = 'none'; n.classList.add('rol-gizli'); } });

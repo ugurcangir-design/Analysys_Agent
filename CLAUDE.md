@@ -96,7 +96,10 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   **Roller:** owner (AUTH kapalı → tek kullanıcı; açık → `ADMIN_USER`) / analist. Analist, owner'ın
   `gorunurluk.json`'da (repoda İZLENİR) gizlediği id'ler hariç her şeyi kullanır; sunucu tarafı
   `gorunurluk_kontrol` + UI `_rolUygula()`. (Denetim/audit kaydı v3'te kaldırıldı — üstteki UI v3 notuna bak.)
-  Yeni gizlenebilir ekran/aksiyon → `GIZLENEBILIR_KATALOG` (app.py).
+  Yeni gizlenebilir ekran/aksiyon → `GIZLENEBILIR_KATALOG` (app.py). **Yetki ekranı owner-KURULUM kapısı:**
+  `_yetki_paneli_mi()` = `YETKI_PANELI` (yoksa `USAGE_DASHBOARD`) — AUTH'tan bağımsız; kendi makinesine kuran
+  analist AUTH kapalıyken 'owner' olduğundan rol yetmez. `auth/me.yetki_admin` → `#nav-yetki` gösterilir;
+  `/api/gorunurluk` GET/POST `yetki_gerekli` (403). Analist kurulumunda bayrak yok → ekran hiç gitmez.
   **Otomatik güncelleme (2.5):** boot'ta `_oto_guncelleme_baslat()` — iş yokken `pull --ff-only` + restart;
   dirty tree / push edilmemiş commit varsa yalnız bildirir. `.env` `AUTO_UPDATE=false` kapatır,
   `AUTO_UPDATE_INTERVAL` (sn). Banner: `screens/_guncelleme.html`. `/api/update` elle akış aynen durur.

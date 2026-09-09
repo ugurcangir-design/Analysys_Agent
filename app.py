@@ -188,6 +188,31 @@ def _usage_yetkili_mi() -> bool:
     return os.getenv("USAGE_DASHBOARD", "false").lower() in ("1", "true", "yes")
 
 
+def _yetki_paneli_mi() -> bool:
+    """Yetki ekranı (görünürlük yönetimi) yalnız OWNER kurulumunda görünür.
+
+    Kendi bilgisayarına kuran analist AUTH kapalı olduğu için teknik olarak 'owner'dır — bu yüzden
+    rol yetmez; USAGE_DASHBOARD gibi AUTH'tan BAĞIMSIZ bayrak gerekir. `YETKI_PANELI` verilmezse
+    USAGE_DASHBOARD'a düşer (owner'ın mevcut .env'i değişmeden çalışır; analist build'inde ikisi de yok)."""
+    v = os.getenv("YETKI_PANELI")
+    if v is None:
+        return _usage_yetkili_mi()
+    return v.lower() in ("1", "true", "yes")
+
+
+def yetki_gerekli(fn):
+    """Yetki (görünürlük) endpoint'leri için owner-kurulum decorator'ı: bayrak yoksa 403."""
+    from functools import wraps
+
+    @wraps(fn)
+    def _sarici(*args, **kwargs):
+        if not _yetki_paneli_mi() or not _owner_mi():
+            return jsonify({"error": "Yetkisiz"}), 403
+        return fn(*args, **kwargs)
+
+    return _sarici
+
+
 def usage_gerekli(fn):
     """Kullanım endpoint'leri için owner-only decorator."""
     from functools import wraps
@@ -1747,14 +1772,14 @@ def oturum_ozeti():
 # ─── Görünürlük & Denetim — v2 Faz 2.4 (owner-only) ──────────────────────────
 
 @app.route("/api/gorunurluk", methods=["GET"])
-@admin_gerekli
+@yetki_gerekli
 def gorunurluk_getir():
     """Gizlenebilir katalog + owner'ın gizlediği id listesi."""
     return jsonify({"ok": True, "katalog": GIZLENEBILIR_KATALOG, "gizli": _gorunurluk_oku()})
 
 
 @app.route("/api/gorunurluk", methods=["POST"])
-@admin_gerekli
+@yetki_gerekli
 def gorunurluk_kaydet():
     """Body: {gizli: [id,...]} → gorunurluk.json (repoda izlenir; analistlere güncellemeyle iner)."""
     data = request.get_json(silent=True) or {}
@@ -2258,6 +2283,7 @@ def auth_logout():
 def auth_me():
     return jsonify({"username": session.get("username"), "is_admin": _admin_mi(),
                     "usage_admin": _usage_yetkili_mi(),
+                    "yetki_admin": _yetki_paneli_mi() and _owner_mi(),
                     "rol": _rol(), "gizli": [] if _owner_mi() else _gorunurluk_oku()})
 
 

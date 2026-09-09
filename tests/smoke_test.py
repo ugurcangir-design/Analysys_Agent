@@ -90,8 +90,15 @@ kontrol("hatalar: bilinmeyen → ilk satır başlık, traceback atıldı", _bil[
 kontrol("hatalar: None → None", _ht.insanlastir(None) is None)
 kontrol("workflow-state hata_ozet alanı", "hata_ozet" in json_al(istemci.get("/api/workflow-state")))
 
+# Yetki paneli: bayrak kapalıyken (analist kurulumu) 403 + nav gizli; bayrak açılınca katalog gelir.
+# (Owner makinesinde .env USAGE_DASHBOARD=true olabilir → açıkça kapat.)
+os.environ["YETKI_PANELI"] = "false"
+kontrol("gorunurluk bayrak kapalı → 403 (analist kurulumu)", istemci.get("/api/gorunurluk").status_code == 403)
+kontrol("auth/me yetki_admin=false", json_al(istemci.get("/api/auth/me")).get("yetki_admin") is False)
+os.environ["YETKI_PANELI"] = "true"
 g = json_al(istemci.get("/api/gorunurluk"))
-kontrol("gorunurluk katalog", g.get("ok") and len(g.get("katalog", [])) >= 10)
+kontrol("gorunurluk katalog (YETKI_PANELI=true)", g.get("ok") and len(g.get("katalog", [])) >= 10)
+kontrol("auth/me yetki_admin=true", json_al(istemci.get("/api/auth/me")).get("yetki_admin") is True)
 
 u = json_al(istemci.get("/api/guncelleme/durum"))
 kontrol("guncelleme/durum ok (fetch yok)", u.get("ok") and "yeni_surum" in u)

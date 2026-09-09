@@ -139,8 +139,13 @@ Katalog: `_CIKTI_KATALOGU` (app.py) — yeni çıktı dosyası eklenince buraya 
 Analist, owner'ın gizlediği ekran/aksiyonlar HARİÇ her şeyi kullanır. `/api/auth/me` artık `rol` + `gizli[]` döner.
 Ekran adı: **Yetki** (`screens/yetki.html`; eski "Yetki & Denetim").
 ```
-GET  /api/gorunurluk   Gizlenebilir katalog (GIZLENEBILIR_KATALOG: id/ad/grup/endpoints) + gizli[]
-POST /api/gorunurluk   {gizli:[id]} → gorunurluk.json (repoda İZLENİR; analistlere güncellemeyle iner)
+GET  /api/gorunurluk   Gizlenebilir katalog (GIZLENEBILIR_KATALOG: id/ad/grup/endpoints) + gizli[]   [yetki_gerekli]
+POST /api/gorunurluk   {gizli:[id]} → gorunurluk.json (repoda İZLENİR; analistlere güncellemeyle iner) [yetki_gerekli]
+```
+**Yetki ekranı owner-KURULUM kapısı:** `yetki_gerekli` = `YETKI_PANELI=true` (verilmezse `USAGE_DASHBOARD`'a düşer)
+**ve** owner. Kendi makinesine kuran analist AUTH kapalıyken 'owner' sayıldığı için rol yetmez; bayrak analist
+kurulumunda yoktur → nav gizli (`auth/me.yetki_admin=false`) + endpoint 403.
+```
 ```
 Sunucu tarafı: `gorunurluk_kontrol` before_request — analist için gizli id'lerin `endpoints` ön ekleri 403.
 UI: `_rolUygula()` (index.html) analistte Yönetim grubunu + gizli id'leri (nav + element) saklar.
