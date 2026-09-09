@@ -7,7 +7,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- v2 Faz 2.0 — tasarım sistemi katmanı (ds-* bileşenleri; :root token'ları aşağıdaki inline stilde) -->
 <link rel="stylesheet" href="/static/ds.css">
 <style>
@@ -18,46 +18,53 @@
 
 /* ── Token sistemi ─────────────────────────────────────────────── */
 :root, html[data-theme="dark"] {
-  /* dark (default) */
-  --bg:           #080B12;
-  --surface:      #0E141E;
-  --surface2:     #131A26;
-  --surface3:     #1A2331;
-  --border:       #1E2735;
-  --border-strong:#2A3445;
+  /* dark (default) — yumuşatılmış slate + indigo (v3) */
+  --bg:           #1A1D24;
+  --surface:      #262B35;
+  --surface2:     #2E343F;
+  --surface3:     #363C48;
+  --border:       #333947;
+  --border-strong:#424A58;
 
-  --text:         #E5EAF1;
-  --text2:        #9CA7B8;
-  --text3:        #5F6B7E;
+  --text:         #F2F4F8;
+  --text2:        #B7BECE;
+  --text3:        #808896;
 
-  --sidebar-bg:    #0A0F18;
-  --sidebar-bd:    #171E2B;
+  --sidebar-bg:    #20242D;
+  --sidebar-bd:    #333947;
 
-  --accent:       #2DD4BF;
-  --accent2:      #14B8A6;
-  --accent-soft:  #0E3530;
-  --accent-deep:  #14B8A6;
-  --on-accent:    #03201D;
+  --accent:       #6366F1;
+  --accent2:      #5457E0;
+  --accent-soft:  #2B2F45;
+  --accent-deep:  #A9ABFF;
+  --on-accent:    #FFFFFF;
 
   --green:        #34D399;
-  --green-soft:   #0D3329;
-  --yellow:       #FBBF24;
-  --yellow-soft:  #3A2D08;
+  --green-soft:   #16302A;
+  --yellow:       #F59E0B;
+  --yellow-soft:  #33280F;
   --red:          #F87171;
-  --red-soft:     #3A1414;
+  --red-soft:     #3A1A1A;
   --blue:         #60A5FA;
-  --blue-soft:    #0E2447;
+  --blue-soft:    #16263F;
   --purple:       #C4B5FD;
   --orange:       #FB923C;
 
-  --radius:       6px;
-  --radius-sm:    5px;
-  --radius-xs:    4px;
+  /* çalışan işlem (running) — kırmızı, JARVIS işlem modu */
+  --run:          #EF4444;
+  --run-soft:     #2E1F27;
+  --run-text:     #FF9A9A;
+
+  --font-display: 'Space Grotesk', 'Geist', -apple-system, system-ui, sans-serif;
+
+  --radius:       10px;
+  --radius-sm:    8px;
+  --radius-xs:    6px;
 
   --shadow:       0 1px 0 rgba(0,0,0,.3);
-  --shadow-md:    0 8px 24px rgba(0,0,0,.4);
+  --shadow-md:    0 10px 30px rgba(0,0,0,.4);
 
-  --focus-ring:   0 0 0 3px rgba(45,212,191,.18);
+  --focus-ring:   0 0 0 3px rgba(99,102,241,.22);
 }
 
 html[data-theme="light"] {
@@ -66,28 +73,28 @@ html[data-theme="light"] {
      başlıkları, panel etiketleri, alan açıklamaları ve placeholder'lar
      soluk kalıyordu. Ölçülen yeni değerler (beyaz zemin):
        --text 17.8:1 · --text2 8.1:1 · --text3 5.3:1 */
-  --bg:           #F7F9FC;
+  --bg:           #F5F7FA;
   --surface:      #FFFFFF;
-  --surface2:     #EEF2F7;
-  --surface3:     #E3E9F1;
-  --border:       #D8E0EA;
-  --border-strong:#BAC5D3;
+  --surface2:     #EEF1F6;
+  --surface3:     #E3E8EF;
+  --border:       #E3E8EF;
+  --border-strong:#D3DAE3;
 
-  --text:         #0F1829;
-  --text2:        #44506A;
-  --text3:        #616C80;
+  --text:         #171B22;
+  --text2:        #49535F;
+  --text3:        #5C6673;
 
   --sidebar-bg:   #FFFFFF;
-  --sidebar-bd:   #D8E0EA;
+  --sidebar-bd:   #E3E8EF;
 
-  --accent:       #0F766E;
-  --accent2:      #115E59;
-  --accent-soft:  #D1FAE5;
-  --accent-deep:  #115E59;
+  --accent:       #4F4DD6;
+  --accent2:      #4340C0;
+  --accent-soft:  #ECEBFC;
+  --accent-deep:  #4F4DD6;
   --on-accent:    #FFFFFF;
 
-  --green:        #16A34A;
-  --green-soft:   #DCFCE7;
+  --green:        #0F9D63;
+  --green-soft:   #E4F6EC;
   --yellow:       #B45309;
   --yellow-soft:  #FEF3C7;
   --red:          #DC2626;
@@ -97,10 +104,15 @@ html[data-theme="light"] {
   --purple:       #7C3AED;
   --orange:       #D97706;
 
-  --shadow:       0 1px 2px rgba(20,30,55,.04);
-  --shadow-md:    0 4px 12px rgba(20,30,55,.08);
+  /* çalışan işlem (running) — kırmızı */
+  --run:          #EF4444;
+  --run-soft:     #FDECEC;
+  --run-text:     #C23434;
 
-  --focus-ring:   0 0 0 3px rgba(15,118,110,.15);
+  --shadow:       0 1px 2px rgba(23,27,34,.05);
+  --shadow-md:    0 10px 30px rgba(23,27,34,.10);
+
+  --focus-ring:   0 0 0 3px rgba(79,77,214,.18);
 }
 
 /* Açık temada optik telafi: koyu yazı açık zeminde, açık yazının koyu zeminde
@@ -186,7 +198,7 @@ a:hover { text-decoration: underline; }
 }
 .brand-mark .ico { width: 14px; height: 14px; stroke-width: 2; }
 .brand-meta { flex: 1; min-width: 0; }
-.brand-title { font-size: 12.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.15; }
+.brand-title { font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.15; }
 .brand-sub { font-size: 10px; color: var(--text3); font-family: 'Geist Mono', monospace; margin-top: 1px; }
 
 .sidebar-search {
@@ -269,17 +281,79 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 /* ── Status dots ───────────────────────────────────────────────── */
 .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; position: relative; }
 .status-idle    { background: var(--text3); }
-.status-running { background: var(--yellow); }
+.status-running { background: var(--run); }
 .status-running::after, .status-waiting::after {
   content: ''; position: absolute; inset: -3px;
   border-radius: 50%; border: 1px solid currentColor; opacity: .35;
   animation: pulse-ring 1.5s infinite;
 }
-.status-running { color: var(--yellow); }
-.status-waiting { background: var(--blue); color: var(--blue); }
+.status-running { color: var(--run); }
+.status-waiting { background: var(--yellow); color: var(--yellow); }
 .status-done    { background: var(--green); }
 .status-error   { background: var(--red); }
 @keyframes pulse-ring { 0%{transform:scale(1);opacity:.4} 80%{transform:scale(2);opacity:0} 100%{opacity:0} }
+
+/* ── Kalıcı işlem çipi (üst bar, tüm ekranlarda) ───────────────── */
+.run-chip {
+  display: none; align-items: center; gap: 8px; cursor: pointer;
+  border: 1px solid transparent; border-radius: 999px;
+  padding: 4px 11px 4px 8px; font-family: inherit; font-size: 11px; line-height: 1;
+}
+.run-chip.show { display: inline-flex; }
+.run-chip.running { background: var(--run-soft); border-color: rgba(239,68,68,.42); }
+.run-chip.running .rc-label { color: var(--run-text); font-weight: 500; }
+.run-chip.running .rc-meta  { color: var(--run-text); font-family: 'Geist Mono', monospace; opacity: .85; }
+.run-chip.waiting { background: var(--yellow-soft); border-color: rgba(245,158,11,.42); }
+.run-chip.waiting .rc-label { color: var(--yellow); font-weight: 500; }
+.run-chip.waiting .rc-meta  { display: none; }
+.run-chip .rc-spin {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(239,68,68,.28); border-top-color: var(--run);
+  animation: spin .9s linear infinite;
+}
+.run-chip.waiting .rc-spin {
+  width: 8px; height: 8px; border: none; background: var(--yellow);
+  animation: hazir-nabiz 1.3s ease-in-out infinite;
+}
+
+/* ── İşlem Modu (JARVIS HUD, kırmızı) ──────────────────────────── */
+#islem-modu {
+  position: fixed; inset: 0; z-index: 400; display: none;
+  align-items: center; justify-content: center;
+  background: radial-gradient(120% 90% at 50% 42%, #2b1214 0%, #150a0b 58%, #0c0607 100%);
+}
+#islem-modu.show { display: flex; }
+#islem-modu::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(239,68,68,.05) 0 1px, transparent 1px 4px); opacity: .5;
+}
+.im-brk { position: absolute; width: 46px; height: 46px; border: 2px solid #ff4d4d; opacity: .85; }
+.im-brk.tl { top: 26px; left: 26px; border-right: none; border-bottom: none; }
+.im-brk.tr { top: 26px; right: 26px; border-left: none; border-bottom: none; }
+.im-brk.bl { bottom: 26px; left: 26px; border-right: none; border-top: none; }
+.im-brk.br { bottom: 26px; right: 26px; border-left: none; border-top: none; }
+.im-wrap { position: relative; width: 560px; max-width: 90vw; text-align: center; color: #ffe4e4; }
+.im-kicker { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .42em; color: #ff9a9a; text-shadow: 0 0 10px rgba(239,68,68,.5); }
+.im-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; color: #fff2f2; margin-top: 8px; text-shadow: 0 0 18px rgba(239,68,68,.4); }
+.im-reactor { width: 260px; height: 260px; margin: 26px auto 20px; position: relative; }
+.im-reactor > div { position: absolute; border-radius: 50%; }
+.im-r1 { inset: 0; border: 2px solid transparent; border-top-color: #ff4d4d; border-right-color: #ff4d4d; filter: drop-shadow(0 0 6px rgba(239,68,68,.5)); animation: spin 3s linear infinite; }
+.im-r2 { inset: 26px; border: 2px solid transparent; border-bottom-color: #fbbf24; filter: drop-shadow(0 0 5px rgba(251,191,36,.5)); animation: spin 5s linear infinite reverse; }
+.im-r3 { inset: 52px; border: 1px dashed rgba(255,77,77,.45); animation: spin 18s linear infinite; }
+.im-core {
+  inset: 74px; background: radial-gradient(circle, rgba(239,68,68,.3), rgba(239,68,68,.04) 70%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.im-core-pulse { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(circle, rgba(255,154,154,.5), transparent 68%); animation: hazir-nabiz 2.4s ease-in-out infinite; }
+.im-core .im-step { position: relative; font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff2f2; text-shadow: 0 0 20px rgba(239,68,68,.8); }
+.im-core .im-sub { position: relative; font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .18em; color: #ff9a9a; }
+.im-bar { height: 8px; border: 1px solid rgba(239,68,68,.4); border-radius: 6px; padding: 2px; background: rgba(20,10,11,.6); overflow: hidden; }
+.im-bar > span { display: block; width: 34%; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #b91c1c, #ff4d4d 70%, #ffd27a); box-shadow: 0 0 14px rgba(239,68,68,.6); animation: im-indet 1.6s ease-in-out infinite; }
+@keyframes im-indet { 0%{margin-left:-34%} 100%{margin-left:100%} }
+.im-readouts { display: flex; justify-content: center; gap: 26px; margin-top: 16px; font-family: 'Geist Mono', monospace; font-size: 11px; color: #c98a8a; }
+.im-readouts b { color: #ffd0d0; font-weight: 500; }
+.im-note { margin-top: 20px; font-size: 11.5px; color: #a06a6a; }
+.im-actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; }
 
 /* ── Topbar ────────────────────────────────────────────────────── */
 .topbar {
@@ -364,7 +438,8 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 .ph { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
 .ph-text { flex: 1; min-width: 0; }
 .ph h1 {
-  font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 21px; font-weight: 600; letter-spacing: -0.02em;
   margin: 0 0 3px; color: var(--text);
 }
 .ph p { font-size: 12.5px; color: var(--text2); margin: 0; }
@@ -1025,14 +1100,14 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
 .hazirlaniyor {
   display: flex; align-items: center; gap: 18px;
   padding: 22px 24px; margin-bottom: 14px;
-  background: linear-gradient(120deg, rgba(45,168,154,.08), rgba(45,168,154,.02));
-  border: 1px solid rgba(45,168,154,.3); border-radius: var(--radius);
+  background: linear-gradient(120deg, rgba(239,68,68,.10), rgba(239,68,68,.02));
+  border: 1px solid rgba(239,68,68,.34); border-radius: var(--radius);
   position: relative; overflow: hidden;
 }
 /* akan ışık şeridi */
 .hazirlaniyor::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(45,168,154,.10), transparent);
+  background: linear-gradient(90deg, transparent, rgba(239,68,68,.12), transparent);
   transform: translateX(-100%);
   animation: hazir-shimmer 1.8s ease-in-out infinite;
 }
@@ -1045,11 +1120,11 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
   border: 3px solid transparent;
 }
 .hazirlaniyor-spin::before {
-  border-top-color: var(--accent); border-right-color: var(--accent);
+  border-top-color: var(--run); border-right-color: var(--run);
   animation: spin .9s linear infinite;
 }
 .hazirlaniyor-spin::after {
-  inset: 7px; border-bottom-color: var(--accent2);
+  inset: 7px; border-bottom-color: var(--run-text);
   animation: spin 1.4s linear infinite reverse;
 }
 .hazirlaniyor-metin { flex: 1; z-index: 1; }
@@ -1059,13 +1134,13 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
 }
 .hazirlaniyor-baslik::after {
   content: ''; display: inline-block; width: 4px; height: 4px;
-  border-radius: 50%; background: var(--accent);
+  border-radius: 50%; background: var(--run);
   animation: hazir-nabiz 1s ease-in-out infinite;
 }
 @keyframes hazir-nabiz { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 .hazirlaniyor-alt { font-size: 12px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
 .hazirlaniyor-sure {
-  font-size: 11px; color: var(--accent2); margin-top: 6px;
+  font-size: 11px; color: var(--run-text); margin-top: 6px;
   font-family: 'Geist Mono', monospace;
 }
 
@@ -1889,6 +1964,13 @@ function temaDegistir() {
         <span class="crumb-now" id="crumb-now">Süreç Analizi</span>
       </div>
       <div style="flex:1"></div>
+      <!-- Kalıcı canlı işlem çipi — her ekranda görünür; iş arka planda sürer, tıkla → İşlem Modu -->
+      <button class="run-chip" id="run-chip" onclick="_runChipTikla()" title="İşlem sürüyor — ayrıntı için tıkla">
+        <span class="rc-spin"></span>
+        <span class="rc-label" id="run-chip-label">Analiz</span>
+        <span class="rc-meta" id="run-chip-meta"></span>
+      </button>
+      <span class="topbar-sep" id="run-chip-sep" style="display:none"></span>
       <div class="topbar-meta">
         <span class="status-dot status-idle" id="topbar-dot"></span>
         <span id="topbar-status">Hazır</span>
@@ -1923,6 +2005,27 @@ function temaDegistir() {
       <div class="user-avatar" title="Kullanıcı">A</div>
     </div>
 
+    <!-- İşlem Modu (JARVIS HUD) — analiz çalışırken zengin görsel; kapatınca iş arka planda sürer -->
+    <div id="islem-modu" role="dialog" aria-label="İşlem modu">
+      <div class="im-brk tl"></div><div class="im-brk tr"></div><div class="im-brk bl"></div><div class="im-brk br"></div>
+      <div class="im-wrap">
+        <div class="im-kicker">ANALYST STUDIO · İŞLEM MODU</div>
+        <div class="im-title" id="im-title">Analiz çalışıyor</div>
+        <div class="im-reactor">
+          <div class="im-r1"></div><div class="im-r2"></div><div class="im-r3"></div>
+          <div class="im-core"><div class="im-core-pulse"></div><div class="im-step" id="im-step">2/4</div><div class="im-sub" id="im-sub">ADIM</div></div>
+        </div>
+        <div class="im-bar"><span></span></div>
+        <div class="im-readouts">
+          <div>MODEL · <b id="im-model">claude · CLI</b></div>
+          <div>GEÇEN SÜRE · <b id="im-sure">00:00</b></div>
+        </div>
+        <div class="im-note">Analiz arka planda sürüyor — bu ekranı kapatıp başka işe geçebilirsiniz, işlem kesilmez.</div>
+        <div class="im-actions">
+          <button class="btn btn-outline btn-sm" onclick="islemModuKapat()">Kapat — arka planda sürsün</button>
+        </div>
+      </div>
+    </div>
 
     {# v2 Faz 2.5 — otomatik güncelleme banner'ı (tüm ekranların üstünde) #}
     {% include "screens/_guncelleme.html" %}
@@ -4902,6 +5005,63 @@ function _setVisible(id, visible) {
   if (el) el.style.display = visible ? '' : 'none';
 }
 
+// ─── Kalıcı işlem çipi + İşlem Modu (JARVIS HUD) ──────────────────────────────
+let _islemModuAcik = false;
+const _STEP_NO = {
+  surec_analizi_calisiyor:'1/4', onay_bekleniyor:'2/4', teknik_analiz_calisiyor:'3/4',
+  teknik_analiz_onay_bekleniyor:'3/4', jira_gonderiliyor:'4/4',
+  brd_analizi_calisiyor:'1/2', brd_revize_bekleniyor:'1/2', kapsam_analizi_calisiyor:'2/2'
+};
+function _setTxt(id, t){ const e = document.getElementById(id); if (e) e.textContent = t; }
+function _updateRunChip(s){
+  const chip = document.getElementById('run-chip');
+  const sep  = document.getElementById('run-chip-sep');
+  if (!chip) return;
+  const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
+  const running  = s.calisiyor && !bekliyor;
+  const lbl  = document.getElementById('run-chip-label');
+  const meta = document.getElementById('run-chip-meta');
+  if (running) {
+    chip.className = 'run-chip show running';
+    if (lbl)  lbl.textContent  = s.etiket || 'Analiz çalışıyor';
+    const bas = _stepStart[s.durum];
+    if (meta) meta.textContent = bas ? _fmtSure(Date.now() - bas) : '';
+    if (sep) sep.style.display = '';
+  } else if (bekliyor) {
+    chip.className = 'run-chip show waiting';
+    if (lbl) lbl.textContent = 'Onayınızda';
+    if (sep) sep.style.display = '';
+  } else {
+    chip.className = 'run-chip';
+    if (sep) sep.style.display = 'none';
+    if (_islemModuAcik) islemModuKapat();
+  }
+  if (_islemModuAcik && running) {
+    const st = _STEP_NO[s.durum] || '';
+    _setTxt('im-title', s.etiket || 'Analiz çalışıyor');
+    _setTxt('im-step', st || '•');
+    _setTxt('im-sub',  st ? 'ADIM' : 'İŞLENİYOR');
+    const bas = _stepStart[s.durum];
+    _setTxt('im-sure', bas ? _fmtSure(Date.now() - bas) : '00:00');
+  }
+}
+function _runChipTikla(){
+  const s = _lastState || {};
+  const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
+  if (s.calisiyor && !bekliyor) islemModuAc();
+  else if (bekliyor) switchTab(_activePipeline === 'brd' ? 'brd' : 'surec');
+}
+function islemModuAc(){
+  const el = document.getElementById('islem-modu'); if (!el) return;
+  _islemModuAcik = true; el.classList.add('show');
+  if (_lastState) _updateRunChip(_lastState);
+}
+function islemModuKapat(){
+  const el = document.getElementById('islem-modu'); if (el) el.classList.remove('show');
+  _islemModuAcik = false;
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _islemModuAcik) islemModuKapat(); });
+
 function updateUI(s) {
   const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
   const cls = s.calisiyor ? 'status-running'
@@ -4915,6 +5075,9 @@ function updateUI(s) {
     const _tbStat = document.getElementById('topbar-status'); if (_tbStat) _tbStat.textContent = s.etiket;
     const _tbDot = document.getElementById('topbar-dot'); if (_tbDot) _tbDot.className = 'status-dot ' + cls;
   }
+
+  // Kalıcı işlem çipi + İşlem Modu HUD — her ekranda (jira sekmesi dahil)
+  _updateRunChip(s);
 
   const surecDurumlar = ['surec_analizi_calisiyor','onay_bekleniyor','teknik_analiz_calisiyor',
     'teknik_analiz_onay_bekleniyor','jira_gonderiliyor','jira_tamamlandi'];
