@@ -201,6 +201,82 @@ def usage_gerekli(fn):
     return _sarici
 
 
+# ─── Roller & Görünürlük — v2 Faz 2.4 ─────────────────────────────────────────
+# İki rol: OWNER (AUTH kapalıyken tek kullanıcı; AUTH açıkken ADMIN_USER) ve ANALİST
+# (diğer herkes). Analist, owner'ın gorunurluk.json'da gizlediği ekran/aksiyonlar
+# HARİÇ her şeyi kullanır. Gizleme hem UI'da (nav/element) hem sunucuda (endpoint
+# ön eki) uygulanır. Denetim kaydı: skills/denetim.py → logs/audit.jsonl.
+GORUNURLUK_PATH = BASE_DIR / "gorunurluk.json"
+# id = nav-item / element id (UI gizleme) · endpoints = sunucu tarafı engellenen ön ekler
+GIZLENEBILIR_KATALOG = [
+    {"id": "delta",           "ad": "Delta / CR Analizi",   "grup": "Analiz",   "aciklama": "Mevcut teknik analiz üzerine değişiklik isteği", "endpoints": ["/api/delta-analiz"]},
+    {"id": "brd",             "ad": "BRD Analizi",          "grup": "Analiz",   "aciklama": "BRD → Kapsam akışı", "endpoints": ["/api/run/brd", "/api/brd"]},
+    {"id": "revizyon",        "ad": "Revizyon",             "grup": "Çıktılar", "aciklama": "Sohbetle bölüm-hedefli düzeltme + onay", "endpoints": ["/api/revizyon"]},
+    {"id": "history",         "ad": "Geçmiş",               "grup": "Çıktılar", "aciklama": "Önceki oturum arşivi", "endpoints": ["/api/history"]},
+    {"id": "jira-gorevler",   "ad": "Jira Görevleri",       "grup": "Jira",     "aciklama": "Task çekme / görev analizi / güncelleme", "endpoints": ["/api/jira/gorev"]},
+    {"id": "backlog-senkron", "ad": "UAT Mutabakat",        "grup": "Jira",     "aciklama": "UAT ↔ hedef board karşılaştırma", "endpoints": ["/api/backlog"]},
+    {"id": "referanslar",     "ad": "Referanslar",          "grup": "Kaynaklar","aciklama": "Confluence/Jira kaynak senkronu", "endpoints": ["/api/sources/sync"]},
+    {"id": "btn-mockup-onay", "ad": "Prototip üretme",      "grup": "Aksiyon",  "aciklama": "Süreç analizinden HTML prototip (Chrome MCP)", "endpoints": ["/api/mockup/generate"]},
+    {"id": "conf-publish-row","ad": "Confluence'a yayınla", "grup": "Aksiyon",  "aciklama": "Çıktıyı Confluence sayfası olarak yaz", "endpoints": ["/api/confluence/publish"]},
+    {"id": "prompts",         "ad": "Sistem Promptları",    "grup": "Yönetim",  "aciklama": "Kalıcı prompt düzenleme (Yönetim grubu zaten owner-only)", "endpoints": ["/api/prompts"]},
+]
+
+
+def _owner_mi() -> bool:
+    """AUTH kapalı → tek kullanıcı owner'dır; AUTH açık → ADMIN_USER."""
+    return (not _auth_aktif_mi()) or _admin_mi()
+
+
+def _rol() -> str:
+    return "owner" if _owner_mi() else "analist"
+
+
+def _gorunurluk_oku() -> list[str]:
+    try:
+        if GORUNURLUK_PATH.exists():
+            g = json.loads(GORUNURLUK_PATH.read_text(encoding="utf-8")).get("gizli", [])
+            return [x for x in g if isinstance(x, str)]
+    except Exception:
+        pass
+    return []
+
+
+def _gorunurluk_yaz(gizli: list[str]) -> None:
+    gecerli = {k["id"] for k in GIZLENEBILIR_KATALOG}
+    veri = {
+        "_aciklama": "v2 Faz 2.4 — Owner'ın analistlerden gizlediği ekran/aksiyon id'leri. "
+                     "UI: Yönetim › Yetki & Denetim. Repoda izlenir; analistlere güncellemeyle iner.",
+        "gizli": sorted({x for x in gizli if x in gecerli}),
+    }
+    tmp = GORUNURLUK_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(veri, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(GORUNURLUK_PATH)
+
+
+def _denetim(islem: str, hedef: str = "", **detay) -> None:
+    """Denetim kaydı (fail-safe). Kullanıcı: oturum > analist kimliği."""
+    try:
+        from skills import denetim
+        denetim.yaz(islem, hedef, detay or None,
+                    kullanici=session.get("username"), ip=request.remote_addr)
+    except Exception:
+        pass
+
+
+@app.before_request
+def gorunurluk_kontrol():
+    """Analist için gizlenen ekranların endpoint'lerini sunucu tarafında engeller."""
+    if _owner_mi() or not request.path.startswith("/api/"):
+        return None
+    gizli = set(_gorunurluk_oku())
+    if not gizli:
+        return None
+    for k in GIZLENEBILIR_KATALOG:
+        if k["id"] in gizli and any(request.path.startswith(p) for p in k["endpoints"]):
+            return jsonify({"error": "Bu işlem sizin için kapalı (owner tarafından gizlendi)", "gizli": k["id"]}), 403
+    return None
+
+
 def _telemetri_olay(olay: str, durum: str, sure_ms: int,
                     model: str | None = None, ai_modu: str | None = None,
                     baglam: dict | None = None, jira: dict | None = None) -> None:
@@ -741,6 +817,7 @@ def yeniden_baslat():
     if _auth_aktif_mi() and not _giris_yapildi_mi():
         return jsonify({"error": "Yetkisiz"}), 403
     logger.info("Manuel yeniden başlatma istendi.")
+    _denetim("yeniden_baslat", "uygulama")
     _yeniden_baslat_zamanla()
     return jsonify({"ok": True, "yeniden_basliyor": True})
 
@@ -782,6 +859,7 @@ def guncelle():
         )
 
         logger.info("Güncelleme tamamlandı, uygulama yeniden başlatılıyor...")
+        _denetim("guncelleme", "git pull", ozet=cikti[:200])
         _yeniden_baslat_zamanla()
         return jsonify({"ok": True, "guncelleme_var": True, "mesaj": cikti, "yeniden_basliyor": True})
 
@@ -1243,6 +1321,7 @@ def rerun():
 
     threading.Thread(target=_calistir, daemon=True).start()
     logger.info(f"Yeniden çalıştırma başlatıldı: {dosya_adi}")
+    _denetim("yeniden_uret", dosya_adi, not_uzunlugu=len(duzeltme))
     return jsonify({"ok": True, "dosya": dosya_adi})
 
 
@@ -1341,6 +1420,7 @@ def revizyon_onayla_endpoint(dosya_adi: str):
         # Onaylı içeriği gerçek çıktı dosyasına yansıt (dosya_adi zaten allowlist'te)
         (OUTPUT_DIR / dosya_adi).write_text(revizyon.onayli_icerik(dosya_adi), encoding="utf-8")
         logger.info("Revizyon onaylandı ve yazıldı: %s / %s", dosya_adi, revizyon_id)
+        _denetim("revizyon_onay", dosya_adi, revizyon=revizyon_id)
         return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -1361,6 +1441,7 @@ def revizyon_reddet_endpoint(dosya_adi: str):
     from skills import revizyon
     try:
         revizyon.reddet(dosya_adi, revizyon_id)
+        _denetim("revizyon_ret", dosya_adi, revizyon=revizyon_id)
         return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -1381,6 +1462,7 @@ def revizyon_geri_al_endpoint(dosya_adi: str):
         revizyon.geri_al(dosya_adi, versiyon_id)
         (OUTPUT_DIR / dosya_adi).write_text(revizyon.onayli_icerik(dosya_adi), encoding="utf-8")
         logger.info("Revizyon geri alındı: %s → %s", dosya_adi, versiyon_id)
+        _denetim("revizyon_geri_al", dosya_adi, versiyon=versiyon_id)
         return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -1490,6 +1572,45 @@ def oturum_ozeti():
     })
 
 
+# ─── Görünürlük & Denetim — v2 Faz 2.4 (owner-only) ──────────────────────────
+
+@app.route("/api/gorunurluk", methods=["GET"])
+@admin_gerekli
+def gorunurluk_getir():
+    """Gizlenebilir katalog + owner'ın gizlediği id listesi."""
+    return jsonify({"ok": True, "katalog": GIZLENEBILIR_KATALOG, "gizli": _gorunurluk_oku()})
+
+
+@app.route("/api/gorunurluk", methods=["POST"])
+@admin_gerekli
+def gorunurluk_kaydet():
+    """Body: {gizli: [id,...]} → gorunurluk.json (repoda izlenir; analistlere güncellemeyle iner)."""
+    data = request.get_json(silent=True) or {}
+    gizli = data.get("gizli")
+    if not isinstance(gizli, list):
+        return jsonify({"ok": False, "error": "gizli listesi zorunlu"}), 400
+    onceki = set(_gorunurluk_oku())
+    _gorunurluk_yaz(gizli)
+    yeni = set(_gorunurluk_oku())
+    _denetim("gorunurluk", "gorunurluk.json",
+             gizlendi=",".join(sorted(yeni - onceki)) or "-", acildi=",".join(sorted(onceki - yeni)) or "-")
+    return jsonify({"ok": True, "gizli": sorted(yeni)})
+
+
+@app.route("/api/denetim", methods=["GET"])
+@admin_gerekli
+def denetim_getir():
+    """Denetim kaydı (en yeni önce). Query: ?islem=&kullanici=&limit="""
+    from skills import denetim
+    try:
+        limit = int(request.args.get("limit", denetim.VARSAYILAN_LIMIT))
+    except ValueError:
+        limit = denetim.VARSAYILAN_LIMIT
+    kayitlar = denetim.oku(limit=limit, islem=request.args.get("islem") or None,
+                           kullanici=request.args.get("kullanici") or None)
+    return jsonify({"ok": True, "kayitlar": kayitlar, "tipler": denetim.islem_tipleri()})
+
+
 
 
 def _env_yaz(degiskenler: dict) -> None:
@@ -1565,12 +1686,16 @@ def auth_login():
     session["username"] = username
     session.permanent = True
     logger.info(f"Giriş: {username}")
+    _denetim("giris", username)
     return jsonify({"ok": True, "username": username})
 
 
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
-    username = session.pop("username", None)
+    username = session.get("username")
+    if username:
+        _denetim("cikis", username)
+    session.pop("username", None)
     if username:
         logger.info(f"Çıkış: {username}")
     return jsonify({"ok": True})
@@ -1579,7 +1704,8 @@ def auth_logout():
 @app.route("/api/auth/me", methods=["GET"])
 def auth_me():
     return jsonify({"username": session.get("username"), "is_admin": _admin_mi(),
-                    "usage_admin": _usage_yetkili_mi()})
+                    "usage_admin": _usage_yetkili_mi(),
+                    "rol": _rol(), "gizli": [] if _owner_mi() else _gorunurluk_oku()})
 
 
 @app.route("/api/analist", methods=["GET"])
@@ -1731,6 +1857,7 @@ def kullanici_ekle():
     users[username] = generate_password_hash(password)
     _kullanicilari_yaz(users)
     logger.info(f"Kullanıcı eklendi: {username}")
+    _denetim("kullanici_ekle", username)
     return jsonify({"ok": True, "username": username})
 
 
@@ -1747,6 +1874,7 @@ def kullanici_sil(username):
     del users[username]
     _kullanicilari_yaz(users)
     logger.info(f"Kullanıcı silindi: {username}")
+    _denetim("kullanici_sil", username)
     return jsonify({"ok": True})
 
 

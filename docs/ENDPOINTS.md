@@ -123,6 +123,19 @@ GET  /api/oturum   Aktif oturum: girdi dokümanı, başlangıç (workflow ilk ad
 Tazelik kuralı: çıktı mtime ≥ oturum başlangıcı → **güncel**, değilse **eski** (önceki oturumdan).
 Katalog: `_CIKTI_KATALOGU` (app.py) — yeni çıktı dosyası eklenince buraya da (etiket + köken) eklenir.
 
+## Roller · Görünürlük · Denetim — v2 Faz 2.4 (owner-only; skills/denetim.py)
+İki rol: **owner** (AUTH kapalıyken tek kullanıcı; AUTH açıkken `ADMIN_USER`) · **analist** (diğer herkes).
+Analist, owner'ın gizlediği ekran/aksiyonlar HARİÇ her şeyi kullanır. `/api/auth/me` artık `rol` + `gizli[]` döner.
+```
+GET  /api/gorunurluk   Gizlenebilir katalog (GIZLENEBILIR_KATALOG: id/ad/grup/endpoints) + gizli[]
+POST /api/gorunurluk   {gizli:[id]} → gorunurluk.json (repoda İZLENİR; analistlere güncellemeyle iner)
+GET  /api/denetim      Denetim kaydı, en yeni önce (?islem=&kullanici=&limit=) + tipler[]
+```
+Sunucu tarafı: `gorunurluk_kontrol` before_request — analist için gizli id'lerin `endpoints` ön ekleri 403.
+UI: `_rolUygula()` (index.html) analistte Yönetim grubunu + gizli id'leri (nav + element) saklar.
+Denetim emit noktaları: giris/cikis, revizyon_onay/ret/geri_al, yeniden_uret, yeniden_baslat,
+guncelleme, kullanici_ekle/sil, gorunurluk → `logs/audit.jsonl` (gitignore'daki logs/ altında).
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

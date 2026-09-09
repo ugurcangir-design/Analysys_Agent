@@ -138,7 +138,11 @@ Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
   verbatim): **Analiz** (Süreç · BRD · Delta) → **Çıktılar & Revizyon** (Çıktılar · Görüntüleyici ·
   Revizyon · Geçmiş) → **Jira** → **Kaynaklar** (Referanslar · Kılavuz) → **Yönetim** 🔒 (Ayarlar ·
   Jira Ayarları · Promptlar · Güncelleme · Kullanım). Rol-duyarlı gizleme 2.4'te.
-- 2.4 Kullanıcı yönetimi + Owner/Analist + görünürlük yönetimi + aksiyon denetim logu
+- ✅ 2.4 Owner/Analist + görünürlük yönetimi + denetim logu — kullanıcı yönetimi zaten vardı
+  (Ayarlar, `/api/users`). Eklenen: `_owner_mi/_rol`, `GIZLENEBILIR_KATALOG` (10 ekran/aksiyon),
+  `gorunurluk.json` (repoda izlenir), `/api/gorunurluk` GET/POST, sunucu tarafı engel
+  (`gorunurluk_kontrol`), `skills/denetim.py` + `/api/denetim` + 11 emit noktası, UI
+  `_rolUygula()` + **Yetki & Denetim** ekranı (`screens/yetki.html`, Yönetim 🔒). Doğrulandı.
 - 2.5 Otomatik güncelleme & yeniden başlatma
 - 2.6 Ek özellikler (sağlık paneli, komut paleti, onboarding, changelog, erişilebilirlik, regresyon)
 - **Çıktı:** Verimli, ürün gibi hissettiren, yönetilebilir, kendini güncelleyen uygulama.

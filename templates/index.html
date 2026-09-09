@@ -1860,6 +1860,10 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-clock"/></svg>
         <span class="nav-label">Kullanım</span>
       </div>
+      <div class="nav-item" id="nav-yetki" onclick="switchTab('yetki')">
+        <svg class="ico"><use href="#i-settings"/></svg>
+        <span class="nav-label">Yetki &amp; Denetim</span>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -3291,6 +3295,7 @@ python cli.py ui ~/export.zip</pre>
     {# EKRAN PARTIALLARI — Faz 0 modülerleştirme (bkz. templates/screens/README.md).
        Her ekran kendi markup + davranışını ayrı dosyada taşır, burada include edilir. #}
     {% include "screens/delta.html" %}
+    {% include "screens/yetki.html" %}
     {% include "screens/ciktilar.html" %}
     {% include "screens/revizyon.html" %}
     {% include "screens/kilavuz.html" %}
@@ -3350,7 +3355,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki & Denetim'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.
@@ -3378,6 +3383,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'kilavuz')       kilavuzYukle();
   if (tab === 'revizyon')      rzYukle();
   if (tab === 'ciktilar')      ciYukle();
+  if (tab === 'yetki')         ytYukle();
 }
 
 // Kılavuz iframe'i ilk açılışta yükle (lazy). Güncel kod çekilince otomatik tazelenir.
@@ -3568,12 +3574,23 @@ async function kullanimUzaktanCek() {
     if (btn) { btn.disabled = false; btn.innerHTML = eski || 'Uzaktan Çek'; }
   }
 }
-// Owner ise "Kullanım" sekmesini göster (aksi halde gizli kalır — ekip göremez).
+// ─── Rol uygulama (v2 Faz 2.4) ───────────────────────────────────────────────
+// Owner: her şey görünür (+ Kullanım sekmesi USAGE_DASHBOARD ile). Analist: Yönetim
+// grubu + owner'ın gizlediği id'ler (nav item + element) gizlenir. Sunucu tarafı
+// engel ayrıca uygulanır (gorunurluk_kontrol) — UI gizleme yalnız deneyim içindir.
+const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullanim', 'yetki'];
+function _rolUygula(me) {
+  if (me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
+  if (me.rol === 'owner') return;
+  const sec = document.querySelector('.nav-section[data-grup="settings"]'); if (sec) sec.style.display = 'none';
+  _YONETIM_NAV.forEach(id => { const n = document.getElementById('nav-' + id); if (n) n.style.display = 'none'; });
+  (me.gizli || []).forEach(id => {
+    const n = document.getElementById('nav-' + id); if (n) n.style.display = 'none';
+    const el = document.getElementById(id); if (el && !el.classList.contains('page')) el.style.display = 'none';
+  });
+}
 (async () => {
-  try {
-    const me = await (await fetch('/api/auth/me')).json();
-    if (me && me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
-  } catch (e) {}
+  try { _rolUygula(await (await fetch('/api/auth/me')).json() || {}); } catch (e) {}
 })();
 
 // ─── Analist Kimliği (Ayarlar) ─────────────────────────────────────────────────

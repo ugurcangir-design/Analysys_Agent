@@ -1,0 +1,110 @@
+    <!-- EKRAN: Yetki & Denetim (v2 Faz 2.4) — owner-only. Görünürlük yönetimi
+         (analistlerden gizlenen ekran/aksiyonlar) + denetim kaydı (kim ne yaptı).
+         Backend: /api/gorunurluk, /api/denetim. Kullanıcı yönetimi Ayarlar'da (/api/users). -->
+    <div class="page" id="page-yetki">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Yetki &amp; Denetim</h1>
+          <p>Analistlerin görmeyeceği ekran/aksiyonları seç; tüm önemli işlemleri kim-ne-ne zaman olarak izle.</p>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-outline btn-sm" onclick="switchTab('settings')">Kullanıcılar (Ayarlar)</button>
+        </div>
+      </div>
+
+      <div class="ds-callout" style="margin-bottom:14px">
+        <div class="grow"><div class="ct">İki rol</div>
+          <p><b>Owner</b> (bu makine / <code>ADMIN_USER</code>) her şeyi görür ve yönetir. <b>Analist</b> aşağıda işaretlediklerin hariç tüm ekran ve işlemleri kullanır. Seçim <code>gorunurluk.json</code>'a yazılır; analistlere güncellemeyle iner. Sunucu tarafında da uygulanır.</p></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <span class="panel-title">Görünürlük — analistlerden gizle</span>
+          <span class="ds-panel-tag">OWNER</span>
+          <span class="panel-spacer"></span>
+          <span id="yt-gor-durum" class="mono-meta"></span>
+          <button class="btn btn-primary btn-sm" onclick="ytGorKaydet()">Kaydet</button>
+        </div>
+        <div class="panel-body" id="yt-gor-liste"><div class="mono-meta">Yükleniyor…</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Denetim kaydı</span>
+          <span class="ds-panel-tag">KİM · NE · NE ZAMAN</span>
+          <span class="panel-spacer"></span>
+          <select id="yt-den-islem" class="ds-inp" style="width:auto;padding:4px 8px;font-size:11.5px" onchange="ytDenYukle()"><option value="">Tüm işlemler</option></select>
+          <button class="btn btn-outline btn-sm" onclick="ytDenYukle()">↻ Yenile</button>
+        </div>
+        <div class="panel-body" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px" id="yt-den-tablo">
+            <thead><tr style="color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em">
+              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Zaman</th>
+              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Kullanıcı</th>
+              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">İşlem</th>
+              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Hedef</th>
+              <th style="text-align:left;padding:9px 14px;border-bottom:1px solid var(--border)">Detay</th>
+            </tr></thead>
+            <tbody id="yt-den-govde"></tbody>
+          </table>
+          <div id="yt-den-bos" class="ds-empty" style="display:none;margin:14px"><div class="t">Henüz denetim kaydı yok</div><div>Giriş, onay/ret, yeniden üretim, güncelleme ve yetki değişiklikleri burada görünür.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    // ─── Yetki & Denetim ekranı (v2 Faz 2.4) ────────────────────────────────
+    function _ytEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+    let _ytKatalog = [];
+
+    async function ytYukle() { await Promise.all([ytGorYukle(), ytDenYukle()]); }
+
+    async function ytGorYukle() {
+      const el = document.getElementById('yt-gor-liste');
+      const d = await (await fetch('/api/gorunurluk')).json();
+      if (!d.ok) { el.innerHTML = '<div class="ds-callout warn"><div class="grow"><div class="ct">' + _ytEsc(d.error || 'Yetkisiz') + '</div></div></div>'; return; }
+      _ytKatalog = d.katalog || [];
+      const gizli = new Set(d.gizli || []);
+      const gruplar = {};
+      _ytKatalog.forEach(k => (gruplar[k.grup] = gruplar[k.grup] || []).push(k));
+      el.innerHTML = Object.entries(gruplar).map(([g, ks]) => `
+        <div class="ds-sec-label" style="margin-top:6px">${_ytEsc(g)}</div>
+        ${ks.map(k => `<label class="ds-tglrow" style="cursor:pointer">
+            <input type="checkbox" class="yt-gor-cb" value="${_ytEsc(k.id)}" ${gizli.has(k.id) ? 'checked' : ''} style="accent-color:var(--accent);width:15px;height:15px">
+            <div><div class="ds-tgl-txt">${_ytEsc(k.ad)}</div><div class="ds-tgl-sub">${_ytEsc(k.aciklama || '')}</div></div>
+            <span class="ds-chip ${gizli.has(k.id) ? 'old' : 'ok'}" style="margin-left:auto">${gizli.has(k.id) ? 'Analiste gizli' : 'Açık'}</span>
+          </label>`).join('')}`).join('');
+      el.querySelectorAll('.yt-gor-cb').forEach(cb => cb.addEventListener('change', () => {
+        const chip = cb.closest('label').querySelector('.ds-chip');
+        chip.className = 'ds-chip ' + (cb.checked ? 'old' : 'ok'); chip.textContent = cb.checked ? 'Analiste gizli' : 'Açık';
+      }));
+    }
+
+    async function ytGorKaydet() {
+      const gizli = [...document.querySelectorAll('.yt-gor-cb:checked')].map(cb => cb.value);
+      const r = await fetch('/api/gorunurluk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ gizli }) });
+      const d = await r.json();
+      const st = document.getElementById('yt-gor-durum');
+      if (d.ok) { st.textContent = '✓ Kaydedildi'; toast('Görünürlük kaydedildi — analistlere güncellemeyle iner', 'success'); setTimeout(() => st.textContent = '', 2500); ytDenYukle(); }
+      else toast(d.error || 'Kaydedilemedi', 'error');
+    }
+
+    async function ytDenYukle() {
+      const sel = document.getElementById('yt-den-islem');
+      const q = sel.value ? '?islem=' + encodeURIComponent(sel.value) : '';
+      const d = await (await fetch('/api/denetim' + q)).json();
+      const tb = document.getElementById('yt-den-govde'); const bos = document.getElementById('yt-den-bos');
+      if (!d.ok) { tb.innerHTML = ''; return; }
+      if (sel.options.length <= 1 && d.tipler) d.tipler.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o); });
+      const rows = d.kayitlar || [];
+      bos.style.display = rows.length ? 'none' : '';
+      const td = 'padding:8px 14px;border-bottom:1px solid var(--border);vertical-align:top';
+      tb.innerHTML = rows.map(k => `<tr>
+        <td style="${td};white-space:nowrap;font-family:'Geist Mono',monospace;color:var(--text2)">${_ytEsc((k.zaman||'').replace('T',' '))}</td>
+        <td style="${td};font-weight:500">${_ytEsc(k.kullanici)}</td>
+        <td style="${td}"><span class="ds-chip acc mono">${_ytEsc(k.islem)}</span></td>
+        <td style="${td};color:var(--text2)">${_ytEsc(k.hedef)}</td>
+        <td style="${td};color:var(--text3);font-size:11px;max-width:360px;overflow-wrap:anywhere">${_ytEsc(Object.entries(k.detay||{}).map(([a,b])=>a+': '+b).join(' · '))}</td>
+      </tr>`).join('');
+    }
+    </script>
