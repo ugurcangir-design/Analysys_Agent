@@ -109,12 +109,29 @@ Analistin deneyimini tek-atıştan, konuşarak ilerleyen sürece çevirir — en
 > fazının üretim-öncesi akışa bağlanması ve (Faz 2'de) revizyon panelinin çıktı görüntüleyiciyle
 > bütünleştirilmesi. Canlı AI ile tek uçtan-uca prova, kota uygun olduğunda analistçe yapılmalı.
 
-### Faz 2 — Süreç · BRD · Teknik ekran tasarımı (Deneyim · hedef 1·8)
-Üç çekirdek ekranı, Faz 1'in etkileşimli akışıyla entegre, gerçek uygulama kalitesinde.
-- App-like düzen: net durum, hızlı geri bildirim, performanslı büyük-çıktı gösterimi.
-- Sohbet + soru akışını ekranın doğal parçası yap (yan panel / thread).
-- Tutarlı bileşen dili (Kullanım paneli kalitesi tüm ekranlara).
-- **Çıktı:** Verimli, ürün gibi hissettiren analiz ekranları.
+### Faz 2 — Ürün kalitesi: tasarım sistemi, iş akışı, yetki, otomasyon (Deneyim · hedef 1·8)
+Aktif kullanılan ürünü, tasarım ekibinden çıkmış gibi tutarlı/kullanıcı-dostu/yönetilebilir hâle getir.
+Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
+
+**Onaylanan kararlar (2026-09-09):**
+- **Roller:** yalnız **Owner + Analist**. Analist, owner'ın özellikle gizlediği ekran/buton hariç
+  HER ekran ve işlemi kullanır → basit "owner + görünürlük yönetimi" modeli (rol matrisi değil).
+  Yönetim ekranları (kullanıcılar, kullanım, görünürlük) owner-only.
+- **Yöntem:** ÖNCE mockup (Süreç · Çıktılar · Menü), onay sonrası kod.
+- **Otomatik güncelleme:** bildirimli otomatik (analiz yokken sessiz uygula; iş sürerken "yeni
+  sürüm hazır" göster, iş bitince uygula).
+- **Ek öneriler dahil:** analiz oturumu/proje kavramı, sağlık paneli, komut paleti, boş
+  durumlar/onboarding, changelog, hata/bildirim standardı, erişilebilirlik, hafif regresyon güvencesi.
+
+**Sıralı alt-fazlar:**
+- 2.0 Tasarım sistemi (token + bileşen dili) + mockup onayı ← **başlangıç**
+- 2.1 Çıktılar + tazelik/köken + analiz oturumu/proje kavramı
+- 2.2 Süreç ekranı yeniden kurgu (Bağlam Filtresi/Delta/Özel Prompt doğru aşamalara) + revizyon entegrasyonu
+- 2.3 Menü / bilgi mimarisi (iş akışına göre, rol-duyarlı)
+- 2.4 Kullanıcı yönetimi + Owner/Analist + görünürlük yönetimi + aksiyon denetim logu
+- 2.5 Otomatik güncelleme & yeniden başlatma
+- 2.6 Ek özellikler (sağlık paneli, komut paleti, onboarding, changelog, erişilebilirlik, regresyon)
+- **Çıktı:** Verimli, ürün gibi hissettiren, yönetilebilir, kendini güncelleyen uygulama.
 
 ### Faz 3 — Gerçeğe dayanan analiz: kod, referans, MCP (Derinlik · hedef 5·6·7)
 Analizi gerçek uygulamanın çalışma prensibine bağla. Kod reposu bağlantısı **şimdi
