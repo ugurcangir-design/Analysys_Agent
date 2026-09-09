@@ -398,7 +398,7 @@ def _runtime_config_seed() -> None:
     """Makineye özel çalışma-zamanı config dosyaları (context_filter/prompts/sources)
     git'te İZLENMEZ — pull çakışmasını önler. Eksiklerse .example varsayılanından
     oluşturulur. Böylece taze klon + güncelleme sonrası ekip varsayılanları korunur."""
-    for ad in ("context_filter.json", "prompts.json", "sources.json", "kod_kaynagi.json"):
+    for ad in ("context_filter.json", "prompts.json", "sources.json", "kod_kaynagi.json", "analiz_mcp.json"):
         gercek = REF_DIR / ad
         ornek = REF_DIR / f"{ad}.example"
         if not gercek.exists() and ornek.exists():
@@ -1806,8 +1806,14 @@ def saglik():
         disk[ad] = {"mb": round(b / 1_048_576, 1), "dosya": n}
     audit = BASE_DIR / "logs" / "audit.jsonl"
     users = _kullanicilari_oku()
+    try:
+        from skills import analiz_mcp, kod_kaynagi
+        veri_kaynak = {"analiz_mcp": analiz_mcp.durum(), "kod_repo": kod_kaynagi.yapilandirildi_mi()}
+    except Exception:
+        veri_kaynak = {}
     return jsonify({
         "ok": True,
+        "veri_kaynak": veri_kaynak,
         "surum": {"hash": v.get("hash"), "mesaj": v.get("mesaj"), "tarih": v.get("tarih"), "dal": g.get("dal")},
         "ai": {"modu": "cli" if USE_CLAUDE_CLI else "api",
                "model": CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ,
@@ -1876,6 +1882,37 @@ def etki_analizi_endpoint(dosya_adi: str):
         return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
     from skills import etki_analizi
     return jsonify(etki_analizi.analiz(dosya_adi, repo=request.args.get("repo") or None))
+
+
+# ─── Analiz Veri Kaynakları (Postgres/Jira MCP) — v2 Faz 3.c (owner-only) ────
+@app.route("/api/analiz-mcp", methods=["GET"])
+@admin_gerekli
+def analiz_mcp_getir():
+    """Durum (aktiflik + hazır sunucular). Bağlantı dizesi AÇIKLANMAZ."""
+    from skills import analiz_mcp
+    cfg = analiz_mcp.konfig_oku()
+    return jsonify({"ok": True, "durum": analiz_mcp.durum(),
+                    "postgres_baglanti_var": bool(cfg["postgres"].get("baglanti")),
+                    "jira_komut": cfg["jira"].get("komut", ""), "jira_args": cfg["jira"].get("args", []),
+                    "postgres_aktif": cfg["postgres"].get("aktif"), "jira_aktif": cfg["jira"].get("aktif")})
+
+
+@app.route("/api/analiz-mcp", methods=["POST"])
+@admin_gerekli
+def analiz_mcp_kaydet():
+    """Body: {postgres:{aktif,baglanti}, jira:{aktif,komut,args}}. Boş baglanti gelirse mevcut korunur."""
+    from skills import analiz_mcp
+    data = request.get_json(silent=True) or {}
+    mevcut = analiz_mcp.konfig_oku()
+    pg = data.get("postgres") or {}
+    # Bağlantı dizesi UI'a hiç gönderilmediğinden boş gelirse mevcut sırrı koru.
+    if not (pg.get("baglanti") or "").strip():
+        pg["baglanti"] = mevcut["postgres"].get("baglanti", "")
+    analiz_mcp.konfig_yaz({"postgres": pg, "jira": data.get("jira") or {}})
+    _denetim("analiz_mcp_config", "analiz_mcp.json",
+             postgres=bool(analiz_mcp.konfig_oku()["postgres"].get("aktif")),
+             jira=bool(analiz_mcp.konfig_oku()["jira"].get("aktif")))
+    return jsonify({"ok": True, "durum": analiz_mcp.durum()})
 
 
 

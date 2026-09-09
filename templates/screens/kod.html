@@ -32,6 +32,27 @@
         </div>
       </div>
 
+      <!-- Analiz veri kaynakları (Postgres/Jira MCP) — owner-only, Faz 3.c -->
+      <div id="kod-vk" style="display:none;margin-bottom:14px">
+        <div class="ds-disc" onclick="vkAc()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+          Analiz veri kaynakları — Postgres / Jira MCP <span id="vk-rozet"></span><span class="arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        <div id="vk-panel" class="panel" style="display:none;margin-top:8px"><div class="panel-body">
+          <p class="ds-hint"><span class="i">?</span>Analiz çağrılarına Postgres/Jira MCP + salt-okuma araç izni ekler (canlı uygulama Chrome MCP gibi). Varsayılan KAPALI; aktif edilmeden analiz davranışı değişmez. Gerçek prova kota + canlı bağlantı gerektirir.</p>
+          <div class="ds-grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+            <div>
+              <label class="ds-tglrow" style="cursor:pointer"><input type="checkbox" id="vk-pg-aktif" style="accent-color:var(--accent);width:15px;height:15px"><div><div class="ds-tgl-txt">Postgres MCP</div><div class="ds-tgl-sub" id="vk-pg-durum">bağlantı yok</div></div></label>
+              <input class="ds-inp" id="vk-pg-baglanti" type="password" placeholder="postgresql://kullanici:***@host/db (salt-okuma önerilir)" style="margin-top:6px">
+            </div>
+            <div>
+              <label class="ds-tglrow" style="cursor:pointer"><input type="checkbox" id="vk-jira-aktif" style="accent-color:var(--accent);width:15px;height:15px"><div><div class="ds-tgl-txt">Jira MCP</div><div class="ds-tgl-sub">MCP sunucu komutu</div></div></label>
+              <input class="ds-inp" id="vk-jira-komut" placeholder="komut (örn. npx)" style="margin-top:6px">
+              <input class="ds-inp" id="vk-jira-args" placeholder="argümanlar (boşlukla)" style="margin-top:6px">
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="vkKaydet()">Kaydet</button><span id="vk-durum" class="mono-meta"></span></div>
+        </div></div>
+      </div>
+
       <div id="kod-bos" class="ds-empty" style="display:none">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>
         <div class="t">Henüz kod kaynağı bağlı değil</div>
@@ -76,6 +97,7 @@
       const me = await (await fetch('/api/auth/me')).json().catch(()=>({}));
       _kodConfigDuzenlenebilir = me.rol === 'owner';
       document.getElementById('kod-config-btn').style.display = _kodConfigDuzenlenebilir ? '' : 'none';
+      vkYukle();
       const d = await (await fetch('/api/kod/repolar')).json();
       _kodRepolar = d.repolar || [];
       const varRepo = _kodRepolar.filter(r=>r.var);
@@ -164,6 +186,32 @@
       h+=`</div>`;
       if((vh.yapisal||[]).length) h+=`<div class="mono-meta" style="margin-top:8px">Yapısal ID'ler: ${vh.yapisal.map(_kEsc).join(', ')}</div>`;
       g.innerHTML=h;
+    }
+
+    // ── Analiz veri kaynakları (Postgres/Jira MCP) — owner ──
+    async function vkYukle(){
+      if(!_kodConfigDuzenlenebilir){document.getElementById('kod-vk').style.display='none';return;}
+      document.getElementById('kod-vk').style.display='';
+      const d=await (await fetch('/api/analiz-mcp')).json();
+      if(!d.ok)return;
+      const s=d.durum;
+      const aktifSayi=(s.postgres.aktif?1:0)+(s.jira.aktif?1:0);
+      document.getElementById('vk-rozet').innerHTML=aktifSayi?`<span class="ds-chip ok" style="margin-left:8px">${aktifSayi} aktif</span>`:'<span class="ds-chip neu" style="margin-left:8px">kapalı</span>';
+      document.getElementById('vk-pg-aktif').checked=d.postgres_aktif;
+      document.getElementById('vk-pg-durum').textContent=d.postgres_baglanti_var?'bağlantı kayıtlı (değiştirmek için yeni gir)':'bağlantı yok';
+      document.getElementById('vk-jira-aktif').checked=d.jira_aktif;
+      document.getElementById('vk-jira-komut').value=d.jira_komut||'';
+      document.getElementById('vk-jira-args').value=(d.jira_args||[]).join(' ');
+      if(!s.npx) toast('npx bulunamadı — Postgres MCP çalışmayabilir','info');
+    }
+    function vkAc(){const p=document.getElementById('vk-panel');const d=p.closest('#kod-vk').querySelector('.ds-disc');p.style.display=p.style.display==='none'?'':'none';d.classList.toggle('open',p.style.display!=='none');}
+    async function vkKaydet(){
+      const body={postgres:{aktif:document.getElementById('vk-pg-aktif').checked,baglanti:document.getElementById('vk-pg-baglanti').value.trim()},
+        jira:{aktif:document.getElementById('vk-jira-aktif').checked,komut:document.getElementById('vk-jira-komut').value.trim(),args:document.getElementById('vk-jira-args').value.trim().split(/\s+/).filter(Boolean)}};
+      const r=await fetch('/api/analiz-mcp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(d.ok){toast('Analiz veri kaynakları kaydedildi','success');document.getElementById('vk-pg-baglanti').value='';vkYukle();}
+      else toast(d.error||'Kaydedilemedi','error');
     }
 
     // ── Owner config ──

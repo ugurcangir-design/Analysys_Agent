@@ -74,3 +74,7 @@ reference/_filtered_cache/
 
 # Makineye özel kod kaynağı repo yolu (Faz 3; .example seed edilir)
 reference/kod_kaynagi.json
+
+# Analiz veri kaynağı MCP (Faz 3.c; bağlantı dizesi içerir) + üretilen config
+reference/analiz_mcp.json
+.mcp-analiz.json

@@ -184,7 +184,18 @@ yapılmaz** — altyapı buna hazır kurulur.
   bağlıysa her varlığı arayıp **etkilenen dosya/satır** haritası. Repo yoksa yalnız varlık listesi.
   `/api/etki/<dosya>?repo=` + Kod ekranında "Etki analizi" paneli. 12 assert test. Tarayıcıda doğrulandı
   (v2 reposunda `bolum_duzenle`→revizyon.py/app.py vb. gerçek isabetler).
-- ⏳ 3.c Semantik referans retrieval + Postgres/Jira MCP entegrasyonu.
+- ✅ **3.c Retrieval + MCP altyapısı:** (i) `skills/retrieval.py` — saf-Python **BM25** chunk
+  retrieval (dependency yok, Türkçe-i düzeltmeli tokenizasyon); `base._keyword_odakli_metin`'e
+  güvenli fallback'le bağlandı → referanslardan daha isabetli bölüm seçimi. Embedding backend
+  aynı arayüzle sonradan takılabilir. (ii) `skills/analiz_mcp.py` — Postgres/Jira MCP'yi
+  `claude -p`'ye bağlama (canlı-app deseni): config → `.mcp-analiz.json` + `--allowedTools`
+  (salt-okuma). Varsayılan KAPALI; owner UI'dan aktifler. `/api/analiz-mcp` (owner; bağlantı
+  maskeli) + Kod ekranı paneli + sağlık. **Gerçek analiz çalıştırılmadı** (kota + canlı bağlantı,
+  yol haritası kararı); config→CLI args deterministik doğrulandı (retrieval 10 + analiz_mcp 10 assert).
+
+> **Faz 3 durumu (2026-09-09): 3.a–3.c TAMAM.** Kod-kaynağı, etki analizi, BM25 retrieval canlı;
+> Postgres/Jira MCP altyapısı hazır (opt-in, kapalı). Gerçek repo + DB/Jira bağlantısı analistin/pilotun
+> kararına bırakıldı. 5003'te doğrulandı, 5002 dokunulmadı.
 
 ### Faz 4 — Genişletilebilirlik & yayın (Ölçek · hedef 4)
 Yeni akışları kod yazmadan ekleyebilir hâle getir; v2'yi tüm ekibe aç.

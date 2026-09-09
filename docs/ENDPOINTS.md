@@ -185,6 +185,23 @@ Varlık çıkarımı: backtick'li kod terimleri (`snake_case`/`camelCase`), endp
 + `etkilenen_dosyalar[]`. Repo yoksa `kod_bagli:false`, yalnız `varliklar`. Kesin değil — analistin
 doğrulaması için ETKİ HARİTASI başlangıcı. UI: Kod ekranında "Etki analizi" paneli.
 
+## Referans Retrieval (BM25) — v2 Faz 3.c-i (skills/retrieval.py; 0 token, dependency yok)
+Büyük referanslardan ilgili bölümleri BM25 ile getirir. `base._keyword_odakli_metin` bunu ÖNCE dener
+(hata → mevcut keyword-window davranışına düşer). Endpoint yok — analiz yolunun içinde. Türkçe-i (İ→i)
+düzeltmeli tokenizasyon. Embedding backend aynı `en_alakali_parcalar` arayüzüyle takılabilir.
+
+## Analiz Veri Kaynakları (Postgres/Jira MCP) — v2 Faz 3.c-ii (owner-only; skills/analiz_mcp.py)
+Analiz çağrılarına (`claude -p`) Postgres/Jira MCP + salt-okuma araç izni ekler (canlı-app Chrome MCP deseni).
+**Varsayılan KAPALI** — aktif edilmeden hiçbir ek argüman gitmez. Config makineye özel
+(`reference/analiz_mcp.json`, gitignore + `.example`); üretilen `.mcp-analiz.json` (bağlantı içerir) da gitignore.
+```
+GET  /api/analiz-mcp   Durum (aktiflik + hazır sunucular; bağlantı dizesi MASKELİ, sızmaz)
+POST /api/analiz-mcp   {postgres:{aktif,baglanti}, jira:{aktif,komut,args}} (boş baglanti → mevcut korunur)
+```
+`analiz_mcp.cli_argumanlari()` → `--mcp-config .mcp-analiz.json --strict-mcp-config --allowedTools
+mcp__postgres__query …`; `_api_cagri_cli`'de canlı-app aktif DEĞİLSE eklenir (--strict tekil). UI: Kod ekranı
+"Analiz veri kaynakları" paneli; `/api/saglik` `veri_kaynak`. Gerçek analiz provası: kota + canlı bağlantı (analist).
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

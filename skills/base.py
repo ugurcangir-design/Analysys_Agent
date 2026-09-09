@@ -1959,6 +1959,16 @@ def _keyword_odakli_metin(metin: str, keywords: list, limit: int, ad: str) -> st
     veya metin zaten kısaysa mevcut baştan-kesme davranışına döner."""
     if len(metin) <= limit or not keywords:
         return _metin_kes(metin, limit, ad)
+    # v2 Faz 3.c — BM25 retrieval: ilgili parçaları alaka sırasına göre getir.
+    # Herhangi bir hata/uyumsuzlukta AŞAĞIDAKİ mevcut keyword-window davranışına düşer.
+    try:
+        from .retrieval import en_alakali_parcalar
+        r = en_alakali_parcalar(metin, " ".join(str(k) for k in keywords), k=8, butce=limit)
+        if r.get("secilen"):
+            return (f"[BM25 retrieval — {ad}: '{', '.join(keywords)}' için en alakalı bölümler]\n"
+                    + r["metin"])
+    except Exception:
+        pass
     lc = metin.lower()
     pencere = 1800
     araliklar = []
@@ -2911,10 +2921,22 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     _live_args = _live_app_cli_argumanlari(kapsam=canli_uygulama_kapsami)
     if _live_args:
         print(f"  🌐 Canlı uygulama modu: Chrome MCP + {len(LIVE_APP_ALLOWED_TOOLS)} araç izni")
+    # v2 Faz 3.c — Analiz veri kaynakları (Postgres/Jira MCP). Opt-in; varsayılan KAPALI.
+    # Canlı uygulama (Chrome MCP) ile AYNI çağrıda birleştirilmez (--strict-mcp-config
+    # tekildir): canlı uygulama aktifse bu çağrıda veri-MCP atlanır.
+    _analiz_mcp_args: list[str] = []
+    if not _live_args:
+        try:
+            from . import analiz_mcp
+            _analiz_mcp_args = analiz_mcp.cli_argumanlari()
+            if _analiz_mcp_args:
+                print("  🗄  Analiz veri kaynağı: Postgres/Jira MCP araç izni")
+        except Exception:
+            _analiz_mcp_args = []
     # --model DAİMA açıkça geçilir → Claude Code'un varsayılan (ör. Fable) modeli KULLANILMAZ.
     _model_args = ["--model", CLAUDE_CLI_MODEL] if CLAUDE_CLI_MODEL else []
     proc = subprocess.run(
-        [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args],
+        [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args, *_analiz_mcp_args],
         input=tam_prompt,
         capture_output=True,
         text=True,
