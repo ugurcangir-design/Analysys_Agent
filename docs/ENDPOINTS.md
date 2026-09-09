@@ -114,6 +114,15 @@ Onay durumları: `beklemede / onaylandi / reddedildi`. Mevcut `/api/rerun` (tam
 yeniden-üretim) DOKUNULMADAN yanında durur.
 Kalıcı veri: `output/revizyon/<slug>.json` + `output/revizyon/<slug>/<vid>.md` (atomik yazım)
 
+## Analiz Oturumu — v2 Faz 2.1 (Çıktılar ekranı; 0 token, deterministik)
+```
+GET  /api/oturum   Aktif oturum: girdi dokümanı, başlangıç (workflow ilk adımı, yoksa girdi mtime),
+                   workflow özeti, jira_key; ciktilar[] (etiket/kaynak/var/guncelleme/
+                   tazelik=guncel|eski|yok/aktif_versiyon/bekleyen/onayli_revizyon); arsiv[] (history/)
+```
+Tazelik kuralı: çıktı mtime ≥ oturum başlangıcı → **güncel**, değilse **eski** (önceki oturumdan).
+Katalog: `_CIKTI_KATALOGU` (app.py) — yeni çıktı dosyası eklenince buraya da (etiket + köken) eklenir.
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

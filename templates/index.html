@@ -1810,9 +1810,13 @@ function temaDegistir() {
       </div>
 
       <div class="nav-section">Çıktılar</div>
-      <div class="nav-item" id="nav-output" onclick="switchTab('output')">
+      <div class="nav-item" id="nav-ciktilar" onclick="switchTab('ciktilar')">
         <svg class="ico"><use href="#i-file-text"/></svg>
         <span class="nav-label">Çıktılar</span>
+      </div>
+      <div class="nav-item" id="nav-output" onclick="switchTab('output')">
+        <svg class="ico"><use href="#i-file-text"/></svg>
+        <span class="nav-label">Görüntüleyici</span>
       </div>
       <div class="nav-item" id="nav-revizyon" onclick="switchTab('revizyon')">
         <svg class="ico"><use href="#i-refresh"/></svg>
@@ -3299,6 +3303,7 @@ python cli.py ui ~/export.zip</pre>
 
     {# EKRAN PARTIALLARI — Faz 0 modülerleştirme (bkz. templates/screens/README.md).
        Her ekran kendi markup + davranışını ayrı dosyada taşır, burada include edilir. #}
+    {% include "screens/ciktilar.html" %}
     {% include "screens/revizyon.html" %}
     {% include "screens/kilavuz.html" %}
 
@@ -3357,7 +3362,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.
@@ -3384,6 +3389,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'prompts')       onboardGoster('prompts', 'page-prompts');
   if (tab === 'kilavuz')       kilavuzYukle();
   if (tab === 'revizyon')      rzYukle();
+  if (tab === 'ciktilar')      ciYukle();
 }
 
 // Kılavuz iframe'i ilk açılışta yükle (lazy). Güncel kod çekilince otomatik tazelenir.

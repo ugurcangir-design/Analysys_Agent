@@ -1,0 +1,131 @@
+    <!-- EKRAN: Çıktılar (v2 Faz 2.1) — aktif oturum + tazelik/köken/sürüm + arşiv.
+         Backend: /api/oturum. Görüntüleme eski görüntüleyiciye (page-output) devredilir.
+         Bileşenler: static/ds.css (ds-*). -->
+    <div class="page" id="page-ciktilar">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Çıktılar</h1>
+          <p>Aktif analiz oturumunun güncel çıktıları. Her çıktının kaynağı, zamanı ve sürümü bellidir.</p>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-outline btn-sm" onclick="ciYukle()" title="Yenile">↻ Yenile</button>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('revizyon')">Revize Et</button>
+        </div>
+      </div>
+
+      <div id="ci-oturum"></div>
+      <div id="ci-liste"></div>
+      <div id="ci-arsiv"></div>
+    </div>
+
+    <script>
+    // ─── Çıktılar ekranı davranışı (v2 Faz 2.1) ──────────────────────────────
+    const _CI_IKON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>';
+    const _CI_ARSIV_IKON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></svg>';
+    const _CI_OK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>';
+    let _ciArsivAcik = false;
+
+    function _ciEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+    function _ciZaman(ts) {
+      if (!ts) return '—';
+      const d = new Date(ts * 1000), n = new Date();
+      const hm = d.toTimeString().slice(0, 5);
+      return d.toDateString() === n.toDateString() ? 'Bugün ' + hm
+        : d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) + ' ' + hm;
+    }
+    function _ciArsivZaman(z) {           // 20260909_101530 → 09 Eyl 10:15
+      if (!z || z.length < 13) return z || '';
+      const d = new Date(+z.slice(0,4), +z.slice(4,6) - 1, +z.slice(6,8), +z.slice(9,11), +z.slice(11,13));
+      return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) + ' ' + d.toTimeString().slice(0, 5);
+    }
+    function _ciRozet(c) {
+      if (c.bekleyen)             return '<span class="ds-chip warn"><span class="d"></span>Onay bekliyor</span>';
+      if (c.tazelik === 'guncel') return '<span class="ds-chip ok"><span class="d"></span>Güncel</span>';
+      if (c.tazelik === 'eski')   return '<span class="ds-chip old"><span class="d"></span>Önceki oturumdan</span>';
+      return '';
+    }
+
+    function ciRevizeAc(dosya) {
+      const sel = document.getElementById('rz-dosya');
+      if (sel && [...sel.options].some(o => o.value === dosya)) sel.value = dosya;
+      switchTab('revizyon');
+    }
+
+    async function ciYukle() {
+      const oEl = document.getElementById('ci-oturum');
+      const lEl = document.getElementById('ci-liste');
+      const aEl = document.getElementById('ci-arsiv');
+      let d;
+      try { d = await (await fetch('/api/oturum')).json(); }
+      catch (e) { oEl.innerHTML = '<div class="ds-callout warn"><div class="grow"><div class="ct">Oturum bilgisi alınamadı</div><p>Bağlantıyı kontrol edip yenileyin.</p></div></div>'; return; }
+
+      // Oturum barı / boş durum
+      if (!d.dokuman) {
+        oEl.innerHTML = `<div class="ds-empty"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>
+          <div class="t">Henüz aktif bir analiz oturumu yok</div>
+          <div>Süreç veya BRD analizi ekranından bir doküman yükleyip analizi başlatın; çıktılar burada toplanır.</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="switchTab('surec')">Analize git</button></div>`;
+      } else {
+        const wf = d.workflow || {};
+        const durumChip = wf.calisiyor ? '<span class="ds-chip acc"><span class="d"></span>' + _ciEsc(wf.etiket) + '</span>'
+          : wf.tamamlandi ? '<span class="ds-chip ok"><span class="d"></span>' + _ciEsc(wf.etiket) + '</span>'
+          : '<span class="ds-chip neu">' + _ciEsc(wf.etiket || 'Hazır') + '</span>';
+        oEl.innerHTML = `<div class="ds-session">
+          <div><div class="si">Aktif oturum</div><div class="sv">${_ciEsc(d.dokuman.ad)}</div></div>
+          <div class="sep"></div>
+          <div><div class="si">Başladı</div><div class="sv">${_ciZaman(d.baslangic)}</div></div>
+          <div class="sep"></div>
+          <div><div class="si">Akış</div><div class="sv">${_ciEsc(wf.pipeline === 'brd' ? 'BRD → Kapsam' : wf.pipeline === 'surec' ? 'Süreç → Teknik → Jira' : '—')}</div></div>
+          ${d.jira_key ? `<div class="sep"></div><div><div class="si">Jira</div><div class="sv">${_ciEsc(d.jira_key)}</div></div>` : ''}
+          <div class="end">${durumChip}</div>
+        </div>`;
+      }
+
+      // Çıktı kartları — yalnız var olanlar; güncel olanlar öne
+      const varolan = (d.ciktilar || []).filter(c => c.var);
+      varolan.sort((a, b) => (a.tazelik === 'guncel' ? 0 : 1) - (b.tazelik === 'guncel' ? 0 : 1));
+      if (!varolan.length) {
+        lEl.innerHTML = d.dokuman ? '<div class="ds-empty"><div class="t">Bu oturumda henüz çıktı üretilmedi</div><div>Analiz tamamlandığında çıktılar burada görünür.</div></div>' : '';
+      } else {
+        lEl.innerHTML = '<div class="ds-sec-label">Çıktılar</div><div class="ds-olist">' + varolan.map(c => `
+          <div class="ds-ocard ${c.tazelik === 'guncel' ? 'cur' : 'stale'}">
+            <div class="ds-oicon">${_CI_IKON}</div>
+            <div class="ds-ometa">
+              <div class="ds-otitle">${_ciEsc(c.etiket)} ${_ciRozet(c)}</div>
+              <div class="ds-ometa-row">
+                <span>kaynak <b>${_ciEsc(c.kaynak)}</b></span>
+                <span>üretim <b>${_ciZaman(c.guncelleme)}</b></span>
+                ${c.aktif_versiyon ? `<span>aktif sürüm <b>${_ciEsc(c.aktif_versiyon)}</b></span>` : ''}
+                ${c.onayli_revizyon > 0 ? `<span>revizyon <b>${c.onayli_revizyon} onaylı</b></span>` : ''}
+              </div>
+            </div>
+            <div class="ds-oact">
+              <button class="btn btn-outline btn-sm" onclick="switchTab('output','${_ciEsc(c.dosya)}')">İncele</button>
+              ${c.dosya.endsWith('.md') ? `<button class="btn btn-ghost btn-sm" onclick="ciRevizeAc('${_ciEsc(c.dosya)}')">Revize Et</button>` : ''}
+            </div>
+          </div>`).join('') + '</div>';
+      }
+
+      // Arşiv — önceki oturumların çıktıları
+      const ar = d.arsiv || [];
+      if (!ar.length) { aEl.innerHTML = ''; return; }
+      const son = ar[0];
+      aEl.innerHTML = `<div class="ds-archive ${_ciArsivAcik ? 'open' : ''}" onclick="_ciArsivToggle()" tabindex="0">
+          ${_CI_ARSIV_IKON} Önceki oturumların çıktıları
+          <span class="cnt">· ${ar.length} kayıt · en son ${_ciArsivZaman(son.zaman)}</span>
+          <span class="arrow">${_CI_OK}</span>
+        </div>
+        <div id="ci-arsiv-liste" class="ds-olist" style="margin-top:10px;${_ciArsivAcik ? '' : 'display:none'}">` +
+        ar.map(a => `<div class="ds-ocard stale">
+            <div class="ds-oicon">${_CI_ARSIV_IKON}</div>
+            <div class="ds-ometa"><div class="ds-otitle">${_ciArsivZaman(a.zaman)}</div>
+              <div class="ds-ometa-row"><span>${a.dosyalar.length} dosya</span><span><b>${_ciEsc(a.dosyalar.join(' · '))}</b></span></div></div>
+            <div class="ds-oact"><button class="btn btn-ghost btn-sm" onclick="switchTab('history')">Geçmişte aç</button></div>
+          </div>`).join('') + '</div>';
+    }
+    function _ciArsivToggle() {
+      _ciArsivAcik = !_ciArsivAcik;
+      const l = document.getElementById('ci-arsiv-liste'); if (l) l.style.display = _ciArsivAcik ? '' : 'none';
+      const h = document.querySelector('#ci-arsiv .ds-archive'); if (h) h.classList.toggle('open', _ciArsivAcik);
+    }
+    </script>

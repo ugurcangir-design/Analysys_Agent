@@ -1402,6 +1402,94 @@ def revizyon_diff_endpoint(dosya_adi: str):
         return jsonify({"ok": False, "error": str(e)}), 404
 
 
+# ─── Analiz Oturumu — v2 Faz 2.1 (çıktı tazeliği / kökeni / aktif iş) ────────
+# "Hangi çıktı güncel, neden orada?" sorusunun deterministik cevabı (0 token):
+# oturum başlangıcı = workflow'un ilk adımı (yoksa girdi dokümanının yüklenmesi);
+# çıktı mtime >= başlangıç → GÜNCEL, aksi halde ÖNCEKİ oturumdan kalma (eski).
+_CIKTI_KATALOGU = [
+    # (dosya, etiket, kaynak/köken etiketi)
+    ("surec-analizi.md",      "Süreç Analizi",        "girdi dokümanı"),
+    ("teknik-analiz.md",      "Teknik Analiz",        "süreç analizi"),
+    ("acik-sorular.md",       "Açık Sorular",         "teknik analiz"),
+    ("brd-analizi.md",        "BRD Analizi",          "girdi dokümanı"),
+    ("brd-sorular.md",        "BRD Soruları",         "BRD analizi"),
+    ("kapsam-analizi.md",     "Kapsam Analizi",       "BRD analizi"),
+    ("alternatif-surecler.md","Alternatif Süreçler",  "kapsam analizi"),
+    ("mockup.html",           "Prototip",             "süreç analizi"),
+    ("jira-sonuc.txt",        "Jira Sonucu",          "teknik analiz"),
+]
+
+
+@app.route("/api/oturum", methods=["GET"])
+def oturum_ozeti():
+    """Aktif analiz oturumu: girdi dokümanı, başlangıç, workflow durumu, çıktıların
+    tazeliği (güncel/eski) + revizyon sürümü, önceki oturum arşivi özeti."""
+    import re as _re
+    import workflow as _wf
+    from skills import revizyon
+
+    dokuman = None
+    try:
+        girdiler = sorted(
+            (f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")),
+            key=lambda f: f.stat().st_mtime, reverse=True,
+        )
+        if girdiler:
+            dokuman = {"ad": girdiler[0].name, "yuklendi": girdiler[0].stat().st_mtime}
+    except Exception:
+        pass
+
+    st = _wf.oku()
+    adimlar = st.get("adimlar") or []
+    baslangic = adimlar[0]["zaman"] if adimlar else (dokuman["yuklendi"] if dokuman else None)
+    ozet = _wf.ozet()
+    jira_key = None
+    if ozet.get("jira_tamamlandi"):
+        m = _re.search(r"\b[A-Z][A-Z0-9]+-\d+\b", st.get("mesaj") or "")
+        jira_key = m.group(0) if m else None
+
+    ciktilar = []
+    for ad, etiket, kaynak in _CIKTI_KATALOGU:
+        yol = OUTPUT_DIR / ad
+        var = yol.exists()
+        mtime = yol.stat().st_mtime if var else None
+        if not var:
+            tazelik = "yok"
+        elif baslangic is None or mtime >= baslangic:
+            tazelik = "guncel"
+        else:
+            tazelik = "eski"
+        rev = revizyon.ozet(ad) if ad.endswith(".md") and revizyon.oturum_var_mi(ad) else None
+        ciktilar.append({
+            "dosya": ad, "etiket": etiket, "kaynak": kaynak, "var": var,
+            "guncelleme": mtime, "tazelik": tazelik,
+            "aktif_versiyon": rev["aktif_versiyon"] if rev else None,
+            "bekleyen": bool(rev and rev.get("bekleyen")),
+            "onayli_revizyon": (sum(1 for g in rev["gecmis"] if g["onay_durumu"] == "onaylandi") - 1)
+                                if rev else 0,
+        })
+
+    arsiv = []
+    try:
+        for d in sorted(HISTORY_DIR.iterdir(), reverse=True):
+            meta_yol = d / "meta.json"
+            if meta_yol.exists():
+                meta = json.loads(meta_yol.read_text())
+                arsiv.append({"id": d.name, "zaman": meta.get("zaman"), "dosyalar": meta.get("dosyalar", [])})
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "dokuman": dokuman,
+        "baslangic": baslangic,
+        "workflow": ozet,
+        "jira_key": jira_key,
+        "ciktilar": ciktilar,
+        "arsiv": arsiv[:HISTORY_LIMIT],
+    })
+
+
 
 
 def _env_yaz(degiskenler: dict) -> None:

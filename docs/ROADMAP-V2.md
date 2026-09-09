@@ -124,8 +124,11 @@ Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
   durumlar/onboarding, changelog, hata/bildirim standardı, erişilebilirlik, hafif regresyon güvencesi.
 
 **Sıralı alt-fazlar:**
-- 2.0 Tasarım sistemi (token + bileşen dili) + mockup onayı ← **başlangıç**
-- 2.1 Çıktılar + tazelik/köken + analiz oturumu/proje kavramı
+- ✅ 2.0 Tasarım sistemi — mockup onaylandı (artifact `fa43b8e2`, 3 ekran); `static/ds.css`
+  ds-* bileşen katmanı (ek; eski ekranlar etkilenmez).
+- ✅ 2.1 Çıktılar — `/api/oturum` (tazelik: çıktı mtime ≥ oturum başlangıcı → güncel) +
+  `templates/screens/ciktilar.html` (oturum barı, kaynak/zaman/sürüm + rozet, arşiv, boş durum).
+  Eski görüntüleyici "Görüntüleyici" olarak kaldı; "İncele" ona devreder. Tarayıcıda doğrulandı.
 - 2.2 Süreç ekranı yeniden kurgu (Bağlam Filtresi/Delta/Özel Prompt doğru aşamalara) + revizyon entegrasyonu
 - 2.3 Menü / bilgi mimarisi (iş akışına göre, rol-duyarlı)
 - 2.4 Kullanıcı yönetimi + Owner/Analist + görünürlük yönetimi + aksiyon denetim logu
