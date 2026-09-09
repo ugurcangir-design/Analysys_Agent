@@ -222,7 +222,10 @@ UI: Ana Sayfa panosu AI/Kota kartında `<select>` (CLI modunda). `--model` DAİM
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası
 POST /api/confluence/diagnose  Scope/erişim teşhisi
-POST /api/mockup/generate      HTML prototip üret
+POST /api/mockup/generate      HTML prototip üret (süreç analizi + opsiyonel canlı gözlem)
+POST /api/mockup/duzelt        {talimat} → prototipi SOHBETLE iteratif düzelt (mevcut HTML + talimat →
+                               güncellenmiş HTML; sadece istenen değişir). Düzeltmeden önce yedek alınır.
+POST /api/mockup/geri-al       Son sohbetli düzeltmeyi geri al (tek adım; yedeği mockup.html'e yazar)
 POST /api/sources/sync         Confluence/Jira veri çek
                                (Jira: Backlog/To Do/Cancel statüleri DIŞLANIR —
                                 _jira_status_haric_mi + JIRA_HARIC_STATUSLER)

@@ -2902,6 +2902,18 @@ function temaDegistir() {
           <span class="mockup-gen-msg" id="mockup-gen-msg"></span>
         </div>
 
+        <!-- Mockup sohbet-düzeltme satırı (iteratif; istediği hale gelene kadar) -->
+        <div class="mockup-gen-row" id="mockup-chat-row" style="display:none">
+          <span class="mono-meta" style="white-space:nowrap">Sohbetle düzelt:</span>
+          <input type="text" id="mockup-chat-input" autocomplete="off"
+                 placeholder="örn: başlığı büyüt · market kolonu ekle · renkleri koyulaştır"
+                 onkeydown="if(event.key==='Enter')mockupDuzelt()" style="flex:1;min-width:240px">
+          <button class="btn btn-primary btn-xs" id="mockup-chat-btn" onclick="mockupDuzelt()">Uygula</button>
+          <button class="btn btn-outline btn-xs" id="mockup-geri-btn" onclick="mockupGeriAl()" style="display:none" title="Son düzeltmeyi geri al">↶ Geri Al</button>
+          <button class="btn btn-success btn-xs" onclick="mockupOnayla()" title="Prototipi onayla (bu hâliyle geçerli)">✓ Onayla</button>
+          <span class="mockup-gen-msg" id="mockup-chat-msg"></span>
+        </div>
+
         <!-- Jira hiyerarşi satırı -->
         <div class="jira-hierarchy-row" id="jira-hierarchy-row" style="display:none">
           <svg class="ico" style="color:var(--text3)"><use href="#i-ticket"/></svg>
@@ -5822,6 +5834,7 @@ async function outputSec(tab) {
   jiraRes.textContent = '';
   mockupRow.style.display = 'none';
   mockupMsg.textContent = '';
+  const _mcChat = document.getElementById('mockup-chat-row'); if (_mcChat) _mcChat.style.display = 'none';
   sorularPanel.style.display = 'none';
 
   // ── Özel: Sorular sekmesi (dosya yerine soru defteri paneli) ──
@@ -5855,6 +5868,10 @@ async function outputSec(tab) {
     mockupRow.style.display = 'flex';
     document.getElementById('mockup-gen-btn').textContent = 'Yeniden Üret';
     document.getElementById('mockup-indir-btn').style.display = '';
+    // Sohbetle iteratif düzeltme satırını göster (prototip mevcut)
+    const _mcChat2 = document.getElementById('mockup-chat-row');
+    if (_mcChat2) { _mcChat2.style.display = 'flex'; document.getElementById('mockup-geri-btn').style.display = 'none';
+                    document.getElementById('mockup-chat-msg').textContent = ''; }
     return;
   }
   document.getElementById('btn-duzelt').style.display = '';
@@ -6618,6 +6635,66 @@ async function mockupOlustur() {
 function mockupIptal() {
   if (!confirm('Prototip üretimi durdurulsun mu?')) return;
   if (_mockupAbortCtrl) _mockupAbortCtrl.abort();
+}
+
+// ── Prototipi SOHBETLE düzelt (iteratif; istediği hale gelene kadar + onay) ──
+async function _mockupIframeTazele() {
+  try {
+    const resp = await fetch('/api/output/mockup.html');
+    if (resp.ok) {
+      const iframe = document.getElementById('mockup-iframe');
+      if (iframe) { iframe.srcdoc = await resp.text(); iframe.style.display = 'block'; }
+      const c = document.getElementById('output-content'); if (c) c.style.display = 'none';
+    }
+  } catch (e) {}
+}
+async function mockupDuzelt() {
+  const inp = document.getElementById('mockup-chat-input');
+  const talimat = (inp ? inp.value : '').trim();
+  if (!talimat) { toast('Bir düzeltme talimatı yazın (örn: "başlığı büyüt")', 'info'); return; }
+  const btn = document.getElementById('mockup-chat-btn');
+  const geriBtn = document.getElementById('mockup-geri-btn');
+  const msg = document.getElementById('mockup-chat-msg');
+  const eski = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Düzeltiliyor…'; }
+  if (inp) inp.disabled = true;
+  if (msg) { msg.className = 'mockup-gen-msg'; msg.textContent = 'AI prototipi düzeltiyor… (~30-60 sn)'; }
+  try {
+    const r = await fetch('/api/mockup/duzelt', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({talimat})
+    });
+    const d = await r.json();
+    if (!d.ok) { if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = d.error || 'Düzeltilemedi'; } return; }
+    if (msg) { msg.className = 'mockup-gen-msg ok'; msg.textContent = '✓ Düzeltildi — sonucu inceleyin, gerekiyorsa tekrar yazın'; }
+    if (geriBtn) geriBtn.style.display = '';
+    if (inp) inp.value = '';
+    await _mockupIframeTazele();
+  } catch (e) {
+    if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = 'Hata: ' + e.message; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = eski || 'Uygula'; }
+    if (inp) { inp.disabled = false; inp.focus(); }
+  }
+}
+async function mockupGeriAl() {
+  const msg = document.getElementById('mockup-chat-msg');
+  try {
+    const r = await fetch('/api/mockup/geri-al', {method: 'POST'});
+    const d = await r.json();
+    if (!d.ok) { if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = d.error || 'Geri alınamadı'; } return; }
+    document.getElementById('mockup-geri-btn').style.display = 'none';
+    if (msg) { msg.className = 'mockup-gen-msg'; msg.textContent = '↶ Son düzeltme geri alındı'; }
+    await _mockupIframeTazele();
+  } catch (e) {
+    if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = 'Hata: ' + e.message; }
+  }
+}
+function mockupOnayla() {
+  // Prototip mockup.html olarak zaten güncel/geçerli — bu onay analistin kabul jestidir
+  // (teknik analiz bu prototipi kaynak alır). Yumuşak onay: net geri bildirim.
+  const msg = document.getElementById('mockup-chat-msg');
+  if (msg) { msg.className = 'mockup-gen-msg ok'; msg.textContent = '✓ Prototip onaylandı — bu hâliyle geçerli (teknik analize kaynak olur)'; }
+  if (typeof toast === 'function') toast('Prototip onaylandı', 'success');
 }
 
 // ─── Düzenleme (doğrudan edit) ────────────────────────────────────────────────

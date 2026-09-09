@@ -3580,6 +3580,56 @@ def mockup_generate():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+_MOCKUP_BAK = "_mockup.bak.html"   # sohbetli düzeltme öncesi yedek (geri-al için); serve edilmez
+
+
+@app.route("/api/mockup/duzelt", methods=["POST"])
+def mockup_duzelt():
+    """Sohbetli iteratif prototip düzeltme: {talimat} → mockup.html güncellenir.
+    Düzeltmeden ÖNCE yedek alınır (geri-al mümkün). /api/mockup/generate ile aynı sync desen."""
+    data = request.get_json(silent=True) or {}
+    talimat = (data.get("talimat") or "").strip()
+    if not talimat:
+        return jsonify({"ok": False, "error": "Düzeltme talimatı boş olamaz."}), 400
+    mockup = OUTPUT_DIR / "mockup.html"
+    if not mockup.exists():
+        return jsonify({"ok": False, "error": "Önce 'HTML Prototip Oluştur' ile prototip üretin."}), 400
+    _bas = time.time()
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    _ai = "cli" if USE_CLAUDE_CLI else "api"
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    try:
+        # Geri-al için yedek (her düzeltmeden önce güncel hâli sakla)
+        try:
+            (OUTPUT_DIR / _MOCKUP_BAK).write_text(mockup.read_text(encoding="utf-8", errors="replace"),
+                                                  encoding="utf-8")
+        except Exception:
+            pass
+        from skills.html_mockup import html_mockup_duzelt
+        yol = html_mockup_duzelt(talimat)
+        _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai)
+        return jsonify({"ok": True, "dosya": yol.name, "boyut": yol.stat().st_size, "geri_al": True})
+    except Exception as e:
+        _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai)
+        logger.error(f"Mockup düzeltme hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/mockup/geri-al", methods=["POST"])
+def mockup_geri_al():
+    """Son sohbetli düzeltmeyi geri al — yedeği mockup.html'e geri yazar."""
+    bak = OUTPUT_DIR / _MOCKUP_BAK
+    if not bak.exists():
+        return jsonify({"ok": False, "error": "Geri alınacak bir düzeltme yok."}), 400
+    try:
+        (OUTPUT_DIR / "mockup.html").write_text(bak.read_text(encoding="utf-8", errors="replace"),
+                                                encoding="utf-8")
+        bak.unlink(missing_ok=True)   # tek adım geri-al (zincir değil)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # ─── Git Güncellemeleri ──────────────────────────────────────────────────────
 
 _git_lock = threading.Lock()

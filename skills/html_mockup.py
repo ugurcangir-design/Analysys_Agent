@@ -79,6 +79,46 @@ def html_mockup_uret() -> Path:
     return _kaydet("mockup.html", yanit)
 
 
+_MOCKUP_DUZELT_SISTEM = """\
+Deneyimli frontend geliştiricisin. Sana MEVCUT bir HTML prototipi ve analistin DÜZELTME \
+TALİMATI verilecek. Talimatı uygula ve prototipin TAMAMINI güncellenmiş haliyle döndür.
+
+Kurallar:
+- YALNIZ talimatın istediğini değiştir. Geri kalan yapı, içerik, stil, sınıflar ve çalışan \
+davranış (butonlar/formlar/sekme geçişleri) AYNEN korunmalı.
+- Tek HTML dosyası (CSS ve JS gömülü); dış CDN kullanabilirsin. Türkçe UI metinleri.
+- Tıklanabilir butonlar çalışsın; formlar submit'te sonuç göstersin.
+- Talimat belirsizse en makul yorumu uygula; prototipi bozma.
+- Yalnızca HTML içeriğini ver — başka açıklama ekleme, kod bloğu (```) işareti kullanma."""
+
+
+def html_mockup_duzelt(talimat: str) -> Path:
+    """Sohbetli iteratif düzeltme: output/mockup.html + analist talimatı → güncellenmiş mockup.html.
+    Chrome MCP açılmaz (saf HTML düzenleme). onbellek=False: aynı talimat farklı sonuç bekleyebilir."""
+    talimat = (talimat or "").strip()
+    if not talimat:
+        raise ValueError("Düzeltme talimatı boş olamaz.")
+    mockup = OUTPUT_DIR / "mockup.html"
+    if not mockup.exists():
+        raise FileNotFoundError("mockup.html yok. Önce 'HTML Prototip Oluştur' ile prototip üretin.")
+
+    mevcut = mockup.read_text(encoding="utf-8", errors="replace")[:MAX_CHARS_MOCKUP * 4]
+    icerik_parcalari = [
+        {"type": "text", "text": f"### MEVCUT PROTOTİP (mockup.html)\n\n{mevcut}"},
+        {"type": "text", "text": f"### DÜZELTME TALİMATI\n\n{talimat}"},
+    ]
+    yanit = _api_cagri(_MOCKUP_DUZELT_SISTEM,
+                       [{"role": "user", "content": icerik_parcalari}],
+                       max_tokens=MAX_TOKENS_MOCKUP, onbellek=False)
+    yanit = yanit.strip()
+    if yanit.startswith("```"):
+        satirlar = yanit.splitlines()
+        yanit = "\n".join(satirlar[1:])
+        if yanit.rstrip().endswith("```"):
+            yanit = yanit.rstrip()[:-3].rstrip()
+    return _kaydet("mockup.html", yanit)
+
+
 def mockup_oku_kontekst() -> str | None:
     """
     output/mockup.html varsa teknik analize dahil edilecek kısa özet döndür.
