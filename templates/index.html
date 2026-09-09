@@ -2192,6 +2192,15 @@ function temaDegistir() {
           <!-- ONAY_BEKLENIYOR -->
           <div id="surec-act-onay" style="display:none">
             <div class="action-desc">Süreç analizi tamamlandı. İnceledikten sonra teknik analiz için devam edin.</div>
+            <!-- ADIM SOHBETİ — basit: yalnız bu adımın çıktısını, ID/bölüm hedefli düzelt; otomatik uygulanır -->
+            <div class="mockup-gen-row" style="margin:8px 0 10px">
+              <span class="mono-meta" style="white-space:nowrap">Bu adımı düzelt:</span>
+              <input type="text" id="adim-sohbet-surec" autocomplete="off" style="flex:1;min-width:240px"
+                     placeholder="örn: PA-003'e iptal koşulu ekle · İş Kuralları bölümüne BR-007 ekle"
+                     onkeydown="if(event.key==='Enter')adimDuzelt('surec-analizi.md','adim-sohbet-surec','adim-sohbet-surec-msg')">
+              <button class="btn btn-primary btn-xs" id="adim-sohbet-surec-btn" onclick="adimDuzelt('surec-analizi.md','adim-sohbet-surec','adim-sohbet-surec-msg')">Uygula</button>
+              <span class="mockup-gen-msg" id="adim-sohbet-surec-msg"></span>
+            </div>
             <div class="btn-group">
               <button class="btn btn-success" onclick="onayla()">
                 <svg class="ico"><use href="#i-check"/></svg> Devam Et — Teknik Analiz Başlat
@@ -2214,16 +2223,29 @@ function temaDegistir() {
           <div id="surec-act-teknik-onay" style="display:none">
             <!-- İnceleme ekranı -->
             <div id="teknik-onay-review">
-              <div class="action-desc">Teknik analiz oluşturuldu. İnceleyip onaylayın veya revize isteyin.</div>
-              <div style="margin:10px 0 6px">
-                <textarea id="teknik-revize-not" rows="3" style="width:100%;box-sizing:border-box;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;resize:vertical" placeholder="Düzeltilmesi gereken bölümleri açıklayın..."></textarea>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-                  <button class="btn btn-outline btn-sm" id="btn-teknik-revize" onclick="teknikRevizeEt()">
-                    <svg class="ico"><use href="#i-refresh"/></svg> Revize Et
-                  </button>
-                  <span id="teknik-revize-msg" class="mono-meta" style="font-size:12px"></span>
-                </div>
+              <div class="action-desc">Teknik analiz oluşturuldu. İnceleyip onaylayın; gerekiyorsa bu adımı hedefli düzeltin veya süreç adımına dönün.</div>
+              <!-- ADIM SOHBETİ (teknik) — hedefli bölüm düzeltmesi, otomatik uygulanır -->
+              <div class="mockup-gen-row" style="margin:8px 0 6px">
+                <span class="mono-meta" style="white-space:nowrap">Bu adımı düzelt:</span>
+                <input type="text" id="adim-sohbet-teknik" autocomplete="off" style="flex:1;min-width:240px"
+                       placeholder="örn: T-BE-004 endpoint'ine sayfalama ekle · Güvenlik bölümünü genişlet"
+                       onkeydown="if(event.key==='Enter')adimDuzelt('teknik-analiz.md','adim-sohbet-teknik','adim-sohbet-teknik-msg')">
+                <button class="btn btn-primary btn-xs" id="adim-sohbet-teknik-btn" onclick="adimDuzelt('teknik-analiz.md','adim-sohbet-teknik','adim-sohbet-teknik-msg')">Uygula</button>
+                <span class="mockup-gen-msg" id="adim-sohbet-teknik-msg"></span>
               </div>
+              <!-- Tam yeniden-üretim: SON ÇARE (hedefli düzeltme bölüm bulamazsa) -->
+              <details style="margin:0 0 8px">
+                <summary style="cursor:pointer;font-size:12px;color:var(--text3)">Tam yeniden üret (son çare — düzeltme notuyla tüm teknik analizi yeniden yazar)</summary>
+                <div style="margin-top:6px">
+                  <textarea id="teknik-revize-not" rows="2" style="width:100%;box-sizing:border-box;resize:vertical" placeholder="Düzeltilmesi gereken bölümleri açıklayın..."></textarea>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                    <button class="btn btn-outline btn-sm" id="btn-teknik-revize" onclick="teknikRevizeEt()">
+                      <svg class="ico"><use href="#i-refresh"/></svg> Tam Yeniden Üret
+                    </button>
+                    <span id="teknik-revize-msg" class="mono-meta" style="font-size:12px"></span>
+                  </div>
+                </div>
+              </details>
               <div class="btn-group" style="margin-top:8px">
                 <button class="btn btn-success" onclick="teknikOnaylaBasla()">
                   <svg class="ico"><use href="#i-check"/></svg> Onayla
@@ -2232,6 +2254,7 @@ function temaDegistir() {
                   <svg class="ico"><use href="#i-stop"/></svg> Durdur
                 </button>
                 <button class="btn btn-outline btn-sm" onclick="switchTab('output','teknik-analiz.md')">Teknik Analizi İncele</button>
+                <button class="btn btn-outline btn-sm" onclick="surecAdiminaGeriDon()" title="Süreç analizi YENİDEN çalışmaz; hedefli düzeltip 'Devam Et' ile teknik güncellenir">◂ Süreç analizine dön</button>
               </div>
             </div>
             <!-- Jira sorusu (Onayla sonrası) -->
@@ -5763,6 +5786,56 @@ async function reddet() {
   if (!r.ok) { toast(d.error, 'error'); return; }
   toast('Reddedildi.', 'info');
   resetWorkflowUI();
+}
+
+// ── ADIM SOHBETİ — basit, adım-bağlı hedefli düzeltme (Faz 2) ──────────────────
+// Niyet yönlendirme YOK: hedef dosya adımdan belli. Talimattaki ID/bölüm adına göre yalnız o
+// bölüm düzenlenir ve OTOMATİK uygulanır (revizyon sürümü → Geri Al mümkün). Bölüm bulunamazsa
+// analiste tam yeniden-üretim (son çare) önerilir — asla sessizce tümü yeniden yazılmaz.
+async function adimDuzelt(dosya, inputId, msgId) {
+  const inp = document.getElementById(inputId), msg = document.getElementById(msgId);
+  const btn = document.getElementById(inputId + '-btn');
+  const talimat = (inp ? inp.value : '').trim();
+  if (!talimat) { toast('Bir düzeltme yazın — bölüm ID\'si (örn. PA-003) veya bölüm adı geçsin', 'info'); return; }
+  const setMsg = (t, cls) => { if (msg) { msg.className = 'mockup-gen-msg' + (cls ? ' ' + cls : ''); msg.textContent = t; } };
+  if (btn) btn.disabled = true; if (inp) inp.disabled = true;
+  setMsg('Hedef bölüm bulunuyor…');
+  try {
+    const r = await fetch('/api/adim/duzelt', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({dosya, talimat})});
+    const d = await r.json();
+    if (!d.ok) { setMsg(d.error || 'Düzeltilemedi', 'err'); return; }
+    if (d.tam_uretim_gerekli) {
+      setMsg('⚠ ' + d.mesaj + ' Talimata bir ID/bölüm adı ekleyin ya da "Tam yeniden üret"i kullanın.', 'err');
+      return;
+    }
+    setMsg(`"${d.anahtar}" bölümü düzenleniyor… (~20-40 sn)`);
+    // İlerleme: revizyon oturumu calisiyor=false olunca bitti
+    for (let i = 0; i < 90; i++) {
+      await new Promise(res => setTimeout(res, 2000));
+      const s = await (await fetch('/api/revizyon/' + dosya)).json();
+      if (!s.calisiyor) {
+        if (s.hata) { setMsg('Hata: ' + s.hata, 'err'); return; }
+        setMsg(`✓ "${d.anahtar}" düzeltildi ve uygulandı · Geri Al: Revizyon ekranı`, 'ok');
+        if (inp) inp.value = '';
+        refreshOutputTabs();
+        if (currentOutputFile === dosya && typeof outputSec === 'function') {
+          const t = document.querySelector('.output-tab.active'); if (t) outputSec(t);
+        }
+        return;
+      }
+    }
+    setMsg('Zaman aşımı — Revizyon ekranından durumu kontrol edin', 'err');
+  } catch (e) { setMsg('Hata: ' + e.message, 'err'); }
+  finally { if (btn) btn.disabled = false; if (inp) { inp.disabled = false; inp.focus(); } }
+}
+// Teknik onayından SÜREÇ onayına geri dön — süreç analizi YENİDEN ÇALIŞMAZ, teknik dosyası korunur.
+async function surecAdiminaGeriDon() {
+  if (!confirm('Süreç analizi adımına dönülecek. Süreç analizi yeniden ÇALIŞTIRILMAZ; teknik analiz dosyası korunur.\n\nSüreçte hedefli düzeltme yapıp "Devam Et" ile teknik analizi güncelleyebilirsiniz. Devam?')) return;
+  const r = await fetch('/api/geri-don', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error || 'Geri dönülemedi', 'error'); return; }
+  toast('Süreç analizi adımına dönüldü — düzeltip "Devam Et" deyin', 'info');
+  startPoll();
 }
 
 // ─── BRD Revize ──────────────────────────────────────────────────────────────

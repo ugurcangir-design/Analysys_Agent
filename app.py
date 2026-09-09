@@ -1135,6 +1135,19 @@ def reject():
     return jsonify({"ok": True, "durum": state["durum"]})
 
 
+@app.route("/api/geri-don", methods=["POST"])
+def geri_don():
+    """Teknik onayından SÜREÇ onayına geri dön — süreç analizi YENİDEN ÇALIŞMAZ, teknik dosyası
+    korunur. Analist süreçte hedefli düzeltme yapıp 'Devam Et' ile teknik analizi günceller."""
+    import workflow as wf
+    try:
+        state = wf.surec_adimina_geri_don()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+    logger.info("Analist süreç adımına geri döndü (yeniden çalıştırma yok).")
+    return jsonify({"ok": True, "durum": state["durum"]})
+
+
 @app.route("/api/upload-revised-brd", methods=["POST"])
 def upload_revised_brd():
     import workflow as wf
@@ -1447,6 +1460,75 @@ def revizyon_bolum_duzenle_endpoint(dosya_adi: str):
 
     threading.Thread(target=_calistir, daemon=True).start()
     return jsonify({"ok": True, "calisiyor": True})
+
+
+_ADIM_ID_DESEN = re.compile(r"\b((?:PA|BR|EK|EF|AF|AC|FR|NFR|Q|PO|T-FE|T-BE)-\d{1,4})\b", re.IGNORECASE)
+
+
+def _adim_hedef_bolum(dosya_adi: str, talimat: str) -> str | None:
+    """Adım-sohbet talimatından hedef bölümü türet: önce yapısal ID (PA-003…), yoksa talimatta
+    geçen bir bölüm başlığı. Bulunamazsa None → çağıran tam yeniden-üretime düşer."""
+    from skills.revizyon_ai import bolumlere_ayir
+    m = _ADIM_ID_DESEN.search(talimat)
+    if m:
+        return m.group(1).upper()
+    yol = OUTPUT_DIR / dosya_adi
+    if not yol.exists():
+        return None
+    t = talimat.casefold()
+    en_iyi = None
+    for b in bolumlere_ayir(yol.read_text(encoding="utf-8", errors="replace")):
+        if b["seviye"] == 0:
+            continue
+        bas = b["baslik"].strip().casefold()
+        # başlığın anlamlı (≥4 harf) kelimelerinden biri talimatta geçiyorsa aday
+        kelimeler = [k for k in re.split(r"\W+", bas) if len(k) >= 4]
+        if kelimeler and any(k in t for k in kelimeler):
+            if en_iyi is None or len(bas) > len(en_iyi):
+                en_iyi = b["baslik"].strip()
+    return en_iyi
+
+
+@app.route("/api/adim/duzelt", methods=["POST"])
+def adim_duzelt():
+    """ADIM SOHBETİ — basit, adım-bağlı düzeltme (niyet yönlendirme YOK). Body: {dosya, talimat}.
+    Hedef bölüm talimattaki ID/başlıktan türetilir → yalnız o bölüm AI ile düzenlenir ve
+    OTOMATİK uygulanır (revizyon oturumunda sürüm olur; Geri Al mümkün). Bölüm bulunamazsa
+    `tam_uretim_gerekli` döner; UI mevcut /api/rerun (tam yeniden-üretim) yolunu önerir.
+    Arka planda çalışır; ilerleme GET /api/revizyon/<dosya> (`calisiyor`) ile izlenir."""
+    data = request.get_json(silent=True) or {}
+    dosya = (data.get("dosya") or "").strip()
+    talimat = (data.get("talimat") or "").strip()
+    if dosya not in IZIN_VERILEN_CIKTILAR or not dosya.endswith(".md"):
+        return jsonify({"ok": False, "error": "Geçersiz dosya"}), 400
+    if not talimat:
+        return jsonify({"ok": False, "error": "Düzeltme talimatı boş"}), 400
+    if not (OUTPUT_DIR / dosya).exists():
+        return jsonify({"ok": False, "error": "Bu adımın çıktısı henüz yok"}), 400
+    anahtar = _adim_hedef_bolum(dosya, talimat)
+    if not anahtar:
+        return jsonify({"ok": True, "tam_uretim_gerekli": True,
+                        "mesaj": "Talimatta bir bölüm ID'si (örn. PA-003) veya bölüm adı geçmiyor — "
+                                 "hedefli düzeltme yapılamadı."})
+    if not _revizyon_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Başka bir düzenleme devam ediyor"}), 409
+    _revizyon_durum[dosya] = {"calisiyor": True, "hata": None}
+
+    def _calistir():
+        try:
+            from skills import revizyon, revizyon_ai
+            rev = revizyon_ai.bolum_duzenle(dosya, anahtar, talimat)
+            revizyon.onayla(dosya, rev["id"])          # otomatik uygula → gerçek çıktıya yaz
+            _revizyon_durum[dosya] = {"calisiyor": False, "hata": None, "anahtar": anahtar}
+            logger.info("Adım düzeltmesi uygulandı: %s / %s", dosya, anahtar)
+        except Exception as e:
+            logger.error("Adım düzeltme hatası (%s/%s): %s", dosya, anahtar, e)
+            _revizyon_durum[dosya] = {"calisiyor": False, "hata": str(e)}
+        finally:
+            _revizyon_lock.release()
+
+    threading.Thread(target=_calistir, daemon=True).start()
+    return jsonify({"ok": True, "calisiyor": True, "anahtar": anahtar})
 
 
 @app.route("/api/revizyon/<dosya_adi>/onayla", methods=["POST"])
@@ -2430,6 +2512,38 @@ def sorular_tumunu_sil():
 
 # Cevap uygulama ARKA PLANDA yürür — bloklayan refine (yeniden_calistir, timeout 1200 sn)
 # istek thread'ini tutmasın (rerun deseni). UI /api/sorular/uygula/durum ile ilerlemeyi sorgular.
+# Soru kaynağı → cevabın işleneceği ANALİZ dosyası (hedefli düzeltme için)
+_SORU_HEDEF_ANALIZ = {"acik-sorular.md": "teknik-analiz.md", "brd-sorular.md": "brd-analizi.md"}
+
+
+def _sorulari_hedefli_uygula(kaynak: str, sorular: list[dict]) -> dict:
+    """Cevapları TAM YENİDEN ÜRETİM yerine hedefli işle: her sorunun `bagli_id` bölümü analiz
+    dosyasında bulunursa yalnız o bölüm AI ile düzenlenir (revizyon oturumu, Geri Al mümkün);
+    bulunamayanlar toplanıp mevcut `yeniden_calistir` yoluna düşer (son çare)."""
+    from skills.sorular import duzeltme_notu_olustur
+    from skills import revizyon, revizyon_ai
+    from skills.base import yeniden_calistir
+    hedef = _SORU_HEDEF_ANALIZ.get(kaynak)
+    hedefli, kalan = 0, []
+    hedef_yol = OUTPUT_DIR / hedef if hedef else None
+    for s in sorular:
+        bid = (s.get("bagli_id") or "").strip()
+        if hedef_yol and hedef_yol.exists() and bid:
+            metin = hedef_yol.read_text(encoding="utf-8", errors="replace")
+            if revizyon_ai.bolum_bul(metin, bid):
+                try:
+                    rev = revizyon_ai.bolum_duzenle(hedef, bid, duzeltme_notu_olustur([s]))
+                    revizyon.onayla(hedef, rev["id"])
+                    hedefli += 1
+                    continue
+                except Exception as e:
+                    logger.warning("Hedefli soru uygulaması düşüyor (%s/%s): %s", hedef, bid, e)
+        kalan.append(s)
+    if kalan:
+        yeniden_calistir(kaynak, duzeltme_notu_olustur(kalan))
+    return {"hedefli": hedefli, "tam": len(kalan)}
+
+
 _sorular_uygula_lock = threading.Lock()
 _sorular_uygula_durum = {"calisiyor": False, "toplam": 0, "tamamlanan": 0,
                          "sonuclar": [], "mesaj": "", "bitti": None}
@@ -2462,8 +2576,7 @@ def sorular_uygula():
                                   "tamamlanan": 0, "sonuclar": [], "mesaj": "", "bitti": None})
 
     def _calistir(gruplar):
-        from skills.sorular import (duzeltme_notu_olustur, uygulandi_isaretle, parse_ve_birlestir)
-        from skills.base import yeniden_calistir
+        from skills.sorular import (uygulandi_isaretle, parse_ve_birlestir)
         sonuclar = []
         try:
             for kaynak, sorular in gruplar.items():
@@ -2473,11 +2586,12 @@ def sorular_uygula():
                     sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Dosya bulunamadı"})
                 else:
                     try:
-                        yeniden_calistir(kaynak, duzeltme_notu_olustur(sorular))
+                        ozet = _sorulari_hedefli_uygula(kaynak, sorular)   # hedefli; kalan → tam üretim
                         for s in sorular:
                             uygulandi_isaretle(s["id"], kaynak)
                         sonuclar.append({"kaynak_dosya": kaynak, "ok": True,
                                          "uygulanan_sayi": len(sorular),
+                                         "hedefli": ozet["hedefli"], "tam_uretim": ozet["tam"],
                                          "uygulanan_ids": [s["id"] for s in sorular]})
                         logger.info("Sorular uygulandı: %s — %d soru", kaynak, len(sorular))
                     except Exception as e:

@@ -11,7 +11,11 @@ POST /api/approve              Süreç analizi onayı
 POST /api/approve-teknik       Teknik analiz onayı (jira ile)
 POST /api/approve-teknik-no-jira
 POST /api/reject(-teknik)      Reddet
-POST /api/rerun                Düzeltme notu ile yeniden çalıştır
+POST /api/geri-don             Teknik onayından SÜREÇ onayına geri dön (süreç YENİDEN ÇALIŞMAZ, teknik dosyası korunur; 409 başka durumda)
+POST /api/adim/duzelt          Adım sohbeti: {dosya, talimat} → talimattaki ID/bölüm adına göre YALNIZ o bölüm AI ile düzenlenir
+                               ve otomatik uygulanır (arka plan; ilerleme GET /api/revizyon/<dosya> `calisiyor`).
+                               Bölüm bulunamazsa {tam_uretim_gerekli:true} → UI /api/rerun'ı son çare önerir.
+POST /api/rerun                Düzeltme notu ile TAM yeniden çalıştır (son çare)
 POST /api/reset                Workflow'u IDLE'a sıfırla
 POST /api/heartbeat            UI canlı sinyali (every 20s)
 POST /api/shutdown             DESKTOP_MODE'da sunucuyu kapat
@@ -94,8 +98,9 @@ POST   /api/sorular/parse              Çıktılardan soruları yeniden tara
 POST   /api/sorular/<id>               Durum/cevap/varsayım güncelle
 DELETE /api/sorular/<id>?kaynak_dosya  Soruyu defterden sil
 POST   /api/sorular/tumunu-sil         Tüm soruları sil (opsiyonel {"durum":...} filtresi)
-POST   /api/sorular/uygula             Cevapları refine ile analize işle — ARKA PLANDA (bloklamaz);
-                                       {ok, baslatildi, toplam} döner. İş daemon thread'de (rerun deseni).
+POST   /api/sorular/uygula             Cevapları analize işle — ARKA PLANDA (bloklamaz); {ok, baslatildi, toplam}.
+                                       HEDEFLİ: `bagli_id` bölümü hedef analizde bulunursa yalnız o bölüm düzenlenir
+                                       (revizyon sürümü); bulunamayanlar tam `yeniden_calistir`'a düşer.
 GET    /api/sorular/uygula/durum       İlerleme (UI polling): {calisiyor, toplam, tamamlanan, sonuclar[], mesaj, bitti}
 GET    /api/sorular/paylasim           Bekleyen soruları metin export
 ```

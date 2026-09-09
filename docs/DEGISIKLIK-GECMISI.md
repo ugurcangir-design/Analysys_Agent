@@ -468,3 +468,16 @@ geri yüklüyordu; `_lastState` yoksa (workflow analizi hiç çalışmadıysa) �
 workflow durumu; diğer ekranlar → nötr "Hazır" (`_topbarNotr`, `_jgSonDurum`'a dokunmaz → JG'ye dönünce
 geri gelir). Doğrulandı: JG "3 görev çekildi" → Mutabakat/Ayarlar "Hazır" → JG'ye dönüş "3 görev çekildi";
 Süreç (state yok) "Hazır". NUL yok.
+
+## Faz 2 — Adım sohbeti + geri dönüş + hedefli soru uygulaması ✅
+Kullanıcı ilkesi: "adım adım gitmeli; analist geri dönebilmeli; bir sonraki adımda sorun görünce ÖNCEKİ adımı
+yeniden çalıştırmak zorunda kalmamalı; tek sohbet karmaşık olmamalı". Uygulanan:
+- **Adım sohbeti** (`POST /api/adim/duzelt`): süreç ve teknik onay kapılarında tek satır "Bu adımı düzelt".
+  Hedef dosya adımdan bellidir; hedef bölüm talimattaki ID (PA-003, T-BE-004…) veya bölüm adından türetilir →
+  yalnız o bölüm `bolum_duzenle` ile düzenlenir ve otomatik uygulanır (Revizyon'dan Geri Al). Bölüm
+  bulunamazsa analiste söylenir; "Tam yeniden üret" (`/api/rerun`) `<details>` içinde SON ÇARE.
+- **◂ Süreç analizine dön** (`POST /api/geri-don`, `wf.surec_adimina_geri_don`): TEKNIK_ONAY → ONAY_BEKLENIYOR
+  geçişi; süreç yeniden çalışmaz, teknik dosyası korunur.
+- **Soru cevapları hedefli** (`_sorulari_hedefli_uygula`): `bagli_id` bölümü varsa yalnız o bölüm; kalanlar
+  tam üretime düşer.
+Smoke test: geri-don 409 + adim/duzelt 400 doğrulamaları eklendi. ruff temiz.

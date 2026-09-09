@@ -62,6 +62,13 @@ kontrol("oturum ok + katalog", o.get("ok") and len(o.get("ciktilar", [])) >= 9)
 su = json_al(istemci.get("/api/sorular/uygula/durum"))
 kontrol("sorular/uygula-durum ok (idle)", su.get("ok") and su.get("calisiyor") is False)
 
+# ── Adım sohbeti (Faz 2): geri-don yalnız teknik-onay durumunda; adim/duzelt doğrulamaları ──
+kontrol("geri-don teknik-onay dışı → 409", istemci.post("/api/geri-don", headers=ORIGIN).status_code == 409)
+r = istemci.post("/api/adim/duzelt", json={"dosya": "yok.md", "talimat": "x"}, headers=ORIGIN)
+kontrol("adim/duzelt geçersiz dosya → 400", r.status_code == 400)
+r = istemci.post("/api/adim/duzelt", json={"dosya": "surec-analizi.md", "talimat": ""}, headers=ORIGIN)
+kontrol("adim/duzelt boş talimat → 400", r.status_code == 400)
+
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog", g.get("ok") and len(g.get("katalog", [])) >= 10)
 
