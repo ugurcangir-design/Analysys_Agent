@@ -2312,6 +2312,7 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
             "önceliğin bu kapsamı UÇTAN UCA ve DERİNLEMESİNE incelemek. Kapsam dışı bölümleri "
             "yalnızca bu akışı doğrudan etkilediği kadar gözle.\n\n"
             f"{sirali}\n\n"
+            f"{ornek_ekran_notu}"
             f"{giris_notu}"
             "ODAKLI GÖZLEM KAPSAMI (analist tanımladı):\n"
             f"{gozlem_kapsami}\n\n"
@@ -2767,7 +2768,10 @@ def live_app_mcp_config_yaz() -> Path | None:
             "playwright": {
                 "command": npx,
                 "args": [
-                    "-y", "@playwright/mcp@latest",
+                    # Sürüm PİNLİ — @latest yükseltmesi bir aracı yeniden adlandırır veya
+                    # capability arkasına taşırsa LIVE_APP_ALLOWED_TOOLS eşleşmesi bozulur →
+                    # araç sessizce reddedilip gözlem yapılmaz. Yükseltme bilinçli yapılmalı.
+                    "-y", "@playwright/mcp@0.0.80",
                     "--headless",
                     "--browser", "chrome",
                     "--user-data-dir", str(LIVE_APP_PROFILE_DIR),
@@ -2932,6 +2936,21 @@ def cli_durum_probe() -> dict:
     return cli_durum_oku()
 
 
+def _canli_app_sifre_redakte(metin: str) -> str:
+    """Belt-and-suspenders: prompt'taki 'şifreyi çıktıya yazma' kuralına EK olarak,
+    yapılandırılmış canlı-uygulama giriş şifresi çıktıda görünürse DETERMİNİSTİK temizle.
+    Model kurala uymazsa şifrenin output/'a + API cache'ine yazılmasını önler."""
+    try:
+        ctx = load_context_filter() or {}
+        sifre = str((ctx.get("live_app_auth") or {}).get("password") or "").strip()
+        if sifre and len(sifre) >= 4 and sifre in metin:
+            metin = metin.replace(sifre, "«redakte»")
+            logger.warning("Canlı-uygulama şifresi çıktıda görüldü ve redakte edildi (prompt kuralına ek güvenlik).")
+    except Exception:
+        pass
+    return metin
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -3047,6 +3066,21 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
         raise RuntimeError("claude CLI 'result' alanı boş döndü.")
     _cli_durum_yaz(True, None, kaynak="analiz")   # başarılı çağrı → CLI kullanılabilir
 
+    # Canlı gözlem İSTENDİ ama GERÇEKLEŞMEMİŞ olabilir mi? (sessiz-düşüş tespiti — Faz 7)
+    # Tek turn (hiç araç kullanılmadı) veya browser aracı reddi → MCP/Chrome erişilememiş
+    # olabilir; analiz URL'lere dayalı iddiaları DOĞRULANMAMIŞ üretmiş olabilir. Sessiz
+    # kalmasın: net uyarı logla + subprocess çıktısına yaz (analist app log'unda görür).
+    if canli_uygulama_kapsami and _live_args:
+        _denials = veri.get("permission_denials") or []
+        _turns = veri.get("num_turns") or 0
+        _browser_reddi = any(("playwright" in str(d) or "browser" in str(d)) for d in _denials)
+        if _browser_reddi or _turns <= 1:
+            logger.warning(
+                "⚠ CANLI GÖZLEM YAPILMAMIŞ OLABİLİR — MCP/Chrome erişilemedi veya araç reddedildi "
+                "(num_turns=%s, reddedilen=%s). URL'lere dayalı iddialar doğrulanmalı.", _turns, _denials)
+            print("  ⚠ Canlı uygulama gözlemi gerçekleşmemiş olabilir (MCP/Chrome erişilemedi / araç reddedildi) — "
+                  "URL'lere dayalı iddialar DOĞRULANMALI.")
+
     # Çıktı token limitine takılıp KESİLDİYSE kullanıcıyı uyar — eksik
     # analizin sessizce "tam" sanılmasını önler.
     stop = veri.get("stop_reason")
@@ -3055,7 +3089,7 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
             "claude CLI çıktısı '%s' nedeniyle erken bitti (num_turns=%s) — "
             "analiz eksik olabilir.", stop, veri.get("num_turns"),
         )
-    return yanit
+    return _canli_app_sifre_redakte(yanit)
 
 
 _RETRY_DENEMELER = 3

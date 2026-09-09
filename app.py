@@ -2931,8 +2931,10 @@ def live_app_durum():
     ?scope=gorev → Jira Görevleri'nin KENDİ hedefi (live_app_gorev) kontrol edilir;
     varsayılan (scope yok) → Süreç/Teknik Analiz'in live_app'i. Profil/npx durumu
     ikisi için de aynı Chrome profilini paylaştığından ortak, yalnızca urls/hedef değişir."""
-    from skills.base import _npx_yolu_bul, live_app_urls, gorev_live_app_urls, live_app_profil_var_mi
+    from skills.base import (_npx_yolu_bul, live_app_urls, gorev_live_app_urls,
+                             live_app_profil_var_mi, _claude_yolu_bul, USE_CLAUDE_CLI)
     npx = bool(_npx_yolu_bul())
+    claude_var = bool(_claude_yolu_bul())
     urls = gorev_live_app_urls() if request.args.get("scope") == "gorev" else live_app_urls()
     profil = live_app_profil_var_mi()
     return jsonify({
@@ -2940,7 +2942,10 @@ def live_app_durum():
         "npx": npx,
         "urls": urls,
         "profil": profil,   # profil hazır (giriş yapıldığını KANITLAMAZ)
-        "hazir": bool(npx and urls and profil),
+        "cli_modu": bool(USE_CLAUDE_CLI),   # canlı gözlem yalnız CLI yolunda (claude -p) çalışır
+        "claude_var": claude_var,
+        # hazir: canlı gözlemin FİİLEN mümkün olması için CLI modu + claude + npx + url + profil
+        "hazir": bool(npx and urls and profil and USE_CLAUDE_CLI and claude_var),
         "hedef": urls[0] if urls else "",
     })
 
