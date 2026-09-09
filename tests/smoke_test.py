@@ -52,6 +52,9 @@ govde = r.get_data(as_text=True)
 for pid in ("page-pano", "page-surec", "page-ciktilar", "page-revizyon", "page-delta", "page-yetki", "og-banner", "pl-overlay"):
     kontrol(f"render {pid}", f'id="{pid}"' in govde)
 kontrol("ds.css link", "/static/ds.css" in govde)
+kontrol("ray görünümü kapları + klasik paneller korunmuş",
+        'id="surec-ray"' in govde and 'id="brd-ray"' in govde and govde.count('gorunum-klasik') >= 4
+        and 'id="surec-act-teknik-onay"' in govde and 'id="btn-sadece-teknik"' in govde)
 kontrol("GET /static/ds.css 200", istemci.get("/static/ds.css").status_code == 200)
 
 me = json_al(istemci.get("/api/auth/me"))

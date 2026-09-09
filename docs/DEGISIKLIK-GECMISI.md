@@ -501,3 +501,19 @@ deterministik regex kuralları (kullanım limiti, oturum düştü, API anahtarı
 model, dosya, doküman okunamadı, model yanıtı, alt süreç; eşleşmezse ilk satır başlık, traceback atılır).
 `workflow.ozet()` → `hata_ozet`; UI hata kartı başlık + ne oldu + **Ne yapmalı** + katlanabilir teknik iz; toast
 yalnız başlık. Smoke +6 (41). ruff temiz.
+
+## Ray görünümü — Süreç/Teknik ve BRD ekranlarında tek kolon adım akışı (geri dönüşlü) ✅
+Kullanıcı: "uygula ancak eski yapıyı yedekle… sadece teknik analiz yapısı korunmalı, tüm analiz ve HTML prototip
+sohbet özelliği korunmalı, akışlar bozulmamalı". Yaklaşım — EK KATMAN, kopya değil:
+- Klasik paneller (yatay adım şeridi + Girdi paneli) DOM'da durur, `.gorunum-klasik` ile gizlenir.
+- Aksiyon blokları (`surec-act-*`, `brd-act-*`) aktif adımın `.ray-body`'sine TAŞINIR (`_rayTasi`, yalnız slot
+  değişince → odak/yazılan metin korunur). Onayla/Devam Et, Durdur, Sadece Teknik Analiz, adım sohbeti, HTML
+  prototip + sohbetle düzeltme, Tam yeniden üret, ◂ Süreç analizine dön, Jira sorusu — hepsi aynı DOM + aynı fonksiyon.
+- Durum makinesine (`updateUI`/`_setVisible`/`updateSteps`) dokunulmadı; `_rayRender` sonuna eklendi.
+- Ray: Süreç 6 adım (Girdi · Süreç analizi · Süreç onayı · Teknik analiz · Teknik onayı · Jira), BRD 4 adım.
+  Renk: kırmızı çalışıyor · amber sıra sende · yeşil bitti · kırmızı-dolu hata (aktif adım yerinde kalır).
+  Biten adıma tıkla → ilgili çıktı dosyası açılır. Bağlam Filtresi / Gelişmiş rayın altında aynen.
+- **Geri dönüş:** ekran başlığında "Klasik görünüm" düğmesi (`gorunumDegistir`, localStorage `gorunum`) blokları
+  orijinal panele geri taşır — anında, yeniden başlatma yok. Git yedeği: tag `klasik-surec-ekrani-yedek`.
+Doğrulama (tarayıcı, simüle durumlar): idle/çalışıyor/süreç onayı/teknik onayı/klasik geçiş/BRD — bloklar doğru
+slotta, JARVIS HUD çalışma geçişinde açılıyor. Smoke 45.

@@ -478,6 +478,41 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 }
 .ph p { font-size: 12.5px; color: var(--text2); margin: 0; }
 .ph-actions { display: flex; gap: 6px; align-items: center; }
+/* ── RAY görünümü (tek kolon adım akışı). Klasik paneller .gorunum-klasik ile gizlenir; geri dönüş anında. ── */
+body.gorunum-ray .gorunum-klasik { display: none !important; }
+.ray { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.ray-st { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+  display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; transition: border-color .2s, box-shadow .2s, opacity .2s; }
+.ray-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: 'Geist Mono', monospace; font-size: 12px; border: 1.5px solid var(--border-strong); color: var(--text3); }
+.ray-t { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--text); }
+.ray-s { color: var(--text3); font-size: 12px; margin-top: 1px; }
+.ray-r { display: flex; gap: 8px; align-items: center; justify-content: flex-end; font-size: 12px; color: var(--text3); white-space: nowrap; }
+.ray-body { grid-column: 2 / 4; margin-top: 6px; min-width: 0; }
+.ray-st.done { padding: 9px 16px; opacity: .88; cursor: pointer; }
+.ray-st.done .ray-num { background: var(--green); border-color: var(--green); color: #0B1F17; }
+.ray-st.done .ray-t { font-size: 13px; }
+.ray-st.done .ray-body, .ray-st.next .ray-body { display: none; }
+.ray-st.next { opacity: .5; }
+.ray-st.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ray-st.active .ray-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ray-st.run { border-color: var(--run); box-shadow: 0 0 0 3px rgba(239,68,68,.15); }
+.ray-st.run .ray-num { background: transparent; border-color: var(--run); color: var(--run); animation: rayPulse 1.4s infinite; }
+.ray-st.turn { border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(245,158,11,.15); }
+.ray-st.turn .ray-num { background: var(--yellow); border-color: var(--yellow); color: #1A1200; }
+.ray-st.err { border-color: var(--red); box-shadow: 0 0 0 3px rgba(239,68,68,.15); }
+.ray-st.err .ray-num { background: var(--red); border-color: var(--red); color: #fff; }
+.ray-st.final { grid-template-columns: 1fr; }
+.ray-st.final .ray-body { grid-column: 1; margin-top: 0; }
+.ray-chip { display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist Mono', monospace; font-size: 10.5px; padding: 3px 9px;
+  border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text2); }
+.ray-chip.ok { border-color: rgba(52,211,153,.45); color: var(--green); }
+.ray-chip.turn { border-color: rgba(245,158,11,.5); color: var(--yellow); }
+.ray-chip.run { border-color: rgba(239,68,68,.5); color: var(--run); }
+.ray-chip .d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+@keyframes rayPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.5); } 60% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+/* ray içinde aksiyon bloklarının üst boşluğu */
+.ray-body > div > .action-desc:first-child { margin-top: 0; }
 
 /* ── Panel — base card ────────────────────────────────────────── */
 .panel {
@@ -2102,10 +2137,15 @@ function temaDegistir() {
           <h1>Süreç/Teknik Analiz</h1>
           <p>Süreç dokümanını analiz et, analist onayı sonrası teknik analiz ve Jira hiyerarşisi üret.</p>
         </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm gorunum-btn" onclick="gorunumDegistir()" title="Tek kolon adım rayı ↔ klasik yatay şerit + panel">Klasik görünüm</button></div>
       </div>
 
-      <!-- Step rail -->
-      <div class="panel" style="margin-bottom:14px">
+      <!-- RAY GÖRÜNÜMÜ (tek kolon adım akışı) — JS ile kurulur; klasik paneller DOM'da KORUNUR (gorunum-klasik),
+           aksiyon blokları (surec-act-*) aktif adımın içine TAŞINIR (kopya değil) → tüm akış/sohbet aynen çalışır. -->
+      <div class="ray" id="surec-ray" style="display:none"></div>
+
+      <!-- Step rail (klasik) -->
+      <div class="panel gorunum-klasik" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">İş Akışı</span>
           <span class="panel-tag">4 ADIM</span>
@@ -2136,8 +2176,8 @@ function temaDegistir() {
         </div>
       </div>
 
-      <!-- Aksiyon alanı -->
-      <div class="panel" style="margin-bottom:14px">
+      <!-- Aksiyon alanı (klasik) -->
+      <div class="panel gorunum-klasik" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">Girdi Dokümanı</span>
           <span class="panel-tag">ADIM 1 · GİRDİ</span>
@@ -2428,10 +2468,13 @@ function temaDegistir() {
           <h1>BRD Pipeline</h1>
           <p>BRD dokümanını analiz et, sorular üret, PO revizyonu sonrası kapsam analizi yap.</p>
         </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm gorunum-btn" onclick="gorunumDegistir()">Klasik görünüm</button></div>
       </div>
 
-      <!-- Step rail -->
-      <div class="panel" style="margin-bottom:14px">
+      <div class="ray" id="brd-ray" style="display:none"></div>
+
+      <!-- Step rail (klasik) -->
+      <div class="panel gorunum-klasik" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">İş Akışı</span>
           <span class="panel-tag">3 ADIM</span>
@@ -2456,7 +2499,7 @@ function temaDegistir() {
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel gorunum-klasik">
         <div class="panel-head">
           <span class="panel-title">Girdi Dokümanı</span>
           <span class="panel-tag">STEP 1/3</span>
@@ -5298,6 +5341,7 @@ function updateUI(s) {
 
   updateSteps(s.durum);
   _stepSureTakip(s.durum);
+  _rayRender('surec', s); _rayRender('brd', s);
 
   const busy = s.calisiyor || bekliyor;
   document.getElementById('btn-surec').disabled = busy || !selectedFiles.surec;
@@ -5422,7 +5466,136 @@ function resetWorkflowUI() {
   _setVisible('brd-act-idle', true);
   for (let i=1;i<=4;i++) setStep('surec',i,'');
   for (let i=1;i<=3;i++) setStep('brd',i,'');
+  _rayRender('surec', null); _rayRender('brd', null);
 }
+
+// ─── RAY GÖRÜNÜMÜ — tek kolon adım akışı (ek katman, geri dönüşlü) ──────────────
+// İlke: Klasik yapı DOM'da KORUNUR (.gorunum-klasik gizlenir). Aksiyon blokları (surec-act-* / brd-act-*)
+// KOPYALANMAZ, aktif adımın .ray-body'sine TAŞINIR → onay/adım sohbeti/prototip sohbeti/Sadece Teknik Analiz/
+// Durdur/Jira akışlarının tamamı aynı DOM ve aynı fonksiyonlarla çalışır. "Klasik görünüm" düğmesi blokları
+// orijinal panele geri taşır (localStorage 'gorunum'). Durum makinesine (updateUI/_setVisible) dokunulmaz.
+const _RAY = {
+  surec: {
+    steps: [
+      {t:'Girdi dokümanı',          s:'PDF · DOCX · MD · TXT'},
+      {t:'Süreç analizi',           s:'AI süreç dokümanını analiz eder'},
+      {t:'Analist onayı — süreç',   s:'İncele, hedefli düzelt, devam et'},
+      {t:'Teknik analiz',           s:'Süreçten FE/BE teknik analiz'},
+      {t:'Analist onayı — teknik',  s:'İncele, düzelt veya süreç adımına dön'},
+      {t:'Jira hiyerarşisi',        s:'Epic / Story / Subtask oluştur'},
+    ],
+    nodes: ['surec-act-idle','surec-act-running','surec-act-onay','surec-act-teknik-onay','surec-act-done','surec-act-error'],
+    idx: {idle:0, surec_analizi_calisiyor:1, onay_bekleniyor:2, teknik_analiz_calisiyor:3,
+          teknik_analiz_onay_bekleniyor:4, jira_gonderiliyor:5, jira_tamamlandi:6, surec_tamamlandi:6},
+    run: ['surec_analizi_calisiyor','teknik_analiz_calisiyor','jira_gonderiliyor'],
+    turn: ['onay_bekleniyor','teknik_analiz_onay_bekleniyor'],
+    dur: {1:'dur-surec-1', 2:'dur-surec-2', 3:'dur-surec-3', 5:'dur-surec-4'},
+    dosya: 'uploaded-surec-name',
+    ac: {1:'surec-analizi.md', 2:'surec-analizi.md', 3:'teknik-analiz.md', 4:'teknik-analiz.md', 5:'jira-sonuc.txt'},
+  },
+  brd: {
+    steps: [
+      {t:'Girdi dokümanı',        s:'BRD · PDF · DOCX · MD'},
+      {t:'BRD analizi + sorular', s:'AI BRD\'yi analiz eder, PO soruları üretir'},
+      {t:'PO revizyonu',          s:'Soruları PO ile kapat, revize BRD yükle veya devam et'},
+      {t:'Kapsam analizi',        s:'Revize BRD\'den kapsam analizi'},
+    ],
+    nodes: ['brd-act-idle','brd-act-running','brd-act-revize','brd-act-done','brd-act-error'],
+    idx: {idle:0, brd_analizi_calisiyor:1, brd_revize_bekleniyor:2, kapsam_analizi_calisiyor:3, brd_tamamlandi:4},
+    run: ['brd_analizi_calisiyor','kapsam_analizi_calisiyor'],
+    turn: ['brd_revize_bekleniyor'],
+    dur: {1:'dur-brd-1', 2:'dur-brd-2', 3:'dur-brd-3'},
+    dosya: 'uploaded-brd-name',
+    ac: {1:'brd-analizi.md', 2:'brd-sorular.md', 3:'kapsam-analizi.md'},
+  },
+};
+let _rayAktif = true;
+try { _rayAktif = (localStorage.getItem('gorunum') || 'ray') === 'ray'; } catch (e) {}
+const _rayOrijinal = {};   // pipeline → aksiyon bloklarının klasik ebeveyni (panel-body)
+const _raySon = {};        // pipeline → son aktif adım (hata durumunda yerinde kalsın)
+const _raySlot = {};       // pipeline → blokların şu an durduğu slot indeksi
+
+function _rayChip(t, c) { return `<span class="ray-chip ${c||''}"><span class="d"></span>${escHtml(t)}</span>`; }
+
+function _rayInit(p) {
+  const cfg = _RAY[p], kap = document.getElementById(p + '-ray');
+  if (!cfg || !kap || kap.dataset.hazir) return;
+  const ilk = document.getElementById(cfg.nodes[0]);
+  if (ilk) _rayOrijinal[p] = ilk.parentNode;
+  kap.innerHTML = cfg.steps.map((st, i) => `
+    <div class="ray-st next" id="${p}-ray-${i}" data-i="${i}">
+      <div class="ray-num">${i + 1}</div>
+      <div><div class="ray-t">${escHtml(st.t)}</div><div class="ray-s">${escHtml(st.s)}</div></div>
+      <div class="ray-r" id="${p}-ray-r-${i}"></div>
+      <div class="ray-body" id="${p}-ray-b-${i}"></div>
+    </div>`).join('') +
+    `<div class="ray-st final active" id="${p}-ray-${cfg.steps.length}" style="display:none"><div class="ray-body" id="${p}-ray-b-${cfg.steps.length}"></div></div>`;
+  // Biten adıma tıkla → ilgili çıktı dosyasını aç (geri bakmak için)
+  kap.querySelectorAll('.ray-st[data-i]').forEach(el => el.addEventListener('click', ev => {
+    if (!el.classList.contains('done') || ev.target.closest('button,a,input,textarea,select')) return;
+    const d = cfg.ac[+el.dataset.i]; if (d) switchTab('output', d);
+  }));
+  kap.dataset.hazir = '1';
+}
+
+// Aksiyon bloklarını hedef slota taşı (yalnız slot değişince — odak/yazılan metin korunur)
+function _rayTasi(p, slot) {
+  const cfg = _RAY[p];
+  const hedef = slot === null ? _rayOrijinal[p] : document.getElementById(`${p}-ray-b-${slot}`);
+  if (!hedef || _raySlot[p] === slot) return;
+  cfg.nodes.forEach(id => { const n = document.getElementById(id); if (n) hedef.appendChild(n); });
+  _raySlot[p] = slot;
+}
+
+function _rayRender(p, s) {
+  const cfg = _RAY[p]; if (!cfg) return;
+  _rayInit(p);
+  if (!_rayAktif) return;
+  const durum = s ? s.durum : 'idle';
+  const benim = s && (durum === 'hata' ? _activePipeline === p : cfg.idx[durum] !== undefined);
+  let idx = benim ? cfg.idx[durum] : 0;
+  const hata = benim && durum === 'hata';
+  if (hata) idx = _raySon[p] ?? 0;
+  if (idx === undefined) idx = 0;
+  _raySon[p] = idx;
+  const N = cfg.steps.length, bitti = idx >= N;
+  for (let i = 0; i < N; i++) {
+    const el = document.getElementById(`${p}-ray-${i}`), r = document.getElementById(`${p}-ray-r-${i}`);
+    if (!el) continue;
+    let cls = 'ray-st ', right = '';
+    if (bitti || i < idx) {
+      cls += 'done';
+      const dEl = cfg.dur[i] && document.getElementById(cfg.dur[i]);
+      const sure = dEl && dEl.textContent.trim();
+      if (i === 0) { const f = document.getElementById(cfg.dosya); right = _rayChip((f && f.textContent.trim()) || 'Hazır', 'ok'); }
+      else right = _rayChip(sure || 'tamam', 'ok');
+    } else if (i === idx) {
+      if (hata) { cls += 'active err'; right = _rayChip('hata', 'run'); }
+      else if (cfg.run.includes(durum)) { cls += 'active run'; right = _rayChip('çalışıyor', 'run'); }
+      else if (cfg.turn.includes(durum)) { cls += 'active turn'; right = _rayChip('sıra sende', 'turn'); }
+      else cls += 'active';
+    } else cls += 'next';
+    el.className = cls; el.querySelector('.ray-num').textContent = (bitti || i < idx) ? '✓' : String(i + 1);
+    if (r) r.innerHTML = right;
+  }
+  const fin = document.getElementById(`${p}-ray-${N}`); if (fin) fin.style.display = bitti ? '' : 'none';
+  _rayTasi(p, bitti ? N : idx);
+}
+
+function _rayUygula(on) {
+  _rayAktif = on;
+  try { localStorage.setItem('gorunum', on ? 'ray' : 'klasik'); } catch (e) {}
+  document.body.classList.toggle('gorunum-ray', on);
+  document.querySelectorAll('.gorunum-btn').forEach(b => b.textContent = on ? 'Klasik görünüm' : 'Ray görünümü');
+  ['surec', 'brd'].forEach(p => {
+    _rayInit(p);
+    const kap = document.getElementById(p + '-ray'); if (kap) kap.style.display = on ? '' : 'none';
+    if (on) { _raySlot[p] = undefined; _rayRender(p, _lastState); }
+    else { _rayTasi(p, null); }
+  });
+}
+function gorunumDegistir() { _rayUygula(!_rayAktif); toast(_rayAktif ? 'Ray görünümü (tek kolon adım akışı)' : 'Klasik görünüm — eski yapı', 'info'); }
+document.addEventListener('DOMContentLoaded', () => _rayUygula(_rayAktif));
 
 // ─── File upload ──────────────────────────────────────────────────────────────
 function dosyaSec(input, pipeline) {
