@@ -1614,6 +1614,22 @@ def oturum_ozeti():
                                 if rev else 0,
         })
 
+    # YETİM DURUM UZLAŞTIRMASI: workflow "onay bekliyor / tamamlandı" diyor ama backing
+    # çıktı GÜNCEL değil (0 güncel çıktı — çıktı önceki oturumdan, bayat). Bu durumda statü
+    # tutarsız görünür ("Analist onayı bekleniyor" ama GÜNCEL ÇIKTI 0). Kendini iyileştir:
+    # workflow'u sıfırla, idle göster. (Çalışan analiz DOKUNULMAZ.)
+    _guncel_sayi = sum(1 for c in ciktilar if c["var"] and c["tazelik"] == "guncel")
+    _settled = (ozet.get("onay_bekleniyor") or ozet.get("teknik_onay_bekleniyor")
+                or ozet.get("brd_revize_bekleniyor") or ozet.get("tamamlandi"))
+    if _settled and not ozet.get("calisiyor") and _guncel_sayi == 0:
+        try:
+            _wf.sifirla()
+            ozet = _wf.ozet()
+            jira_key = None
+            logger.info("Yetim workflow durumu (settled ama 0 güncel çıktı) — sıfırlandı, idle gösteriliyor.")
+        except Exception:
+            pass
+
     arsiv = []
     try:
         for d in sorted(HISTORY_DIR.iterdir(), reverse=True):
