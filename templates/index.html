@@ -5104,6 +5104,8 @@ function _setVisible(id, visible) {
 
 // ─── Kalıcı işlem çipi + İşlem Modu (JARVIS HUD) ──────────────────────────────
 let _islemModuAcik = false;
+let _oncekiCalisiyor = false;      // çalışıyor→çalışıyor geçişini yakala (İşlem Modu'nu bir kez otomatik aç)
+let _hudManuelKapatildi = false;   // analist HUD'u kapattıysa aynı koşuda tekrar açma
 const _STEP_NO = {
   surec_analizi_calisiyor:'1/4', onay_bekleniyor:'2/4', teknik_analiz_calisiyor:'3/4',
   teknik_analiz_onay_bekleniyor:'3/4', jira_gonderiliyor:'4/4',
@@ -5124,13 +5126,21 @@ function _updateRunChip(s){
     const bas = _stepStart[s.durum];
     if (meta) meta.textContent = bas ? _fmtSure(Date.now() - bas) : '';
     if (sep) sep.style.display = '';
+    // Yeni bir çalışma başladıysa (çalışmıyor → çalışıyor) İşlem Modu'nu (JARVIS HUD)
+    // öne getir — analist analiz sırasında zengin görseli görsün. Kapatırsa arka planda sürer.
+    if (!_oncekiCalisiyor) _hudManuelKapatildi = false;
+    if (!_islemModuAcik && !_hudManuelKapatildi) islemModuAc();
+    _oncekiCalisiyor = true;
   } else if (bekliyor) {
     chip.className = 'run-chip show waiting';
     if (lbl) lbl.textContent = 'Onayınızda';
     if (sep) sep.style.display = '';
+    _oncekiCalisiyor = false;
+    if (_islemModuAcik) islemModuKapat();
   } else {
     chip.className = 'run-chip';
     if (sep) sep.style.display = 'none';
+    _oncekiCalisiyor = false;
     if (_islemModuAcik) islemModuKapat();
   }
   if (_islemModuAcik && running) {
@@ -5156,6 +5166,7 @@ function islemModuAc(){
 function islemModuKapat(){
   const el = document.getElementById('islem-modu'); if (el) el.classList.remove('show');
   _islemModuAcik = false;
+  _hudManuelKapatildi = true;   // aynı koşuda otomatik tekrar açma (yeni koşuda sıfırlanır)
 }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _islemModuAcik) islemModuKapat(); });
 
