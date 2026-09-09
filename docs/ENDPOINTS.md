@@ -204,6 +204,18 @@ POST /api/analiz-mcp   {postgres:{aktif,baglanti}, jira:{aktif,komut,args}} (bo�
 mcp__postgres__query …`; `_api_cagri_cli`'de canlı-app aktif DEĞİLSE eklenir (--strict tekil). UI: Kod ekranı
 "Analiz veri kaynakları" paneli; `/api/saglik` `veri_kaynak`. Gerçek analiz provası: kota + canlı bağlantı (analist).
 
+## Analiz modeli (CLI) — v2.1 (API key gerekmez)
+CLI modunda analiz modeli arayüzden seçilir (mevcut Claude.ai aboneliği/lisansı; API key gerekmez).
+`base.aktif_cli_model()` `.env`/`os.environ`'dan CANLI okur → değişiklik **yeniden başlatmadan** geçerli
+(subprocess `run.py` zaten taze okur; in-process çağrılar + `/api/saglik` görünümü de canlı). Seçenekler:
+`CLI_MODEL_SECENEKLER = (sonnet, opus, haiku)`.
+```
+GET  /api/settings   ... + cli_model (aktif), cli_model_secenekler[]
+POST /api/settings   ... + cli_model (allowlist doğrulama → CLAUDE_CLI_MODEL .env'e yazılır)
+```
+UI: Ana Sayfa panosu AI/Kota kartında `<select>` (CLI modunda). `--model` DAİMA açıkça geçilir
+(yoksa Claude Code premium varsayılan seçebilir → istenmeyen kota).
+
 ## Confluence + diğer
 ```
 POST /api/confluence/publish   Markdown → Confluence sayfası

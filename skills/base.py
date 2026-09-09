@@ -33,6 +33,16 @@ USE_CLAUDE_CLI = os.getenv("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "
 # Varsayılan "sonnet" (analiz için dengeli; Fable/Opus premium modellerinden kaçınır).
 CLAUDE_CLI_MODEL = os.getenv("CLAUDE_CLI_MODEL", "sonnet").strip()
 
+# CLI modunda analistin arayüzden seçebileceği model takma adları (API key GEREKMEZ —
+# mevcut Claude.ai aboneliği/lisansı ile). Availability plana/kotaya bağlıdır.
+CLI_MODEL_SECENEKLER = ("sonnet", "opus", "haiku")
+
+
+def aktif_cli_model() -> str:
+    """Analiz için kullanılacak GÜNCEL CLI modeli — .env/os.environ'dan CANLI okunur
+    (arayüzden değiştirilince yeniden başlatmadan geçerli olsun). Boşsa varsayılan."""
+    return (os.getenv("CLAUDE_CLI_MODEL") or CLAUDE_CLI_MODEL or "sonnet").strip()
+
 if not USE_CLAUDE_CLI:
     try:
         import anthropic
@@ -2934,7 +2944,8 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
         except Exception:
             _analiz_mcp_args = []
     # --model DAİMA açıkça geçilir → Claude Code'un varsayılan (ör. Fable) modeli KULLANILMAZ.
-    _model_args = ["--model", CLAUDE_CLI_MODEL] if CLAUDE_CLI_MODEL else []
+    _aktif_model = aktif_cli_model()   # canlı okuma → arayüzden değişince restart gerekmez
+    _model_args = ["--model", _aktif_model] if _aktif_model else []
     proc = subprocess.run(
         [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args, *_analiz_mcp_args],
         input=tam_prompt,

@@ -1788,7 +1788,7 @@ def saglik():
     """Tek bakışta sistem durumu: sürüm, AI/CLI, güncelleme, workflow, MCP, disk, auth."""
     import platform
     from flask import __version__ as flask_surumu
-    from skills.base import USE_CLAUDE_CLI, cli_durum_oku, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    from skills.base import USE_CLAUDE_CLI, cli_durum_oku, aktif_cli_model, MODEL_ANALIZ, CLI_MODEL_SECENEKLER
     import workflow as _wf
 
     v = version_bilgi().get_json()
@@ -1816,7 +1816,8 @@ def saglik():
         "veri_kaynak": veri_kaynak,
         "surum": {"hash": v.get("hash"), "mesaj": v.get("mesaj"), "tarih": v.get("tarih"), "dal": g.get("dal")},
         "ai": {"modu": "cli" if USE_CLAUDE_CLI else "api",
-               "model": CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ,
+               "model": aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ,
+               "model_secenekler": list(CLI_MODEL_SECENEKLER) if USE_CLAUDE_CLI else [],
                "cli_uygun": cli.get("available"), "cli_reset": cli.get("reset"), "cli_kontrol": cli.get("checked_at")},
         "guncelleme": {"otomatik": g.get("otomatik"), "yeni_surum": g.get("yeni_surum"), "behind": g.get("behind"),
                        "engel": g.get("engel"), "son_kontrol": g.get("son_kontrol"), "hata": g.get("hata")},
@@ -2202,6 +2203,7 @@ def kullanici_sifre_degistir(username):
 
 @app.route("/api/settings", methods=["GET"])
 def settings_oku():
+    from skills.base import aktif_cli_model, CLI_MODEL_SECENEKLER
     env = _env_oku()
     api_key = env.get("ANTHROPIC_API_KEY", "")
     cli_mod = env.get("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "yes")
@@ -2212,6 +2214,8 @@ def settings_oku():
         "cli_mod": cli_mod,
         "claude_cli_var": _claude_cli_var_mi(),
         "extended_thinking": thinking,
+        "cli_model": aktif_cli_model(),                 # CLI modunda analiz modeli (API key gerekmez)
+        "cli_model_secenekler": list(CLI_MODEL_SECENEKLER),
     })
 
 
@@ -2237,12 +2241,21 @@ def settings_kaydet():
         degisiklikler["EXTENDED_THINKING"] = deger
         os.environ["EXTENDED_THINKING"] = deger
 
+    if "cli_model" in data:
+        from skills.base import CLI_MODEL_SECENEKLER
+        m = (data.get("cli_model") or "").strip()
+        if m not in CLI_MODEL_SECENEKLER:
+            return jsonify({"error": f"Geçersiz model. Seçenekler: {', '.join(CLI_MODEL_SECENEKLER)}"}), 400
+        degisiklikler["CLAUDE_CLI_MODEL"] = m
+        os.environ["CLAUDE_CLI_MODEL"] = m   # canlı okuma (aktif_cli_model) hemen görür — restart gerekmez
+
     if not degisiklikler:
         return jsonify({"error": "Değiştirilecek ayar yok"}), 400
 
     _env_yaz(degisiklikler)
     logger.info(f"Ayarlar güncellendi: {list(degisiklikler.keys())}")
 
+    from skills.base import aktif_cli_model
     env = _env_oku()
     api_key_guncel = env.get("ANTHROPIC_API_KEY", "")
     return jsonify({
@@ -2250,6 +2263,7 @@ def settings_kaydet():
         "masked": _maskele(api_key_guncel) if api_key_guncel else "",
         "cli_mod": env.get("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "yes"),
         "extended_thinking": env.get("EXTENDED_THINKING", "false").lower() in ("1", "true", "yes"),
+        "cli_model": aktif_cli_model(),
     })
 
 
@@ -3348,9 +3362,9 @@ def jira_gorev_analiz():
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
     _bas = time.time()
-    from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
-    _model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
     try:
         from skills.jira_gorevleri import gorev_analiz_et
         sonuc = gorev_analiz_et(gorev)
@@ -3520,9 +3534,9 @@ def mockup_generate():
     if not surec_dosya.exists():
         return jsonify({"ok": False, "error": "surec-analizi.md bulunamadı. Önce süreç analizi yapın."}), 400
     _bas = time.time()
-    from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai = "cli" if USE_CLAUDE_CLI else "api"
-    _model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
     try:
         from skills.html_mockup import html_mockup_uret
         yol = html_mockup_uret()
