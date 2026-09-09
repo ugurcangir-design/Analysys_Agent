@@ -32,7 +32,11 @@ olduğu gibi yerleştirir). Böylece:
   `switchTab` kancası (`rzYukle`) ve crumb etiketi `index.html`'de. **Dikkat:** partial Jinja ile
   render edildiğinden CSS/JS'te `{#`, `{{`, `{%` dizilerinden kaçın (ör. `@media(...){ #id` —
   `{` ile `#` arasına boşluk).
-- Kalan eski ekranlar hâlâ `index.html` içinde satır-içi; **Faz 2**'de kademeli taşınacak.
+- **`ciktilar.html`** — Faz 2.1: aktif oturum + tazelik/köken/sürüm + arşiv (`/api/oturum`, `ds-*`).
+- **`delta.html`** — Faz 2.2: Delta/CR analizi Süreç ekranından ayrı ekrana taşındı (`da-*` ID'leri
+  korundu; JS index.html'de). Statik — `switchTab` kancası gerekmez.
+- Bileşen dili: `static/ds.css` (`ds-*`). Yeni ekranlar bu vokabülerden kurulur.
+- Kalan eski ekranlar hâlâ `index.html` içinde satır-içi; kademeli taşınacak.
 
 ## Yeni ekran ekleme adımları (hedeflenen akış)
 

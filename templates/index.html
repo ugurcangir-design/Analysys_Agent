@@ -1796,6 +1796,10 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-clipboard"/></svg>
         <span class="nav-label">BRD Analizi</span>
       </div>
+      <div class="nav-item" id="nav-delta" onclick="switchTab('delta')">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="nav-label">Delta / CR Analizi</span>
+      </div>
       <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
         <svg class="ico"><use href="#i-ticket"/></svg>
         <span class="nav-label">Jira Görevleri</span>
@@ -1953,7 +1957,7 @@ function temaDegistir() {
       <div class="panel" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">Girdi Dokümanı</span>
-          <span class="panel-tag">STEP 1/4</span>
+          <span class="panel-tag">ADIM 1 · GİRDİ</span>
           <span class="panel-spacer"></span>
         </div>
         <div class="panel-body">
@@ -2085,59 +2089,10 @@ function temaDegistir() {
         </div>
       </div>
 
-      <!-- Özel Prompt (opsiyonel — varsayılan promptların YERİNE geçer) -->
-      <div class="ctx-toggle" id="op-toggle" onclick="toggleOzelPrompt()">
-        <svg class="ico"><use href="#i-edit"/></svg>
-        <span class="ctx-toggle-label">Özel Prompt</span>
-        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Doldurursanız ilgili analiz VARSAYILAN sistem promptu yerine buradaki promptla çalışır. Boş bırakılan alan için mevcut prompt kullanılır. Kalıcı prompt düzenlemesi için Sistem Promptları ekranını kullanın.">?</span>
-        <span id="op-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
-        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
-      </div>
-      <div class="ctx-fields" id="op-fields">
-        <div class="ctx-grid2">
-          <div>
-            <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
-            <div class="ctx-field-sub">Doluysa varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
-            <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
-          </div>
-          <div>
-            <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
-            <div class="ctx-field-sub">Doluysa BUNU kullanır; boşsa süreç özel promptu teknik analize de taşınır (tek prompt tüm pipeline'ı yönetir). Çıktı biçimi (XML) otomatik korunur</div>
-            <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-outline btn-sm" onclick="ozelPromptKaydet()">Kaydet</button>
-          <button class="btn btn-outline btn-sm" onclick="ozelPromptTemizle()">Temizle</button>
-          <span id="op-save-status" class="mono-meta"></span>
-        </div>
-      </div>
-
-      <!-- CR / Delta Analizi — mevcut teknik analizin üzerine değişiklik isteği -->
-      <div class="ctx-toggle" id="da-toggle" onclick="toggleDeltaAnaliz()">
-        <svg class="ico"><use href="#i-refresh"/></svg>
-        <span class="ctx-toggle-label">CR / Delta Analizi</span>
-        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Test ortamına çıkmış bir özellik için gelen değişiklik isteğini (CR) veya bug-fix talebini mevcut teknik analizin ÜZERİNE delta olarak işler — tam analiz tekrarı yapılmaz. Mevcut teknik-analiz.md gerekir. Bağlam Filtresi (referanslar + canlı uygulama) delta analizinde de geçerlidir.">?</span>
-        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
-      </div>
-      <div class="ctx-fields" id="da-fields">
-        <div>
-          <div class="ctx-field-label">Değişiklik İsteği (CR / bug-fix tarifi)</div>
-          <div class="ctx-field-sub">Mevcut teknik analizle karşılaştırılır; yalnızca DELTA raporu üretilir: etkilenen bölümler, değişen gereksinimler, regresyon riski → delta-analizi.md</div>
-          <textarea class="ctx-input" id="da-cr-metni" rows="5" placeholder="örn: Tournament Market ekranındaki hiyerarşik görünüme kategori seviyesinde toplam market sayısı kolonu eklenecek; mevcut filtreler bu kolonu da etkilemeli."></textarea>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-primary btn-sm" id="da-baslat-btn" onclick="deltaAnaliziBaslat()">
-            <svg class="ico"><use href="#i-play"/></svg> Delta Analizi Üret
-          </button>
-          <span id="da-status" class="mono-meta"></span>
-        </div>
-      </div>
-
-      <!-- Bağlam Filtresi -->
+      <!-- Bağlam Filtresi — HAZIRLIK adımı (üretimden önce). Faz 2.2: Girdi panelinin hemen altına taşındı -->
       <div class="ctx-toggle" id="ctx-toggle" onclick="toggleCtx()">
         <svg class="ico"><use href="#i-filter"/></svg>
-        <span class="ctx-toggle-label">Bağlam Filtresi</span>
+        <span class="ctx-toggle-label">Bağlam Filtresi <span class="ds-panel-tag" style="margin-left:8px">HAZIRLIK · ÜRETİMDEN ÖNCE</span></span>
         <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="AI'a hangi referansları (Confluence, Jira, Swagger, canlı uygulama) göstermek istediğinizi daraltır. Canlı uygulama URL'leri doluysa Claude MCP/Chrome ile ekran ve servis gözlemi analize dahil edilir.">?</span>
         <span id="ctx-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
         <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
@@ -2228,6 +2183,34 @@ function temaDegistir() {
           <span id="ctx-save-status" class="mono-meta"></span>
         </div>
       </div>
+      <!-- Gelişmiş — Özel Prompt (opsiyonel; varsayılan promptların YERİNE geçer). Faz 2.2: en alta, progressive disclosure -->
+      <div class="ctx-toggle" id="op-toggle" onclick="toggleOzelPrompt()">
+        <svg class="ico"><use href="#i-edit"/></svg>
+        <span class="ctx-toggle-label">Gelişmiş — Özel Prompt <span class="ds-panel-tag" style="margin-left:8px;background:var(--surface2);color:var(--text3)">İSTEĞE BAĞLI</span></span>
+        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Doldurursanız ilgili analiz VARSAYILAN sistem promptu yerine buradaki promptla çalışır. Boş bırakılan alan için mevcut prompt kullanılır. Kalıcı prompt düzenlemesi için Sistem Promptları ekranını kullanın.">?</span>
+        <span id="op-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
+        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div class="ctx-fields" id="op-fields">
+        <div class="ctx-grid2">
+          <div>
+            <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
+            <div class="ctx-field-sub">Doluysa varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
+            <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
+          </div>
+          <div>
+            <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
+            <div class="ctx-field-sub">Doluysa BUNU kullanır; boşsa süreç özel promptu teknik analize de taşınır (tek prompt tüm pipeline'ı yönetir). Çıktı biçimi (XML) otomatik korunur</div>
+            <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="ozelPromptKaydet()">Kaydet</button>
+          <button class="btn btn-outline btn-sm" onclick="ozelPromptTemizle()">Temizle</button>
+          <span id="op-save-status" class="mono-meta"></span>
+        </div>
+      </div>
+
     </div>
 
     <!-- ─── BRD ANALİZİ ─── -->
@@ -3303,6 +3286,7 @@ python cli.py ui ~/export.zip</pre>
 
     {# EKRAN PARTIALLARI — Faz 0 modülerleştirme (bkz. templates/screens/README.md).
        Her ekran kendi markup + davranışını ayrı dosyada taşır, burada include edilir. #}
+    {% include "screens/delta.html" %}
     {% include "screens/ciktilar.html" %}
     {% include "screens/revizyon.html" %}
     {% include "screens/kilavuz.html" %}
@@ -3362,7 +3346,7 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Görüntüleyici',ciktilar:'Çıktılar',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.

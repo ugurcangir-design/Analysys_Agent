@@ -1,0 +1,42 @@
+    <!-- EKRAN: Delta / CR Analizi (v2 Faz 2.2) — Süreç ekranından ayrı bir giriş moduna taşındı.
+         Mevcut teknik analizin ÜZERİNE değişiklik isteğini delta olarak işler.
+         ID'ler (da-fields, da-cr-metni, da-baslat-btn, da-status) korunur → mevcut
+         deltaAnaliziBaslat() JS'i aynen çalışır. Bağlam Filtresi (Süreç ekranı, Hazırlık) burada da geçerlidir. -->
+    <div class="page" id="page-delta">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Delta / CR Analizi</h1>
+          <p>Test ortamına çıkmış bir özellik için gelen değişiklik isteğini (CR) veya bug-fix talebini mevcut teknik analizin üzerine işler — tam analiz tekrarı yapılmaz.</p>
+        </div>
+      </div>
+
+      <div class="ds-callout" style="margin-bottom:14px">
+        <div class="grow">
+          <div class="ct">Ne zaman kullanılır?</div>
+          <p>Mevcut <b>teknik-analiz.md</b> varken, üzerine gelen değişiklik için. Yalnızca DELTA raporu üretilir: etkilenen bölümler, değişen gereksinimler, regresyon riski → <b>delta-analizi.md</b>. Bağlam Filtresi (Süreç ekranı · Hazırlık) burada da geçerlidir.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Değişiklik İsteği</span>
+          <span class="ds-panel-tag">MEVCUT ANALİZ ÜZERİNE</span>
+          <span class="panel-spacer"></span>
+        </div>
+        <div class="panel-body">
+          <div class="ctx-fields open" id="da-fields" style="display:flex;padding:0">
+            <div>
+              <div class="ctx-field-label">CR / bug-fix tarifi</div>
+              <div class="ctx-field-sub">Mevcut teknik analizle karşılaştırılır; yalnızca DELTA raporu üretilir.</div>
+              <textarea class="ctx-input" id="da-cr-metni" rows="7" placeholder="örn: Tournament Market ekranındaki hiyerarşik görünüme kategori seviyesinde toplam market sayısı kolonu eklenecek; mevcut filtreler bu kolonu da etkilemeli."></textarea>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn-primary btn-sm" id="da-baslat-btn" onclick="deltaAnaliziBaslat()">
+                <svg class="ico"><use href="#i-play"/></svg> Delta Analizi Üret
+              </button>
+              <span id="da-status" class="mono-meta"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>

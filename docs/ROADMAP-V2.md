@@ -129,7 +129,11 @@ Kaynak öneri artifact: `18f4d542-52ca-4705-8633-960ca079dfca`.
 - ✅ 2.1 Çıktılar — `/api/oturum` (tazelik: çıktı mtime ≥ oturum başlangıcı → güncel) +
   `templates/screens/ciktilar.html` (oturum barı, kaynak/zaman/sürüm + rozet, arşiv, boş durum).
   Eski görüntüleyici "Görüntüleyici" olarak kaldı; "İncele" ona devreder. Tarayıcıda doğrulandı.
-- 2.2 Süreç ekranı yeniden kurgu (Bağlam Filtresi/Delta/Özel Prompt doğru aşamalara) + revizyon entegrasyonu
+- ✅ 2.2 Süreç ekranı yeniden kurgu — ID/handler'lara dokunmadan cerrahi yeniden sıralama:
+  Girdi → **Bağlam Filtresi** (etiket: HAZIRLIK · ÜRETİMDEN ÖNCE) → **Gelişmiş — Özel Prompt**
+  (İSTEĞE BAĞLI, en altta). **Delta / CR** ayrı ekran (`screens/delta.html`, nav Pipeline altında;
+  `da-*` ID'leri korundu → mevcut `deltaAnaliziBaslat()` aynen çalışır). Tarayıcıda doğrulandı.
+  (Revizyon panelinin süreç ekranına gömülmesi 2.6'ya bırakıldı — Revizyon ekranı zaten var.)
 - 2.3 Menü / bilgi mimarisi (iş akışına göre, rol-duyarlı)
 - 2.4 Kullanıcı yönetimi + Owner/Analist + görünürlük yönetimi + aksiyon denetim logu
 - 2.5 Otomatik güncelleme & yeniden başlatma
