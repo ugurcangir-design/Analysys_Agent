@@ -1640,11 +1640,22 @@ def oturum_ozeti():
     except Exception:
         pass
 
+    # Canlı gözlem raporu (makine-doğrulanmış; yalnız bu oturuma aitse)
+    try:
+        from skills.base import gozlem_durum_oku, GOZLEM_DURUM_DOSYA
+        gozlem = gozlem_durum_oku()
+        if gozlem and baslangic and GOZLEM_DURUM_DOSYA.exists() \
+                and GOZLEM_DURUM_DOSYA.stat().st_mtime < baslangic:
+            gozlem = None   # önceki oturuma ait — gösterme
+    except Exception:
+        gozlem = None
+
     return jsonify({
         "ok": True,
         "dokuman": dokuman,
         "baslangic": baslangic,
         "workflow": ozet,
+        "gozlem": gozlem,
         "jira_key": jira_key,
         "ciktilar": ciktilar,
         "arsiv": arsiv[:HISTORY_LIMIT],

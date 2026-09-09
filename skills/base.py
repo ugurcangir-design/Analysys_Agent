@@ -2936,6 +2936,33 @@ def cli_durum_probe() -> dict:
     return cli_durum_oku()
 
 
+GOZLEM_DURUM_DOSYA = OUTPUT_DIR / ".gozlem-durum.json"
+
+
+def _gozlem_durum_yaz(yapildi: bool, turns: int, reddedilen: list, kapsam: str) -> None:
+    """Son canlı-uygulama gözlem denemesinin MAKİNE-DOĞRULANMIŞ durumu (UI 'Gözlem Raporu'
+    rozeti). Model öz-raporundan bağımsız: num_turns/permission_denials'a dayanır. Fail-safe."""
+    try:
+        from datetime import datetime
+        GOZLEM_DURUM_DOSYA.parent.mkdir(parents=True, exist_ok=True)
+        GOZLEM_DURUM_DOSYA.write_text(json.dumps({
+            "yapildi": bool(yapildi), "num_turns": int(turns or 0),
+            "reddedilen": list(reddedilen or []), "kapsam": kapsam,
+            "zaman": datetime.now().isoformat(timespec="seconds"),
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def gozlem_durum_oku() -> dict | None:
+    try:
+        if GOZLEM_DURUM_DOSYA.exists():
+            return json.loads(GOZLEM_DURUM_DOSYA.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
+
 def _canli_app_sifre_redakte(metin: str) -> str:
     """Belt-and-suspenders: prompt'taki 'şifreyi çıktıya yazma' kuralına EK olarak,
     yapılandırılmış canlı-uygulama giriş şifresi çıktıda görünürse DETERMİNİSTİK temizle.
@@ -3074,7 +3101,11 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
         _denials = veri.get("permission_denials") or []
         _turns = veri.get("num_turns") or 0
         _browser_reddi = any(("playwright" in str(d) or "browser" in str(d)) for d in _denials)
-        if _browser_reddi or _turns <= 1:
+        _yapildi = not (_browser_reddi or _turns <= 1)
+        # UI'nın "Gözlem Raporu" rozeti için makine-doğrulanmış durum (log'un yanında).
+        _gozlem_durum_yaz(yapildi=_yapildi, turns=_turns, reddedilen=[str(d)[:120] for d in _denials],
+                          kapsam=canli_uygulama_kapsami)
+        if not _yapildi:
             logger.warning(
                 "⚠ CANLI GÖZLEM YAPILMAMIŞ OLABİLİR — MCP/Chrome erişilemedi veya araç reddedildi "
                 "(num_turns=%s, reddedilen=%s). URL'lere dayalı iddialar doğrulanmalı.", _turns, _denials)

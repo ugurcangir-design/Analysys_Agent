@@ -1067,6 +1067,24 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 
 /* ── Markdown ──────────────────────────────────────────────────── */
 .md-body { font-size: 13px; line-height: 1.7; color: var(--text); }
+
+/* ── Kanıt çipleri: [K: …] kaynak etiketleri görünür kanıt (gerçek veri > BRD ilkesi) ── */
+.k-chip { display: inline-flex; align-items: center; gap: 4px; font-family: 'Geist Mono', monospace;
+  font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; vertical-align: baseline;
+  white-space: nowrap; line-height: 1.5; border: 1px solid transparent; }
+.k-chip.gercek     { background: var(--green-soft);  color: var(--green); }          /* Swagger · Canlı UI · Network */
+.k-chip.doc        { background: var(--blue-soft);   color: var(--blue); }           /* Confluence */
+.k-chip.brd        { background: var(--surface2);    color: var(--text2); border-color: var(--border); } /* BRD/Süreç */
+.k-chip.jira       { background: var(--accent-soft); color: var(--accent-deep); }    /* Jira */
+.k-chip.turetilmis { background: var(--yellow-soft); color: var(--yellow); }         /* dolaylı çıkarsama */
+.k-chip.belirsiz   { background: var(--red-soft);    color: var(--red); }            /* kaynaksız — doğrulanmalı */
+.k-ozet { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; color: var(--text2); }
+.k-ozet .k-t { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em; color: var(--text3); text-transform: uppercase; }
+.k-ozet .sep { width: 1px; height: 14px; background: var(--border); }
+.gozlem-rozet { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; padding: 3px 10px; border-radius: 999px; }
+.gozlem-rozet.ok  { background: var(--green-soft); color: var(--green); }
+.gozlem-rozet.yok { background: var(--red-soft); color: var(--red); }
 .md-body h1 {
   font-size: 19px; font-weight: 600;
   margin: 20px 0 8px;
@@ -5881,6 +5899,8 @@ async function outputSec(tab) {
   content.className = 'output-content';
   content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
   mermaidRender(content);
+  _kanitCipleriIsle(content);                        // [K: …] → renkli kanıt çipleri + özet
+  _gozlemRozetiGoster(content, currentOutputFile);   // canlı gözlem GERÇEKTEN yapıldı mı
   actions.style.display = 'flex';
 
   // Jira hiyerarşi satırını göster (sadece teknik-analiz.md için)
@@ -5888,6 +5908,76 @@ async function outputSec(tab) {
 
   // Confluence space varsa yayımla satırını göster
   _confPublishRowGuncelle();
+}
+
+// ─── Kanıt çipleri — [K: …] kaynak etiketlerini görünür kanıta çevir ───────────
+// "Gerçek veri > BRD" ilkesini analiste HİSSETTİRİR: kaynaksız/doğrulanmamış iddia tek bakışta.
+function _kanitSinif(ic) {
+  const s = ic.toLowerCase();
+  if (s.includes('belirsiz') || s.includes('❓')) return 'belirsiz';
+  if (s.includes('türetilmiş') || s.includes('turetilmis') || s.includes('🔍')) return 'turetilmis';
+  if (s.includes('swagger') || s.includes('network') || s.includes('canlı') || s.includes('canli')) return 'gercek';
+  if (s.includes('confluence')) return 'doc';
+  if (s.includes('jira')) return 'jira';
+  return 'brd';
+}
+function _kanitCipleriIsle(root) {
+  const body = root.querySelector('.md-body'); if (!body) return;
+  const say = { gercek:0, doc:0, brd:0, jira:0, turetilmis:0, belirsiz:0 };
+  // Yalnız METİN düğümlerinde değiştir — tag/attribute'lara dokunmaz (güvenli)
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  const hedefler = [];
+  let n; while ((n = walker.nextNode())) { if (/\[(?:K:\s*)?[^\]]*(?:§|Swagger|Confluence|Canlı|Network|Jira|Türetilmiş|Belirsiz|❓|🔍)[^\]]*\]/.test(n.nodeValue)) hedefler.push(n); }
+  const re = /\[(?:K:\s*)?([^\]]*(?:§|Swagger|Confluence|Canlı|Network|Jira|Türetilmiş|Belirsiz|❓|🔍)[^\]]*)\]/g;
+  hedefler.forEach(t => {
+    if (t.parentElement && t.parentElement.closest('code, pre, .k-chip')) return;
+    const frag = document.createDocumentFragment(); let son = 0, m;
+    const txt = t.nodeValue; re.lastIndex = 0;
+    while ((m = re.exec(txt))) {
+      if (m.index > son) frag.appendChild(document.createTextNode(txt.slice(son, m.index)));
+      const cls = _kanitSinif(m[1]); say[cls]++;
+      const sp = document.createElement('span'); sp.className = 'k-chip ' + cls;
+      sp.title = { gercek:'Gerçek veri (Swagger / canlı gözlem) — en güvenilir', doc:'Confluence dokümantasyonu',
+                   brd:'BRD / süreç dokümanı — isteği tarif eder, hatalı olabilir', jira:'Jira geçmiş kararı',
+                   turetilmis:'Dolaylı çıkarsama — doğrulanmalı', belirsiz:'KAYNAKSIZ — hiçbir kaynakta yok, doğrulanmalı' }[cls];
+      sp.textContent = m[1].replace(/^\s*K:\s*/, '').trim();
+      frag.appendChild(sp); son = re.lastIndex;
+    }
+    if (son < txt.length) frag.appendChild(document.createTextNode(txt.slice(son)));
+    t.parentNode.replaceChild(frag, t);
+  });
+  const toplam = Object.values(say).reduce((a,b)=>a+b, 0);
+  if (!toplam) return;
+  const dogrulanmamis = say.turetilmis + say.belirsiz;
+  const ozet = document.createElement('div'); ozet.className = 'k-ozet'; ozet.id = 'k-ozet';
+  ozet.innerHTML = `<span class="k-t">Kanıt</span><span><b>${toplam}</b> kaynak etiketi</span><span class="sep"></span>
+    <span class="k-chip gercek">${say.gercek} gerçek veri</span>
+    ${say.doc ? `<span class="k-chip doc">${say.doc} Confluence</span>` : ''}
+    ${say.brd ? `<span class="k-chip brd">${say.brd} BRD/süreç</span>` : ''}
+    ${say.jira ? `<span class="k-chip jira">${say.jira} Jira</span>` : ''}
+    ${say.turetilmis ? `<span class="k-chip turetilmis">${say.turetilmis} türetilmiş</span>` : ''}
+    ${say.belirsiz ? `<span class="k-chip belirsiz">${say.belirsiz} kaynaksız</span>` : ''}
+    ${dogrulanmamis ? `<span class="sep"></span><span style="color:var(--yellow)">⚠ <b>${dogrulanmamis}</b> iddia doğrulanmalı</span>` : ''}`;
+  body.parentNode.insertBefore(ozet, body);
+}
+// Canlı gözlem gerçekten yapıldı mı? (makine-doğrulanmış — /api/oturum.gozlem). Süreç/teknik için.
+async function _gozlemRozetiGoster(root, dosya) {
+  if (!['surec-analizi.md', 'teknik-analiz.md'].includes(dosya)) return;
+  try {
+    const d = await (await fetch('/api/oturum')).json();
+    const g = d.gozlem; if (!g) return;
+    let ozet = root.querySelector('#k-ozet');
+    if (!ozet) { ozet = document.createElement('div'); ozet.className = 'k-ozet'; ozet.id = 'k-ozet';
+                 ozet.innerHTML = '<span class="k-t">Kanıt</span>'; const b = root.querySelector('.md-body'); if (b) b.parentNode.insertBefore(ozet, b); }
+    const r = document.createElement('span');
+    r.className = 'gozlem-rozet ' + (g.yapildi ? 'ok' : 'yok');
+    r.textContent = g.yapildi ? `🌐 Canlı gözlem yapıldı · ${g.num_turns} tur`
+                              : '⚠ Canlı gözlem YAPILAMADI — URL iddiaları doğrulanmadı';
+    r.title = g.yapildi ? 'MCP/Chrome ile gerçek uygulama gezildi (araç kullanımı doğrulandı)'
+                        : 'MCP/Chrome erişilemedi veya tarayıcı aracı reddedildi (num_turns=' + g.num_turns + ')';
+    ozet.appendChild(document.createElement('span')).className = 'sep';
+    ozet.appendChild(r);
+  } catch (e) {}
 }
 
 function _confPublishRowGuncelle() {

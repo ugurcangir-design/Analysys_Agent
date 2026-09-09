@@ -121,7 +121,8 @@ Kalıcı veri: `output/revizyon/<slug>.json` + `output/revizyon/<slug>/<vid>.md`
 ## Analiz Oturumu — v2 Faz 2.1 (Çıktılar ekranı; 0 token, deterministik)
 ```
 GET  /api/oturum   Aktif oturum: girdi dokümanı, başlangıç (workflow ilk adımı, yoksa girdi mtime),
-                   workflow özeti, jira_key; ciktilar[] (etiket/kaynak/var/guncelleme/
+                   workflow özeti, jira_key, gozlem{yapildi,num_turns,reddedilen,kapsam,zaman}
+                   (canlı gözlem makine-doğrulanmış durumu; önceki oturuma aitse null); ciktilar[] (etiket/kaynak/var/guncelleme/
                    tazelik=guncel|eski|yok/aktif_versiyon/bekleyen/onayli_revizyon); arsiv[] (history/)
 ```
 Tazelik kuralı: çıktı mtime ≥ oturum başlangıcı → **güncel**, değilse **eski** (önceki oturumdan).
