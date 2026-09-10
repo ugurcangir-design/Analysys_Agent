@@ -3428,13 +3428,24 @@ JIRA_ENV_KEYS = ["JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_PROJECT_KEY",
 @app.route("/api/jira/config", methods=["GET"])
 def jira_config_oku():
     env = _env_oku()
+    connected = bool(env.get("JIRA_ACCESS_TOKEN") and env.get("JIRA_CLOUD_ID"))
+    # Site adresi OTOMATİK algılanır (accessible-resources). Elle "Jira URL" alanı yalnız yedek;
+    # bağlıysa gerçek siteyi verip UI'da salt-okunur gösterelim (elle giriş 'Gelişmiş' altında kalır).
+    site_url = ""
+    if connected:
+        try:
+            from skills.atlassian import jira_site_url
+            site_url = jira_site_url()
+        except Exception:
+            site_url = ""
     return jsonify({
         "client_id":     env.get("JIRA_CLIENT_ID", ""),
         "client_secret": "***" if env.get("JIRA_CLIENT_SECRET") else "",
         "project_key":   env.get("JIRA_PROJECT_KEY", ""),
         "jira_url":      env.get("JIRA_URL", ""),
+        "site_url":      site_url,                 # otomatik algılanan gerçek site (varsa)
         "cloud_id":      env.get("JIRA_CLOUD_ID", ""),
-        "connected":     bool(env.get("JIRA_ACCESS_TOKEN") and env.get("JIRA_CLOUD_ID")),
+        "connected":     connected,
     })
 
 
@@ -3527,7 +3538,10 @@ def jira_test():
     """Jira bağlantısını test et."""
     try:
         env = _env_oku()
-        statik_eksik = [k for k in ("JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_URL", "JIRA_PROJECT_KEY") if not env.get(k)]
+        # JIRA_URL (site) ARTIK ZORUNLU DEĞİL — site accessible-resources'tan otomatik algılanır
+        # (jira_site_url); elle alan yalnız yedektir. Zorunlu tutmak, callback URL'in yanlış alana
+        # yazılmasına yol açıyordu.
+        statik_eksik = [k for k in ("JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_PROJECT_KEY") if not env.get(k)]
         if statik_eksik:
             return jsonify({"ok": False, "error": f"Jira ayarları eksik: {', '.join(statik_eksik)}. Doldurup Kaydet'e basın."}), 400
         oauth_eksik = [k for k in ("JIRA_ACCESS_TOKEN", "JIRA_CLOUD_ID") if not env.get(k)]

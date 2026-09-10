@@ -36,9 +36,10 @@ POST /api/reference/fetch-be   Backend'den içerik çek
 
 ## Jira
 ```
+GET  /api/jira/config             {client_id,project_key,jira_url(yedek),site_url(otomatik algılanan gerçek site),cloud_id,connected}
 GET  /api/jira/auth-url            OAuth başlat
 GET  /api/jira/callback            OAuth dönüş
-POST /api/jira/test                Bağlantı testi
+POST /api/jira/test                Bağlantı testi (JIRA_URL ZORUNLU DEĞİL — site otomatik algılanır)
 POST /api/jira/hierarchy/preview   AI hiyerarşi önerir (Jira'ya YAZMAZ)
 POST /api/jira/hierarchy/create    Analist seçtiklerini Jira'da açar
 POST /api/jira/gorevler/cek        FAZ 1: alt görevleri çek + YAPISAL sınıflandır (AI'sız, 0 token)

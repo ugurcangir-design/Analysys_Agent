@@ -530,3 +530,12 @@ slotta, JARVIS HUD çalışma geçişinde açılıyor. Smoke 45.
    pano "Aktif oturum yok · yüklü doküman: X" + "Analize başla"/"Kaldır" gösterir. `POST /api/oturum/temizle` girdiyi
    siler + workflow sıfırlar (analiz sürüyorsa 409).
 Smoke 48; ruff temiz; tarayıcıda dördü de doğrulandı.
+
+## Jira Ayarları sadeleştirme — site adresi otomatik algılanır ✅
+Analist: "neden iki ayrı Jira URL var?" Aslında ikisi farklı: (1) Callback URL (OAuth redirect, /api/jira/callback —
+uygulama üretir, Atlassian console'a kaydedilir) (2) site adresi (/browse linkleri için). Site zaten
+`jira_site_url()` ile accessible-resources'tan OTOMATİK algılanıyordu; elle "Jira URL" alanı yalnız yedek olduğu
+hâlde `jira_test`'te ZORUNLU tutuluyor + ekranda callback ile karışıyordu (kullanıcıda callback URL o alana yazılmış).
+Düzeltme: `/api/jira/config` GET `site_url` (otomatik algılanan) döner → UI salt-okunur "Atlassian siteniz: … otomatik
+algılandı" gösterir; elle giriş "Gelişmiş" altına katlandı; `jira_test` JIRA_URL'i zorunlu tutmaz. Callback URL bloğu
+ayrı ve değişmedi. Tarayıcıda doğrulandı (sansgroup.atlassian.net otomatik geldi).

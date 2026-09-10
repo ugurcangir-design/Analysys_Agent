@@ -3423,15 +3423,20 @@ python cli.py ui ~/export.zip</pre>
               <input type="text" id="jira-project-key" placeholder="PROJ" autocomplete="off">
             </div>
             <div class="form-group">
-              <label>Jira URL <span style="font-weight:400;color:var(--text3)">— Atlassian site adresiniz</span></label>
-              <input type="text" id="jira-url" placeholder="https://sirketiniz.atlassian.net" autocomplete="off" oninput="jiraUrlUyar()">
-              <p style="font-size:11px;color:var(--text3);line-height:1.6;margin:4px 0 0">
-                Sitenizin ana adresi (ör. <code>https://sirketiniz.atlassian.net</code>). Görev linkleri
-                (<code>/browse/…</code>) bundan üretilir. <strong>Aşağıdaki Callback URL DEĞİL</strong> —
-                o, developer console'a kaydettiğiniz adrestir, buraya yazılmaz. Bağlandıktan sonra otomatik
-                de algılanır; bu alan yalnızca yedektir.
-              </p>
-              <p id="jira-url-uyari" style="display:none;font-size:11px;color:var(--yellow,#d97706);line-height:1.6;margin:4px 0 0"></p>
+              <label>Atlassian siteniz <span style="font-weight:400;color:var(--text3)">— görev linkleri (<code>/browse/…</code>) için</span></label>
+              <!-- Site OTOMATİK algılanır (accessible-resources) → salt-okunur göster. Elle giriş yalnız yedek,
+                   'Gelişmiş' altında. Böylece Callback URL ile karışmaz. -->
+              <div id="jira-site-auto" style="font-size:12.5px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);line-height:1.5">Bağlandıktan sonra otomatik algılanır.</div>
+              <details style="margin-top:6px">
+                <summary style="cursor:pointer;font-size:11.5px;color:var(--text3)">Gelişmiş — site adresini elle gir (yalnız otomatik algılama başarısızsa)</summary>
+                <div style="margin-top:6px">
+                  <input type="text" id="jira-url" placeholder="https://sirketiniz.atlassian.net" autocomplete="off" oninput="jiraUrlUyar()">
+                  <p style="font-size:11px;color:var(--text3);line-height:1.6;margin:4px 0 0">
+                    Normalde gerekmez — site, OAuth bağlantısından otomatik alınır. Bu, aşağıdaki <strong>Callback URL değildir</strong>.
+                  </p>
+                  <p id="jira-url-uyari" style="display:none;font-size:11px;color:var(--yellow,#d97706);line-height:1.6;margin:4px 0 0"></p>
+                </div>
+              </details>
             </div>
           </div>
           <div class="btn-group" style="margin-bottom:12px">
@@ -7996,7 +8001,18 @@ async function jiraConfigYukle() {
     document.getElementById('jira-client-id').value   = d.client_id || '';
     document.getElementById('jira-project-key').value = d.project_key || '';
     document.getElementById('jira-url').value         = d.jira_url || '';
-    jiraUrlUyar();   // mevcut değer site adresi değilse uyarıyı göster
+    jiraUrlUyar();   // mevcut değer site adresi değilse uyarıyı göster (Gelişmiş içinde)
+    // Otomatik algılanan siteyi salt-okunur göster
+    const siteEl = document.getElementById('jira-site-auto');
+    if (siteEl) {
+      if (d.site_url) {
+        siteEl.innerHTML = `<b>${escHtml(d.site_url)}</b> <span style="color:var(--text3)">— otomatik algılandı</span>`;
+      } else if (d.connected) {
+        siteEl.innerHTML = 'Bağlı — site otomatik algılanamadı (ağ/izin). Gerekirse aşağıda “Gelişmiş”ten elle girin.';
+      } else {
+        siteEl.textContent = 'Bağlandıktan sonra otomatik algılanır.';
+      }
+    }
 
     // Secret alanı: kaydedilmişse placeholder göster, input boş bırak
     const secEl = document.getElementById('jira-client-secret');
