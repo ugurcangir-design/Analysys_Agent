@@ -613,3 +613,11 @@ Analist: çarpıyla kapatınca iş kaybolmasın; ekran pop-up değil ana içerik
 - **NOT:** yeni backend endpoint'leri → aktive için SUNUCU RESTART gerekir (frontend-only değil). Durdur şu an kalan
   adımları durdurur; o an süren AI çağrısının sunucuda hard-kill'i ayrı iş.
 smoke 55; tarayıcıda gömülü panel + switcher + kapat→çip + bitiş-bildirimi doğrulandı.
+
+## Görev analizi — açık soru YAKINSAMASI (drift/tekrar düzeltmesi) ✅
+Analist: cevap verdikçe benzer/farklı sorular çıkıyor, yakınsamıyor, tur uzuyor. Kök neden: soru-üretim aşaması
+(`_gorev_acik_sorular_uret`) her turda SIFIRDAN türetiyordu; önceki soruları/cevapları görmüyordu. Düzeltme:
+takip turunda ÖNCEKİ tur soruları + analist cevapları prompt'a verilir; kurallar: cevaplanan/çözülen soruları
+ÇIKAR (tekrar sorma, reword etme), kalan açık olanları AYNI ID+metinle koru, yalnız cevapların doğurduğu YENİ
+bloklayan belirsizliği ekle, en fazla 6, bloklamayan yoksa 'Açık soru tespit edilmedi.'. `gorev_analiz_et` +
+`/is/baslat` adımı + `jgCevaplariIsle` `onceki_sorular` taşır. İzole testte prompt kurulumu doğrulandı; smoke 55.

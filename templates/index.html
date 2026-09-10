@@ -5025,7 +5025,8 @@ async function jgCevaplariIsle() {
   const key = _jgAktifAnalizKey, s = _jgAnalizSeti[key] || {};
   const digerleri = Object.keys(_jgAnalizSeti).filter(k => k !== key);
   _jgIsBaslat([{ key: key, mode: 'analiz', katman: s.katman || '', iliskili_keys: digerleri,
-                 cevaplar: cev, gorev: _jgGorevler[key] || null }],
+                 cevaplar: cev, onceki_sorular: s.acik_sorular || '',   // YAKINSAMA: önceki soruları geç
+                 gorev: _jgGorevler[key] || null }],
              'Cevaplara göre yeniden yazılıyor', key, false);   // seti korunur (merge)
 }
 

@@ -52,7 +52,8 @@ POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detayland
                                    ve Arayüz (FE↔BE)' sözleşmesi). `gorev` (tam) yerine `gorev_key` verilirse Jira'dan çekilir.
                                    Analist Notu (context_filter → gorev_analist_notu) doluysa dikkate alır
 POST /api/jira/gorev/is/baslat     ARKA PLAN iş başlat: {adimlar:[{key, mode:analiz|duzelt|formatla, katman?, cevaplar?,
-                                   iliskili_keys?, markdown?, talimat?, gorev?}]} → thread; {ok, job}. Panel kapansa/geçilse de sürer.
+                                   iliskili_keys?, onceki_sorular?, markdown?, talimat?, gorev?}]} → thread; {ok, job}. Panel kapansa/geçilse de sürer.
+                                   `onceki_sorular` (cevaplar ile) → soru YAKINSAMASI: cevaplanan sorular tekrar sorulmaz.
 GET  /api/jira/gorev/is/durum      ?job=<id> → {durum:calisiyor|bitti|durduruldu, aktif_key, aktif_index, toplam, sonuclar{}}
 POST /api/jira/gorev/is/durdur     {job} → kalan adımlar çalışmaz (o an süren AI çağrısı sunucuda biter, sonucu atılır)
 POST /api/jira/gorev/duzelt        İteratif düzelt (önizleme, YAZMAZ): {gorev, markdown, talimat} → yalnız ilgili kısmı

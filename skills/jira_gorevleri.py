@@ -718,7 +718,8 @@ def gorev_standart_formatla(gorev: dict) -> str:
 _KATMAN_ETIKET = {"fe": "Frontend (FE)", "be": "Backend (BE)", "belirsiz": ""}
 
 
-def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = None, katman: str = "") -> dict:
+def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = None,
+                    katman: str = "", onceki_sorular: str = "") -> dict:
     """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
     görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
     tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
@@ -850,7 +851,7 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = Non
     # Aşama 2 — Açık Sorular (haiku, kısa). Hata olursa teknik analizi kaybetme.
     acik = ""
     try:
-        acik = _gorev_acik_sorular_uret(teknik, gorev)
+        acik = _gorev_acik_sorular_uret(teknik, gorev, cevaplar=cevaplar, onceki_sorular=onceki_sorular)
     except Exception as e:
         print(f"  ⚠ Görev açık soruları üretilemedi: {e}")
 
@@ -887,19 +888,29 @@ def gorev_analiz_duzelt(gorev: dict, mevcut_markdown: str, talimat: str) -> str:
     return _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
 
 
-def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
-    """Aşama-2 açık sorular: üretilen teknik analiz + görev kapsamına göre
-    geliştirme ekibinin başlamadan netleştirmesi gereken sorular. Haiku — ucuz,
-    hızlı. Çıktı Markdown; boşsa UI'da panel gizlenir."""
+def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict,
+                             cevaplar: str = "", onceki_sorular: str = "") -> str:
+    """Aşama-2 açık sorular: üretilen teknik analiz + görev + (varsa) ÖNCEKİ tur soruları/cevapları.
+    Amaç: geliştirmeyi GERÇEKTEN bloklayan soruları toplamak ve TURLAR İÇİNDE YAKINSAMAK — her turda
+    AZALMALI, birkaç turda bitmeli (drift/tekrar yok). Haiku — ucuz. Boşsa UI'da panel gizlenir."""
+    takip = bool(cevaplar.strip() or onceki_sorular.strip())
     sistem = (
-        "Kıdemli teknik analistsin. Sana üretilmiş bir teknik analiz + ilgili Jira görevi "
-        "verilecek. Geliştirme ekibinin kod yazmaya başlamadan önce netleştirmesi gereken "
-        "açık soruları topla.\n\n"
-        "KURALLAR:\n"
-        "- Teknik analizde `[K: ❓ Belirsiz]` veya `⚠ VARSAYIM` işaretli her konuyu bir soruya çevir\n"
-        "- Soru BAĞIMSIZ cevaplanabilir, tek konuya odaklı olmalı\n"
-        "- Önem sırasına göre (Kritik → Yüksek → Orta → Düşük) sırala\n"
-        "- Hiç gerçek belirsizlik yoksa SADECE şu satırı dön: 'Açık soru tespit edilmedi.'\n\n"
+        "Kıdemli teknik analistsin. Sana üretilmiş bir teknik analiz + Jira görevi (ve varsa ÖNCEKİ TUR "
+        "açık soruları + analistin CEVAPLARI) verilir. Amaç: geliştiricinin başlamasını GERÇEKTEN "
+        "ENGELLEYEN açık soruları toplamak ve TURLAR İÇİNDE YAKINSAMAK — her turda soru sayısı AZALMALI, "
+        "birkaç turda BİTMELİ.\n\n"
+        "YAKINSAMA KURALLARI (EN ÖNEMLİSİ — önceki tur verildiyse):\n"
+        "- Analistin CEVAPLADIĞI ya da artık analizde cevabı BULUNAN her soruyu ÇIKAR — bir daha SORMA, "
+        "yeniden İFADE ETME, bölerek/çoğaltarak geri getirme.\n"
+        "- Hâlâ gerçekten açık kalan önceki soruları AYNI ID ve AYNI metinle KORU (yeniden yazma).\n"
+        "- YALNIZ verilen cevapların ORTAYA ÇIKARDIĞI, bloklayan YENİ bir belirsizlik varsa ekle (yeni ID).\n"
+        "- Reworded/benzer soru ÜRETME. Kalanlar bloklamıyorsa 'Açık soru tespit edilmedi.' dön.\n\n"
+        "GENEL KURALLAR:\n"
+        "- Yalnız `[K: ❓ Belirsiz]`/`⚠ VARSAYIM` işaretli VE geliştirmeyi BLOKLAYAN konular soru olur; "
+        "tercihe bağlı/kozmetik/küçük konu için SORU ÜRETME.\n"
+        "- Önem: Kritik/Yüksek öncelikli; Orta/Düşük ancak gerçekten gerekiyorsa. **EN FAZLA 6 soru.**\n"
+        "- Soru bağımsız cevaplanabilir, tek konuya odaklı olmalı.\n"
+        "- Hiç bloklayan belirsizlik yoksa SADECE şu satırı dön: 'Açık soru tespit edilmedi.'\n\n"
         "Çıktı Türkçe Markdown, XML bloğu içinde:\n\n"
         "<acik_sorular>\n"
         "### Q-T-001: [Başlık]\n"
@@ -914,8 +925,17 @@ def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
         {"type": "text", "text": f"### Kaynak Jira Görevi: {gorev.get('key','')}\n\n"
                                  f"**Başlık:** {gorev.get('summary','')}\n\n"
                                  f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
-        {"type": "text", "text": "Yukarıdaki teknik analiz ve görevdeki tüm açık konuları soru olarak topla."},
     ]
+    if onceki_sorular.strip():
+        icerik.append({"type": "text", "text": (
+            "### ÖNCEKİ TUR AÇIK SORULAR (yakınsama için — cevaplanan/çözülenleri ÇIKAR; kalan gerçekten "
+            "açık olanları AYNI ID+metinle koru; benzerini yeniden üretme)\n\n" + onceki_sorular.strip())})
+    if cevaplar.strip():
+        icerik.append({"type": "text", "text": (
+            "### ANALİSTİN CEVAPLARI (bu konular ARTIK KAPALI — tekrar SORMA)\n\n" + cevaplar.strip())})
+    icerik.append({"type": "text", "text": (
+        "Yakınsama kurallarına göre KALAN gerçekten bloklayan açık soruları üret (mümkün olduğunca AZ)."
+        if takip else "Geliştirmeyi gerçekten bloklayan açık konuları (en fazla 6) soru olarak topla.")})
     # canli_uygulama_kapsami verilmiyor: bu aşama zaten üretilmiş teknik analiz
     # metnini özetler, hiçbir browsing talimatı içermez — canlı uygulama hiç açılmaz.
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],

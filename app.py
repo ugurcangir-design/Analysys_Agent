@@ -3752,7 +3752,8 @@ def _gorev_is_calistir(job_id: str) -> None:
                         if g:
                             iliskili.append(g)
                 r = gorev_analiz_et(gorev, cevaplar=adim.get("cevaplar", ""),
-                                    iliskili=iliskili, katman=adim.get("katman", ""))
+                                    iliskili=iliskili, katman=adim.get("katman", ""),
+                                    onceki_sorular=adim.get("onceki_sorular", ""))
                 sonuc = {"markdown": r.get("markdown", ""), "acik_sorular": r.get("acik_sorular", "")}
             with _gorev_is_lock:
                 job["sonuclar"][key] = {**sonuc, "summary": gorev.get("summary", ""),
@@ -3791,6 +3792,7 @@ def jira_gorev_is_baslat():
         temiz.append({"key": k, "mode": (a.get("mode") or "analiz"),
                       "katman": (a.get("katman") or "").lower(),
                       "cevaplar": a.get("cevaplar", ""), "iliskili_keys": a.get("iliskili_keys", []),
+                      "onceki_sorular": a.get("onceki_sorular", ""),
                       "markdown": a.get("markdown", ""), "talimat": a.get("talimat", ""),
                       "gorev": a.get("gorev") if isinstance(a.get("gorev"), dict) else None,
                       "summary": (a.get("gorev") or {}).get("summary", "")})
@@ -3891,7 +3893,8 @@ def jira_gorev_analiz():
             if g:
                 iliskili.append(g)
     try:
-        sonuc = gorev_analiz_et(gorev, cevaplar=cevaplar, iliskili=iliskili, katman=katman)
+        sonuc = gorev_analiz_et(gorev, cevaplar=cevaplar, iliskili=iliskili, katman=katman,
+                                onceki_sorular=(data.get("onceki_sorular") or ""))
         _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
                         model=_model, ai_modu=_ai_modu,
                         baglam={"gorev": gorev.get("key")})
