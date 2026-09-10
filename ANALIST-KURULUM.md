@@ -126,6 +126,7 @@ Tarayıcıda açın: **http://localhost:5003**
 | "Python 3.10 gerekli" | `brew install python@3.12` → tekrar `bash setup.sh`. |
 | Sayfa açılmıyor (5003) | Uygulamanın çalıştığından emin olun (ikon/`./start.sh`); tarayıcıda `http://localhost:5003`. |
 | Analiz hata verdi | Ekrandaki hata kartı "ne oldu / ne yapmalı" der; teknik ayrıntıyı "Teknik ayrıntı" altından açıp ekip liderine iletin. |
+| Sol menüde **Yetki** veya **Kullanım Raporu** görünüyor (analistte olmamalı) | Bunlar owner'a özeldir; `.env`'inize yanlışlıkla `USAGE_DASHBOARD` / `YETKI_PANELI` gelmiş demektir. Kaldırın: `sed -i '' '/^USAGE_DASHBOARD=/d; /^YETKI_PANELI=/d' .env` → sonra **Güncelleme → Yeniden Başlat**. (Kurulumu her zaman `bash setup.sh` ile yapın; ekip liderinin `.env`'ini/klasörünü kopyalamayın.) |
 
 ---
 
