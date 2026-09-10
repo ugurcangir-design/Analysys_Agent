@@ -183,18 +183,20 @@ def _auth_aktif_mi() -> bool:
 def _usage_yetkili_mi() -> bool:
     """Kullanım (telemetri) dashboard'unu yalnız OWNER görür.
 
-    AUTH'tan BAĞIMSIZ ayrı bayrak: yalnız owner'ın .env'inde USAGE_DASHBOARD=true olur.
-    Analist build'lerinde bu bayrak yoktur → sekme gizli + endpoint 403. Böylece güncelleme
-    aldıklarında ekip bu ekranı GÖREMEZ (admin_gerekli AUTH kapalıyken herkesi geçirirdi)."""
-    return os.getenv("USAGE_DASHBOARD", "false").lower() in ("1", "true", "yes")
+    AUTH'tan BAĞIMSIZ ayrı bayrak: yalnız owner'ın .env'inde **OWNER_KONSOL=true** olur.
+    Analist build'lerinde bu bayrak yoktur → sekme gizli + endpoint 403.
+    NOT: Eski `USAGE_DASHBOARD` bayrağı ARTIK OKUNMAZ — analist makinelerine yanlışlıkla kopyalanan
+    owner `.env`'i bu ekranları açıyordu; bayrak yenilendi ki kopyalanan eski değer bir işe yaramasın.
+    Owner'lar `.env`'lerinde `OWNER_KONSOL=true` satırını eklemelidir."""
+    return os.getenv("OWNER_KONSOL", "false").lower() in ("1", "true", "yes")
 
 
 def _yetki_paneli_mi() -> bool:
     """Yetki ekranı (görünürlük yönetimi) yalnız OWNER kurulumunda görünür.
 
     Kendi bilgisayarına kuran analist AUTH kapalı olduğu için teknik olarak 'owner'dır — bu yüzden
-    rol yetmez; USAGE_DASHBOARD gibi AUTH'tan BAĞIMSIZ bayrak gerekir. `YETKI_PANELI` verilmezse
-    USAGE_DASHBOARD'a düşer (owner'ın mevcut .env'i değişmeden çalışır; analist build'inde ikisi de yok)."""
+    rol yetmez; `OWNER_KONSOL` gibi AUTH'tan BAĞIMSIZ bayrak gerekir. `YETKI_PANELI` verilmezse
+    `OWNER_KONSOL`'a düşer (analist build'inde ikisi de yok)."""
     v = os.getenv("YETKI_PANELI")
     if v is None:
         return _usage_yetkili_mi()

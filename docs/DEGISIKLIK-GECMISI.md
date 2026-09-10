@@ -621,3 +621,11 @@ takip turunda ÖNCEKİ tur soruları + analist cevapları prompt'a verilir; kura
 ÇIKAR (tekrar sorma, reword etme), kalan açık olanları AYNI ID+metinle koru, yalnız cevapların doğurduğu YENİ
 bloklayan belirsizliği ekle, en fazla 6, bloklamayan yoksa 'Açık soru tespit edilmedi.'. `gorev_analiz_et` +
 `/is/baslat` adımı + `jgCevaplariIsle` `onceki_sorular` taşır. İzole testte prompt kurulumu doğrulandı; smoke 55.
+
+## Owner konsol bayrağı yenilendi: USAGE_DASHBOARD → OWNER_KONSOL ✅
+Analist: Yetki + Kullanım Raporu ekranları analistlerde görünüyor. Kök neden: bu ekranlar owner-only `.env`
+bayrağıyla açılır; analist makinelerine owner `.env`'i (USAGE_DASHBOARD=true) kopyalanmış. Analist UI'dan
+kapatamaz (bilinçli). Çözüm (kod): owner konsol bayrağı `USAGE_DASHBOARD` → **`OWNER_KONSOL`** olarak yenilendi;
+eski değer ARTIK OKUNMAZ. Böylece kopyalanmış `USAGE_DASHBOARD=true` bu ekranları AÇMAZ → analistler bir sonraki
+otomatik güncellemede (makineye dokunmadan) düzelir. Owner `.env`'ine `OWNER_KONSOL=true` ekler (bu makinede
+eklendi + .env.example güncellendi). `_usage_yetkili_mi`/`_yetki_paneli_mi` OWNER_KONSOL okur. İzole test + smoke 55.
