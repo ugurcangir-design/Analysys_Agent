@@ -7,7 +7,7 @@
           <h1>Ana Sayfa</h1>
           <p>Aktif işin ve sistemin durumu tek bakışta. Buradan analize başla, çıktılara ve revizyona geç.</p>
         </div>
-        <div class="ph-actions"><button class="btn btn-outline btn-sm" onclick="panoYukle()">↻ Yenile</button></div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm" id="pano-yenile-btn" onclick="panoYenile(this)">↻ Yenile</button></div>
       </div>
 
       <div id="pano-oturum"></div>
@@ -89,6 +89,14 @@
       _panoSaglik();
     }
 
+    // Yenile — görünür geri bildirim (idle durumda içerik aynı kalınca "çalışmadı" sanılıyordu).
+    async function panoYenile(btn){
+      if(btn){ btn.disabled=true; btn.textContent='↻ Yenileniyor…'; }
+      try{ await Promise.all([_panoOturum(), _panoIs(), _panoSaglik()]); toast('Ana sayfa yenilendi','success'); }
+      catch(e){ toast('Yenilenemedi','error'); }
+      finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Yenile'; } }
+    }
+
     // Sıradaki iş (herkes) — /api/pano. Kartlar: bekleyen onay · açık sorular · bekleyen revizyon · çalışan iş.
     async function _panoIs(){
       const el=document.getElementById('pano-is');
@@ -122,6 +130,16 @@
       el.innerHTML=k.join('');
     }
 
+    // Yüklü dokümanı kaldır + workflow sıfırla (aktif oturum yokken kalıntı dokümanı temizle).
+    async function oturumTemizle(){
+      if(!confirm('Yüklü doküman kaldırılacak ve oturum sıfırlanacak. Devam?')) return;
+      try{
+        const r=await fetch('/api/oturum/temizle',{method:'POST'}); const d=await r.json();
+        if(d.ok){ toast('Doküman kaldırıldı — aktif oturum temizlendi','success'); panoYukle(); }
+        else toast(d.error||'Kaldırılamadı','error');
+      }catch(e){ toast('Bağlantı hatası','error'); }
+    }
+
     // Elle disk temizliği (owner) — analiz sürüyorsa backend 409 döner.
     async function panoDiskTemizle(btn){
       if(!confirm('Eskimiş önbellek, log, rapor ve arşiv dosyaları silinecek (analiz çıktıları ve girdiler DOKUNULMAZ). Devam?')) return;
@@ -138,6 +156,14 @@
       let d; try{ d=await (await fetch('/api/oturum')).json(); }catch(e){ el.innerHTML=''; return; }
       if(!d.dokuman){
         el.innerHTML=`<div class="ds-callout acc"><div class="grow"><div class="ct">Yeni bir analize başla</div><p>Henüz aktif oturum yok. Bir doküman yükleyip süreç veya BRD analizini başlat.</p></div><button class="btn btn-primary btn-sm" onclick="switchTab('surec')">Analize git</button></div>`;
+        return;
+      }
+      // Doküman var AMA aktif oturum yok (workflow idle) → önceki oturumdan kalmış ya da yeni yüklenmiş.
+      // "Aktif oturum" DEME; yüklü doküman olarak göster, başlat/kaldır seçeneği ver.
+      if(!d.aktif){
+        el.innerHTML=`<div class="ds-callout"><div class="grow"><div class="ct">Aktif oturum yok · yüklü doküman: ${_pnEsc(d.dokuman.ad)}</div><p>Bu doküman için analiz çalışmıyor. Başlatabilir ya da kaldırabilirsiniz.</p></div>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('surec')">Analize başla</button>
+          <button class="btn btn-outline btn-sm" onclick="oturumTemizle()">Kaldır</button></div>`;
         return;
       }
       const wf=d.workflow||{};

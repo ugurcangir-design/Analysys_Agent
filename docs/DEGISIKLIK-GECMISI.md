@@ -517,3 +517,16 @@ sohbet özelliği korunmalı, akışlar bozulmamalı". Yaklaşım — EK KATMAN,
   orijinal panele geri taşır — anında, yeniden başlatma yok. Git yedeği: tag `klasik-surec-ekrani-yedek`.
 Doğrulama (tarayıcı, simüle durumlar): idle/çalışıyor/süreç onayı/teknik onayı/klasik geçiş/BRD — bloklar doğru
 slotta, JARVIS HUD çalışma geçişinde açılıyor. Smoke 45.
+
+## Test geri bildirimi — 4 düzeltme (Tümünü Sil / CLI hesap info / Pano Yenile / kalıntı doküman) ✅
+1. **Tümünü Sil işlem yapmıyordu:** `parse_ve_birlestir` silinen soruları markdown'dan geri ekliyordu (mezar-taşı
+   yoktu). `sorular.py`: `tumunu_sil()` + `soru_sil()` artık `data['silinen']` mezar-taşı bırakır; parse, kaynak
+   dosya silme zamanından sonra yeniden üretilmedikçe o (id,kaynak)'ı geri eklemez. İzole test doğrulandı.
+2. **CLI hesabı Ayarlar'da:** `/api/settings.cli_hesap` (`_cli_hesap_oku` — ~/.claude.json'dan e-posta/org, token
+   okumaz) → Ayarlar → Claude CLI bölümünde "Aktif Claude CLI hesabı: … · org" info kutusu.
+3. **Ana Sayfa Yenile:** fonksiyon zaten çalışıyordu ama idle'da içerik aynı kalınca "çalışmıyor" sanılıyordu →
+   `panoYenile` görünür geri bildirim (buton "Yenileniyor…" + toast).
+4. **Kalıntı doküman "aktif oturum" görünüyordu:** `/api/oturum` artık `aktif` bayrağı döner (workflow idle → False);
+   pano "Aktif oturum yok · yüklü doküman: X" + "Analize başla"/"Kaldır" gösterir. `POST /api/oturum/temizle` girdiyi
+   siler + workflow sıfırlar (analiz sürüyorsa 409).
+Smoke 48; ruff temiz; tarayıcıda dördü de doğrulandı.

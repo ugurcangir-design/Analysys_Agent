@@ -83,6 +83,13 @@ kontrol("disk_temizlik: output/ ve input/ kurallarda YOK",
         not any(str(d).endswith(("/output", "/input")) for d, *_ in _dt._KURALLAR))
 kontrol("saglik disk_temizlik alanı", "disk_temizlik" in json_al(istemci.get("/api/saglik")))
 
+# ── Oturum 'aktif' bayrağı + Ayarlar CLI hesap alanı + soru mezar-taşı ──
+ot = json_al(istemci.get("/api/oturum"))
+kontrol("oturum aktif alanı var (idle → False)", "aktif" in ot and ot.get("aktif") is False)
+kontrol("settings cli_hesap alanı var", "cli_hesap" in json_al(istemci.get("/api/settings")))
+_sm = importlib.import_module("skills.sorular")
+kontrol("sorular: tombstone fonksiyonları", hasattr(_sm, "tumunu_sil") and hasattr(_sm, "_tombstone_ekle"))
+
 # ── Faz 4: analist-dostu hata mesajları (deterministik sınıflandırma) ──
 _ht = importlib.import_module("skills.hatalar")
 kontrol("hatalar: 429 → cli_limit", _ht.insanlastir("Claude kullanım limitine ulaşıldı: resets 3pm")["kategori"] == "cli_limit")

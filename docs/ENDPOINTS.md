@@ -98,7 +98,9 @@ GET    /api/sorular                   Soru defteri + istatistik — YALNIZ bu ot
 POST   /api/sorular/parse              Çıktılardan soruları yeniden tara
 POST   /api/sorular/<id>               Durum/cevap/varsayım güncelle
 DELETE /api/sorular/<id>?kaynak_dosya  Soruyu defterden sil
-POST   /api/sorular/tumunu-sil         Tüm soruları sil (opsiyonel {"durum":...} filtresi)
+POST   /api/sorular/tumunu-sil         Tüm soruları sil (opsiyonel {"durum":...} filtresi) — MEZAR-TAŞI bırakır:
+                                       silinen (id,kaynak) parse_ve_birlestir ile markdown'dan GERİ GELMEZ (kaynak
+                                       yeniden üretilene kadar). Tekil DELETE /api/sorular/<id> de aynı mezar-taşını bırakır.
 POST   /api/sorular/uygula             Cevapları analize işle — ARKA PLANDA (bloklamaz); {ok, baslatildi, toplam}.
                                        HEDEFLİ: `bagli_id` bölümü hedef analizde bulunursa yalnız o bölüm düzenlenir
                                        (revizyon sürümü); bulunamayanlar tam `yeniden_calistir`'a düşer.
@@ -126,10 +128,12 @@ Kalıcı veri: `output/revizyon/<slug>.json` + `output/revizyon/<slug>/<vid>.md`
 
 ## Analiz Oturumu — v2 Faz 2.1 (Çıktılar ekranı; 0 token, deterministik)
 ```
-GET  /api/oturum   Aktif oturum: girdi dokümanı, başlangıç (workflow ilk adımı, yoksa girdi mtime),
+GET  /api/oturum   Aktif oturum: girdi dokümanı, `aktif` (workflow idle ise FALSE — kalıntı doküman/güncel
+                   çıktı dursa bile "aktif oturum yok"), başlangıç (workflow ilk adımı, yoksa girdi mtime),
                    workflow özeti, jira_key, gozlem{yapildi,num_turns,reddedilen,kapsam,zaman}
                    (canlı gözlem makine-doğrulanmış durumu; önceki oturuma aitse null); ciktilar[] (etiket/kaynak/var/guncelleme/
                    tazelik=guncel|eski|yok/aktif_versiyon/bekleyen/onayli_revizyon); arsiv[] (history/)
+POST /api/oturum/temizle   Yüklü girdi dokümanını siler + workflow sıfırlar (aktif oturum yokken kalıntıyı kaldır; analiz sürüyorsa 409)
 ```
 Tazelik kuralı: çıktı mtime ≥ oturum başlangıcı → **güncel**, değilse **eski** (önceki oturumdan).
 Katalog: `_CIKTI_KATALOGU` (app.py) — yeni çıktı dosyası eklenince buraya da (etiket + köken) eklenir.
@@ -237,7 +241,7 @@ CLI modunda analiz modeli arayüzden seçilir (mevcut Claude.ai aboneliği/lisan
 (subprocess `run.py` zaten taze okur; in-process çağrılar + `/api/saglik` görünümü de canlı). Seçenekler:
 `CLI_MODEL_SECENEKLER = (sonnet, opus, haiku)`.
 ```
-GET  /api/settings   ... + cli_model (aktif), cli_model_secenekler[]
+GET  /api/settings   ... + cli_model (aktif), cli_model_secenekler[], cli_hesap{email,org} (CLI'ın bağlı olduğu Claude hesabı — ~/.claude.json, token OKUNMAZ)
 POST /api/settings   ... + cli_model (allowlist doğrulama → CLAUDE_CLI_MODEL .env'e yazılır)
 ```
 UI: Ana Sayfa panosu AI/Kota kartında `<select>` (CLI modunda). `--model` DAİMA açıkça geçilir

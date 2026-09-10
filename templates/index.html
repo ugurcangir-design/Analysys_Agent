@@ -3329,6 +3329,8 @@ function temaDegistir() {
             </label>
           </div>
           <div id="cli-status" style="font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-family:'Geist Mono',monospace"></div>
+          <!-- CLI'ın hangi hesaba bağlı olduğu (analizler bu hesabın aboneliğinden çalışır) -->
+          <div id="cli-hesap-info" style="font-size:11.5px;margin-top:8px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--accent-soft);border:1px solid var(--border);line-height:1.5"></div>
         </div>
 
         <!-- API Key -->
@@ -7412,6 +7414,21 @@ async function settingsYukle() {
     cliStatus.textContent = 'ℹ claude CLI bulunamadı — CLI modunu kullanmak için '
       + 'Claude Code CLI kurun (npm install -g @anthropic-ai/claude-code).';
     cliStatus.style.color = 'var(--text3)';
+  }
+
+  // CLI hangi hesaba bağlı — analizler bu hesabın aboneliğinden çalışır (info)
+  const hesapEl = document.getElementById('cli-hesap-info');
+  if (hesapEl) {
+    if (d.cli_hesap && d.cli_hesap.email) {
+      const org = d.cli_hesap.org ? ` · ${escHtml(d.cli_hesap.org)}` : '';
+      hesapEl.innerHTML = `<b>Aktif Claude CLI hesabı:</b> ${escHtml(d.cli_hesap.email)}${org}`
+        + `<div style="color:var(--text3);margin-top:3px">Analizler bu hesabın aboneliği/kotasıyla çalışır. Değiştirmek için bir terminalde <code>claude</code> → <code>/login</code>.</div>`;
+      hesapEl.style.display = '';
+    } else {
+      hesapEl.innerHTML = `<b>Aktif Claude CLI hesabı:</b> okunamadı — henüz giriş yapılmamış olabilir. `
+        + `Bir terminalde <code>claude</code> ile Claude.ai hesabınıza giriş yapın.`;
+      hesapEl.style.display = '';
+    }
   }
 
   // API key bölümü CLI moduna göre göster/gizle

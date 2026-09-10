@@ -1757,9 +1757,17 @@ def oturum_ozeti():
     except Exception:
         gozlem = None
 
+    # AKTİF OTURUM ayrımı: workflow idle ise (çalışan/onay-bekleyen/tamamlanan yok) ORTADA AKTİF
+    # OTURUM YOKTUR — girdi dizininde önceki oturumdan kalan doküman + güncel çıktı DURSA BİLE.
+    # (Kullanıcı: "aktif oturum yok ama eski doküman görünüyor".) Yeni yüklenip henüz çalıştırılmamış
+    # doküman da idle'dır → pano bunu "analiz bekliyor" olarak gösterir, "aktif oturum" DEMEZ.
+    aktif = bool(ozet.get("calisiyor") or ozet.get("onay_bekleniyor") or ozet.get("teknik_onay_bekleniyor")
+                 or ozet.get("brd_revize_bekleniyor") or ozet.get("tamamlandi"))
+
     return jsonify({
         "ok": True,
         "dokuman": dokuman,
+        "aktif": aktif,
         "baslangic": baslangic,
         "workflow": ozet,
         "gozlem": gozlem,
@@ -1767,6 +1775,26 @@ def oturum_ozeti():
         "ciktilar": ciktilar,
         "arsiv": arsiv[:HISTORY_LIMIT],
     })
+
+
+@app.route("/api/oturum/temizle", methods=["POST"])
+def oturum_temizle():
+    """Yüklü girdi dokümanını siler ve workflow'u sıfırlar — 'aktif oturum yok' durumunda
+    kalıntı dokümanı kaldırmak için (pano → Kaldır). Analiz çalışıyorsa 409."""
+    import workflow as wf
+    if wf.calisiyor_mu() and _analiz_calisiyor_mu():
+        return jsonify({"ok": False, "error": "Analiz çalışıyor. Önce durdurun."}), 409
+    silinen = 0
+    try:
+        for f in INPUT_DIR.iterdir():
+            if f.is_file() and not f.name.startswith("."):
+                f.unlink()
+                silinen += 1
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    wf.sifirla()
+    logger.info("Oturum temizlendi: %d girdi dokümanı silindi, workflow sıfırlandı.", silinen)
+    return jsonify({"ok": True, "silinen": silinen})
 
 
 # ─── Görünürlük & Denetim — v2 Faz 2.4 (owner-only) ──────────────────────────
@@ -2475,6 +2503,20 @@ def kullanici_sifre_degistir(username):
     return jsonify({"ok": True})
 
 
+def _cli_hesap_oku() -> dict | None:
+    """Claude CLI'ın (analiz motoru) hangi hesaba bağlı olduğunu ~/.claude.json'dan okur — YALNIZ
+    kimlik alanları (e-posta + organizasyon), token/secret OKUNMAZ. Ayarlar'da info için."""
+    try:
+        d = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    acc = d.get("oauthAccount") or {}
+    email = acc.get("emailAddress") or acc.get("email")
+    if not email:
+        return None
+    return {"email": email, "org": acc.get("organizationName")}
+
+
 @app.route("/api/settings", methods=["GET"])
 def settings_oku():
     from skills.base import aktif_cli_model, CLI_MODEL_SECENEKLER
@@ -2487,6 +2529,7 @@ def settings_oku():
         "api_key_masked": _maskele(api_key) if api_key else "",
         "cli_mod": cli_mod,
         "claude_cli_var": _claude_cli_var_mi(),
+        "cli_hesap": _cli_hesap_oku(),                  # CLI'ın bağlı olduğu hesap (e-posta/org) — info
         "extended_thinking": thinking,
         "cli_model": aktif_cli_model(),                 # CLI modunda analiz modeli (API key gerekmez)
         "cli_model_secenekler": list(CLI_MODEL_SECENEKLER),
@@ -2616,19 +2659,12 @@ def soru_sil_endpoint(soru_id):
 def sorular_tumunu_sil():
     """Soru defterini tamamen temizler. Body opsiyonel: {"durum": "atlandi"}
     verilirse yalnız o durumdakiler silinir; yoksa hepsi silinir."""
-    from skills.sorular import sorular_yukle, sorular_kaydet, istatistik_hesapla
+    from skills.sorular import tumunu_sil
     payload = request.get_json(silent=True) or {}
     durum_filtre = (payload.get("durum") or "").strip()
-
-    data = sorular_yukle()
-    onceki = len(data.get("sorular", []))
-    if durum_filtre:
-        data["sorular"] = [s for s in data.get("sorular", []) if s.get("durum") != durum_filtre]
-    else:
-        data["sorular"] = []
-    silinen = onceki - len(data["sorular"])
-    data["istatistik"] = istatistik_hesapla(data["sorular"])
-    sorular_kaydet(data)
+    # tumunu_sil mezar-taşı da bırakır → silinen sorular parse_ve_birlestir ile markdown'dan GERİ GELMEZ
+    # (eskiden defter temizleniyordu ama sonraki /api/sorular yeniden parse edip geri ekliyordu → "işlem yapmıyor").
+    silinen = tumunu_sil(durum_filtre)
     logger.info("Soru defteri temizlendi: %d soru silindi (filtre=%s).", silinen, durum_filtre or "hepsi")
     return jsonify({"ok": True, "silinen": silinen})
 

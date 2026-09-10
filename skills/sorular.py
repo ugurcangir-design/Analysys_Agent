@@ -16,6 +16,7 @@ Soru Defteri — analiz çıktılarındaki açık soruları kalıcı kayda alır
 """
 
 import json
+import time
 import re
 from datetime import datetime
 from pathlib import Path
@@ -210,6 +211,9 @@ def parse_ve_birlestir(taze_esik: float | None = None) -> dict:
 
     mevcut = sorular_yukle()
     indeks = {(s["id"], s["kaynak_dosya"]): s for s in mevcut.get("sorular", [])}
+    # Mezar-taşları: analist sildiyse (id,kaynak) → silme zamanı. Kaynak dosya bu zamandan
+    # SONRA yeniden üretilmedikçe, soru markdown'dan geri EKLENMEZ.
+    tomb = {(t.get("id"), t.get("kaynak_dosya")): t.get("at", 0) for t in mevcut.get("silinen", [])}
 
     simdi = datetime.now().isoformat(timespec="seconds")
     yeni_listesi = []
@@ -219,8 +223,16 @@ def parse_ve_birlestir(taze_esik: float | None = None) -> dict:
     for dosya_adi in KAYNAK_DOSYALAR:
         if not _taze(dosya_adi):
             continue   # bayat/eksik kaynak → bu oturumun soruları değil, atla
+        try:
+            _kaynak_mtime = (OUTPUT_DIR / dosya_adi).stat().st_mtime
+        except OSError:
+            _kaynak_mtime = 0
         for parsed in parse_md_sorular(OUTPUT_DIR / dosya_adi):
             anahtar = (parsed["id"], parsed["kaynak_dosya"])
+            if anahtar in tomb:
+                if _kaynak_mtime <= tomb[anahtar]:
+                    continue                    # silinmiş + kaynak yeniden üretilmemiş → geri ekleme
+                del tomb[anahtar]               # kaynak yeniden üretildi → mezar-taşı geçersiz, geri getir
             eski = indeks.pop(anahtar, None)
             if eski:
                 # Korunan alanlar (analist veri girmişse bozma)
@@ -245,8 +257,21 @@ def parse_ve_birlestir(taze_esik: float | None = None) -> dict:
         if _taze(kalan.get("kaynak_dosya", "")):
             yeni_listesi.append(kalan)
 
+    # Mezar-taşlarını buda: yalnız kaynağı HÂLÂ TAZE ve HENÜZ yeniden üretilmemiş olanları koru
+    # (yeni oturumda — kaynak bayat — mezar-taşı düşer; kaynak yeniden üretildiyse zaten pop edildi).
+    silinen_kalan = []
+    for (sid, skaynak), at in tomb.items():
+        if not _taze(skaynak):
+            continue
+        try:
+            if (OUTPUT_DIR / skaynak).stat().st_mtime <= at:
+                silinen_kalan.append({"id": sid, "kaynak_dosya": skaynak, "at": at})
+        except OSError:
+            pass
+
     yeni_veri = {
         "sorular": yeni_listesi,
+        "silinen": silinen_kalan,
         "son_parse": simdi,
         "istatistik": istatistik_hesapla(yeni_listesi),
         "_son_islem": {"eklenen": eklenen, "guncellenen": guncellenen},
@@ -295,17 +320,49 @@ def soru_guncelle(
     return hedef
 
 
+def _tombstone_ekle(data: dict, silinenler: list[dict]) -> None:
+    """Silinen (id, kaynak_dosya) çiftlerini deftere 'silinen' mezar-taşı olarak ekle (epoch damgalı).
+    `parse_ve_birlestir` bu çiftleri, kaynak dosya SİLME zamanından SONRA yeniden üretilmedikçe,
+    markdown'dan yeniden EKLEMEZ. Böylece 'Tümünü Sil' / tekil silme kalıcı olur; yeni analiz
+    (kaynak yeniden üretilince) mezar-taşını geçersiz kılar."""
+    tomb = {(t.get("id"), t.get("kaynak_dosya")): t for t in data.get("silinen", [])}
+    at = time.time()
+    for s in silinenler:
+        k = (s.get("id"), s.get("kaynak_dosya"))
+        if k[0] and k[1] is not None:
+            tomb[k] = {"id": k[0], "kaynak_dosya": k[1], "at": at}
+    data["silinen"] = list(tomb.values())
+
+
 def soru_sil(soru_id: str, kaynak_dosya: str) -> bool:
-    """Bir soruyu defterinden tamamen kaldırır. True = silindi."""
+    """Bir soruyu defterinden tamamen kaldırır (ve mezar-taşlar). True = silindi."""
     data = sorular_yukle()
     sorular = data.get("sorular", [])
     yeni = [s for s in sorular if not (s.get("id") == soru_id and s.get("kaynak_dosya") == kaynak_dosya)]
     if len(yeni) == len(sorular):
         return False
     data["sorular"] = yeni
+    _tombstone_ekle(data, [{"id": soru_id, "kaynak_dosya": kaynak_dosya}])
     data["istatistik"] = istatistik_hesapla(yeni)
     sorular_kaydet(data)
     return True
+
+
+def tumunu_sil(durum_filtre: str = "") -> int:
+    """Soru defterini temizler (ve mezar-taşlar → geri gelmezler). `durum_filtre` verilirse yalnız
+    o durumdakiler silinir. Silinen adet döner."""
+    data = sorular_yukle()
+    mevcut = data.get("sorular", [])
+    if durum_filtre:
+        silinecek = [s for s in mevcut if s.get("durum") == durum_filtre]
+        kalan = [s for s in mevcut if s.get("durum") != durum_filtre]
+    else:
+        silinecek, kalan = list(mevcut), []
+    data["sorular"] = kalan
+    _tombstone_ekle(data, silinecek)
+    data["istatistik"] = istatistik_hesapla(kalan)
+    sorular_kaydet(data)
+    return len(silinecek)
 
 
 # ─── İstatistik ───────────────────────────────────────────────────────────────
