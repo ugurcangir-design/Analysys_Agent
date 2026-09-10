@@ -3739,9 +3739,10 @@ def jira_gorev_analiz():
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    cevaplar = (data.get("cevaplar") or "").strip()   # açık sorulara analist cevapları (opsiyonel)
     try:
         from skills.jira_gorevleri import gorev_analiz_et
-        sonuc = gorev_analiz_et(gorev)
+        sonuc = gorev_analiz_et(gorev, cevaplar=cevaplar)
         _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
                         model=_model, ai_modu=_ai_modu,
                         baglam={"gorev": gorev.get("key")})
@@ -3753,6 +3754,38 @@ def jira_gorev_analiz():
         _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
                         model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key")})
         logger.error(f"Görev analiz hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/gorev/duzelt", methods=["POST"])
+def jira_gorev_duzelt():
+    """İteratif düzeltme (önizleme; Jira'ya YAZMAZ): {gorev, markdown, talimat} → talimattaki kısmı
+    düzeltilmiş tam analiz. Modaldeki 'Bu analizi düzelt' sohbeti."""
+    data = request.get_json(silent=True) or {}
+    gorev = data.get("gorev")
+    markdown = data.get("markdown") or ""
+    talimat = (data.get("talimat") or "").strip()
+    if not isinstance(gorev, dict) or not gorev.get("key"):
+        return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
+    if not markdown.strip() or not talimat:
+        return jsonify({"ok": False, "error": "markdown ve talimat gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    _bas = time.time()
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    try:
+        from skills.jira_gorevleri import gorev_analiz_duzelt
+        yeni = gorev_analiz_duzelt(gorev, markdown, talimat)
+        _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
+                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key"), "islem": "duzelt"})
+        return jsonify({"ok": True, "key": gorev["key"], "markdown": yeni})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Görev analiz düzeltme hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 

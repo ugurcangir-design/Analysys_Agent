@@ -8,6 +8,7 @@ dokunmaz (geçici OUTPUT_DIR); 5002/5003 süreçlerinden bağımsız çalışır
 """
 
 import importlib
+import inspect
 import os
 import sys
 import tempfile
@@ -106,6 +107,16 @@ os.environ["YETKI_PANELI"] = "false"
 kontrol("gorunurluk bayrak kapalı → 403 (analist kurulumu)", istemci.get("/api/gorunurluk").status_code == 403)
 kontrol("auth/me yetki_admin=false", json_al(istemci.get("/api/auth/me")).get("yetki_admin") is False)
 os.environ["YETKI_PANELI"] = "true"
+# Görev analizi düzelt endpoint'i — girdi doğrulaması (AI/Jira'ya gitmeden 400)
+kontrol("gorev/duzelt geçersiz görev → 400",
+        istemci.post("/api/jira/gorev/duzelt", json={"markdown": "x", "talimat": "y"}, headers=ORIGIN).status_code == 400)
+kontrol("gorev/duzelt eksik talimat → 400",
+        istemci.post("/api/jira/gorev/duzelt", json={"gorev": {"key": "X-1"}, "markdown": "x"}, headers=ORIGIN).status_code == 400)
+_jg = importlib.import_module("skills.jira_gorevleri")
+kontrol("jira_gorevleri: gorev_analiz_duzelt + cevaplar param",
+        hasattr(_jg, "gorev_analiz_duzelt")
+        and "cevaplar" in inspect.signature(_jg.gorev_analiz_et).parameters)
+
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog (YETKI_PANELI=true)", g.get("ok") and len(g.get("katalog", [])) >= 10)
 kontrol("auth/me yetki_admin=true", json_al(istemci.get("/api/auth/me")).get("yetki_admin") is True)

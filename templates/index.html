@@ -1863,6 +1863,21 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-modal-tab.aktif .badge { background: var(--accent-soft); color: var(--accent); }
 .jg-modal-body { padding: 16px 22px; flex: 1; overflow: auto; min-height: 0; }
 .jg-modal-aksiyon { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 22px; border-top: 1px solid var(--border); background: var(--surface2); }
+/* Görev analizi — JARVIS işlem paneli (üretim/düzeltme sırasında modal içi) */
+.jg-proc { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 360px; }
+.jg-proc-kicker { font-family: 'Geist Mono', monospace; font-size: 10.5px; letter-spacing: .16em; color: var(--run); opacity: .85; }
+.jg-proc-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--text); margin-top: 6px; }
+.jg-proc .im-reactor { margin: 12px auto; }
+.jg-proc-readouts { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--text3); margin-top: 6px; }
+.jg-proc-note { font-size: 12px; color: var(--text3); margin-top: 8px; max-width: 420px; }
+/* Açık Sorular sekmesi — cevaplanabilir */
+.jg-soru-yardim { font-size: 12px; color: var(--text2); line-height: 1.55; margin-bottom: 8px; }
+.jg-soru-lbl { display: block; font-size: 11.5px; color: var(--text3); margin: 10px 0 4px; font-weight: 600; }
+.jg-soru-akt { margin-top: 8px; }
+#jg-preview-sorular-wrap #jg-preview-sorular { min-height: 200px; }
+/* İteratif düzelt sohbeti (aksiyon barında) */
+.jg-duzelt-row { display: flex; gap: 6px; align-items: center; flex: 1 1 320px; min-width: 260px; }
+.jg-duzelt-row input { flex: 1; min-width: 0; }
 .jg-editor-modal { min-height: 480px; max-height: 70vh; }
 .jg-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jg-warn { font-size: 11.5px; color: var(--text3); flex: 1; min-width: 220px; }
@@ -2790,10 +2805,39 @@ function temaDegistir() {
           </button>
         </div>
         <div class="jg-modal-body">
+          <!-- JARVIS işlem paneli — üretim/düzeltme sürerken (ana akıştaki reaktörün modal-içi karşılığı) -->
+          <div id="jg-proc" class="jg-proc" style="display:none">
+            <div class="jg-proc-kicker">ANALYST STUDIO · İŞLEM MODU</div>
+            <div class="jg-proc-title" id="jg-proc-title">Teknik analiz üretiliyor</div>
+            <div class="im-reactor">
+              <div class="im-r1"></div><div class="im-r2"></div><div class="im-r3"></div>
+              <div class="im-core"><div class="im-core-pulse"></div><div class="im-step" id="jg-proc-ikon">AI</div><div class="im-sub">ANALİZ</div></div>
+            </div>
+            <div class="im-bar"><span></span></div>
+            <div class="jg-proc-readouts">MODEL · <b id="jg-proc-model">claude · CLI</b> &nbsp;·&nbsp; GEÇEN SÜRE · <b id="jg-proc-sure">00:00</b></div>
+            <div class="jg-proc-note">Analiz sürüyor — <b>İptal</b> ile durdurabilirsiniz. Bu görev için çalışıyor, başka görevi etkilemez.</div>
+          </div>
+          <!-- Ana çıktı (teknik analiz / standart format) -->
           <textarea id="jg-preview-editor" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="İçerik yükleniyor…"></textarea>
-          <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." style="display:none" readonly></textarea>
+          <!-- Açık Sorular — CEVAPLANABİLİR: soruları oku, cevapla, "Cevapları İşle" ile analizi yeniden yazdır -->
+          <div id="jg-preview-sorular-wrap" style="display:none">
+            <div class="jg-soru-yardim">Aşağıdaki soruları cevaplayıp <b>Cevapları İşle</b> derseniz teknik analiz cevaplarınıza göre yeniden yazılır (belirsizlikler çözülür). Sorular ve cevaplar <b>Jira'ya YAZILMAZ</b>.</div>
+            <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." readonly></textarea>
+            <label class="jg-soru-lbl" for="jg-cevaplar">Cevaplarınız (soru no ile yazın)</label>
+            <textarea id="jg-cevaplar" class="jg-editor" spellcheck="false" placeholder="Örn:&#10;Q-T-001: Sales Open zorunlu; varsayılan = etkinlik tarihi.&#10;Q-T-002: Boş bırakılırsa satış kapalı sayılır."></textarea>
+            <div class="jg-soru-akt">
+              <button class="btn btn-primary btn-sm" id="jg-cevap-isle-btn" onclick="jgCevaplariIsle()">
+                <svg class="ico"><use href="#i-refresh"/></svg> Cevapları İşle → Analizi Yeniden Yaz
+              </button>
+            </div>
+          </div>
         </div>
         <div class="jg-modal-aksiyon">
+          <!-- İteratif düzelt sohbeti (ilgili kısmı düzelt; tam yeniden yazma değil) -->
+          <div class="jg-duzelt-row" id="jg-duzelt-row" style="display:none">
+            <input type="text" id="jg-duzelt" autocomplete="off" placeholder="Bu analizi düzelt — örn: 'Kabul kriterlerine boş tarih senaryosunu ekle'" onkeydown="if(event.key==='Enter')jgAnalizDuzelt()">
+            <button class="btn btn-outline btn-sm" id="jg-duzelt-btn" onclick="jgAnalizDuzelt()">Düzelt</button>
+          </div>
           <span class="jg-warn">⚠ Onayla'ya basınca Jira görevinin açıklaması ÜZERİNE YAZILIR (geri alınamaz). Açık Sorular Jira'ya YAZILMAZ.</span>
           <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
           <button class="btn btn-success" id="jg-approve-btn" onclick="jgJiraGuncelle()">
@@ -4583,9 +4627,44 @@ function jgListeCiz(containerId, liste, hazirMi) {
   kap.innerHTML = liste.map(g => _jgKartHtml(g, sinif)).join('');
 }
 
-let _jgAbort = null;   // süren analiz isteğini iptal etmek için (limit/asılı kalma durumunda "İşlemi kapat")
+let _jgAbort = null;      // süren analiz isteğini iptal etmek için (İptal / modal kapat)
+let _jgProcTimer = null;  // JARVIS geçen-süre sayacı
+let _jgProcModel = '';    // model etiketi (bir kez /api/settings'ten çekilir)
 
-async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
+async function _jgProcModelYukle() {
+  if (_jgProcModel) return _jgProcModel;
+  try {
+    const d = await (await fetch('/api/settings')).json();
+    _jgProcModel = d.cli_mod ? ((d.cli_model || 'claude') + ' · CLI') : 'API';
+  } catch (e) { _jgProcModel = 'claude'; }
+  return _jgProcModel;
+}
+// JARVIS işlem panelini aç: reaktör + geçen-süre; editör/sorular/düzelt/sekmeler gizlenir.
+function _jgProcBaslat(baslik) {
+  document.getElementById('jg-proc-title').textContent = baslik;
+  document.getElementById('jg-proc-sure').textContent = '00:00';
+  _jgProcModelYukle().then(m => { const el = document.getElementById('jg-proc-model'); if (el) el.textContent = m; });
+  document.getElementById('jg-proc').style.display = 'flex';
+  document.getElementById('jg-preview-editor').style.display = 'none';
+  document.getElementById('jg-preview-sorular-wrap').style.display = 'none';
+  document.getElementById('jg-duzelt-row').style.display = 'none';
+  document.getElementById('jg-modal-tabs').style.display = 'none';
+  const t0 = Date.now();
+  clearInterval(_jgProcTimer);
+  _jgProcTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const el = document.getElementById('jg-proc-sure');
+    if (el) el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+}
+function _jgProcBitir() {
+  clearInterval(_jgProcTimer); _jgProcTimer = null;
+  document.getElementById('jg-proc').style.display = 'none';
+  document.getElementById('jg-modal-tabs').style.display = '';
+}
+
+// Ana işlem: key + endpoint + modal başlık + reaktör başlık + ek gövde (ör. {cevaplar}).
+async function _jgIslem(key, endpoint, baslik, procBaslik, extra) {
   const gorev = _jgGorevler[key];
   if (!gorev) return;
   const modal = document.getElementById('jg-preview-card');
@@ -4593,23 +4672,23 @@ async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
   document.body.style.overflow = 'hidden';
   document.getElementById('jg-preview-title').textContent = baslik + ' — ' + key;
   document.getElementById('jg-preview-sub').textContent = gorev.summary || '';
-  document.getElementById('jg-preview-editor').value = bekleMesaji + '\n\n(İşlemi durdurmak için İptal\'e basabilirsiniz.)';
-  document.getElementById('jg-preview-sorular').value = '';
   document.getElementById('jg-modal-tab-sorular').style.display = 'none';
-  jgModalTab('ana');  // varsayılan: ana çıktı
+  jgModalTab('ana');
   document.getElementById('jg-approve-btn').disabled = true;
   _jgMsg('jg-preview-msg', '');
   _jgCurrent = null;
-  // Önceki istek varsa iptal et; yenisi için AbortController kur.
+  _jgProcBaslat(procBaslik || 'İşleniyor');
   if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
   _jgAbort = new AbortController();
-  const _busignal = _jgAbort.signal;
+  const sig = _jgAbort.signal;
   try {
     const r = await fetch(endpoint, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gorev }), signal: _busignal
+      body: JSON.stringify(Object.assign({ gorev }, extra || {})), signal: sig
     });
     const d = await r.json();
+    _jgProcBitir();
+    document.getElementById('jg-preview-editor').style.display = '';
     if (!d.ok) {
       document.getElementById('jg-preview-editor').value = '';
       _jgMsg('jg-preview-msg', d.error || 'Hata', 'err');
@@ -4617,49 +4696,103 @@ async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
     }
     document.getElementById('jg-preview-editor').value = d.markdown || '';
     document.getElementById('jg-approve-btn').disabled = false;
+    document.getElementById('jg-duzelt-row').style.display = '';   // artık iteratif düzeltilebilir
     _jgCurrent = { key: key, summary: gorev.summary || '' };
-    // Açık sorular geldiyse ayrı sekme aç (Jira'ya yazılmaz)
-    if (d.acik_sorular && d.acik_sorular.trim()) {
-      document.getElementById('jg-preview-sorular').value = d.acik_sorular;
-      const tab = document.getElementById('jg-modal-tab-sorular');
+    // Açık sorular — CEVAPLANABİLİR sekme (yoksa/temizse gizle)
+    const tab = document.getElementById('jg-modal-tab-sorular');
+    const acik = (d.acik_sorular || '').trim();
+    if (acik && !/Açık soru tespit edilmedi/i.test(acik)) {
+      document.getElementById('jg-preview-sorular').value = acik;
+      document.getElementById('jg-cevaplar').value = '';
       tab.style.display = '';
-      // soru sayısını çıkar: '### Q-' başlıklarını say
-      const sayi = (d.acik_sorular.match(/^###\s+Q-/gm) || []).length;
+      const sayi = (acik.match(/^###\s+Q-/gm) || []).length;
       document.getElementById('jg-sorular-rozet').textContent = sayi || '!';
+    } else {
+      document.getElementById('jg-preview-sorular').value = '';
+      tab.style.display = 'none';
     }
   } catch (e) {
+    _jgProcBitir();
+    document.getElementById('jg-preview-editor').style.display = '';
     document.getElementById('jg-preview-editor').value = '';
-    if (e && e.name === 'AbortError') {
-      _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err');
-    } else {
-      _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
-    }
+    if (e && e.name === 'AbortError') _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err');
+    else _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
   } finally {
     _jgAbort = null;
   }
 }
 
-// Modal sekme: 'ana' (teknik analiz / standart format) ↔ 'sorular' (açık sorular)
+// Modal sekme: 'ana' (analiz çıktısı) ↔ 'sorular' (cevaplanabilir açık sorular)
 function jgModalTab(ad) {
   document.querySelectorAll('.jg-modal-tab').forEach(t =>
     t.classList.toggle('aktif', t.dataset.tab === ad));
   document.getElementById('jg-preview-editor').style.display = ad === 'ana' ? '' : 'none';
-  document.getElementById('jg-preview-sorular').style.display = ad === 'sorular' ? '' : 'none';
+  document.getElementById('jg-preview-sorular-wrap').style.display = ad === 'sorular' ? '' : 'none';
 }
 
 function jgFormatla(key) {
-  return _jgIslem(key, '/api/jira/gorev/formatla', 'Standart Format', 'Standart formata çevriliyor…');
+  return _jgIslem(key, '/api/jira/gorev/formatla', 'Standart Format', 'Standart formata çevriliyor');
 }
 function jgAnaliz(key) {
-  return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor — bu işlem birkaç dakika sürebilir…');
+  return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor');
+}
+
+// Açık sorulara verilen cevapları işle → analizi cevaplara göre YENİDEN yaz (belirsizlikleri çözer).
+function jgCevaplariIsle() {
+  if (!_jgCurrent) return;
+  const cev = document.getElementById('jg-cevaplar').value.trim();
+  if (!cev) { toast('Önce sorulara cevap yazın', 'info'); return; }
+  _jgIslem(_jgCurrent.key, '/api/jira/gorev/analiz', 'Teknik Analiz',
+           'Cevaplara göre analiz yeniden yazılıyor', { cevaplar: cev });
+}
+
+// İteratif düzelt: mevcut analizin YALNIZ ilgili kısmını talimata göre düzeltir (tam yeniden yazma değil).
+async function jgAnalizDuzelt() {
+  if (!_jgCurrent) return;
+  const inp = document.getElementById('jg-duzelt');
+  const talimat = (inp.value || '').trim();
+  if (!talimat) { toast('Bir düzeltme yazın', 'info'); return; }
+  const markdown = document.getElementById('jg-preview-editor').value.trim();
+  if (!markdown) { toast('Düzeltilecek analiz yok', 'info'); return; }
+  const gorev = _jgGorevler[_jgCurrent.key];
+  document.getElementById('jg-approve-btn').disabled = true;
+  _jgMsg('jg-preview-msg', '');
+  _jgProcBaslat('Analiz düzeltiliyor');
+  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
+  _jgAbort = new AbortController();
+  try {
+    const r = await fetch('/api/jira/gorev/duzelt', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gorev, markdown, talimat }), signal: _jgAbort.signal
+    });
+    const d = await r.json();
+    _jgProcBitir();
+    document.getElementById('jg-preview-editor').style.display = '';
+    document.getElementById('jg-duzelt-row').style.display = '';
+    if (!d.ok) { document.getElementById('jg-approve-btn').disabled = false; _jgMsg('jg-preview-msg', d.error || 'Hata', 'err'); return; }
+    document.getElementById('jg-preview-editor').value = d.markdown || markdown;
+    document.getElementById('jg-approve-btn').disabled = false;
+    inp.value = '';
+    toast('Analiz güncellendi', 'success');
+  } catch (e) {
+    _jgProcBitir();
+    document.getElementById('jg-preview-editor').style.display = '';
+    document.getElementById('jg-duzelt-row').style.display = '';
+    document.getElementById('jg-approve-btn').disabled = false;
+    if (e && e.name === 'AbortError') _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err');
+    else _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
+  } finally { _jgAbort = null; }
 }
 
 function jgPreviewKapat() {
-  // Süren analiz isteği varsa iptal et — "İşlemi kapat" (limit/asılı kalma durumunda takılı kalmasın).
+  // Süren istek varsa iptal et (limit/asılı kalma durumunda takılı kalmasın).
   if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} _jgAbort = null; }
+  _jgProcBitir();
   document.getElementById('jg-preview-card').style.display = 'none';
   document.getElementById('jg-preview-editor').value = '';
   document.getElementById('jg-preview-sorular').value = '';
+  const cev = document.getElementById('jg-cevaplar'); if (cev) cev.value = '';
+  const dz = document.getElementById('jg-duzelt'); if (dz) dz.value = '';
   document.body.style.overflow = '';
   _jgCurrent = null;
 }

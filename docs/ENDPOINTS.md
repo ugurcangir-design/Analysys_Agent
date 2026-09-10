@@ -46,8 +46,11 @@ POST /api/jira/gorevler/cek        FAZ 1: alt görevleri çek + YAPISAL sınıfl
 POST /api/jira/gorevler/siniflandir FAZ 2: yeniden çek + AI ile içerikten sınıflandır (opt-in)
 POST /api/jira/gorevler/sadece-client  Yalnızca client (frontend) işlerini ayıkla (batch, opt-in, AI)
 POST /api/jira/gorev/formatla      Özellik 1: görevi standart formata çevir (önizleme, YAZMAZ)
-POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detaylandır (önizleme, YAZMAZ)
+POST /api/jira/gorev/analiz        Özellik 2: görevi teknik analizle detaylandır (önizleme, YAZMAZ). Opsiyonel `cevaplar`:
+                                   açık sorulara analist cevapları → analiz cevaplara göre YENİDEN yazılır (belirsizlik çözülür).
                                    Analist Notu (context_filter → gorev_analist_notu) doluysa dikkate alır
+POST /api/jira/gorev/duzelt        İteratif düzelt (önizleme, YAZMAZ): {gorev, markdown, talimat} → yalnız ilgili kısmı
+                                   düzeltilmiş tam analiz (HTML prototip 'sohbetle düzelt' deseninin görev karşılığı)
 POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'da güncelle (markdown→ADF)
 ```
 UI (Task Analizi, 0 token / tamamen frontend): "Tüm Görevler" ana başlığı + Jira

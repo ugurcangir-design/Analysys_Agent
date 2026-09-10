@@ -708,7 +708,7 @@ def gorev_standart_formatla(gorev: dict) -> str:
 
 # ─── Özellik 2: Teknik Analiz ile Detaylandır ────────────────────────────────
 
-def gorev_analiz_et(gorev: dict) -> dict:
+def gorev_analiz_et(gorev: dict, cevaplar: str = "") -> dict:
     """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
     görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
     tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
@@ -778,6 +778,19 @@ def gorev_analiz_et(gorev: dict) -> dict:
             f"Not:\n{analist_notu}"
         )})
 
+    # Analist cevapları (opsiyonel) — modaldeki "Açık Sorular"a verilen cevaplar. Doluysa, analizi
+    # bu cevaplara göre YENİDEN yaz: cevaplanan belirsizlikleri ÇÖZ, ilgili bölümü netleştir.
+    cevaplar = (cevaplar or "").strip()
+    if cevaplar:
+        print("  💬 Analist cevapları dikkate alınıyor (belirsizlikler çözülecek).")
+        icerik.append({"type": "text", "text": (
+            "### ANALİST CEVAPLARI (önceki açık sorulara) — DİKKATE AL\n"
+            "Analist aşağıda önceki turdaki açık soruların bir kısmını cevapladı. Teknik analizi bu cevaplara "
+            "göre GÜNCELLE: cevaplanan belirsizlikleri ÇÖZ (artık o konuları `[K: ❓ Belirsiz]` / `⚠ VARSAYIM` "
+            "bırakma, cevaba göre kesinleştir), ilgili bölümü buna göre yaz. Cevaplanmayan konular açık soru "
+            "olarak kalabilir. Cevapları uydurma bilgiyle genişletme — yalnız verileni uygula.\n\n"
+            f"Analist cevapları:\n{cevaplar}"
+        )})
     icerik.append(
         {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."}
     )
@@ -804,6 +817,34 @@ def gorev_analiz_et(gorev: dict) -> dict:
     # Yönetici Özeti (TL;DR) — modalda görünür, Jira'ya YAZILMAZ (gorev_jiraya_yaz keser).
     ozet = yonetici_ozeti_olustur(teknik, acik_sorular=acik)
     return {"markdown": ozet + teknik, "acik_sorular": acik}
+
+
+_GOREV_DUZELT_SISTEM = (
+    "Kıdemli teknik analistsin. Sana MEVCUT bir Jira görev teknik analizi + tek bir DÜZELTME TALİMATI "
+    "verilecek. Talimatın istediği kısmı düzelt; DOKUNULMAYAN bölümleri AYNEN koru — yeniden yazma, "
+    "kısaltma, başlık değiştirme. Aynı Markdown biçimini, bölüm başlıklarını ve ID şemasını koru. "
+    "Doğruluk, gözlemlenebilirlik ve spekülasyon-yasağı kurallarını GEVŞETME (gözleyemediğini uydurma). "
+    "Tüm (güncellenmiş) analizi eksiksiz olarak <teknik_analiz>…</teknik_analiz> içinde dön."
+)
+
+
+def gorev_analiz_duzelt(gorev: dict, mevcut_markdown: str, talimat: str) -> str:
+    """İteratif düzeltme: mevcut teknik analiz + talimat → yalnız ilgili kısmı düzeltilmiş tam analiz.
+    HTML prototip 'sohbetle düzelt' deseninin görev-analizi karşılığı. Jira'ya YAZMAZ (önizleme)."""
+    talimat = (talimat or "").strip()
+    if not talimat:
+        raise ValueError("Düzeltme talimatı boş.")
+    mevcut = (mevcut_markdown or "").strip()
+    if not mevcut:
+        raise ValueError("Düzeltilecek analiz yok.")
+    icerik = [
+        {"type": "text", "text": f"### Mevcut Teknik Analiz\n\n{mevcut}"},
+        {"type": "text", "text": f"### Kaynak Görev: {gorev.get('key','')} — {gorev.get('summary','')}"},
+        {"type": "text", "text": f"### Düzeltme Talimatı (yalnız bunu uygula)\n{talimat}"},
+    ]
+    yanit = _api_cagri(_GOREV_DUZELT_SISTEM, [{"role": "user", "content": icerik}],
+                       max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
+    return _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
 
 
 def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:

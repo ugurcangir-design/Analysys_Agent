@@ -554,3 +554,12 @@ sonuç cache'lenir oldu. (2) UI link'i yalnız `_bsSonuc.jira_url`'e bağlıydı
 `_bsJiraSite` ekran girişinde `/api/jira/config.site_url`'den çekilir; çoklu-eşleşme key'leri de `_bsKeyLink`'ten
 geçer. Tarayıcıda doğrulandı (sansgroup.atlassian.net/browse/KEY üretiliyor). Not: mevcut tablo için bir kez
 "Karşılaştır" yeniden çalıştırılmalı.
+
+## Task Analizi modalı — ana akış olgunluğuna çıkarıldı (JARVIS + cevaplanabilir sorular + iteratif düzelt) ✅
+Analist: task-bazlı analiz modalı zayıftı (üretimde düz metin, açık sorular salt-okunur, cevap/devam yok).
+- **JARVIS reaktör**: üretim/düzeltme sürerken modal-içi reaktör + geçen-süre + model (`#jg-proc`, `_jgProcBaslat/Bitir`).
+- **Cevaplanabilir açık sorular**: soruları oku → `#jg-cevaplar`'a cevapla → "Cevapları İşle" → `/api/jira/gorev/analiz`
+  `cevaplar` param ile analiz cevaplara göre YENİDEN yazılır (`gorev_analiz_et(gorev, cevaplar)` belirsizlikleri çözer).
+- **İteratif düzelt**: "Bu analizi düzelt" satırı → `/api/jira/gorev/duzelt` (`gorev_analiz_duzelt`) yalnız ilgili kısmı düzeltir.
+- Sorular/cevaplar Jira'ya YAZILMAZ; Onayla yalnız analiz metnini yazar (mevcut uyarı korundu). İptal/Esc her aşamada iptal eder.
+smoke 51; ruff temiz; tarayıcıda reaktör + cevaplanabilir sorular + düzelt satırı doğrulandı.
