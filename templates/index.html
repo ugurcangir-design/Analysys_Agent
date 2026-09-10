@@ -1889,6 +1889,21 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 /* İteratif düzelt sohbeti (aksiyon barında) */
 .jg-duzelt-row { display: flex; gap: 6px; align-items: center; flex: 1 1 320px; min-width: 260px; }
 .jg-duzelt-row input { flex: 1; min-width: 0; }
+/* İlişkili FE/BE analizi — seçim paneli + task değiştirici */
+.jg-secim { padding: 14px 22px; border-bottom: 1px solid var(--border); }
+.jg-secim-yardim { font-size: 12.5px; color: var(--text2); line-height: 1.55; margin-bottom: 10px; }
+.jg-secim-satir { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--surface2); }
+.jg-secim-satir.birincil { border-color: var(--accent); }
+.jg-ss-key { font-family: 'Geist Mono', monospace; font-weight: 700; font-size: 12px; white-space: nowrap; }
+.jg-ss-sum { flex: 1; font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.jg-ss-rol { font-size: 10.5px; font-family: 'Geist Mono', monospace; color: var(--text3); }
+.jg-kat-sec { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); border-radius: 6px; padding: 3px 7px; font: inherit; font-size: 11.5px; }
+.jg-secim-akt { margin-top: 10px; display: flex; gap: 8px; }
+.jg-switcher { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 10px 22px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.jg-switcher .jg-sw-lbl { font-size: 11px; color: var(--text3); margin-right: 2px; }
+.jg-switcher button { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text2); border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.jg-switcher button.aktif { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.jg-switcher button .jg-sw-hata { color: var(--red); }
 .jg-editor-modal { min-height: 480px; max-height: 70vh; }
 .jg-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jg-warn { font-size: 11.5px; color: var(--text3); flex: 1; min-width: 220px; }
@@ -2809,6 +2824,17 @@ function temaDegistir() {
           </div>
           <button class="jg-modal-kapat" onclick="jgPreviewKapat()" title="Kapat (Esc)">✕</button>
         </div>
+        <!-- İlişkili analiz seçim paneli (bağlı task varsa; üretimden önce) -->
+        <div id="jg-secim" class="jg-secim" style="display:none">
+          <div class="jg-secim-yardim">Bu görevin <b>bağlı task'ları</b> var. Birlikte analiz etmek istediklerini seç — her biri <b>KENDİ katmanına</b> göre AYRI analiz edilir, FE↔BE etkileşimi "Bağımlılık ve Arayüz" başlığında sözleşme olarak yazılır. Her analiz kendi Jira görevine ayrı yazılır.</div>
+          <div id="jg-secim-liste"></div>
+          <div class="jg-secim-akt">
+            <button class="btn btn-primary btn-sm" onclick="jgIliskiliAnalizBaslat()">Seçilenleri Analiz Et</button>
+            <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
+          </div>
+        </div>
+        <!-- Çoklu analiz — task değiştirici (birden çok analiz üretildiğinde) -->
+        <div id="jg-analiz-switcher" class="jg-switcher" style="display:none"></div>
         <div class="jg-modal-tabs" id="jg-modal-tabs">
           <button class="jg-modal-tab aktif" data-tab="ana" onclick="jgModalTab('ana')">Çıktı</button>
           <button class="jg-modal-tab" data-tab="sorular" id="jg-modal-tab-sorular" onclick="jgModalTab('sorular')" style="display:none">
@@ -4675,6 +4701,155 @@ function _jgProcBitir() {
   document.getElementById('jg-modal-tabs').style.display = '';
 }
 
+// ── İlişkili FE/BE analizi — çoklu-task state + seçim + switcher ────────────────
+let _jgAnalizSeti = {};        // key → {markdown, acik_sorular, summary, katman, hata}
+let _jgAktifAnalizKey = null;  // switcher'da gösterilen aktif analiz
+let _jgSecimBirincil = null;   // seçim panelinde analiz edilen birincil task
+
+// Kaba katman tahmini (UI) — analist dropdown ile düzeltebilir.
+function _jgKatmanTahmin(metin) {
+  const s = (metin || '').toLowerCase();
+  const be = /(backend|\bbe\b|api|endpoint|servis|service|\bdb\b|veritaban|migration|\bsql\b|\bjob\b|entegr|repository|controller)/.test(s);
+  const fe = /(frontend|\bfe\b|\bui\b|ekran|form|component|bileşen|react|\bcss\b|sayfa|modal|buton|görünüm|tablo|liste)/.test(s);
+  if (be && !fe) return 'be';
+  if (fe && !be) return 'fe';
+  return 'belirsiz';
+}
+function _jgKatSelect(id, secili) {
+  const o = (v, t) => `<option value="${v}" ${secili === v ? 'selected' : ''}>${t}</option>`;
+  return `<select class="jg-kat-sec" id="${id}">${o('fe', 'FE')}${o('be', 'BE')}${o('belirsiz', 'Belirsiz')}</select>`;
+}
+// Bağlı task varsa: analizden ÖNCE seçim panelini göster (üretim yapma).
+function _jgSecimGoster(key) {
+  const g = _jgGorevler[key] || {};
+  document.getElementById('jg-preview-card').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('jg-preview-title').textContent = 'İlişkili Analiz — ' + key;
+  document.getElementById('jg-preview-sub').textContent = g.summary || '';
+  document.getElementById('jg-proc').style.display = 'none';
+  document.getElementById('jg-analiz-switcher').style.display = 'none';
+  document.getElementById('jg-modal-tabs').style.display = 'none';
+  document.getElementById('jg-preview-editor').style.display = 'none';
+  document.getElementById('jg-preview-sorular-wrap').style.display = 'none';
+  document.getElementById('jg-duzelt-row').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = 'none';
+  const bagli = (g.baglantililar || []).filter(b => b.key);
+  const satir = (b, birincil) => `
+    <div class="jg-secim-satir ${birincil ? 'birincil' : ''}">
+      ${birincil ? '<span class="jg-ss-rol">ANALİZ</span>'
+                 : `<input type="checkbox" class="jg-ss-chk" data-key="${escHtml(b.key)}" checked>`}
+      <span class="jg-ss-key">${escHtml(b.key)}</span>
+      <span class="jg-ss-sum">${escHtml(b.summary || '')}</span>
+      ${_jgKatSelect('jg-kat-' + b.key, birincil ? _jgKatmanTahmin((g.summary || '') + ' ' + (g.type || '')) : (b.katman || 'belirsiz'))}
+    </div>`;
+  document.getElementById('jg-secim-liste').innerHTML =
+    satir({ key: key, summary: g.summary }, true) + bagli.map(b => satir(b, false)).join('');
+  document.getElementById('jg-secim').style.display = '';
+  _jgSecimBirincil = key;
+}
+// Saf üretim çağrısı (proc/DOM yönetmez) — {ok, markdown, acik_sorular, error}.
+async function _jgUret(key, extra) {
+  const g = _jgGorevler[key];
+  const body = Object.assign(g ? { gorev: g } : { gorev_key: key }, extra || {});
+  const r = await fetch('/api/jira/gorev/analiz', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body), signal: _jgAbort ? _jgAbort.signal : undefined
+  });
+  return await r.json();
+}
+// Bir analiz sonucunu editör/sorular alanına döker + aktif yapar + switcher'ı günceller.
+function _jgSonucGoster(key) {
+  const s = _jgAnalizSeti[key] || {};
+  _jgAktifAnalizKey = key;
+  _jgCurrent = { key: key, summary: s.summary || '' };
+  document.querySelector('.jg-modal-aksiyon').style.display = '';
+  document.getElementById('jg-secim').style.display = 'none';
+  document.getElementById('jg-preview-title').textContent = 'Teknik Analiz — ' + key
+    + (s.katman && s.katman !== 'belirsiz' ? ' [' + s.katman.toUpperCase() + ']' : '');
+  document.getElementById('jg-preview-sub').textContent = s.summary || '';
+  document.getElementById('jg-preview-editor').style.display = '';
+  document.getElementById('jg-preview-editor').value = s.hata ? '' : (s.markdown || '');
+  document.getElementById('jg-approve-btn').disabled = !!s.hata || !s.markdown;
+  document.getElementById('jg-duzelt-row').style.display = s.hata ? 'none' : '';
+  _jgMsg('jg-preview-msg', s.hata ? ('Hata: ' + s.hata) : '', s.hata ? 'err' : '');
+  const tab = document.getElementById('jg-modal-tab-sorular');
+  const a = (s.acik_sorular || '').trim();
+  if (a && !/Açık soru tespit edilmedi/i.test(a)) {
+    const n = _jgSorulariRender(a); tab.style.display = ''; document.getElementById('jg-sorular-rozet').textContent = n || '!';
+  } else { _jgSorulariRender(''); tab.style.display = 'none'; }
+  jgModalTab('ana');
+  _jgSwitcherRender();
+}
+function _jgSwitcherRender() {
+  const keys = Object.keys(_jgAnalizSeti);
+  const sw = document.getElementById('jg-analiz-switcher');
+  if (keys.length < 2) { sw.style.display = 'none'; return; }
+  sw.style.display = '';
+  sw.innerHTML = '<span class="jg-sw-lbl">Analizler:</span>' + keys.map(k => {
+    const s = _jgAnalizSeti[k];
+    const rol = s.katman && s.katman !== 'belirsiz' ? ' [' + s.katman.toUpperCase() + ']' : '';
+    return `<button class="${k === _jgAktifAnalizKey ? 'aktif' : ''}" onclick="_jgSonucGoster('${escHtml(k)}')">${escHtml(k)}${rol}${s.hata ? ' <span class="jg-sw-hata">⚠</span>' : ''}</button>`;
+  }).join('');
+}
+// Seçilen task'ları AYRI AYRI analiz et (her biri kendi katmanı + diğerleri bağlam).
+async function jgIliskiliAnalizBaslat() {
+  const birincil = _jgSecimBirincil;
+  if (!birincil) return;
+  const secili = [{ key: birincil, katman: (document.getElementById('jg-kat-' + birincil) || {}).value || 'belirsiz' }];
+  document.querySelectorAll('#jg-secim-liste .jg-ss-chk:checked').forEach(chk => {
+    const k = chk.dataset.key;
+    secili.push({ key: k, katman: (document.getElementById('jg-kat-' + k) || {}).value || 'belirsiz' });
+  });
+  document.getElementById('jg-secim').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = '';
+  _jgAnalizSeti = {}; _jgAktifAnalizKey = null;
+  document.getElementById('jg-approve-btn').disabled = true;
+  await _jgFiltreKaydet();
+  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
+  _jgAbort = new AbortController();
+  const N = secili.length;
+  try {
+    for (let i = 0; i < N; i++) {
+      const t = secili[i];
+      const digerleri = secili.filter(x => x.key !== t.key).map(x => x.key);
+      _jgProcBaslat(`Analiz ${i + 1}/${N}: ${t.key}${t.katman !== 'belirsiz' ? ' [' + t.katman.toUpperCase() + ']' : ''}`);
+      let d;
+      try { d = await _jgUret(t.key, { iliskili_keys: digerleri, katman: t.katman }); }
+      catch (e) {
+        if (e && e.name === 'AbortError') { _jgProcBitir(); _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err'); _jgAbort = null; return; }
+        d = { ok: false, error: String(e) };
+      }
+      const sum = (_jgGorevler[t.key] || {}).summary || '';
+      _jgAnalizSeti[t.key] = d.ok
+        ? { markdown: d.markdown || '', acik_sorular: d.acik_sorular || '', summary: sum, katman: t.katman }
+        : { hata: d.error || 'Hata', summary: sum, katman: t.katman };
+    }
+  } finally { _jgAbort = null; }
+  _jgProcBitir();
+  _jgSonucGoster(birincil);
+}
+// Tek bir analizi yeniden üret (cevaplar/başka) → seti güncelle + göster. Katman+ilişki korunur.
+async function _jgTekYenidenUret(key, extra) {
+  const s = _jgAnalizSeti[key] || {};
+  const digerleri = Object.keys(_jgAnalizSeti).filter(k => k !== key);
+  document.getElementById('jg-approve-btn').disabled = true;
+  _jgProcBaslat('Cevaplara göre analiz yeniden yazılıyor');
+  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
+  _jgAbort = new AbortController();
+  try {
+    const d = await _jgUret(key, Object.assign({ katman: s.katman || '', iliskili_keys: digerleri }, extra || {}));
+    _jgAnalizSeti[key] = d.ok
+      ? { markdown: d.markdown || '', acik_sorular: d.acik_sorular || '', summary: s.summary, katman: s.katman }
+      : Object.assign({}, s, { hata: d.error || 'Hata' });
+  } catch (e) {
+    if (e && e.name === 'AbortError') { _jgAbort = null; _jgProcBitir(); _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err'); return; }
+    _jgAnalizSeti[key] = Object.assign({}, s, { hata: String(e) });
+  }
+  _jgAbort = null;
+  _jgProcBitir();
+  _jgSonucGoster(key);
+}
+
 // Ana işlem: key + endpoint + modal başlık + reaktör başlık + ek gövde (ör. {cevaplar}).
 async function _jgIslem(key, endpoint, baslik, procBaslik, extra) {
   const gorev = _jgGorevler[key];
@@ -4682,6 +4857,9 @@ async function _jgIslem(key, endpoint, baslik, procBaslik, extra) {
   const modal = document.getElementById('jg-preview-card');
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  document.getElementById('jg-secim').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = '';
+  document.getElementById('jg-analiz-switcher').style.display = 'none';
   document.getElementById('jg-preview-title').textContent = baslik + ' — ' + key;
   document.getElementById('jg-preview-sub').textContent = gorev.summary || '';
   document.getElementById('jg-modal-tab-sorular').style.display = 'none';
@@ -4710,6 +4888,9 @@ async function _jgIslem(key, endpoint, baslik, procBaslik, extra) {
     document.getElementById('jg-approve-btn').disabled = false;
     document.getElementById('jg-duzelt-row').style.display = '';   // artık iteratif düzeltilebilir
     _jgCurrent = { key: key, summary: gorev.summary || '' };
+    // Tek-task: state'i sete de yaz (cevaplar/düzelt aktif anahtara göre çalışır; switcher gizli kalır)
+    _jgAktifAnalizKey = key;
+    _jgAnalizSeti = { [key]: { markdown: d.markdown || '', acik_sorular: (d.acik_sorular || ''), summary: gorev.summary || '', katman: '' } };
     // Açık sorular — CEVAPLANABİLİR sekme (yoksa/temizse gizle)
     const tab = document.getElementById('jg-modal-tab-sorular');
     const acik = (d.acik_sorular || '').trim();
@@ -4755,6 +4936,11 @@ function jgFormatla(key) {
   return _jgIslem(key, '/api/jira/gorev/formatla', 'Standart Format', 'Standart formata çevriliyor');
 }
 async function jgAnaliz(key) {
+  _jgAnalizSeti = {}; _jgAktifAnalizKey = null;
+  document.getElementById('jg-analiz-switcher').style.display = 'none';
+  const g = _jgGorevler[key] || {};
+  const bagli = (g.baglantililar || []).filter(b => b.key);
+  if (bagli.length) { _jgSecimGoster(key); return; }   // bağlı task varsa → önce SEÇİM paneli
   await _jgFiltreKaydet();   // ekrandaki bağlam filtresini analiz OKUMADAN önce kalıcı yap
   return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor');
 }
@@ -4807,9 +4993,9 @@ function _jgSorulariRender(md) {
   return sorular.length;
 }
 
-// Açık sorulara verilen cevapları işle → analizi cevaplara göre YENİDEN yaz (belirsizlikleri çözer).
+// Açık sorulara verilen cevapları işle → AKTİF analizi cevaplara göre YENİDEN yaz (belirsizlikleri çözer).
 async function jgCevaplariIsle() {
-  if (!_jgCurrent) return;
+  if (!_jgAktifAnalizKey) return;
   // Soru-bazlı kutuları topla: "Q-T-001: cevap" satırları. Yedek tek-kutu varsa onu kullan.
   let cev = '';
   const kutular = document.querySelectorAll('#jg-sorular-liste .jg-sk-cevap[data-qid]');
@@ -4822,46 +5008,42 @@ async function jgCevaplariIsle() {
   }
   if (!cev) { toast('Önce en az bir soruyu cevaplayın', 'info'); return; }
   await _jgFiltreKaydet();
-  _jgIslem(_jgCurrent.key, '/api/jira/gorev/analiz', 'Teknik Analiz',
-           'Cevaplara göre analiz yeniden yazılıyor', { cevaplar: cev });
+  await _jgTekYenidenUret(_jgAktifAnalizKey, { cevaplar: cev });   // katman + ilişki korunur
 }
 
-// İteratif düzelt: mevcut analizin YALNIZ ilgili kısmını talimata göre düzeltir (tam yeniden yazma değil).
+// İteratif düzelt: AKTİF analizin YALNIZ ilgili kısmını talimata göre düzeltir (tam yeniden yazma değil).
 async function jgAnalizDuzelt() {
-  if (!_jgCurrent) return;
+  if (!_jgAktifAnalizKey) return;
+  const key = _jgAktifAnalizKey;
   const inp = document.getElementById('jg-duzelt');
   const talimat = (inp.value || '').trim();
   if (!talimat) { toast('Bir düzeltme yazın', 'info'); return; }
   const markdown = document.getElementById('jg-preview-editor').value.trim();
   if (!markdown) { toast('Düzeltilecek analiz yok', 'info'); return; }
-  const gorev = _jgGorevler[_jgCurrent.key];
+  const s = _jgAnalizSeti[key] || {};
+  const gorev = _jgGorevler[key] || { key: key, summary: s.summary || '' };
   document.getElementById('jg-approve-btn').disabled = true;
   _jgMsg('jg-preview-msg', '');
   _jgProcBaslat('Analiz düzeltiliyor');
   if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
   _jgAbort = new AbortController();
+  let ok = false;
   try {
     const r = await fetch('/api/jira/gorev/duzelt', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gorev, markdown, talimat }), signal: _jgAbort.signal
     });
     const d = await r.json();
-    _jgProcBitir();
-    document.getElementById('jg-preview-editor').style.display = '';
-    document.getElementById('jg-duzelt-row').style.display = '';
-    if (!d.ok) { document.getElementById('jg-approve-btn').disabled = false; _jgMsg('jg-preview-msg', d.error || 'Hata', 'err'); return; }
-    document.getElementById('jg-preview-editor').value = d.markdown || markdown;
-    document.getElementById('jg-approve-btn').disabled = false;
-    inp.value = '';
-    toast('Analiz güncellendi', 'success');
+    if (d.ok) { _jgAnalizSeti[key] = Object.assign({}, s, { markdown: d.markdown || markdown, hata: undefined }); ok = true; inp.value = ''; }
+    else { _jgAnalizSeti[key] = Object.assign({}, s, { hata: d.error || 'Hata' }); }
   } catch (e) {
-    _jgProcBitir();
-    document.getElementById('jg-preview-editor').style.display = '';
-    document.getElementById('jg-duzelt-row').style.display = '';
-    document.getElementById('jg-approve-btn').disabled = false;
-    if (e && e.name === 'AbortError') _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err');
-    else _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
-  } finally { _jgAbort = null; }
+    if (e && e.name === 'AbortError') { _jgAbort = null; _jgProcBitir(); _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err'); return; }
+    _jgAnalizSeti[key] = Object.assign({}, s, { hata: String(e) });
+  }
+  _jgAbort = null;
+  _jgProcBitir();
+  _jgSonucGoster(key);
+  if (ok) toast('Analiz güncellendi', 'success');
 }
 
 function jgPreviewKapat() {
@@ -4871,10 +5053,13 @@ function jgPreviewKapat() {
   document.getElementById('jg-preview-card').style.display = 'none';
   document.getElementById('jg-preview-editor').value = '';
   document.getElementById('jg-preview-sorular').value = '';
-  const cev = document.getElementById('jg-cevaplar'); if (cev) cev.value = '';
   const dz = document.getElementById('jg-duzelt'); if (dz) dz.value = '';
+  document.getElementById('jg-secim').style.display = 'none';
+  document.getElementById('jg-analiz-switcher').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = '';   // sonraki açılış için geri getir
   document.body.style.overflow = '';
   _jgCurrent = null;
+  _jgAnalizSeti = {}; _jgAktifAnalizKey = null; _jgSecimBirincil = null;
 }
 
 // Esc tuşuyla modal kapansın (UX standardı)

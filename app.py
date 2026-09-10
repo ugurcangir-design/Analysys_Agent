@@ -3730,19 +3730,35 @@ def jira_gorev_analiz():
     AI çağrısı uzun sürebilir (özellikle CLI modunda)."""
     data = request.get_json(silent=True) or {}
     gorev = data.get("gorev")
-    if not isinstance(gorev, dict) or not gorev.get("key"):
-        return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
     hata = _jira_baglanti_eksik()
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
+    from skills.jira_gorevleri import gorev_analiz_et, gorev_getir
+    # Analiz edilecek görev: tam dict verildiyse onu kullan; yalnız key verildiyse Jira'dan çek
+    # (ilişkili FE/BE analizinde, listede yüklü olmayan bağlı task'ı analiz etmek için).
+    if not isinstance(gorev, dict) or not gorev.get("key"):
+        gkey = (data.get("gorev_key") or "").strip()
+        if not gkey:
+            return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
+        gorev = gorev_getir(gkey)
+        if not gorev:
+            return jsonify({"ok": False, "error": f"Görev okunamadı: {gkey}"}), 400
     _bas = time.time()
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
     cevaplar = (data.get("cevaplar") or "").strip()   # açık sorulara analist cevapları (opsiyonel)
+    katman = (data.get("katman") or "").strip().lower()
+    # İlişkili (karşı katman) task'lar: key listesi → tam dict'leri çek (açıklama dahil, bağlam için)
+    iliskili = []
+    for ik in (data.get("iliskili_keys") or [])[:5]:
+        ik = str(ik).strip()
+        if ik and ik.upper() != str(gorev.get("key", "")).upper():
+            g = gorev_getir(ik)
+            if g:
+                iliskili.append(g)
     try:
-        from skills.jira_gorevleri import gorev_analiz_et
-        sonuc = gorev_analiz_et(gorev, cevaplar=cevaplar)
+        sonuc = gorev_analiz_et(gorev, cevaplar=cevaplar, iliskili=iliskili, katman=katman)
         _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
                         model=_model, ai_modu=_ai_modu,
                         baglam={"gorev": gorev.get("key")})

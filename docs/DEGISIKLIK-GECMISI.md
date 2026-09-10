@@ -581,3 +581,14 @@ Analist: tek metin yerine soru bazında giriş. Açık Sorular sekmesi artık he
 olarak render eder (`_jgSorulariAyristir`/`_jgSorulariRender`): soru + önem rozeti + ayrı cevap kutusu. "Cevapları
 İşle" yalnız DOLU kutuları `Q-T-NNN: cevap` satırlarına çevirip /api/jira/gorev/analiz cevaplar'a gönderir (boşlar
 atlanır). Ayrıştırılamayan formatta tek-kutu yedeği. Tarayıcıda doğrulandı (2 soru → 2 kart, seçmeli toplama).
+
+## Task Analizi — ilişkili FE/BE analizi (iki ayrı analiz + task değiştirici) ✅
+Analist: bazı task'lar FE, bazı BE; FE'ye bağlı BE task'ı olabiliyor; birlikte analiz + katman ayrımı.
+- Bağlı task'ı olan görevde "Teknik Analiz Et" önce SEÇİM paneli açar: birincil + bağlı task'lar, her biri KATMAN
+  (FE/BE, `_jgKatmanTahmin` tahmini, analist düzeltebilir) + checkbox.
+- "Seçilenleri Analiz Et" her task'ı AYRI analiz eder (`jgIliskiliAnalizBaslat` → sıralı `_jgUret`); diğerleri
+  `iliskili_keys` bağlamı olur. Backend `gorev_analiz_et(gorev, iliskili, katman)`: karşı katmanın İÇ implementasyonunu
+  YAZMAZ, yalnız `## Bağımlılık ve Arayüz (FE↔BE)` sözleşmesini verir. `gorev_getir` bağlı task'ı Jira'dan çeker;
+  `/api/jira/gorev/analiz` artık `iliskili_keys`/`katman`/`gorev_key` alır.
+- Sonuçlar `_jgAnalizSeti`'te; modal üstünde task DEĞİŞTİRİCİ (switcher) — her analiz kendi editör/soru/düzelt/Onayla'sıyla
+  KENDİ Jira görevine ayrı yazılır. smoke 52; tarayıcıda seçim + switcher + katman tahmini doğrulandı.

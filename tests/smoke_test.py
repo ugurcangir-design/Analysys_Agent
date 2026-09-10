@@ -113,9 +113,11 @@ kontrol("gorev/duzelt geçersiz görev → 400",
 kontrol("gorev/duzelt eksik talimat → 400",
         istemci.post("/api/jira/gorev/duzelt", json={"gorev": {"key": "X-1"}, "markdown": "x"}, headers=ORIGIN).status_code == 400)
 _jg = importlib.import_module("skills.jira_gorevleri")
+_sig = inspect.signature(_jg.gorev_analiz_et).parameters
 kontrol("jira_gorevleri: gorev_analiz_duzelt + cevaplar param",
-        hasattr(_jg, "gorev_analiz_duzelt")
-        and "cevaplar" in inspect.signature(_jg.gorev_analiz_et).parameters)
+        hasattr(_jg, "gorev_analiz_duzelt") and "cevaplar" in _sig)
+kontrol("jira_gorevleri: ilişkili FE/BE (gorev_getir + iliskili/katman param)",
+        hasattr(_jg, "gorev_getir") and "iliskili" in _sig and "katman" in _sig)
 
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog (YETKI_PANELI=true)", g.get("ok") and len(g.get("katalog", [])) >= 10)

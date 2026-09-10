@@ -256,6 +256,13 @@ def _kapsayici_mi(issuetype: dict | None) -> bool:
     return str(it.get("name", "")).strip().lower() in _KAPSAYICI_TIP_ADLARI
 
 
+def gorev_getir(key: str) -> dict | None:
+    """Tek bir Jira görevini TAM (açıklama + bağlantılar dahil) görev sözlüğü olarak getirir.
+    İlişkili FE/BE analizinde, listede yüklü olmayan bağlı task'ları çekmek için."""
+    ham = _tek_issue_ham(key, _cloud_id())
+    return _issue_ayrıstir(ham) if ham else None
+
+
 def _tek_issue_ham(key: str, cloud_id: str) -> dict | None:
     """Tek issue'yu HAM olarak doğrudan okur (tip kontrolü + ayrıştırma için).
     Bulunamazsa/hata olursa None."""
@@ -708,7 +715,10 @@ def gorev_standart_formatla(gorev: dict) -> str:
 
 # ─── Özellik 2: Teknik Analiz ile Detaylandır ────────────────────────────────
 
-def gorev_analiz_et(gorev: dict, cevaplar: str = "") -> dict:
+_KATMAN_ETIKET = {"fe": "Frontend (FE)", "be": "Backend (BE)", "belirsiz": ""}
+
+
+def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = None, katman: str = "") -> dict:
     """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
     görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
     tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
@@ -790,6 +800,36 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "") -> dict:
             "bırakma, cevaba göre kesinleştir), ilgili bölümü buna göre yaz. Cevaplanmayan konular açık soru "
             "olarak kalabilir. Cevapları uydurma bilgiyle genişletme — yalnız verileni uygula.\n\n"
             f"Analist cevapları:\n{cevaplar}"
+        )})
+    # İLİŞKİLİ FE/BE ANALİZİ (opsiyonel) — bağlı KARŞI-katman task'lar bağlam olarak eklenir; analiz
+    # BU görevin katmanına odaklanır, karşı katmanın İÇ implementasyonunu yazmaz, yalnız ARAYÜZ/SÖZLEŞMEyi verir.
+    katman = (katman or "").strip().lower()
+    kat_et = _KATMAN_ETIKET.get(katman, "")
+    if iliskili:
+        satirlar = []
+        for r in iliskili:
+            rkat = _KATMAN_ETIKET.get((r.get("katman") or "").lower(), "") or "katman?"
+            aciklama = (r.get("description") or "(açıklama yok)").strip()
+            satirlar.append(f"### Bağlı task {r.get('key','')} [{rkat}] — {r.get('summary','')}\n{aciklama[:4000]}")
+        icerik.append({"type": "text", "text": (
+            "### İLİŞKİLİ (KARŞI KATMAN) TASK'LAR — BAĞLAM\n"
+            "Aşağıdaki task'lar bu görevle ilişkili ve genellikle KARŞI katmandır. Bunların İÇ "
+            "implementasyonunu ANALİZ ETME (onlar ayrı analiz edilir). Yalnızca bu görevle ARAYÜZ/BAĞIMLILIK "
+            "ilişkisini kur.\n\n" + "\n\n".join(satirlar)
+        )})
+    if kat_et:
+        icerik.append({"type": "text", "text": (
+            f"### KATMAN ODAĞI: {kat_et}\n"
+            f"Bu görev bir {kat_et} işidir. Analizi {kat_et} katmanının İÇ işine odakla "
+            f"({'ekran/bileşen/state/validasyon/istemci akışı' if katman=='fe' else 'veri modeli/endpoint/iş kuralı/servis'} vb.). "
+            + ("İlişkili karşı-katman task(lar)ıyla etkileşimi AYRI bir `## Bağımlılık ve Arayüz (FE↔BE)` "
+               "başlığında SÖZLEŞME olarak ver: "
+               + ("FE'nin BE'den beklediği endpoint/alan/istek-yanıt sözleşmesi (hangi çağrı, hangi alanlar, "
+                  "beklenen yanıt şekli/durum). Karşı katmanın nasıl yapacağını YAZMA."
+                  if katman == "fe" else
+                  "BE'nin FE'ye SUNACAĞI endpoint/alan/yanıt sözleşmesi (method/path, istek/yanıt alanları, "
+                  "durum kodları) ve hangi FE task'ının tükettiği. FE'nin nasıl render edeceğini YAZMA.")
+               if iliskili else "Karşı katman işini bu analize KATMA.")
         )})
     icerik.append(
         {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."}
