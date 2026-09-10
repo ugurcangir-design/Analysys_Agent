@@ -545,3 +545,12 @@ ayrı ve değişmedi. Tarayıcıda doğrulandı (sansgroup.atlassian.net otomati
 `ciYukle`) kendi oturum başlığında `d.dokuman` varsa koşulsuz "AKTİF OTURUM" gösteriyordu. Artık `!d.aktif` iken
 "Aktif oturum yok · yüklü doküman: X" + "Analize başla"/"Kaldır" (`ciKaldir` → /api/oturum/temizle) gösterir.
 Tarayıcıda doğrulandı.
+
+## UAT Mutabakat — Jira task key link'leri geri geldi ✅
+Analist: key'ler düz metin, tıklanamıyordu. İki kök neden: (1) `jira_site_url` BOŞ sonucu da cache'liyordu →
+tek geçici hata (token/ağ) site adresini süreç boyunca kalıcı boş bırakıp link üretmiyordu → sadece başarılı
+sonuç cache'lenir oldu. (2) UI link'i yalnız `_bsSonuc.jira_url`'e bağlıydı (bağımsız yedek yok) + çoklu-eşleşme
+önizlemesindeki hedef key'ler hiç linklenmiyordu. Düzeltme: `_bsKeyLink` tabanı `_bsSonuc.jira_url || _bsJiraSite`;
+`_bsJiraSite` ekran girişinde `/api/jira/config.site_url`'den çekilir; çoklu-eşleşme key'leri de `_bsKeyLink`'ten
+geçer. Tarayıcıda doğrulandı (sansgroup.atlassian.net/browse/KEY üretiliyor). Not: mevcut tablo için bir kez
+"Karşılaştır" yeniden çalıştırılmalı.

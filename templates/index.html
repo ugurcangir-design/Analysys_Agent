@@ -3638,6 +3638,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
   if (tab === 'settings')      { settingsYukle(); analistYukle(); }
   if (tab === 'jira-settings') jiraConfigYukle();
+  if (tab === 'backlog-senkron') _bsJiraSiteYukle();   // key link'leri için site adresini hazırla
   if (tab === 'prompts')       promptlariYukle();
   if (tab === 'update')        versiyonYukle();
   if (tab === 'referanslar')   { loadSources(); loadRefDocs(); onboardGoster('referanslar', 'page-referanslar'); }
@@ -4695,6 +4696,15 @@ async function jgJiraGuncelle() {
 
 // ─── UAT Mutabakat ──────────────────────────────────────────────────────
 let _bsSonuc = null;      // son mutabakat sonucu (export için saklanır)
+let _bsJiraSite = '';     // Jira site adresi (link için) — sonuçtan bağımsız yedek (/api/jira/config.site_url)
+// Ekrana girince site adresini bağımsız çek → eski/boş jira_url'li sonuçlarda bile key'ler linklenir.
+async function _bsJiraSiteYukle() {
+  try {
+    const d = await (await fetch('/api/jira/config')).json();
+    const yedek = String(d.jira_url || '').includes('.atlassian.net') ? d.jira_url : '';
+    _bsJiraSite = (d.site_url || yedek || '').replace(/\/+$/, '');
+  } catch (e) { /* sessiz */ }
+}
 
 function bsMsg(html, tip) {
   const el = document.getElementById('bs-msg');
@@ -4727,7 +4737,8 @@ function _bsEsc(s) {
 
 function _bsKeyLink(key) {
   const k = _bsEsc(key);
-  const base = _bsSonuc && _bsSonuc.jira_url;
+  // Sonuçtaki jira_url öncelikli; boşsa ekran girişinde çekilen bağımsız site adresine düş.
+  const base = (_bsSonuc && _bsSonuc.jira_url) || _bsJiraSite;
   return base
     ? `<a class="bs-key" href="${base}/browse/${k}" target="_blank" rel="noopener" title="Jira'da aç: ${k}">${k}</a>`
     : `<strong>${k}</strong>`;
@@ -4839,14 +4850,14 @@ function _bsTabloEsles(satirlar, tid) {
     const r0 = grup[0];
     if (grup.length === 1) { govde += _bsTekSatir(r0); continue; }
     // Çok hedefli → özet satır (tıkla-genişlet) + gizli detay satırları.
-    const onizle = grup.slice(0, 4).map(r => r.hedef_key).join(', ') + (grup.length > 4 ? ' …' : '');
+    const onizle = grup.slice(0, 4).map(r => _bsKeyLink(r.hedef_key)).join(', ') + (grup.length > 4 ? ' …' : '');
     govde += `<tr class="bs-ozet-sat" data-uat="${_bsEsc(uk)}" data-fuat="${_bsEsc(_bsDurumNorm(r0.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r0.uat_atanan))}" onclick="_bsGrupAc(this, event)" title="Detayları göster/gizle">
       <td class="bs-sira">${_bsEsc(r0.sira)}</td>
       <td>${_bsKeyLink(r0.uat_key)}</td>
       <td class="bs-cell-ozet">${_bsEsc(r0.uat_ozet)}</td>
       <td><strong>${_bsEsc(r0.uat_durum)}</strong></td>
       ${_bsAtananHucre(r0.uat_atanan)}
-      <td class="bs-grp-toggle" colspan="7"><span class="bs-grp-ok">▸</span> <span class="bs-grp-rozet">${grup.length} eşleşen iş</span> <span class="bs-grp-keys">${_bsEsc(onizle)}</span></td></tr>`;
+      <td class="bs-grp-toggle" colspan="7"><span class="bs-grp-ok">▸</span> <span class="bs-grp-rozet">${grup.length} eşleşen iş</span> <span class="bs-grp-keys">${onizle}</span></td></tr>`;
     grup.forEach(r => {
       govde += `<tr class="bs-detay-sat" data-uat="${_bsEsc(uk)}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}" data-fhatanan="${_bsEsc(_bsDurumNorm(r.hedef_atanan))}" style="display:none">
         <td></td><td class="bs-detay-im">↳</td><td></td><td></td><td></td>
