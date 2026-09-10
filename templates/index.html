@@ -1904,6 +1904,8 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-switcher button { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text2); border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .jg-switcher button.aktif { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .jg-switcher button .jg-sw-hata { color: var(--red); }
+.jg-switcher.kilit button { opacity: .45; cursor: not-allowed; }
+.jg-switcher.kilit button:not(.aktif) { pointer-events: none; }
 .jg-editor-modal { min-height: 480px; max-height: 70vh; }
 .jg-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jg-warn { font-size: 11.5px; color: var(--text3); flex: 1; min-width: 220px; }
@@ -4687,6 +4689,12 @@ function _jgProcBaslat(baslik) {
   document.getElementById('jg-preview-sorular-wrap').style.display = 'none';
   document.getElementById('jg-duzelt-row').style.display = 'none';
   document.getElementById('jg-modal-tabs').style.display = 'none';
+  // İşlem sürerken: Onayla PASİF (bitmeden Jira'ya gitmesin) + task değiştirici KİLİTLİ (başka
+  // task'a geçip içeriğini gösterip onaylamak engellenir). İptal (aksiyon barında) açık kalır.
+  document.getElementById('jg-approve-btn').disabled = true;
+  const dbtn = document.getElementById('jg-duzelt-btn'); if (dbtn) dbtn.disabled = true;
+  const cbtn = document.getElementById('jg-cevap-isle-btn'); if (cbtn) cbtn.disabled = true;
+  _jgSwitcherKilit(true);
   const t0 = Date.now();
   clearInterval(_jgProcTimer);
   _jgProcTimer = setInterval(() => {
@@ -4699,6 +4707,16 @@ function _jgProcBitir() {
   clearInterval(_jgProcTimer); _jgProcTimer = null;
   document.getElementById('jg-proc').style.display = 'none';
   document.getElementById('jg-modal-tabs').style.display = '';
+  const dbtn = document.getElementById('jg-duzelt-btn'); if (dbtn) dbtn.disabled = false;
+  const cbtn = document.getElementById('jg-cevap-isle-btn'); if (cbtn) cbtn.disabled = false;
+  _jgSwitcherKilit(false);   // Onayla, gösterilen sonucun durumuna göre _jgSonucGoster'da ayarlanır
+}
+// İşlem sürerken task değiştiriciyi kilitle (buton disable + görsel) — geçiş/gösterim engellenir.
+function _jgSwitcherKilit(kilit) {
+  const sw = document.getElementById('jg-analiz-switcher');
+  if (!sw) return;
+  sw.classList.toggle('kilit', kilit);
+  sw.querySelectorAll('button').forEach(b => { b.disabled = kilit; });
 }
 
 // ── İlişkili FE/BE analizi — çoklu-task state + seçim + switcher ────────────────
@@ -4759,6 +4777,7 @@ async function _jgUret(key, extra) {
 }
 // Bir analiz sonucunu editör/sorular alanına döker + aktif yapar + switcher'ı günceller.
 function _jgSonucGoster(key) {
+  if (_jgAbort) return;   // işlem sürerken task içeriği GÖSTERİLMEZ (kilit; çift güvenlik)
   const s = _jgAnalizSeti[key] || {};
   _jgAktifAnalizKey = key;
   _jgCurrent = { key: key, summary: s.summary || '' };
@@ -4790,6 +4809,7 @@ function _jgSwitcherRender() {
     const rol = s.katman && s.katman !== 'belirsiz' ? ' [' + s.katman.toUpperCase() + ']' : '';
     return `<button class="${k === _jgAktifAnalizKey ? 'aktif' : ''}" onclick="_jgSonucGoster('${escHtml(k)}')">${escHtml(k)}${rol}${s.hata ? ' <span class="jg-sw-hata">⚠</span>' : ''}</button>`;
   }).join('');
+  if (_jgAbort) _jgSwitcherKilit(true);   // işlem sürerken yeniden çizilirse kilitli kalsın
 }
 // Seçilen task'ları AYRI AYRI analiz et (her biri kendi katmanı + diğerleri bağlam).
 async function jgIliskiliAnalizBaslat() {
@@ -4833,7 +4853,7 @@ async function _jgTekYenidenUret(key, extra) {
   const s = _jgAnalizSeti[key] || {};
   const digerleri = Object.keys(_jgAnalizSeti).filter(k => k !== key);
   document.getElementById('jg-approve-btn').disabled = true;
-  _jgProcBaslat('Cevaplara göre analiz yeniden yazılıyor');
+  _jgProcBaslat('Cevaplara göre yeniden yazılıyor · ' + key);
   if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
   _jgAbort = new AbortController();
   try {
@@ -5024,7 +5044,7 @@ async function jgAnalizDuzelt() {
   const gorev = _jgGorevler[key] || { key: key, summary: s.summary || '' };
   document.getElementById('jg-approve-btn').disabled = true;
   _jgMsg('jg-preview-msg', '');
-  _jgProcBaslat('Analiz düzeltiliyor');
+  _jgProcBaslat('Analiz düzeltiliyor · ' + key);
   if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
   _jgAbort = new AbortController();
   let ok = false;
@@ -5071,6 +5091,7 @@ document.addEventListener('keydown', e => {
 
 async function jgJiraGuncelle() {
   if (!_jgCurrent) return;
+  if (_jgAbort) { toast('İşlem sürüyor — bitince Jira güncellenebilir', 'info'); return; }   // op bitmeden Jira'ya YAZMA
   const markdown = document.getElementById('jg-preview-editor').value.trim();
   if (!markdown) { _jgMsg('jg-preview-msg', 'İçerik boş.', 'err'); return; }
   if (!confirm(`${_jgCurrent.key} görevinin Jira açıklaması ÜZERİNE YAZILACAK. Devam edilsin mi?`)) return;

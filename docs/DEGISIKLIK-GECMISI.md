@@ -592,3 +592,13 @@ Analist: bazı task'lar FE, bazı BE; FE'ye bağlı BE task'ı olabiliyor; birli
   `/api/jira/gorev/analiz` artık `iliskili_keys`/`katman`/`gorev_key` alır.
 - Sonuçlar `_jgAnalizSeti`'te; modal üstünde task DEĞİŞTİRİCİ (switcher) — her analiz kendi editör/soru/düzelt/Onayla'sıyla
   KENDİ Jira görevine ayrı yazılır. smoke 52; tarayıcıda seçim + switcher + katman tahmini doğrulandı.
+
+## Task Analizi — işlem sürerken güvenlik (çoklu analiz) ✅
+Analist: cevaplara göre yeniden yazılırken hangi task işlendiği görünmüyordu; işlem biterken switcher'a tıklayıp
+başka task'ın içeriğini görüp Onayla ile Jira'ya yazılabiliyordu. Düzeltmeler (frontend, restart gerekmez —
+TEMPLATES_AUTO_RELOAD): (1) proc başlığında task KEY (`Cevaplara göre yeniden yazılıyor · MBSTRADE-1233`,
+`Analiz düzeltiliyor · <key>`). (2) `_jgProcBaslat` işlem sürerken Onayla + Düzelt + Cevapları İşle butonlarını
+PASİF yapar ve task DEĞİŞTİRİCİYİ kilitler (`_jgSwitcherKilit`: buton disabled + görsel); `_jgProcBitir` açar.
+(3) `_jgSonucGoster` başında `if(_jgAbort) return` guard — işlem sürerken başka task içeriği GÖSTERİLMEZ.
+(4) `jgJiraGuncelle` başında `_jgAbort` guard — işlem bitmeden Jira'ya YAZILMAZ. İptal (aksiyon barı) açık kalır.
+Tarayıcıda doğrulandı (proc key + kilit + guard + bitişte açılma).
