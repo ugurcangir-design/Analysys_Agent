@@ -15,6 +15,7 @@ import secrets
 import shlex
 import subprocess
 import threading
+import uuid
 import tempfile
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -3703,6 +3704,138 @@ def jira_gorevler_sadece_client():
     except Exception as e:
         logger.error(f"Sadece-client batch hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ─── Görev analizi — ARKA PLAN iş modeli (ekran kapansa/geçilse de kesilmez) ───────
+# Analiz/cevap/düzelt/formatla artık bir "iş" (job) olarak arka plan thread'inde çalışır; UI
+# durum sorgular (polling). Böylece analist paneli kapatıp başka ekrana geçebilir, iş sürer.
+_gorev_isler: dict = {}          # job_id → durum sözlüğü
+_gorev_is_lock = threading.Lock()
+_GOREV_IS_LIMIT = 12             # bellek: en yeni N işi tut
+
+
+def _gorev_is_calistir(job_id: str) -> None:
+    from skills.jira_gorevleri import (gorev_analiz_et, gorev_analiz_duzelt,
+                                       gorev_standart_formatla, gorev_getir)
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
+    job = _gorev_isler.get(job_id)
+    if not job:
+        return
+    for i, adim in enumerate(job["adimlar"]):
+        with _gorev_is_lock:
+            if job.get("iptal"):
+                job["durum"] = "durduruldu"
+                job["aktif_key"] = None
+                return
+            job["aktif_index"] = i
+            job["aktif_key"] = adim["key"]
+        key = adim["key"]
+        _bas = time.time()
+        try:
+            gorev = adim.get("gorev") or gorev_getir(key)
+            if not gorev:
+                raise ValueError(f"Görev okunamadı: {key}")
+            mode = adim.get("mode", "analiz")
+            if mode == "formatla":
+                md = gorev_standart_formatla(gorev)
+                sonuc = {"markdown": md, "acik_sorular": ""}
+            elif mode == "duzelt":
+                md = gorev_analiz_duzelt(gorev, adim.get("markdown", ""), adim.get("talimat", ""))
+                sonuc = {"markdown": md, "acik_sorular": adim.get("acik_sorular", "")}
+            else:
+                iliskili = []
+                for ik in adim.get("iliskili_keys", []):
+                    if ik and str(ik).upper() != key.upper():
+                        g = gorev_getir(ik)
+                        if g:
+                            iliskili.append(g)
+                r = gorev_analiz_et(gorev, cevaplar=adim.get("cevaplar", ""),
+                                    iliskili=iliskili, katman=adim.get("katman", ""))
+                sonuc = {"markdown": r.get("markdown", ""), "acik_sorular": r.get("acik_sorular", "")}
+            with _gorev_is_lock:
+                job["sonuclar"][key] = {**sonuc, "summary": gorev.get("summary", ""),
+                                        "katman": adim.get("katman", "")}
+            _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
+                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key, "islem": adim.get("mode", "analiz")})
+        except Exception as e:
+            logger.error("Görev iş adımı hatası (%s): %s", key, e)
+            with _gorev_is_lock:
+                job["sonuclar"][key] = {"hata": str(e), "summary": adim.get("summary", ""),
+                                        "katman": adim.get("katman", "")}
+            _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
+                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key})
+    with _gorev_is_lock:
+        if not job.get("iptal"):
+            job["durum"] = "bitti"
+        job["aktif_key"] = None
+
+
+@app.route("/api/jira/gorev/is/baslat", methods=["POST"])
+def jira_gorev_is_baslat():
+    """Arka plan görev analizi işi başlat. Body: {adimlar:[{key, mode?, katman?, cevaplar?,
+    iliskili_keys?, markdown?, talimat?, gorev?}]}. Döner: {ok, job}."""
+    data = request.get_json(silent=True) or {}
+    adimlar = data.get("adimlar")
+    if not isinstance(adimlar, list) or not adimlar:
+        return jsonify({"ok": False, "error": "adimlar gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    temiz = []
+    for a in adimlar[:6]:
+        k = str((a or {}).get("key") or (a.get("gorev") or {}).get("key") or "").strip()
+        if not k:
+            continue
+        temiz.append({"key": k, "mode": (a.get("mode") or "analiz"),
+                      "katman": (a.get("katman") or "").lower(),
+                      "cevaplar": a.get("cevaplar", ""), "iliskili_keys": a.get("iliskili_keys", []),
+                      "markdown": a.get("markdown", ""), "talimat": a.get("talimat", ""),
+                      "gorev": a.get("gorev") if isinstance(a.get("gorev"), dict) else None,
+                      "summary": (a.get("gorev") or {}).get("summary", "")})
+    if not temiz:
+        return jsonify({"ok": False, "error": "Geçerli adım yok"}), 400
+    job_id = uuid.uuid4().hex[:12]
+    job = {"durum": "calisiyor", "olusturuldu": time.time(), "aktif_key": temiz[0]["key"],
+           "aktif_index": 0, "toplam": len(temiz), "adimlar": temiz, "sonuclar": {}, "iptal": False}
+    with _gorev_is_lock:
+        _gorev_isler[job_id] = job
+        # Eski işleri buda (bellek)
+        if len(_gorev_isler) > _GOREV_IS_LIMIT:
+            for eski in sorted(_gorev_isler, key=lambda j: _gorev_isler[j]["olusturuldu"])[:-_GOREV_IS_LIMIT]:
+                _gorev_isler.pop(eski, None)
+    threading.Thread(target=_gorev_is_calistir, args=(job_id,), daemon=True).start()
+    return jsonify({"ok": True, "job": job_id, "toplam": len(temiz),
+                    "keyler": [a["key"] for a in temiz]})
+
+
+@app.route("/api/jira/gorev/is/durum", methods=["GET"])
+def jira_gorev_is_durum():
+    """İş durumu (UI polling): {ok, durum, aktif_key, aktif_index, toplam, sonuclar{}}."""
+    job = _gorev_isler.get((request.args.get("job") or "").strip())
+    if not job:
+        return jsonify({"ok": False, "error": "İş bulunamadı (yeniden başlatılmış olabilir)"}), 404
+    return jsonify({"ok": True, "durum": job["durum"], "aktif_key": job["aktif_key"],
+                    "aktif_index": job["aktif_index"], "toplam": job["toplam"],
+                    "keyler": [a["key"] for a in job["adimlar"]],
+                    "katmanlar": {a["key"]: a["katman"] for a in job["adimlar"]},
+                    "sonuclar": job["sonuclar"]})
+
+
+@app.route("/api/jira/gorev/is/durdur", methods=["POST"])
+def jira_gorev_is_durdur():
+    """İşi durdur — kalan adımlar çalışmaz. NOT: o an süren AI çağrısı sunucuda tamamlanana kadar
+    sürebilir (sonucu atılır); tam süreç-öldürme ayrı iş."""
+    data = request.get_json(silent=True) or {}
+    job = _gorev_isler.get((data.get("job") or "").strip())
+    if not job:
+        return jsonify({"ok": False, "error": "İş bulunamadı"}), 404
+    with _gorev_is_lock:
+        job["iptal"] = True
+        if job["durum"] == "calisiyor":
+            job["durum"] = "durduruldu"
+    return jsonify({"ok": True})
 
 
 @app.route("/api/jira/gorev/formatla", methods=["POST"])

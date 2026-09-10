@@ -118,6 +118,13 @@ kontrol("jira_gorevleri: gorev_analiz_duzelt + cevaplar param",
         hasattr(_jg, "gorev_analiz_duzelt") and "cevaplar" in _sig)
 kontrol("jira_gorevleri: ilişkili FE/BE (gorev_getir + iliskili/katman param)",
         hasattr(_jg, "gorev_getir") and "iliskili" in _sig and "katman" in _sig)
+# Arka plan iş modeli — girdi doğrulaması (AI/Jira'ya gitmeden)
+kontrol("gorev/is/baslat boş adımlar → 400",
+        istemci.post("/api/jira/gorev/is/baslat", json={"adimlar": []}, headers=ORIGIN).status_code == 400)
+kontrol("gorev/is/durum bilinmeyen → 404",
+        istemci.get("/api/jira/gorev/is/durum?job=yok123").status_code == 404)
+kontrol("gorev/is/durdur bilinmeyen → 404",
+        istemci.post("/api/jira/gorev/is/durdur", json={"job": "yok123"}, headers=ORIGIN).status_code == 404)
 
 g = json_al(istemci.get("/api/gorunurluk"))
 kontrol("gorunurluk katalog (YETKI_PANELI=true)", g.get("ok") and len(g.get("katalog", [])) >= 10)

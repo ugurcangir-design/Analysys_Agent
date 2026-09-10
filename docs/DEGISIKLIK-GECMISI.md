@@ -602,3 +602,14 @@ PASİF yapar ve task DEĞİŞTİRİCİYİ kilitler (`_jgSwitcherKilit`: buton di
 (3) `_jgSonucGoster` başında `if(_jgAbort) return` guard — işlem sürerken başka task içeriği GÖSTERİLMEZ.
 (4) `jgJiraGuncelle` başında `_jgAbort` guard — işlem bitmeden Jira'ya YAZILMAZ. İptal (aksiyon barı) açık kalır.
 Tarayıcıda doğrulandı (proc key + kilit + guard + bitişte açılma).
+
+## Task Analizi — arka plan iş modeli + gömülü panel (kapatınca kesilmez) ✅
+Analist: çarpıyla kapatınca iş kaybolmasın; ekran pop-up değil ana içerikte olsun; açık sorular+cevaplar da orada.
+- **Backend:** `/api/jira/gorev/is/baslat` (adimlar[] → thread `_gorev_is_calistir`), `/is/durum` (polling), `/is/durdur`.
+  Her adım mode=analiz|duzelt|formatla; analiz'de iliskili_keys bağlamı + katman. `_gorev_isler` bellek (son 12).
+- **Frontend:** panel MODAL→GÖMÜLÜ (`.jg-inline`, DOMContentLoaded'da `#page-jira-gorevler`'e taşınır); üretim
+  `_jgIsBaslat`→`_jgPollDurum` (2.5sn) ile arka planda; kapatınca iş sürer, üstte 'Analiz sürüyor/✓tamamlandı' çipi
+  (`_jgSurenChipGuncelle`), ekrana dönünce `_jgReattach`. 'Durdur' `/is/durdur`. Switcher/cevaplar/düzelt/onayla korundu.
+- **NOT:** yeni backend endpoint'leri → aktive için SUNUCU RESTART gerekir (frontend-only değil). Durdur şu an kalan
+  adımları durdurur; o an süren AI çağrısının sunucuda hard-kill'i ayrı iş.
+smoke 55; tarayıcıda gömülü panel + switcher + kapat→çip + bitiş-bildirimi doğrulandı.
