@@ -539,3 +539,9 @@ hâlde `jira_test`'te ZORUNLU tutuluyor + ekranda callback ile karışıyordu (k
 Düzeltme: `/api/jira/config` GET `site_url` (otomatik algılanan) döner → UI salt-okunur "Atlassian siteniz: … otomatik
 algılandı" gösterir; elle giriş "Gelişmiş" altına katlandı; `jira_test` JIRA_URL'i zorunlu tutmaz. Callback URL bloğu
 ayrı ve değişmedi. Tarayıcıda doğrulandı (sansgroup.atlassian.net otomatik geldi).
+
+## Kalıntı doküman "aktif oturum" — Analiz Dosyaları ekranında da düzeltildi ✅
+Önceki düzeltmede `/api/oturum.aktif` bayrağı eklenip PANO düzeltilmişti; ama Analiz Dosyaları (ciktilar.html
+`ciYukle`) kendi oturum başlığında `d.dokuman` varsa koşulsuz "AKTİF OTURUM" gösteriyordu. Artık `!d.aktif` iken
+"Aktif oturum yok · yüklü doküman: X" + "Analize başla"/"Kaldır" (`ciKaldir` → /api/oturum/temizle) gösterir.
+Tarayıcıda doğrulandı.

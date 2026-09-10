@@ -51,6 +51,17 @@
       switchTab('revizyon');
     }
 
+    // Kalıntı dokümanı kaldır (aktif oturum yokken) — /api/oturum/temizle sonrası bu ekranı tazele.
+    async function ciKaldir() {
+      if (!confirm('Yüklü doküman kaldırılacak ve oturum sıfırlanacak. Devam?')) return;
+      try {
+        const r = await fetch('/api/oturum/temizle', {method:'POST'});
+        const d = await r.json();
+        if (d.ok) { toast('Doküman kaldırıldı — aktif oturum temizlendi', 'success'); ciYukle(); }
+        else toast(d.error || 'Kaldırılamadı', 'error');
+      } catch (e) { toast('Bağlantı hatası', 'error'); }
+    }
+
     async function ciYukle() {
       const oEl = document.getElementById('ci-oturum');
       const lEl = document.getElementById('ci-liste');
@@ -65,6 +76,12 @@
           <div class="t">Henüz aktif bir analiz oturumu yok</div>
           <div>Süreç veya BRD analizi ekranından bir doküman yükleyip analizi başlatın; çıktılar burada toplanır.</div>
           <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="switchTab('surec')">Analize git</button></div>`;
+      } else if (!d.aktif) {
+        // Doküman var AMA aktif oturum yok (workflow idle) — önceki oturumdan kalmış. "Aktif oturum" DEME.
+        oEl.innerHTML = `<div class="ds-callout"><div class="grow"><div class="ct">Aktif oturum yok · yüklü doküman: ${_ciEsc(d.dokuman.ad)}</div>
+          <p>Bu doküman için analiz çalışmıyor (aşağıdaki çıktılar önceki oturumdan kalmış olabilir). Başlatabilir ya da kaldırabilirsiniz.</p></div>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('surec')">Analize başla</button>
+          <button class="btn btn-outline btn-sm" onclick="ciKaldir()">Kaldır</button></div>`;
       } else {
         const wf = d.workflow || {};
         const durumChip = wf.calisiyor ? '<span class="ds-chip acc"><span class="d"></span>' + _ciEsc(wf.etiket) + '</span>'
