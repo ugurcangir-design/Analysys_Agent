@@ -575,3 +575,9 @@ Analist: task analizi çok basit + task formatına uygun değil + "yazdığım f
 - **Uyarı (kod değil, gerçek):** `reference/` boşsa (confluence/jira/services/live-app = 0) anahtar kelime ne olursa
   olsun RAG 0 döner; zenginlik için referans dokümanları senklenmeli. Canlı gözlem çalışıyor.
 smoke 51; ruff temiz; tarayıcıda jgAnaliz async + _jgFiltreKaydet doğrulandı; yeni prompt yüklü.
+
+## Task Analizi — soru-bazlı cevap girişi ✅
+Analist: tek metin yerine soru bazında giriş. Açık Sorular sekmesi artık her `### Q-T-XXX` sorusunu AYRI kart
+olarak render eder (`_jgSorulariAyristir`/`_jgSorulariRender`): soru + önem rozeti + ayrı cevap kutusu. "Cevapları
+İşle" yalnız DOLU kutuları `Q-T-NNN: cevap` satırlarına çevirip /api/jira/gorev/analiz cevaplar'a gönderir (boşlar
+atlanır). Ayrıştırılamayan formatta tek-kutu yedeği. Tarayıcıda doğrulandı (2 soru → 2 kart, seçmeli toplama).

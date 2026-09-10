@@ -1873,7 +1873,18 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 /* Açık Sorular sekmesi — cevaplanabilir */
 .jg-soru-yardim { font-size: 12px; color: var(--text2); line-height: 1.55; margin-bottom: 8px; }
 .jg-soru-lbl { display: block; font-size: 11.5px; color: var(--text3); margin: 10px 0 4px; font-weight: 600; }
-.jg-soru-akt { margin-top: 8px; }
+.jg-soru-akt { margin-top: 10px; }
+/* Soru-bazlı cevap kartları */
+#jg-sorular-liste { display: flex; flex-direction: column; gap: 10px; }
+.jg-soru-kart { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface2); }
+.jg-soru-kart .jg-sk-id { font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 700; color: var(--accent); }
+.jg-soru-kart .jg-sk-onem { font-family: 'Geist Mono', monospace; font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text2); margin-left: 6px; }
+.jg-soru-kart .jg-sk-onem.kritik { border-color: rgba(239,68,68,.5); color: var(--red); }
+.jg-soru-kart .jg-sk-onem.yuksek { border-color: rgba(245,158,11,.5); color: var(--yellow); }
+.jg-soru-kart .jg-sk-soru { font-size: 13px; color: var(--text); margin: 6px 0 3px; font-weight: 600; }
+.jg-soru-kart .jg-sk-detay { font-size: 11.5px; color: var(--text3); line-height: 1.5; }
+.jg-soru-kart .jg-sk-cevap { width: 100%; box-sizing: border-box; margin-top: 8px; min-height: 60px; resize: vertical; }
+.jg-soru-kart.cevapli { border-color: var(--green); }
 #jg-preview-sorular-wrap #jg-preview-sorular { min-height: 200px; }
 /* İteratif düzelt sohbeti (aksiyon barında) */
 .jg-duzelt-row { display: flex; gap: 6px; align-items: center; flex: 1 1 320px; min-width: 260px; }
@@ -2821,10 +2832,11 @@ function temaDegistir() {
           <textarea id="jg-preview-editor" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="İçerik yükleniyor…"></textarea>
           <!-- Açık Sorular — CEVAPLANABİLİR: soruları oku, cevapla, "Cevapları İşle" ile analizi yeniden yazdır -->
           <div id="jg-preview-sorular-wrap" style="display:none">
-            <div class="jg-soru-yardim">Aşağıdaki soruları cevaplayıp <b>Cevapları İşle</b> derseniz teknik analiz cevaplarınıza göre yeniden yazılır (belirsizlikler çözülür). Sorular ve cevaplar <b>Jira'ya YAZILMAZ</b>.</div>
-            <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." readonly></textarea>
-            <label class="jg-soru-lbl" for="jg-cevaplar">Cevaplarınız (soru no ile yazın)</label>
-            <textarea id="jg-cevaplar" class="jg-editor" spellcheck="false" placeholder="Örn:&#10;Q-T-001: Sales Open zorunlu; varsayılan = etkinlik tarihi.&#10;Q-T-002: Boş bırakılırsa satış kapalı sayılır."></textarea>
+            <div class="jg-soru-yardim">Her soruyu altındaki kutuda cevaplayın; <b>Cevapları İşle</b> deyince teknik analiz cevaplarınıza göre yeniden yazılır (belirsizlikler çözülür). Boş bıraktığınız sorular atlanır. Sorular ve cevaplar <b>Jira'ya YAZILMAZ</b>.</div>
+            <!-- Soru-bazlı cevap kartları — JS ile doldurulur (_jgSorulariRender) -->
+            <div id="jg-sorular-liste"></div>
+            <!-- Ayrıştırma başarısızsa ham metin yedeği -->
+            <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." readonly style="display:none"></textarea>
             <div class="jg-soru-akt">
               <button class="btn btn-primary btn-sm" id="jg-cevap-isle-btn" onclick="jgCevaplariIsle()">
                 <svg class="ico"><use href="#i-refresh"/></svg> Cevapları İşle → Analizi Yeniden Yaz
@@ -4702,13 +4714,11 @@ async function _jgIslem(key, endpoint, baslik, procBaslik, extra) {
     const tab = document.getElementById('jg-modal-tab-sorular');
     const acik = (d.acik_sorular || '').trim();
     if (acik && !/Açık soru tespit edilmedi/i.test(acik)) {
-      document.getElementById('jg-preview-sorular').value = acik;
-      document.getElementById('jg-cevaplar').value = '';
+      const sayi = _jgSorulariRender(acik);
       tab.style.display = '';
-      const sayi = (acik.match(/^###\s+Q-/gm) || []).length;
       document.getElementById('jg-sorular-rozet').textContent = sayi || '!';
     } else {
-      document.getElementById('jg-preview-sorular').value = '';
+      _jgSorulariRender('');
       tab.style.display = 'none';
     }
   } catch (e) {
@@ -4749,11 +4759,68 @@ async function jgAnaliz(key) {
   return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor');
 }
 
+// Açık soruları SORU-BAZLI kartlara ayır: her soru için ayrı cevap kutusu. Dönen: soru sayısı.
+function _jgSorulariAyristir(md) {
+  const sorular = [];
+  // Her "### Q-..." başlığından böl; ilk parçadaki (varsa) giriş metni atlanır.
+  for (const blok of String(md || '').split(/\n(?=###\s+Q-)/)) {
+    const m = blok.match(/###\s+(Q-[A-Za-z0-9-]+)\s*:?\s*(.*)/);
+    if (!m) continue;
+    const govde = blok.replace(/###\s+Q-[A-Za-z0-9-]+\s*:?\s*.*\n?/, '');
+    const al = (etiket) => {
+      const r = govde.match(new RegExp('-\\s*' + etiket + '\\s*:\\s*(.+)', 'i'));
+      return r ? r[1].trim() : '';
+    };
+    sorular.push({
+      id: m[1], baslik: (m[2] || '').trim(),
+      onem: al('Önem'), bagli: al('Bağlı bölüm') || al('Bağlı'),
+      soru: al('Soru') || (m[2] || '').trim(),
+      beklenen: al('Beklenen yanıt') || al('Beklenen'),
+    });
+  }
+  return sorular;
+}
+function _jgSorulariRender(md) {
+  const kap = document.getElementById('jg-sorular-liste');
+  const sorular = _jgSorulariAyristir(md);
+  if (!sorular.length) {
+    // Ayrıştırılamadıysa ham metni yedek göster (tek kutuya cevap)
+    kap.innerHTML = '';
+    const yedek = document.getElementById('jg-preview-sorular');
+    if (md && md.trim()) {
+      yedek.value = md; yedek.style.display = '';
+      kap.innerHTML = '<label class="jg-soru-lbl">Cevaplarınız (soru no ile yazın)</label>'
+        + '<textarea id="jg-cevaplar" class="jg-editor jg-sk-cevap" placeholder="Örn: Q-T-001: ..."></textarea>';
+    } else { yedek.value = ''; yedek.style.display = 'none'; }
+    return sorular.length;
+  }
+  document.getElementById('jg-preview-sorular').style.display = 'none';
+  const onemSinif = o => /kritik/i.test(o) ? 'kritik' : /yüksek|yuksek/i.test(o) ? 'yuksek' : '';
+  kap.innerHTML = sorular.map(s => `
+    <div class="jg-soru-kart" data-qid="${escHtml(s.id)}">
+      <div><span class="jg-sk-id">${escHtml(s.id)}</span>${s.onem ? `<span class="jg-sk-onem ${onemSinif(s.onem)}">${escHtml(s.onem)}</span>` : ''}</div>
+      <div class="jg-sk-soru">${escHtml(s.soru || s.baslik)}</div>
+      ${(s.bagli || s.beklenen) ? `<div class="jg-sk-detay">${s.bagli ? 'Bağlı: ' + escHtml(s.bagli) : ''}${s.bagli && s.beklenen ? ' · ' : ''}${s.beklenen ? 'Beklenen: ' + escHtml(s.beklenen) : ''}</div>` : ''}
+      <textarea class="jg-editor jg-sk-cevap" data-qid="${escHtml(s.id)}" placeholder="Bu soruya cevabınız (boş = atla)"
+        oninput="this.closest('.jg-soru-kart').classList.toggle('cevapli', !!this.value.trim())"></textarea>
+    </div>`).join('');
+  return sorular.length;
+}
+
 // Açık sorulara verilen cevapları işle → analizi cevaplara göre YENİDEN yaz (belirsizlikleri çözer).
 async function jgCevaplariIsle() {
   if (!_jgCurrent) return;
-  const cev = document.getElementById('jg-cevaplar').value.trim();
-  if (!cev) { toast('Önce sorulara cevap yazın', 'info'); return; }
+  // Soru-bazlı kutuları topla: "Q-T-001: cevap" satırları. Yedek tek-kutu varsa onu kullan.
+  let cev = '';
+  const kutular = document.querySelectorAll('#jg-sorular-liste .jg-sk-cevap[data-qid]');
+  if (kutular.length) {
+    cev = [...kutular].map(t => t.value.trim() ? `${t.dataset.qid}: ${t.value.trim()}` : '')
+      .filter(Boolean).join('\n');
+  } else {
+    const tek = document.getElementById('jg-cevaplar');
+    cev = tek ? tek.value.trim() : '';
+  }
+  if (!cev) { toast('Önce en az bir soruyu cevaplayın', 'info'); return; }
   await _jgFiltreKaydet();
   _jgIslem(_jgCurrent.key, '/api/jira/gorev/analiz', 'Teknik Analiz',
            'Cevaplara göre analiz yeniden yazılıyor', { cevaplar: cev });
