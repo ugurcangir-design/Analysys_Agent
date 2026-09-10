@@ -4730,18 +4730,31 @@ function jgModalTab(ad) {
   document.getElementById('jg-preview-sorular-wrap').style.display = ad === 'sorular' ? '' : 'none';
 }
 
+// Görev analizi bağlam filtresini OKUR ama Task Analizi ekranı onu KAYDETMEZ → çalıştırmadan önce
+// ekrandaki filtreyi diske yaz (Süreç ekranındaki 'Başlat' ile AYNI desen). Yoksa analiz eski kayıtlı
+// değeri (ör. 'log button') okur, analistin yeni yazdığı kelimeleri "görmez".
+async function _jgFiltreKaydet() {
+  try {
+    await fetch('/api/context-filter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildContextFilter())
+    });
+  } catch (e) { /* sessiz — filtre kaydı analizi engellemesin */ }
+}
 function jgFormatla(key) {
   return _jgIslem(key, '/api/jira/gorev/formatla', 'Standart Format', 'Standart formata çevriliyor');
 }
-function jgAnaliz(key) {
+async function jgAnaliz(key) {
+  await _jgFiltreKaydet();   // ekrandaki bağlam filtresini analiz OKUMADAN önce kalıcı yap
   return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor');
 }
 
 // Açık sorulara verilen cevapları işle → analizi cevaplara göre YENİDEN yaz (belirsizlikleri çözer).
-function jgCevaplariIsle() {
+async function jgCevaplariIsle() {
   if (!_jgCurrent) return;
   const cev = document.getElementById('jg-cevaplar').value.trim();
   if (!cev) { toast('Önce sorulara cevap yazın', 'info'); return; }
+  await _jgFiltreKaydet();
   _jgIslem(_jgCurrent.key, '/api/jira/gorev/analiz', 'Teknik Analiz',
            'Cevaplara göre analiz yeniden yazılıyor', { cevaplar: cev });
 }

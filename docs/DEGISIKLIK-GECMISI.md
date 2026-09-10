@@ -563,3 +563,15 @@ Analist: task-bazlı analiz modalı zayıftı (üretimde düz metin, açık soru
 - **İteratif düzelt**: "Bu analizi düzelt" satırı → `/api/jira/gorev/duzelt` (`gorev_analiz_duzelt`) yalnız ilgili kısmı düzeltir.
 - Sorular/cevaplar Jira'ya YAZILMAZ; Onayla yalnız analiz metnini yazar (mevcut uyarı korundu). İptal/Esc her aşamada iptal eder.
 smoke 51; ruff temiz; tarayıcıda reaktör + cevaplanabilir sorular + düzelt satırı doğrulandı.
+
+## Görev analizi — ekip formatına hizalandı + bağlam filtresi kaydı düzeltmesi ✅
+Analist: task analizi çok basit + task formatına uygun değil + "yazdığım filtreyi görmemiş".
+- **Format:** `gorev_teknik_analiz` promptu artık ana süreç→teknik analiz formatının AYNI 11 başlığını kullanır
+  (`## 1. Amaç ve Hedefler … ## 11. Kabul Kriterleri`). Kural: dokunulan başlık DOLU-SOMUT yazılır; dokunulmayan
+  başlık HİÇ AÇILMAZ (boş-başlık/'yok' dolgusu yasak). Çekirdek 1/3/11 + FE'de 7, DB'de 4, endpoint'te 5.
+- **Filtre "görmemiş" nedeni:** bağlam filtresi yalnız Süreç ekranında 'Başlat/Onayla' ile kaydediliyordu; kullanıcı
+  kelimeleri yazıp kaydetmediği için disk hâlâ eski değeri (log button) tutuyordu, görev analizi onu okudu.
+  Düzeltme: `jgAnaliz`/`jgCevaplariIsle` çalışmadan önce `_jgFiltreKaydet` ile ekrandaki filtreyi kaydeder.
+- **Uyarı (kod değil, gerçek):** `reference/` boşsa (confluence/jira/services/live-app = 0) anahtar kelime ne olursa
+  olsun RAG 0 döner; zenginlik için referans dokümanları senklenmeli. Canlı gözlem çalışıyor.
+smoke 51; ruff temiz; tarayıcıda jgAnaliz async + _jgFiltreKaydet doğrulandı; yeni prompt yüklü.
