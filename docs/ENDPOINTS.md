@@ -192,7 +192,16 @@ GET  /api/pano     HERKES — rol-duyarlı Ana Sayfa "Sıradaki iş": rol · wor
                    onay{adim:surec|teknik|brd,etiket,dosya}|null · sorular{acik,kritik,uygulanmamis} · bekleyen_revizyon[]
 GET  /api/disk/durum   owner — {dosya_sistemi, plan{adaylar[],adet,toplam_mb} (KURU), son, zamanlama}
 POST /api/disk/temizle owner — planı uygular; analiz sürüyorsa 409. {silinen, kazanilan_mb, hata[]}
+GET  /api/jira-kopru/durum owner — {ok, ayarlar{aktif,aralik_sn,pencere_dk,projeler,komut,yazar_allowlist}, son_tur, son_ozet, islenen_toplam}
+POST /api/jira-kopru/tara  owner — elle tek tur (komutlu yeni yorumları hemen tara/işle); analiz sürüyorsa 409, projesiz ok:False. {ok, taranan_task, islenen[], atlanan, hata[]}
 ```
+**Jira Köprüsü:** `skills/jira_kopru.py` — Jira task YORUMUNA `/analyst_agent analiz` yazılınca app JQL taramasıyla
+(`_jira_kopru_dongusu`, `JIRA_KOPRU=false` ile KAPALI vars.) bulur → `gorev_getir` + `gorev_analiz_et` → sonucu Jira
+YORUMU olarak yazar (`jira_yorum_ekle`, canonical `atlassian_post`). Inbound/webhook GEREKMEZ (polling + OAuth).
+Komutlar: `analiz [talimat]` (okuma → yorum, oto), `güncelle`/`ilişkili-aç`/`onayla` (yazma → taslak+onay, MVP-2),
+`yardım`. Döngü koruması: kendi `🤖` yanıtlarımız komut prefiksiyle başlamaz + işlenen yorum id'leri
+`output/jira-kopru/durum.json`'da (tekrar işleme yok). Env: `JIRA_KOPRU_PROJELER` (zorunlu), `JIRA_KOPRU_ARALIK`,
+`JIRA_KOPRU_PENCERE_DK`, `JIRA_KOPRU_KOMUT`, `JIRA_KOPRU_YAZAR_ALLOWLIST`.
 **Disk temizliği (Faz 3):** `skills/disk_temizlik.py` — kurallar `_KURALLAR` (yalnız yeniden-üretilebilir/arşiv:
 `.api_cache/*.txt` TTL, `reference/_filtered_cache` 7g, `reference/live-app` 30g, `logs/*.log(.N)` 30g [son 24 saatte
 yazılan aktif log korunur], `backlog/*.xlsx` 30g, `history/*` 60g). `output/`, `input/`, `logs/usage/`, referans

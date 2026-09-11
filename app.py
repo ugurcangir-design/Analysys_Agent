@@ -2073,6 +2073,70 @@ def disk_temizle():
     return jsonify({"ok": True, **s})
 
 
+# ─── Jira Köprüsü — Jira'yı web-chat gibi kullan (polling + taslak/onay) ──────
+# Task yorumuna `/analyst_agent analiz` yazılır → app JQL taramasıyla bulur,
+# analiz eder, sonucu Jira yorumu olarak yazar. Inbound/webhook GEREKMEZ.
+# Varsayılan KAPALI: JIRA_KOPRU=false. Owner .env'de açar; owner-gate endpoint'ler.
+def _jira_kopru_dongusu() -> None:
+    from skills import jira_kopru
+    time.sleep(100)   # boot + güncelleme + disk kontrolünü rahat bırak
+    while True:
+        try:
+            ayar = jira_kopru.ayarlar()
+            if not ayar["aktif"]:
+                return
+            aralik = ayar["aralik_sn"]
+            if _mesgul_mu():
+                time.sleep(min(aralik, 120))     # analiz sürüyor → köprüyü ertele
+                continue
+            # Pencere = aralığı rahatça kapsasın (kaçan yorum olmasın).
+            ozet = jira_kopru.tek_tur(pencere_dk=max(ayar["pencere_dk"], (aralik // 60) + 5))
+            if ozet.get("islenen"):
+                logger.info("Jira Köprüsü: %s komut işlendi (%s task tarandı).",
+                            len(ozet["islenen"]), ozet.get("taranan_task"))
+        except Exception as e:
+            logger.warning("Jira Köprüsü tur hatası: %s", e)
+            aralik = 60
+        time.sleep(aralik)
+
+
+def _jira_kopru_baslat() -> None:
+    from skills import jira_kopru
+    a = jira_kopru.ayarlar()
+    if a["aktif"]:
+        if not a["projeler"]:
+            logger.warning("Jira Köprüsü açık ama JIRA_KOPRU_PROJELER boş — çalışmaz.")
+            return
+        threading.Thread(target=_jira_kopru_dongusu, daemon=True, name="jira-kopru").start()
+        logger.info("Jira Köprüsü açık (aralık %ss; projeler %s; komut '%s').",
+                    a["aralik_sn"], ",".join(a["projeler"]), a["komut"])
+
+
+@app.route("/api/jira-kopru/durum", methods=["GET"])
+@admin_gerekli
+def jira_kopru_durum():
+    """Köprü durumu + ayarları (owner). Token harcamaz."""
+    from skills import jira_kopru
+    return jsonify({"ok": True, **jira_kopru.son_durum()})
+
+
+@app.route("/api/jira-kopru/tara", methods=["POST"])
+@admin_gerekli
+def jira_kopru_tara():
+    """Elle tek tur — komutlu yeni yorumları hemen tara/işle (döngüyü beklemeden
+    doğrulama için). Analiz sürüyorsa 409."""
+    from skills import jira_kopru
+    neden = _mesgul_mu()
+    if neden:
+        return jsonify({"ok": False, "error": f"Şu an taranamaz: {neden}"}), 409
+    try:
+        pencere = (request.get_json(silent=True) or {}).get("pencere_dk")
+        ozet = jira_kopru.tek_tur(pencere_dk=int(pencere) if pencere else None)
+        return jsonify(ozet)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
 @app.route("/api/pano", methods=["GET"])
 def pano_ozet():
     """Rol-duyarlı Ana Sayfa özeti (HERKES): analistin sırada ne yapacağı — bekleyen onay adımı,
@@ -4521,4 +4585,5 @@ if __name__ == "__main__":
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  (sadece yerel; LAN için .env'de HOST=0.0.0.0)")
     _oto_guncelleme_baslat()   # v2 Faz 2.5 — bildirimli otomatik güncelleme (AUTO_UPDATE=false ile kapatılır)
     _disk_temizlik_baslat()    # v2 Faz 3 — zamanlanmış disk temizliği (DISK_TEMIZLIK=false ile kapatılır)
+    _jira_kopru_baslat()       # Jira Köprüsü — komutlu yorum polling (JIRA_KOPRU=false ile KAPALI, vars.)
     app.run(host=host, port=port, debug=False)

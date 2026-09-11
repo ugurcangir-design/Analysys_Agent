@@ -140,6 +140,16 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   Türkçe-i düzeltmeli). `skills/analiz_mcp.py` Postgres/Jira MCP'yi `claude -p`'ye bağlar (config
   `reference/analiz_mcp.json` gitignore+`.example`+seed; üretilen `.mcp-analiz.json` gitignore; VARSAYILAN
   KAPALI; `_api_cagri_cli`'de canlı-app aktif değilse eklenir). `/api/analiz-mcp` owner (bağlantı maskeli).
+- **Jira Köprüsü (Jira'yı web-chat gibi kullan) — MVP-1:** `skills/jira_kopru.py` + `_jira_kopru_dongusu`
+  (app.py). Analist bir Jira task'ının YORUMUNA `/analyst_agent analiz [talimat]` yazar → app **polling**
+  (JQL taraması, inbound/webhook YOK — lokal + OAuth) ile bulur → `gorev_getir` + `gorev_analiz_et` → sonucu
+  Jira **yorumu** olarak yazar (`jira_yorum_ekle`, canonical `atlassian_post` + `markdown_to_adf`). **Varsayılan
+  KAPALI** (`JIRA_KOPRU=false`; owner açar), owner-gate `/api/jira-kopru/durum|tara`. **Güvenlik:** yorum=komut
+  (talimat değil; analiz girdisi task'ın kendi içeriği) · okuma/analiz oto ama Jira ALANLARINA dokunmaz · yazma
+  (`güncelle`/`ilişkili-aç`/`onayla` → task açıklaması güncelle / ilişkili task aç) **taslak+onay, MVP-2** ·
+  döngü koruması (kendi `🤖` yanıtı komut prefiksiyle başlamaz + işlenen yorum id'leri `output/jira-kopru/
+  durum.json`) · opsiyonel `JIRA_KOPRU_YAZAR_ALLOWLIST`. Env: `JIRA_KOPRU_PROJELER` (zorunlu) / `_ARALIK` /
+  `_PENCERE_DK` / `_KOMUT`. Tam uç dökümü → `docs/ENDPOINTS.md` "Jira Köprüsü".
 
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
@@ -158,7 +168,7 @@ sıfırlanma saati `/api/cli/durum` header göstergesinde görünür (`cli_durum
 
 ## Klasör yapısı
 - `app.py` Flask sunucu (~86 endpoint) · `run.py` orchestrator (subprocess) · `workflow.py` durum makinesi · `jira_agent.py` Jira OAuth+ADF
-- `skills/` iş mantığı (`agent.py` = import bridge): `base.py` (sabitler/RAG/`_api_cagri`/promptlar), `atlassian.py` (**CANONICAL** OAuth helper), `surec_analizi` `teknik_analiz` `delta_analizi` `brd_analizi` `kapsam_analizi` `jira_tasks` `jira_gorevleri` `backlog_senkron` (**UAT Mutabakat** — 0-token deterministik) `confluence_yaz` `html_mockup` (canlı-app baz'lı prototip + sohbetle düzeltme) `sorular` `telemetri` (**Kullanım İzleme** + token/maliyet kaydı; owner-gate **`OWNER_KONSOL`**; `_sink_gonder` SENKRON; çift-sayım önleme `remote.jsonl`) `hatalar` `disk_temizlik` `kod_kaynagi` `etki_analizi` `retrieval` `analiz_mcp`. **Modül sorumlulukları + telemetri/backlog/mockup tam ayrıntı → `docs/MIMARI.md`.**
+- `skills/` iş mantığı (`agent.py` = import bridge): `base.py` (sabitler/RAG/`_api_cagri`/promptlar), `atlassian.py` (**CANONICAL** OAuth helper), `surec_analizi` `teknik_analiz` `delta_analizi` `brd_analizi` `kapsam_analizi` `jira_tasks` `jira_gorevleri` `backlog_senkron` (**UAT Mutabakat** — 0-token deterministik) `confluence_yaz` `html_mockup` (canlı-app baz'lı prototip + sohbetle düzeltme) `sorular` `telemetri` (**Kullanım İzleme** + token/maliyet kaydı; owner-gate **`OWNER_KONSOL`**; `_sink_gonder` SENKRON; çift-sayım önleme `remote.jsonl`) `hatalar` `disk_temizlik` `jira_kopru` (**Jira Köprüsü** — Jira'yı web-chat gibi kullan; aşağı bak) `kod_kaynagi` `etki_analizi` `retrieval` `analiz_mcp`. **Modül sorumlulukları + telemetri/backlog/mockup tam ayrıntı → `docs/MIMARI.md`.**
 - `templates/index.html` SPA · `reference/` RAG kaynakları (Atlassian sync) · `output/ input/ history/ logs/` runtime · `backlog/` UAT Mutabakat üretilen .xlsx raporları (gitignore) · `docs/` detaylı referans
 - **Bağımlılıklar** (`requirements.txt`): Flask, anthropic, requests, python-dotenv, PyMuPDF, Pillow, python-docx, ruff + **openpyxl** (UAT Mutabakat .xlsx rapor yazımı). `lxml` hâlâ kurulu (genel kullanım).
 - `reference/live-app` Claude MCP/Chrome ekran+network gözlem çıktıları içindir (gitignore); bağlam filtresinde ana URL + 5 alt URL ve "Örnek ekran olarak kullan" seçeneği süreç/teknik analize canlı uygulama görevi olarak eklenir.

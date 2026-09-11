@@ -84,6 +84,17 @@ kontrol("disk_temizlik: output/ ve input/ kurallarda YOK",
         not any(str(d).endswith(("/output", "/input")) for d, *_ in _dt._KURALLAR))
 kontrol("saglik disk_temizlik alanı", "disk_temizlik" in json_al(istemci.get("/api/saglik")))
 
+# ── Jira Köprüsü (polling + taslak/onay) — deterministik uçlar (Jira'sız) ──
+jk = json_al(istemci.get("/api/jira-kopru/durum"))
+kontrol("jira-kopru/durum ok + varsayılan KAPALI",
+        jk.get("ok") and jk.get("ayarlar", {}).get("aktif") is False and jk["ayarlar"].get("komut") == "/analyst_agent")
+jkt = istemci.post("/api/jira-kopru/tara", headers=ORIGIN)
+kontrol("jira-kopru/tara projesiz → ok:False (Jira'ya gitmeden)",
+        json_al(jkt).get("ok") is False and "PROJELER" in json_al(jkt).get("error", ""))
+_jkm = importlib.import_module("skills.jira_kopru")
+kontrol("jira_kopru: kendi 🤖 yanıtı komut sayılmaz (döngü koruması)",
+        _jkm._komut_coz(_jkm.ROBOT_IMZA + " — Teknik Analiz", "/analyst_agent") is None)
+
 # ── Oturum 'aktif' bayrağı + Ayarlar CLI hesap alanı + soru mezar-taşı ──
 ot = json_al(istemci.get("/api/oturum"))
 kontrol("oturum aktif alanı var (idle → False)", "aktif" in ot and ot.get("aktif") is False)
