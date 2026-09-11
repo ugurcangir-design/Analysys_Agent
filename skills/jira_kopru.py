@@ -29,14 +29,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .atlassian import atlassian_get, atlassian_post
 from .jira_gorevleri import (
     _adf_to_text, _cloud_id, _ID_DESENI,
-    gorev_getir, gorev_analiz_et,
+    gorev_getir, gorev_analiz_et, gorev_jiraya_yaz,
 )
+from .jira_tasks import _issue_olustur, _proje_bilgi   # canonical OAuth issue create
 from jira_agent import markdown_to_adf  # ADF: teknik analiz task'ı formatı
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -44,6 +46,22 @@ DURUM_DOSYA = BASE_DIR / "output" / "jira-kopru" / "durum.json"
 
 ROBOT_IMZA = "🤖 **Analyst Agent**"      # yanıtlarımızın başı — döngü koruması + tanınırlık
 _MAX_ISLENEN = 500                        # durum dosyasında tutulan işlenmiş yorum tavanı
+_ANALIZ_TAZE_DK = 60                      # `analiz` çıktısı bu kadar dakika içindeyse güncelle/ilişkili-aç yeniden ANALİZ ETMEZ
+_MAX_ILISKILI = 5                         # `ilişkili-aç` en fazla bu kadar task önerir
+
+# `ilişkili-aç` için: mevcut task'ı TAMAMLAYAN ilişkili YENİ task önerileri (analizden).
+_ILISKILI_SISTEM = """Kıdemli yazılım analistisin. Verilen teknik analizden, ANALİZİ YAPILAN mevcut
+Jira görevini TAMAMLAYAN ilişkili YENİ task önerileri çıkar (örn. karşı katman FE↔BE işi, entegrasyon,
+migrasyon, test/QA görevi, gözden kaçan bağımlılık). KURALLAR:
+- Yalnızca analizden AÇIKÇA doğan, ayrı bir iş kalemi olacak kadar somut görevler öner. Uydurma yok.
+- Mevcut görevin KENDİSİNİ tekrar önerme.
+- Her öneri kısa, uygulanabilir bir başlık + 1-3 cümle açıklama içersin.
+- En fazla {maks} öneri. Gerçekten ayrı iş yoksa boş liste döndür.
+- Türkçe yaz; teknik terimler İngilizce kalabilir.
+Yanıtı SADECE şu formatta ver:
+<iliskili_tasklar>
+[{"summary": "...", "description": "...", "katman": "FE|BE|Genel"}]
+</iliskili_tasklar>"""
 
 
 # ─── Ayarlar (.env) ──────────────────────────────────────────────────────────
@@ -98,6 +116,16 @@ def jira_yorum_ekle(key: str, markdown: str) -> bool:
         raise ValueError("Yorum içeriği boş (ADF üretilemedi).")
     body = {"body": {"type": "doc", "version": 1, "content": icerik}}
     atlassian_post(f"/rest/api/3/issue/{key}/comment", body=body, cloud_id=_cloud_id())
+    return True
+
+
+def jira_issue_link(inward_key: str, outward_key: str, tip: str = "Relates") -> bool:
+    """İki issue arasında link kurar (varsayılan 'Relates'). inward <tip> outward
+    (örn. yeni-task Relates kaynak-task). Canonical atlassian_post."""
+    body = {"type": {"name": tip},
+            "inwardIssue": {"key": inward_key.strip().upper()},
+            "outwardIssue": {"key": outward_key.strip().upper()}}
+    atlassian_post("/rest/api/3/issueLink", body=body, cloud_id=_cloud_id())
     return True
 
 
@@ -166,8 +194,9 @@ def _yardim_metni(prefix: str) -> str:
         f"{ROBOT_IMZA} — komutlar\n\n"
         f"- `{prefix} analiz` — bu task'ı teknik analiz eder, sonucu yorum olarak yazar (okuma; alanlara dokunmaz).\n"
         f"- `{prefix} analiz <talimat>` — talimatlı analiz (örn. *sadece BE tarafını değerlendir*).\n"
-        f"- `{prefix} güncelle` — analizi task açıklamasına yazmayı önerir → **onay** gerekir. _(yakında)_\n"
-        f"- `{prefix} ilişkili-aç` — analizden ilişkili task önerir → **onay** gerekir. _(yakında)_\n"
+        f"- `{prefix} güncelle` — analizi task açıklamasına yazmayı **önerir** (taslak) → `{prefix} onayla` uygular.\n"
+        f"- `{prefix} ilişkili-aç` — analizden ilişkili yeni task'lar **önerir** (taslak) → `{prefix} onayla` açar + Relates bağlar.\n"
+        f"- `{prefix} onayla` / `{prefix} iptal` — bekleyen taslağı uygular / vazgeçer.\n"
         f"- `{prefix} yardım` — bu liste.\n\n"
         f"_Güvenlik: yorum bir komuttur; task'ı değiştiren işlemler yalnız açık onaydan sonra yapılır._"
     )
@@ -175,15 +204,44 @@ def _yardim_metni(prefix: str) -> str:
 
 # ─── Komut işleme ────────────────────────────────────────────────────────────
 
-def _analiz_islet(key: str, arg: str) -> str:
-    """`analiz` komutu — task'ı analiz eder, yorum metni (markdown) döndürür.
-    Jira ALANLARINA yazmaz; yalnız analiz sonucunu yorum olarak sunar."""
+def _proje_key(key: str) -> str:
+    """MBSTRADE-123 → MBSTRADE."""
+    return (key or "").split("-", 1)[0].upper()
+
+
+def _analiz_md_getir(key: str, arg: str, durum: dict, taze_zorla: bool = False) -> tuple[str, bool]:
+    """Güncelle/ilişkili-aç için analiz markdown'ı — TAZE `analiz` çıktısı varsa
+    (son _ANALIZ_TAZE_DK dk) yeniden ANALİZ ETMEZ (token tasarrufu), yoksa üretir
+    ve önbelleğe alır. Döner (markdown, taze_uretildi_mi)."""
+    onbellek = durum.setdefault("son_analiz", {})
+    kayit = onbellek.get(key)
+    if kayit and not taze_zorla and not arg:
+        try:
+            yas_dk = (datetime.now(timezone.utc)
+                      - datetime.strptime(kayit["zaman"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                      ).total_seconds() / 60
+            if yas_dk <= _ANALIZ_TAZE_DK and kayit.get("md"):
+                return kayit["md"], False
+        except Exception:
+            pass
+    gorev = gorev_getir(key)
+    if not gorev:
+        raise RuntimeError(f"`{key}` okunamadı (yetki/erişim?).")
+    md = (gorev_analiz_et(gorev, cevaplar=arg or "").get("markdown") or "").strip()
+    onbellek[key] = {"md": md, "zaman": _simdi()}
+    return md, True
+
+
+def _analiz_islet(key: str, arg: str, durum: dict) -> str:
+    """`analiz` — task'ı analiz eder, sonucu yorum olarak sunar. Jira ALANLARINA
+    yazmaz. Çıktıyı önbelleğe alır → sonraki `güncelle`/`ilişkili-aç` yeniden analiz etmez."""
     gorev = gorev_getir(key)
     if not gorev:
         return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı (yetki/erişim?). Analiz yapılamadı."
     sonuc = gorev_analiz_et(gorev, cevaplar=arg or "")
     md = (sonuc.get("markdown") or "").strip()
     acik = (sonuc.get("acik_sorular") or "").strip()
+    durum.setdefault("son_analiz", {})[key] = {"md": md, "zaman": _simdi()}
     prefix = ayarlar()["komut"]
     parcalar = [f"{ROBOT_IMZA} — Teknik Analiz · `{key}`", "", md]
     if acik and acik.lower() not in ("açık soru tespit edilmedi.", "acik soru tespit edilmedi."):
@@ -197,17 +255,129 @@ def _analiz_islet(key: str, arg: str) -> str:
     return "\n".join(parcalar)
 
 
-def _komut_uygula(komut: str, arg: str, key: str, prefix: str) -> str:
-    """Komutu işleyip Jira'ya yazılacak YANIT markdown'ını döndürür."""
+def _guncelle_taslak(key: str, arg: str, durum: dict, prefix: str) -> str:
+    """`güncelle` — analizi task AÇIKLAMASINA yazmayı ÖNERİR (taslak). Uygulamaz;
+    `onayla` bekler."""
+    md, _ = _analiz_md_getir(key, arg, durum)
+    if not md:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` için analiz üretilemedi; güncelleme taslağı oluşturulamadı."
+    durum.setdefault("taslaklar", {})[key] = {
+        "tip": "guncelle", "aciklama_md": md, "zaman": _simdi(),
+    }
+    onizleme = md if len(md) <= 1200 else md[:1200] + " …"
+    return (
+        f"{ROBOT_IMZA} — Güncelleme taslağı · `{key}`\n\n"
+        f"Aşağıdaki analiz, onaylarsanız task **açıklamasının yerine** yazılacak "
+        f"(mevcut açıklama değişecektir):\n\n---\n\n{onizleme}\n\n---\n\n"
+        f"Uygulamak için: `{prefix} onayla` · vazgeçmek için: `{prefix} iptal`"
+    )
+
+
+def _iliskili_task_onerileri(analiz_md: str, gorev: dict) -> list[dict]:
+    """Analizden mevcut görevi tamamlayan ilişkili YENİ task önerileri (AI, JSON)."""
+    from .base import _api_cagri, _xml_ayir, MAX_TOKENS_KISA
+    sistem = _ILISKILI_SISTEM.replace("{maks}", str(_MAX_ILISKILI))
+    kullanici = (f"### Mevcut Görev: {gorev.get('key', '')}\n**Başlık:** {gorev.get('summary', '')}\n\n"
+                 f"### Teknik Analiz\n{analiz_md}\n\nİlişkili yeni task önerilerini üret.")
+    yanit = _api_cagri(sistem, [{"role": "user", "content": [{"type": "text", "text": kullanici}]}],
+                       max_tokens=MAX_TOKENS_KISA)
+    ham = _xml_ayir(yanit, "iliskili_tasklar") or "[]"
+    try:
+        oneriler = json.loads(ham)
+    except json.JSONDecodeError:
+        temiz = re.sub(r"^```[a-z]*\n?", "", ham.strip()).rstrip("`").strip()
+        oneriler = json.loads(temiz) if temiz else []
+    temizlenmis = []
+    for o in oneriler[:_MAX_ILISKILI]:
+        s = str(o.get("summary", "")).strip()
+        if s:
+            temizlenmis.append({"summary": s[:255],
+                                "description": str(o.get("description", "")).strip(),
+                                "katman": str(o.get("katman", "Genel")).strip() or "Genel"})
+    return temizlenmis
+
+
+def _iliskili_taslak(key: str, arg: str, durum: dict, prefix: str) -> str:
+    """`ilişkili-aç` — analizden ilişkili YENİ task'lar ÖNERİR (taslak). Açmaz; `onayla` bekler."""
+    gorev = gorev_getir(key)
+    if not gorev:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı; ilişkili task önerisi üretilemedi."
+    md, _ = _analiz_md_getir(key, arg, durum)
+    oneriler = _iliskili_task_onerileri(md, gorev)
+    if not oneriler:
+        return (f"{ROBOT_IMZA} — İlişkili task · `{key}`\n\n"
+                f"Analizden ayrı bir iş kalemi olacak ilişkili yeni task tespit edilmedi.")
+    proje = _proje_key(key)
+    durum.setdefault("taslaklar", {})[key] = {
+        "tip": "iliskili-ac", "proje": proje, "oneriler": oneriler, "zaman": _simdi(),
+    }
+    satirlar = [f"{ROBOT_IMZA} — İlişkili task taslağı · `{key}`", "",
+                f"Onaylarsanız `{proje}` projesinde şu task'lar **açılacak** ve `{key}` ile "
+                f"**Relates** olarak bağlanacak:", ""]
+    for i, o in enumerate(oneriler, 1):
+        satirlar.append(f"{i}. **[{o['katman']}] {o['summary']}**")
+        if o["description"]:
+            satirlar.append(f"   - {o['description']}")
+    satirlar += ["", f"Uygulamak için: `{prefix} onayla` · vazgeçmek için: `{prefix} iptal`"]
+    return "\n".join(satirlar)
+
+
+def _onayla_uygula(key: str, durum: dict, prefix: str) -> str:
+    """`onayla` — bekleyen taslağı UYGULAR (tek geri-döndürülemez yazma noktası)."""
+    taslak = durum.get("taslaklar", {}).get(key)
+    if not taslak:
+        return (f"{ROBOT_IMZA}\n\n`{key}` için bekleyen taslak yok. Önce `{prefix} güncelle` "
+                f"veya `{prefix} ilişkili-aç` çalıştırın.")
+    tip = taslak.get("tip")
+    # Uygulanmış say: sonuç ne olursa olsun taslağı düş (çift-uygulama önlemi).
+    durum.get("taslaklar", {}).pop(key, None)
+    if tip == "guncelle":
+        gorev_jiraya_yaz(key, taslak["aciklama_md"])
+        return f"{ROBOT_IMZA} ✅ `{key}` açıklaması analizle güncellendi."
+    if tip == "iliskili-ac":
+        proje = taslak.get("proje") or _proje_key(key)
+        cloud_id = _cloud_id()
+        pbilgi = _proje_bilgi(proje, cloud_id)
+        task_type_id = pbilgi.get("task_id") or pbilgi.get("story_id")
+        if not task_type_id:
+            return f"{ROBOT_IMZA}\n\n⚠ `{proje}` projesinde 'Task' tipi bulunamadı; task açılamadı."
+        acilan, hata = [], []
+        for o in taslak.get("oneriler", []):
+            try:
+                desc_md = o.get("description") or o["summary"]
+                adf = {"type": "doc", "version": 1, "content": markdown_to_adf(desc_md) or markdown_to_adf(o["summary"])}
+                yeni = _issue_olustur(o["summary"], adf, task_type_id, proje, cloud_id)
+                try:
+                    jira_issue_link(yeni, key, "Relates")
+                except Exception as le:
+                    hata.append(f"{yeni} link kurulamadı: {le}")
+                acilan.append(yeni)
+            except Exception as e:
+                hata.append(f"'{o['summary'][:40]}' açılamadı: {e}")
+        satir = [f"{ROBOT_IMZA} ✅ `{key}` için {len(acilan)} ilişkili task açıldı:"]
+        satir += [f"- {k} ({key} ile Relates)" for k in acilan]
+        if hata:
+            satir += ["", "⚠ Bazı adımlar başarısız:"] + [f"- {h}" for h in hata]
+        return "\n".join(satir)
+    return f"{ROBOT_IMZA}\n\n⚠ Bilinmeyen taslak tipi: {tip}"
+
+
+def _komut_uygula(komut: str, arg: str, key: str, prefix: str, durum: dict) -> str:
+    """Komutu işleyip Jira'ya yazılacak YANIT markdown'ını döndürür. `durum`
+    taslak deposu + analiz önbelleği için paylaşılır (tek_tur sonda diske yazar)."""
     if komut == "yardim":
         return _yardim_metni(prefix)
     if komut == "analiz":
-        return _analiz_islet(key, arg)
-    if komut in ("guncelle", "iliskili-ac", "onayla"):
-        return (
-            f"{ROBOT_IMZA}\n\n`{komut}` komutu **taslak + onay** akışıyla yakında gelecek (MVP-2). "
-            f"Şimdilik `{prefix} analiz` ile analiz alabilirsiniz."
-        )
+        return _analiz_islet(key, arg, durum)
+    if komut == "guncelle":
+        return _guncelle_taslak(key, arg, durum, prefix)
+    if komut == "iliskili-ac":
+        return _iliskili_taslak(key, arg, durum, prefix)
+    if komut == "onayla":
+        return _onayla_uygula(key, durum, prefix)
+    if komut == "iptal":
+        vardi = durum.get("taslaklar", {}).pop(key, None) is not None
+        return (f"{ROBOT_IMZA}\n\n{'Taslak iptal edildi.' if vardi else 'İptal edilecek bekleyen taslak yok.'}")
     return (
         f"{ROBOT_IMZA}\n\n❓ Bilinmeyen komut: `{komut}`. `{prefix} yardım` ile komut listesine bakın."
     )
@@ -261,7 +431,7 @@ def tek_tur(pencere_dk: int | None = None) -> dict:
                     pass
                 continue
             try:
-                yanit = _komut_uygula(komut, arg, key, prefix)
+                yanit = _komut_uygula(komut, arg, key, prefix, durum)
                 jira_yorum_ekle(key, yanit)
                 islenen_kayit[cid] = {"key": key, "komut": komut, "yazar": y["yazar"], "zaman": _simdi()}
                 islenen.append({"key": key, "komut": komut, "yazar": y["yazar"]})

@@ -130,7 +130,8 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
 - **Test (v2):** `venv/bin/python tests/smoke_test.py` (Flask test client, deterministik uçlar) +
   `venv/bin/python tests/test_revizyon.py` + `tests/test_auth_roller.py` (AUTH açık Owner/Analist
   enforcement; env + USERS_PATH geçici) — commit öncesi ruff ile birlikte çalıştır. AI/kota harcamaz.
-  Yeni deterministik endpoint → smoke_test'e bir satır ekle. Ayrıca `test_auth_roller.py`, `test_kod_kaynagi.py`.
+  Yeni deterministik endpoint → smoke_test'e bir satır ekle. Ayrıca `test_auth_roller.py`, `test_kod_kaynagi.py`,
+  `test_jira_kopru.py` (Jira Köprüsü komut→taslak→onay durum makinesi, offline/0-token).
 - **Faz 3.a — Kod kaynağı:** `skills/kod_kaynagi.py` salt-okuma yerel git/dosya arayüzü (yol repo köküne
   hapsedilir; yazma/komut yok). Config `reference/kod_kaynagi.json` (gitignore + `.example` seed, seed listesinde).
   `/api/kod/*` (config owner-only) + `screens/kod.html` (Kaynaklar). Gerçek repo bağlantısı analiste bırakıldı;
@@ -140,16 +141,22 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   Türkçe-i düzeltmeli). `skills/analiz_mcp.py` Postgres/Jira MCP'yi `claude -p`'ye bağlar (config
   `reference/analiz_mcp.json` gitignore+`.example`+seed; üretilen `.mcp-analiz.json` gitignore; VARSAYILAN
   KAPALI; `_api_cagri_cli`'de canlı-app aktif değilse eklenir). `/api/analiz-mcp` owner (bağlantı maskeli).
-- **Jira Köprüsü (Jira'yı web-chat gibi kullan) — MVP-1:** `skills/jira_kopru.py` + `_jira_kopru_dongusu`
-  (app.py). Analist bir Jira task'ının YORUMUNA `/analyst_agent analiz [talimat]` yazar → app **polling**
-  (JQL taraması, inbound/webhook YOK — lokal + OAuth) ile bulur → `gorev_getir` + `gorev_analiz_et` → sonucu
-  Jira **yorumu** olarak yazar (`jira_yorum_ekle`, canonical `atlassian_post` + `markdown_to_adf`). **Varsayılan
-  KAPALI** (`JIRA_KOPRU=false`; owner açar), owner-gate `/api/jira-kopru/durum|tara`. **Güvenlik:** yorum=komut
-  (talimat değil; analiz girdisi task'ın kendi içeriği) · okuma/analiz oto ama Jira ALANLARINA dokunmaz · yazma
-  (`güncelle`/`ilişkili-aç`/`onayla` → task açıklaması güncelle / ilişkili task aç) **taslak+onay, MVP-2** ·
-  döngü koruması (kendi `🤖` yanıtı komut prefiksiyle başlamaz + işlenen yorum id'leri `output/jira-kopru/
-  durum.json`) · opsiyonel `JIRA_KOPRU_YAZAR_ALLOWLIST`. Env: `JIRA_KOPRU_PROJELER` (zorunlu) / `_ARALIK` /
-  `_PENCERE_DK` / `_KOMUT`. Tam uç dökümü → `docs/ENDPOINTS.md` "Jira Köprüsü".
+- **Jira Köprüsü (Jira'yı web-chat gibi kullan):** `skills/jira_kopru.py` + `_jira_kopru_dongusu` (app.py).
+  Analist bir Jira task'ının YORUMUNA `/analyst_agent <komut>` yazar → app **polling** (JQL taraması,
+  inbound/webhook YOK — lokal + OAuth) ile bulur, işler, sonucu Jira **yorumu** olarak geri yazar
+  (`jira_yorum_ekle`, canonical `atlassian_post` + `markdown_to_adf`). **Varsayılan KAPALI**
+  (`JIRA_KOPRU=false`; owner açar), owner-gate `/api/jira-kopru/durum|tara`.
+  **Komutlar:** `analiz [talimat]` → `gorev_getir`+`gorev_analiz_et`, sonucu yorum (okuma, oto; çıktı
+  `son_analiz` önbelleğine — `güncelle`/`ilişkili-aç` `_ANALIZ_TAZE_DK`=60dk içinde yeniden analiz etmez) ·
+  `güncelle` → analizi task açıklamasına yazmayı **önerir (taslak)** · `ilişkili-aç` → analizden ilişkili
+  YENİ task'lar **önerir (taslak)** (`_iliskili_task_onerileri` AI, ≤`_MAX_ILISKILI`=5) · `onayla` → bekleyen
+  taslağı UYGULAR (güncelle→`gorev_jiraya_yaz`; ilişkili-aç→`_issue_olustur` + `jira_issue_link` Relates,
+  kaynakla aynı projede) · `iptal`/`yardım`. **Güvenlik/korkuluk:** yorum=KOMUT (talimat değil; analiz girdisi
+  task'ın kendi içeriği) · geri-döndürülemez yazma YALNIZ `onayla` sonrası (taslak+onay, human-in-the-loop) ·
+  çift-uygulama önlemi (onayla taslağı hemen düşürür) · döngü koruması (kendi `🤖` yanıtı komut prefiksiyle
+  başlamaz + işlenen yorum id'leri `output/jira-kopru/durum.json`) · opsiyonel `JIRA_KOPRU_YAZAR_ALLOWLIST`.
+  Env: `JIRA_KOPRU_PROJELER` (zorunlu) / `_ARALIK` / `_PENCERE_DK` / `_KOMUT`. Test: `tests/test_jira_kopru.py`
+  (offline durum-makinesi, 0 token). Tam uç dökümü → `docs/ENDPOINTS.md` "Jira Köprüsü".
 
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
