@@ -1,0 +1,236 @@
+- dialog [active] [ref=f1e9553]:
+  - generic [ref=f1e9554]:
+    - heading "Add Manual Event" [level=2] [ref=f1e9555]
+    - generic [ref=f1e9558]:
+      - generic [ref=f1e9560]:
+        - generic:
+          - text: Event Name
+          - generic [aria-hidden]: "*"
+        - generic [ref=f1e9561]:
+          - textbox "Event Name" [ref=f1e9562]
+          - group [aria-hidden]:
+            - generic: Event Name *
+      - generic [ref=f1e9563]:
+        - heading "Sport" [level=6] [ref=f1e9564]
+        - separator [ref=f1e9565]
+      - generic [ref=f1e9568]:
+        - generic:
+          - text: Sport
+          - generic [aria-hidden]: "*"
+        - generic [ref=f1e9569]:
+          - combobox "Sport" [ref=f1e9570]
+          - button "Open" [ref=f1e9572] [cursor=pointer]
+          - group [aria-hidden]:
+            - generic: Sport *
+      - generic [ref=f1e9576]:
+        - generic: Sport WEB Name
+        - generic [ref=f1e9577]:
+          - textbox "Sport WEB Name" [disabled] [ref=f1e9578]
+          - group [aria-hidden]:
+            - generic: Sport WEB Name
+      - generic [ref=f1e9580]:
+        - generic: Sport LRT Name
+        - generic [ref=f1e9581]:
+          - textbox "Sport LRT Name" [disabled] [ref=f1e9582]
+          - group [aria-hidden]:
+            - generic: Sport LRT Name
+      - generic [ref=f1e9583]:
+        - heading "Group" [level=6] [ref=f1e9584]
+        - separator [ref=f1e9585]
+      - generic [ref=f1e9588]:
+        - generic:
+          - text: Group
+          - generic [aria-hidden]: "*"
+        - generic [ref=f1e9589]:
+          - combobox "Group" [disabled] [ref=f1e9590]
+          - generic [ref=f1e9591]:
+            - button "Open" [disabled]
+          - group [aria-hidden]:
+            - generic: Group *
+      - generic [ref=f1e9593]:
+        - generic: Group WEB Name
+        - generic [ref=f1e9594]:
+          - textbox "Group WEB Name" [disabled] [ref=f1e9595]
+          - group [aria-hidden]:
+            - generic: Group WEB Name
+      - generic [ref=f1e9597]:
+        - generic: Group LRT Name
+        - generic [ref=f1e9598]:
+          - textbox "Group LRT Name" [disabled] [ref=f1e9599]
+          - group [aria-hidden]:
+            - generic: Group LRT Name
+      - generic [ref=f1e9600]:
+        - heading "Competition" [level=6] [ref=f1e9601]
+        - separator [ref=f1e9602]
+      - generic [ref=f1e9605]:
+        - generic:
+          - text: Competition
+          - generic [aria-hidden]: "*"
+        - generic [ref=f1e9606]:
+          - combobox "Competition" [disabled] [ref=f1e9607]
+          - generic [ref=f1e9608]:
+            - button "Open" [disabled]
+          - group [aria-hidden]:
+            - generic: Competition *
+      - generic [ref=f1e9610]:
+        - generic: Competition WEB Name
+        - generic [ref=f1e9611]:
+          - textbox "Competition WEB Name" [disabled] [ref=f1e9612]
+          - group [aria-hidden]:
+            - generic: Competition WEB Name
+      - generic [ref=f1e9614]:
+        - generic: Competition LRT Name
+        - generic [ref=f1e9615]:
+          - textbox "Competition LRT Name" [disabled] [ref=f1e9616]
+          - group [aria-hidden]:
+            - generic: Competition LRT Name
+      - generic [ref=f1e9617]:
+        - generic [ref=f1e9618]:
+          - heading "Competitors" [level=6] [ref=f1e9619]
+          - button [ref=f1e9620] [cursor=pointer]
+        - separator [ref=f1e9624]
+      - generic [ref=f1e9626]:
+        - generic [ref=f1e9627]:
+          - generic [ref=f1e9628]:
+            - heading "Competitor 1" [level=6] [ref=f1e9629]
+            - generic "Delete" [ref=f1e9630]:
+              - button [disabled]
+          - generic [ref=f1e9631]:
+            - generic [ref=f1e9634]:
+              - generic:
+                - text: Competitor
+                - generic [aria-hidden]: "*"
+              - generic [ref=f1e9635]:
+                - combobox "Competitor" [disabled] [ref=f1e9636]
+                - generic [ref=f1e9637]:
+                  - button "Open" [disabled]
+                - group [aria-hidden]:
+                  - generic: Competitor *
+            - generic [ref=f1e9639]:
+              - generic: External ID
+              - generic [ref=f1e9640]:
+                - textbox "External ID" [disabled] [ref=f1e9641]
+                - group [aria-hidden]:
+                  - generic: External ID
+            - generic [ref=f1e9643]:
+              - generic: Short Name
+              - generic [ref=f1e9644]:
+                - textbox "Short Name" [disabled] [ref=f1e9645]
+                - group [aria-hidden]:
+                  - generic: Short Name
+            - generic [ref=f1e9647]:
+              - generic: Sport Name
+              - generic [ref=f1e9648]:
+                - textbox "Sport Name" [disabled] [ref=f1e9649]
+                - group [aria-hidden]:
+                  - generic: Sport Name
+            - generic [ref=f1e9651]:
+              - generic: Country Code
+              - generic [ref=f1e9652]:
+                - textbox "Country Code" [disabled] [ref=f1e9653]
+                - group [aria-hidden]:
+                  - generic: Country Code
+            - generic [ref=f1e9655]:
+              - generic: Country
+              - generic [ref=f1e9656]:
+                - textbox "Country" [disabled] [ref=f1e9657]
+                - group [aria-hidden]:
+                  - generic: Country
+        - generic [ref=f1e9658]:
+          - generic [ref=f1e9659]:
+            - heading "Competitor 2" [level=6] [ref=f1e9660]
+            - generic "Delete" [ref=f1e9661]:
+              - button [disabled]
+          - generic [ref=f1e9662]:
+            - generic [ref=f1e9665]:
+              - generic:
+                - text: Competitor
+                - generic [aria-hidden]: "*"
+              - generic [ref=f1e9666]:
+                - combobox "Competitor" [disabled] [ref=f1e9667]
+                - generic [ref=f1e9668]:
+                  - button "Open" [disabled]
+                - group [aria-hidden]:
+                  - generic: Competitor *
+            - generic [ref=f1e9670]:
+              - generic: External ID
+              - generic [ref=f1e9671]:
+                - textbox "External ID" [disabled] [ref=f1e9672]
+                - group [aria-hidden]:
+                  - generic: External ID
+            - generic [ref=f1e9674]:
+              - generic: Short Name
+              - generic [ref=f1e9675]:
+                - textbox "Short Name" [disabled] [ref=f1e9676]
+                - group [aria-hidden]:
+                  - generic: Short Name
+            - generic [ref=f1e9678]:
+              - generic: Sport Name
+              - generic [ref=f1e9679]:
+                - textbox "Sport Name" [disabled] [ref=f1e9680]
+                - group [aria-hidden]:
+                  - generic: Sport Name
+            - generic [ref=f1e9682]:
+              - generic: Country Code
+              - generic [ref=f1e9683]:
+                - textbox "Country Code" [disabled] [ref=f1e9684]
+                - group [aria-hidden]:
+                  - generic: Country Code
+            - generic [ref=f1e9686]:
+              - generic: Country
+              - generic [ref=f1e9687]:
+                - textbox "Country" [disabled] [ref=f1e9688]
+                - group [aria-hidden]:
+                  - generic: Country
+      - generic [ref=f1e9689]:
+        - heading "Other Details" [level=6] [ref=f1e9690]
+        - separator [ref=f1e9691]
+      - generic [ref=f1e9693]:
+        - generic:
+          - text: Scheduled Time
+          - generic [aria-hidden]: "*"
+        - generic [ref=f1e9694]:
+          - textbox "Scheduled Time" [ref=f1e9695]
+          - button "Choose date" [ref=f1e9697] [cursor=pointer]
+          - group [aria-hidden]:
+            - generic: Scheduled Time *
+      - generic [ref=f1e9701]:
+        - generic: Duration (min)
+        - generic [ref=f1e9702]:
+          - spinbutton "Duration (min)" [ref=f1e9703]
+          - group [aria-hidden]:
+            - generic: Duration (min)
+      - generic [ref=f1e9705]:
+        - generic:
+          - text: Expected Result Time
+          - generic [aria-hidden]: "*"
+        - generic [ref=f1e9706]:
+          - textbox "Expected Result Time" [ref=f1e9707]
+          - button "Choose date" [ref=f1e9709] [cursor=pointer]
+          - group [aria-hidden]:
+            - generic: Expected Result Time *
+      - generic [ref=f1e9714]:
+        - generic [ref=f1e9715]:
+          - text: Risk Pre Category
+          - generic [aria-hidden] [ref=f1e9716]: "*"
+        - generic [ref=f1e9717]:
+          - combobox "Risk Pre Category" [ref=f1e9718]: High Risk Kat
+          - button "Open" [ref=f1e9720] [cursor=pointer]
+          - group [aria-hidden]:
+            - generic: Risk Pre Category *
+      - generic [ref=f1e9723]:
+        - generic [ref=f1e9725] [cursor=pointer]:
+          - switch "Published on WEB" [ref=f1e9728]
+          - generic [ref=f1e9731]: Published on WEB
+        - generic [ref=f1e9733] [cursor=pointer]:
+          - switch "Published on LRT" [ref=f1e9736]
+          - generic [ref=f1e9739]: Published on LRT
+      - generic [ref=f1e9741]:
+        - generic: Bookie Note
+        - generic [ref=f1e9742]:
+          - textbox "Bookie Note" [ref=f1e9743]
+          - group [aria-hidden]:
+            - generic: Bookie Note
+    - generic [ref=f1e9744]:
+      - button "Cancel" [ref=f1e9745] [cursor=pointer]
+      - button "Create" [disabled]

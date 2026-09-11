@@ -1,0 +1,31 @@
+- navigation "mailbox folders" [ref=e204]:
+  - generic [ref=e205]:
+    - link [ref=e207] [cursor=pointer]:
+      - /url: /
+      - img "Logo" [ref=e5841]
+    - generic [ref=e210]:
+      - region "scrollable content" [ref=e216]:
+        - generic [ref=e218]:
+          - list [ref=e219]:
+            - link [ref=e5842] [cursor=pointer]:
+              - /url: /
+          - list [ref=e227]:
+            - button [ref=e5843] [cursor=pointer]
+          - list [ref=e290]:
+            - button [ref=e5844] [cursor=pointer]
+          - list [ref=e317]:
+            - button [ref=e5845] [cursor=pointer]
+          - list [ref=e344]:
+            - button [ref=e5846] [cursor=pointer]
+          - list [ref=e413]:
+            - button [ref=e5847] [cursor=pointer]
+          - list [ref=e448]:
+            - button [ref=e5848] [cursor=pointer]
+          - list [ref=e487]:
+            - button [ref=e5849] [cursor=pointer]
+          - list [ref=e545]:
+            - button [ref=e5850] [cursor=pointer]
+            - button [ref=e5851] [cursor=pointer]
+      - list [ref=e655]:
+        - listitem [ref=e656]:
+          - button "show more" [ref=e665] [cursor=pointer]

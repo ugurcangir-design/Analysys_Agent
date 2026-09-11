@@ -18,6 +18,8 @@ BASE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE))
 os.environ.setdefault("AUTO_UPDATE", "false")      # arka plan thread'i başlatma
 os.environ.setdefault("AUTH_ENABLED", "false")
+os.environ.setdefault("JIRA_KOPRU", "false")       # köprü döngüsünü başlatma + durum testi deterministik
+os.environ.setdefault("JIRA_KOPRU_PROJELER", "")   # makinenin .env'i (JIRA_KOPRU=true) test sonucunu etkilemesin
 
 import skills.base as base                         # noqa: E402
 _tmp = Path(tempfile.mkdtemp())

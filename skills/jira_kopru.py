@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,6 +47,7 @@ DURUM_DOSYA = BASE_DIR / "output" / "jira-kopru" / "durum.json"
 
 ROBOT_IMZA = "🤖 **Analyst Agent**"      # yanıtlarımızın başı — döngü koruması + tanınırlık
 _MAX_ISLENEN = 500                        # durum dosyasında tutulan işlenmiş yorum tavanı
+_TUR_LOCK = threading.Lock()             # aynı anda TEK tur — arka plan döngüsü + elle /tara çakışmasın (çift işleme önlemi)
 _ANALIZ_TAZE_DK = 60                      # `analiz` çıktısı bu kadar dakika içindeyse güncelle/ilişkili-aç yeniden ANALİZ ETMEZ
 _MAX_ILISKILI = 5                         # `ilişkili-aç` en fazla bu kadar task önerir
 
@@ -388,7 +390,18 @@ def _komut_uygula(komut: str, arg: str, key: str, prefix: str, durum: dict) -> s
 def tek_tur(pencere_dk: int | None = None) -> dict:
     """Komutlu yeni yorumları bir kez tarar ve işler. Döner:
         {"ok", "taranan_task", "islenen":[{key,komut,yazar}], "atlanan", "hata":[...]}.
-    Elle `/api/jira-kopru/tara` ve arka plan döngüsü aynı yolu kullanır."""
+    Elle `/api/jira-kopru/tara` ve arka plan döngüsü aynı yolu kullanır. AYNI ANDA
+    TEK tur çalışır — kilit tutuluysa ikinci çağrı İŞLEMEDEN döner (arka plan döngüsü
+    ile elle taramanın aynı yorumu iki kez işlemesini önler)."""
+    if not _TUR_LOCK.acquire(blocking=False):
+        return {"ok": False, "error": "Köprü taraması zaten çalışıyor; bu çağrı atlandı.", "kilitli": True}
+    try:
+        return _tek_tur_ic(pencere_dk)
+    finally:
+        _TUR_LOCK.release()
+
+
+def _tek_tur_ic(pencere_dk: int | None = None) -> dict:
     ayar = ayarlar()
     if not ayar["projeler"]:
         return {"ok": False, "error": "JIRA_KOPRU_PROJELER tanımlı değil (.env)."}
