@@ -3856,9 +3856,17 @@ async function kullanimYukle() {
     // Özet: iki anlamlı grup — Aktivite (kümülatif zaman pencereleri) + Seçili Aralık toplamları
     const oz = d.ozet || {};
     const kart = (v, k, vurgu) => `<div class="ku-card${vurgu ? ' vurgu' : ''}"><div class="n">${v}</div><div class="k">${k}</div></div>`;
+    // Token biçimi: 1234→1.2K, 3400000→3.4M (okunur, kompakt)
+    const tokFmt = (n) => { n = Number(n || 0); if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return String(n); };
+    const usdFmt = (n) => '$' + Number(n || 0).toFixed(2);
+    const tk = d.token_ozet || {};
+    const tokenGrubu = (tk.cagri || tk.girdi || tk.cikti)
+      ? `<div class="ku-grup"><div class="ku-grup-lbl" title="AI çağrılarında harcanan token ve tahmini maliyet (CLI JSON usage + API usage). Cache okuma girdiden düşülür.">Token / Maliyet</div><div class="ku-cards">${kart(tokFmt(tk.girdi), 'Girdi Token')}${kart(tokFmt(tk.cikti), 'Çıktı Token')}${kart(tokFmt(tk.cache_oku), 'Cache Okuma', true)}${kart(usdFmt(tk.maliyet_usd), 'Tahmini Maliyet')}</div></div>`
+      : '';
     document.getElementById('ku-ozet').innerHTML =
       `<div class="ku-grup"><div class="ku-grup-lbl">Aktivite (kümülatif)</div><div class="ku-cards">${kart(oz.bugun || 0, 'Bugün', true)}${kart(oz.bu_hafta || 0, 'Bu Hafta', true)}${kart(oz.bu_ay || 0, 'Bu Ay', true)}</div></div>` +
-      `<div class="ku-grup"><div class="ku-grup-lbl">Seçili Aralık Toplamı</div><div class="ku-cards">${kart(d.toplam_analiz, 'Toplam İşlem')}${kart(d.toplam_jira_task, 'Açılan Task')}${kart(d.analist_sayisi, 'Analist')}</div></div>`;
+      `<div class="ku-grup"><div class="ku-grup-lbl">Seçili Aralık Toplamı</div><div class="ku-cards">${kart(d.toplam_analiz, 'Toplam İşlem')}${kart(d.toplam_jira_task, 'Açılan Task')}${kart(d.analist_sayisi, 'Analist')}</div></div>` +
+      tokenGrubu;
     // Zaman trendi — dikey bar chart, okunur tarih etiketleri, TIKLANABİLİR (drill-down)
     const trend = d.trend || []; const maxv = Math.max(1, ...trend.map(t => t.adet));
     const bugunKey = new Date().toISOString().slice(0, 10);
@@ -3874,12 +3882,13 @@ async function kullanimYukle() {
     const td = 'padding:8px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';
     const tdc = td + ';text-align:center;font-variant-numeric:tabular-nums';
 
-    // 1) Özet tablo
+    // 1) Özet tablo (token sütunları: analist başına AI token + tahmini maliyet)
+    const tokHucre = (a) => { const t = a.token || {}; const gc = (t.girdi || 0) + (t.cikti || 0); return `<td style="${tdc}" title="Girdi ${(t.girdi||0).toLocaleString('tr')} · Çıktı ${(t.cikti||0).toLocaleString('tr')} · Cache okuma ${(t.cache_oku||0).toLocaleString('tr')}">${gc ? tokFmt(gc) : '·'}</td><td style="${td};text-align:right;font-variant-numeric:tabular-nums">${t.maliyet_usd ? usdFmt(t.maliyet_usd) : '·'}</td>`; };
     let satirlar = (d.analistler || []).map(a =>
-      `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${tdc}">${a.toplam}</td><td style="${tdc};color:var(--ok,#15803d)">${a.basarili}</td><td style="${tdc};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${tdc}">${a.jira_task}</td><td style="${td};text-align:right">${sureFmt(a.sure_ms_toplam)}</td></tr>`
+      `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${tdc}">${a.toplam}</td><td style="${tdc};color:var(--ok,#15803d)">${a.basarili}</td><td style="${tdc};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${tdc}">${a.jira_task}</td><td style="${td};text-align:right">${sureFmt(a.sure_ms_toplam)}</td>${tokHucre(a)}</tr>`
     ).join('');
-    if (!satirlar) satirlar = `<tr><td colspan="7" style="${td};color:var(--text3)">Kayıt yok. ("Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
-    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${thc}" title="Yaptığı toplam işlem sayısı">Toplam İşlem</th><th style="${thc}" title="Başarıyla tamamlanan">Başarılı</th><th style="${thc}" title="Hata / zaman aşımı">Hatalı</th><th style="${thc}" title="Jira'ya açılan issue adedi">Açılan Task</th><th style="${th};text-align:right" title="İşlemlerin başlangıç→bitiş sürelerinin toplamı (efor)">Toplam Süre</th></tr></thead><tbody>${satirlar}</tbody></table>`;
+    if (!satirlar) satirlar = `<tr><td colspan="9" style="${td};color:var(--text3)">Kayıt yok. ("Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
+    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:640px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${thc}" title="Yaptığı toplam işlem sayısı">Toplam İşlem</th><th style="${thc}" title="Başarıyla tamamlanan">Başarılı</th><th style="${thc}" title="Hata / zaman aşımı">Hatalı</th><th style="${thc}" title="Jira'ya açılan issue adedi">Açılan Task</th><th style="${th};text-align:right" title="İşlemlerin başlangıç→bitiş sürelerinin toplamı (efor)">Toplam Süre</th><th style="${thc}" title="Girdi+Çıktı token toplamı (AI çağrıları)">Token</th><th style="${th};text-align:right" title="Tahmini maliyet (CLI/API usage)">Maliyet</th></tr></thead><tbody>${satirlar}</tbody></table>`;
 
     // 2) Analist × Tür matrisi
     const matEl = document.getElementById('ku-matris');
@@ -3922,7 +3931,7 @@ async function kullanimYukle() {
       '<b>Görev Güncelleme</b> = mevcut Jira task\'ının analizle güncellenmesi · ' +
       '<b>Task Açma</b> = Jira\'ya yeni issue oluşturma · ' +
       '<b>UAT Mutabakat</b> = board karşılaştırma.</div>' +
-      '<div><b>Metrikler:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir.</div>';
+      '<div><b>Metrikler:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir. <b>Token</b> = AI çağrılarında harcanan girdi+çıktı token (cache okuma ayrıca; sayacın topladığı gerçek kullanım). <b>Maliyet</b> = tahmini (CLI JSON/API usage); CLI abonelik modunda bilgilendirme amaçlıdır.</div>';
     const sg = document.getElementById('ku-son-guncelleme');
     if (sg) sg.textContent = 'Son güncelleme ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   } catch (e) {

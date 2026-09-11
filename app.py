@@ -2416,10 +2416,14 @@ def usage_export():
                   "gorev_guncelle": "Görev Güncelleme",
                   "jira_gonder": "Task Açma", "mutabakat": "UAT Mutabakat"}
     ws.append(["ID", "Analist", "Toplam İşlem", "Başarılı", "Hatalı",
-               "Açılan Task", "Toplam Süre (sn)"])
+               "Açılan Task", "Toplam Süre (sn)",
+               "Girdi Token", "Çıktı Token", "Cache Okuma", "Tahmini Maliyet (USD)"])
     for a in stat["analistler"]:
+        _t = a.get("token") or {}
         ws.append([a.get("id"), a["analist"], a["toplam"], a["basarili"], a["hatali"],
-                   a["jira_task"], round(a["sure_ms_toplam"] / 1000, 1)])
+                   a["jira_task"], round(a["sure_ms_toplam"] / 1000, 1),
+                   _t.get("girdi", 0), _t.get("cikti", 0), _t.get("cache_oku", 0),
+                   round(_t.get("maliyet_usd", 0.0), 4)])
 
     # Analist × Tür matrisi (kim hangi işi kaç kez)
     wsm = wb.create_sheet("Analist × Tür")

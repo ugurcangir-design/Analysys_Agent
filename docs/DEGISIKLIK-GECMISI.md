@@ -3,6 +3,13 @@
 > Ana referans: [CLAUDE.md](../CLAUDE.md). Tarihsel kayıt — büyük bir faz/özellik
 > tamamlandığında buraya özet ekle.
 
+## P1 iyileştirmeler — devam ediyor
+- **A — Token/maliyet paneli** ✅: Kullanım Raporu artık madde 2'de toplanan token verisini gösterir.
+  `#ku-ozet`'e **Token / Maliyet** kart grubu (girdi/çıktı/cache okuma token + tahmini maliyet USD;
+  yalnız veri varsa görünür); analist özet tablosuna **Token** (girdi+çıktı, tooltip'te kırılım) +
+  **Maliyet** sütunları (yoksa '·'). Excel export'ta Analist Özeti sayfasına 4 token sütunu eklendi.
+  Deterministik (0 token). CLI abonelik modunda maliyet bilgilendirme amaçlıdır.
+
 ## P0 iyileştirmeler (token/güvenlik/durdurma) — devam ediyor
 - **Madde 1 — canlı-uygulama şifre maskeleme** ✅ (`f326daa`): `GET /api/context-filter` şifreyi
   tarayıcıya göndermez (`has_password` bool + username); `POST` şifreyi korur/temizler (`sifre_temizle`).
