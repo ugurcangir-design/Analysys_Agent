@@ -148,6 +148,11 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
 ## AI modu (KRİTİK — her analiz çağrısını etkiler)
 Pilot ekip **CLI modu**: `.env` `USE_CLAUDE_CLI=true` (Claude.ai aboneliği, per-token yok).
 CLI **görsel BRD analiz EDEMEZ** (PDF/DOCX/TXT/MD olmalı). API modu (`ANTHROPIC_API_KEY`) ikincil.
+**429 dayanıklılığı (P1-B):** CLI kullanım limiti (429) `base.CliLimitError` fırlatır; `_api_cagri` bunu
+yakalar ve **ANTHROPIC_API_KEY varsa** o çağrıyı otomatik API moduyla tamamlar (analistin işi kesilmez).
+Anahtar yoksa (analist CLI makinesi) net hata yükselir. `CLI_LIMIT_API_FALLBACK=false` ile kapatılır
+(maliyet kontrolü). `_api_cagri_direct` CLI modunda `anthropic`'i tembel import eder. Limit durumu +
+sıfırlanma saati `/api/cli/durum` header göstergesinde görünür (`cli_durum_oku`).
 
 ## Klasör yapısı
 - `app.py` Flask sunucu (~86 endpoint) · `run.py` orchestrator (subprocess) · `workflow.py` durum makinesi · `jira_agent.py` Jira OAuth+ADF

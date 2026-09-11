@@ -3066,6 +3066,19 @@ class DurdurulduError(RuntimeError):
     """Analist 'Durdur' ile CLI süreci öldürüldü — hata değil, kasıtlı iptal."""
 
 
+class CliLimitError(RuntimeError):
+    """claude CLI kullanım limiti (429) — abonelik penceresi doldu. `reset` sıfırlanma zamanı (varsa).
+    `_api_cagri` bunu yakalayıp API anahtarı varsa otomatik API moduna düşer (P1-B dayanıklılık)."""
+    def __init__(self, mesaj: str, reset: str | None = None):
+        super().__init__(mesaj)
+        self.reset = reset
+
+
+def _api_anahtari_var() -> bool:
+    """API moduna fallback için ANTHROPIC_API_KEY tanımlı mı? (analist CLI makinelerinde genelde yok)."""
+    return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
+
+
 def cli_proc_durdur(thread_ident: int | None) -> bool:
     """Belirtilen worker thread'inde çalışan claude CLI sürecini process-grubuyla sonlandırır.
     True → bir süreç bulunup öldürüldü. Fail-safe."""
@@ -3205,8 +3218,9 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
                 # kendi limiti/usage-credit'i dolmuş olabilir (farklı ölçülür). Bu yüzden tek
                 # bir sebep iddia etmeyip kullanıcıyı Claude Code'un KENDİ /status'una yönlendir.
                 ham_limit = (v.get("result") or "limit doldu").strip()
-                _cli_durum_yaz(False, _cli_reset_ayikla(ham_limit), kaynak="analiz")
-                raise RuntimeError(
+                _reset = _cli_reset_ayikla(ham_limit)
+                _cli_durum_yaz(False, _reset, kaynak="analiz")
+                raise CliLimitError(
                     f"Claude kullanım limitine ulaşıldı: {ham_limit}. "
                     "Bu, aboneliğin bir kullanım penceresidir (5 saatlik oturum, haftalık kota "
                     "VEYA usage-credit/ek kullanım tükenmesi olabilir) ve Claude Desktop SOHBET "
@@ -3214,7 +3228,8 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
                     "terminalde `claude` çalıştırıp `/status` (ve `/usage`) ile Claude Code'un "
                     "KENDİ limit/kredi görünümüne bakın. Belirtilen saatte sıfırlanır; hemen "
                     "devam etmek için .env'de ANTHROPIC_API_KEY tanımlayıp API moduna geçin "
-                    "(USE_CLAUDE_CLI=false)."
+                    "(USE_CLAUDE_CLI=false).",
+                    reset=_reset,
                 )
             mesaj = v.get("result") or v.get("subtype") or "bilinmeyen hata"
             if _cli_oturum_hatasi_mi(v.get("api_error_status"), mesaj):
@@ -3334,6 +3349,13 @@ def _api_cagri_direct(
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY .env dosyasında tanımlı değil.")
+    # CLI modunda `anthropic` modül düzeyinde import EDİLMEZ (satır 69 koşullu) — API fallback
+    # (P1-B) için burada tembel import edilir; CLI makinesinde paket kuruluysa çalışır.
+    try:
+        import anthropic
+    except ImportError:
+        raise EnvironmentError("anthropic paketi yüklü değil — API moduna geçiş/fallback için gerekli "
+                               "(pip install anthropic).")
     # timeout=1200 (20 dk): SDK default 10 dk, büyük teknik analizde yetmiyor.
     client = anthropic.Anthropic(api_key=api_key, timeout=1200.0)
 
@@ -3472,7 +3494,20 @@ def _api_cagri(
             print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
             return kayit
     if USE_CLAUDE_CLI:
-        sonuc = _api_cagri_cli(sistem, mesajlar, canli_uygulama_kapsami=canli_uygulama_kapsami)
+        try:
+            sonuc = _api_cagri_cli(sistem, mesajlar, canli_uygulama_kapsami=canli_uygulama_kapsami)
+        except CliLimitError:
+            # P1-B dayanıklılık: CLI limiti (429) doldu → API anahtarı varsa bu çağrıyı otomatik
+            # API moduyla tamamla (analistin işi kesilmesin). Anahtar yoksa (analist CLI makinesi)
+            # net hatayı yükselt. CLI_LIMIT_API_FALLBACK=false ile kapatılır (maliyet kontrolü).
+            _fallback = os.getenv("CLI_LIMIT_API_FALLBACK", "true").lower() in ("1", "true", "yes")
+            if _fallback and _api_anahtari_var():
+                logger.warning("CLI limiti (429) — bu çağrı API moduna otomatik düşürülüyor (fallback).")
+                print("  ⚠ CLI kullanım limiti doldu — bu çağrı API anahtarıyla tamamlanıyor "
+                      "(otomatik fallback; token ücreti işler). Kapatmak için CLI_LIMIT_API_FALLBACK=false.")
+                sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
+            else:
+                raise
     else:
         sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
     _api_cache_yaz(key, sonuc)  # taze sonucu yaz (kesik kayıt varsa üzerine yazar)

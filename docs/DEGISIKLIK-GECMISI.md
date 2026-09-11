@@ -9,6 +9,12 @@
   yalnız veri varsa görünür); analist özet tablosuna **Token** (girdi+çıktı, tooltip'te kırılım) +
   **Maliyet** sütunları (yoksa '·'). Excel export'ta Analist Özeti sayfasına 4 token sütunu eklendi.
   Deterministik (0 token). CLI abonelik modunda maliyet bilgilendirme amaçlıdır.
+- **B — CLI limit (429) dayanıklılığı** ✅: CLI kullanım limiti artık `base.CliLimitError` (reset alanlı)
+  fırlatır. `_api_cagri` bunu yakalar → **ANTHROPIC_API_KEY varsa** çağrıyı otomatik API moduyla tamamlar
+  (analistin işi kesilmez); anahtar yoksa net hata yükselir. `CLI_LIMIT_API_FALLBACK=false` ile kapatılır.
+  `_api_cagri_direct` CLI modunda `anthropic`'i tembel import eder (modül düzeyinde import edilmiyordu).
+  Limit + sıfırlanma saati zaten `/api/cli/durum` header göstergesinde. `api_cagri_kapanisli` `_api_cagri`
+  üzerinden fallback'i devralır.
 
 ## P0 iyileştirmeler (token/güvenlik/durdurma) — devam ediyor
 - **Madde 1 — canlı-uygulama şifre maskeleme** ✅ (`f326daa`): `GET /api/context-filter` şifreyi
