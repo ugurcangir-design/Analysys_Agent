@@ -44,7 +44,7 @@ from .base import (
 )
 from .jira_gorevleri import (
     _adf_to_text, _cloud_id, _ID_DESENI,
-    gorev_getir, gorev_analiz_et, gorev_jiraya_yaz,
+    gorev_getir, gorev_analiz_et, gorev_analiz_duzelt, gorev_jiraya_yaz,
 )
 from .jira_tasks import _issue_olustur, _proje_bilgi   # canonical OAuth issue create
 from jira_agent import markdown_to_adf  # ADF: teknik analiz task'ı formatı
@@ -187,6 +187,8 @@ def _komut_coz(metin: str, prefix: str) -> tuple[str, str] | None:
         "analyze": "analiz", "analiz-et": "analiz",
         "ilişkili-aç": "iliskili-ac", "iliskili-ac": "iliskili-ac", "ilişkiliaç": "iliskili-ac",
         "güncelle": "guncelle",
+        "cevapla": "cevap", "cevaplar": "cevap", "answer": "cevap", "yanit": "cevap", "yanıt": "cevap",
+        "düzelt": "duzelt", "duzeltme": "duzelt", "fix": "duzelt", "revize": "duzelt",
         "onayla": "onayla", "approve": "onayla",
     }
     return (esanlam.get(komut, komut), arg)
@@ -204,6 +206,8 @@ def _yardim_metni(prefix: str) -> str:
         f"- `{prefix} analiz` — bu task'ı teknik analiz eder ve sonucu **task açıklamasına** yazar "
         f"(orijinal talep korunur; açık sorular yorumda). Bağlam task'ın kendisinden (kimsenin ekranına bağlı değil).\n"
         f"- `{prefix} analiz <talimat>` — talimatlı analiz (örn. *sadece BE tarafını değerlendir*).\n"
+        f"- `{prefix} cevap <cevaplarınız>` — açık sorulara cevap → analiz cevaplara göre güncellenir, sorular yakınsar.\n"
+        f"- `{prefix} düzelt <talimat>` — yalnız ilgili kısmı düzeltir (diğer bölümler korunur).\n"
         f"- `{prefix} güncelle` — son analizi task açıklamasına yeniden yazar (taze analiz varsa 0-token).\n"
         f"- `{prefix} ilişkili-aç` — analizden ilişkili yeni task'lar **önerir** (taslak) → `{prefix} onayla` açar + Relates bağlar.\n"
         f"- `{prefix} onayla` / `{prefix} iptal` — bekleyen ilişkili-task taslağını uygular / vazgeçer.\n"
@@ -272,12 +276,35 @@ def _canli_gorev_baglam(gorev: dict) -> str | None:
     return canli_uygulama_baglami_hazirla(base_url_override=base, hedef_tarif=hedef)
 
 
-def _bridge_uret(gorev: dict, arg: str) -> dict:
-    """Bridge analizini KENDİ KENDİNE YETERLİ üretir: task keyword'leriyle RAG (#3),
-    base-URL + task-güdümlü canlı gözlem (#2), ekran notu/filtresi YOK (#kapsam)."""
+def _orijinal_gorev(gorev: dict) -> dict:
+    """Analiz GİRDİSİ için görevi normalize eder: açıklamaya daha önce bridge analizi
+    yazıldıysa (gövde = orijinal + 🤖 analiz), analiz GİRDİSİ yalnız ORİJİNAL talep
+    olmalı — yoksa analiz kendi çıktısını girdi sanar (özyineleme). `description`'ı
+    `_orijinal_talep_ayikla` ile orijinale indirir (kopya döndürür, mutasyon yok)."""
+    orj = _orijinal_talep_ayikla(gorev.get("description", ""))
+    if orj and orj != (gorev.get("description") or "").strip():
+        g = dict(gorev)
+        g["description"] = orj
+        return g
+    return gorev
+
+
+def _analiz_bolumu_ayikla(desc: str) -> str:
+    """Gövdedeki `## 🤖 Teknik Analiz` bölümünü (analiz metni) döndürür — `düzelt`
+    önbellek boşsa gövdeden mevcut analizi alır. Yoksa ''. """
+    parcalar = re.split(r"\n*#{1,6}\s*🤖\s*Teknik Analiz[^\n]*\n", desc or "", maxsplit=1)
+    return parcalar[1].strip() if len(parcalar) > 1 else ""
+
+
+def _bridge_uret(gorev: dict, arg: str, onceki_sorular: str = "") -> dict:
+    """Bridge analizini KENDİ KENDİNE YETERLİ üretir: ORİJİNAL talep girdi (#1 özyineleme
+    önlemi), task keyword'leriyle RAG (#3), base-URL + task-güdümlü canlı gözlem (#2),
+    ekran notu/filtresi YOK. `onceki_sorular` verilirse açık sorular yakınsar (cevap turu)."""
+    gorev = _orijinal_gorev(gorev)
     kws = _task_keywords(gorev)
     canli = _canli_gorev_baglam(gorev)
-    sonuc = gorev_analiz_et(gorev, cevaplar=arg or "", ekran_baglami=False,
+    sonuc = gorev_analiz_et(gorev, cevaplar=arg or "", onceki_sorular=onceki_sorular,
+                            ekran_baglami=False,
                             rag_ctx={"keywords": kws} if kws else {},
                             canli_baglam_override=canli)
     sonuc["_keywords"] = kws
@@ -342,7 +369,7 @@ def _analiz_islet(key: str, arg: str, durum: dict) -> str:
     md = (sonuc.get("markdown") or "").strip()
     acik = (sonuc.get("acik_sorular") or "").strip()
     kws = sonuc.get("_keywords") or []
-    durum.setdefault("son_analiz", {})[key] = {"md": md, "zaman": _simdi()}
+    durum.setdefault("son_analiz", {})[key] = {"md": md, "acik": acik, "zaman": _simdi()}
     try:
         _govdeye_yaz(key, md, gorev.get("description", ""))
         bas = f"{ROBOT_IMZA} — Teknik analiz **task açıklamasına yazıldı** · `{key}` (orijinal talep korundu)."
@@ -350,11 +377,70 @@ def _analiz_islet(key: str, arg: str, durum: dict) -> str:
         bas = (f"{ROBOT_IMZA} — ⚠ Analiz üretildi ama açıklamaya yazılamadı: {e}\n\n"
                f"Analiz metni aşağıdadır:\n\n{canli_gozlem_kapsamini_cikar(yonetici_ozetini_cikar(md)).strip()}")
     prefix = ayarlar()["komut"]
-    parcalar = [bas, "", f"_RAG anahtar kelimeleri: {', '.join(kws) if kws else '—'}_"]
+    parcalar = [bas, "", f"RAG anahtar kelimeleri: {', '.join(kws) if kws else '—'}"]
     if acik and acik.lower() not in ("açık soru tespit edilmedi.", "acik soru tespit edilmedi."):
-        parcalar += ["", "---", "**Açık Sorular** (tartışma için — gövdeye yazılmadı):", "", acik]
+        parcalar += ["", "---", "**Açık Sorular** (gövdeye yazılmadı):", "", acik, "",
+                     f"↪︎ Cevaplamak için: `{prefix} cevap <cevaplarınız>` — analiz cevaplara göre güncellenir, sorular yakınsar.",
+                     f"↪︎ İlgili kısmı düzeltmek için: `{prefix} düzelt <talimat>`."]
     parcalar += ["", f"İlişkili task önerileri için: `{prefix} ilişkili-aç` (onay gerekir)."]
     return "\n".join(parcalar)
+
+
+def _acik_yorum_parcasi(acik: str, prefix: str) -> list[str]:
+    """Cevap turu sonrası kalan açık soruları + sonraki adım ipuçlarını yorum satırlarına çevirir."""
+    if not acik or acik.lower() in ("açık soru tespit edilmedi.", "acik soru tespit edilmedi."):
+        return ["", "✅ Açık soru kalmadı."]
+    return ["", "**Kalan Açık Sorular:**", "", acik, "",
+            f"↪︎ Devam için: `{prefix} cevap <cevaplarınız>` · `{prefix} düzelt <talimat>`."]
+
+
+def _cevap_islet(key: str, arg: str, durum: dict, prefix: str) -> str:
+    """`cevap` — açık sorulara verilen cevaplarla analizi YENİDEN üretir (cevaplananları
+    ÇÖZER), soruları YAKINSAR (önceki sorular verilir → cevaplanan çıkar, kalan korunur,
+    yeni bloklayan eklenir), gövdeyi günceller (orijinal korunur)."""
+    if not (arg or "").strip():
+        return (f"{ROBOT_IMZA}\n\n⚠ Cevap metni gerekli. Örn: "
+                f"`{prefix} cevap Q-T-001: Event Name korunur, freeText destekleyici`")
+    gorev = gorev_getir(key)
+    if not gorev:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı (yetki/erişim?)."
+    onceki = (durum.get("son_analiz", {}).get(key, {}) or {}).get("acik", "")
+    sonuc = _bridge_uret(gorev, arg, onceki_sorular=onceki)
+    md = (sonuc.get("markdown") or "").strip()
+    acik = (sonuc.get("acik_sorular") or "").strip()
+    durum.setdefault("son_analiz", {})[key] = {"md": md, "acik": acik, "zaman": _simdi()}
+    try:
+        _govdeye_yaz(key, md, gorev.get("description", ""))
+    except Exception as e:
+        return f"{ROBOT_IMZA}\n\n⚠ Analiz cevaplarla güncellendi ama gövdeye yazılamadı: {e}"
+    bas = f"{ROBOT_IMZA} — Analiz **cevaplara göre güncellendi** · `{key}` (gövdeye yazıldı, orijinal korundu)."
+    return "\n".join([bas] + _acik_yorum_parcasi(acik, prefix))
+
+
+def _duzelt_islet(key: str, arg: str, durum: dict, prefix: str) -> str:
+    """`düzelt` — yalnız ilgili kısmı düzeltir (`gorev_analiz_duzelt`), dokunulmayan
+    bölümleri korur; gövdeye yazar. Mevcut analiz önbellekte yoksa gövdeden alınır."""
+    if not (arg or "").strip():
+        return f"{ROBOT_IMZA}\n\n⚠ Düzeltme talimatı gerekli. Örn: `{prefix} düzelt §7'ye debounce süresini ekle`"
+    gorev = gorev_getir(key)
+    if not gorev:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı (yetki/erişim?)."
+    mevcut = (durum.get("son_analiz", {}).get(key, {}) or {}).get("md", "")
+    if not mevcut:
+        mevcut = _analiz_bolumu_ayikla(gorev.get("description", ""))
+    if not mevcut:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` için düzeltilecek analiz yok — önce `{prefix} analiz` çalıştırın."
+    try:
+        yeni = gorev_analiz_duzelt(_orijinal_gorev(gorev), mevcut, arg)
+    except Exception as e:
+        return f"{ROBOT_IMZA}\n\n⚠ Düzeltme yapılamadı: {e}"
+    onceki_acik = (durum.get("son_analiz", {}).get(key, {}) or {}).get("acik", "")
+    durum.setdefault("son_analiz", {})[key] = {"md": yeni, "acik": onceki_acik, "zaman": _simdi()}
+    try:
+        _govdeye_yaz(key, yeni, gorev.get("description", ""))
+    except Exception as e:
+        return f"{ROBOT_IMZA}\n\n⚠ Düzeltme üretildi ama gövdeye yazılamadı: {e}"
+    return f"{ROBOT_IMZA} ✅ `{key}` analizinin ilgili kısmı düzeltildi ve açıklamaya yazıldı (orijinal korundu)."
 
 
 def _guncelle_islet(key: str, arg: str, durum: dict, prefix: str) -> str:
@@ -468,6 +554,10 @@ def _komut_uygula(komut: str, arg: str, key: str, prefix: str, durum: dict) -> s
         return _analiz_islet(key, arg, durum)
     if komut == "guncelle":
         return _guncelle_islet(key, arg, durum, prefix)
+    if komut == "cevap":
+        return _cevap_islet(key, arg, durum, prefix)
+    if komut == "duzelt":
+        return _duzelt_islet(key, arg, durum, prefix)
     if komut == "iliskili-ac":
         return _iliskili_taslak(key, arg, durum, prefix)
     if komut == "onayla":

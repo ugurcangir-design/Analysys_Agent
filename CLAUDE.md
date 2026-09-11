@@ -148,8 +148,11 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   (`JIRA_KOPRU=false`; owner açar), owner-gate `/api/jira-kopru/durum|tara`.
   **Komutlar:** `analiz [talimat]` → `_bridge_uret` (→`gorev_getir`+`gorev_analiz_et`) sonucu **task
   GÖVDESİNE (açıklama) yazar** (`_govdeye_yaz`: `## 📌 Orijinal Talep` + orijinal KORUNUR + `## 🤖 Teknik
-  Analiz`; tekrar analizde `_orijinal_talep_ayikla` orijinali korur); açık sorular + RAG kelimeleri **yoruma**
-  yazılır. Çıktı `son_analiz` önbelleğine (`_ANALIZ_TAZE_DK`=60dk) · `güncelle` → son analizi gövdeye yeniden
+  Analiz`; tekrar analizde `_orijinal_talep_ayikla` orijinali korur — analiz GİRDİSİ hep orijinal talep,
+  `_orijinal_gorev` ile özyineleme önlenir); açık sorular + RAG kelimeleri **yoruma** yazılır. Çıktı+açık sorular
+  `son_analiz` önbelleğine (`_ANALIZ_TAZE_DK`=60dk) · `cevap <metin>` → açık sorulara cevap: analizi cevaplarla
+  YENİDEN üretir (`onceki_sorular` ile soruları YAKINSAR), gövde güncellenir, kalan sorular yoruma · `düzelt
+  <talimat>` → yalnız ilgili kısmı `gorev_analiz_duzelt` ile düzeltir · `güncelle` → son analizi gövdeye yeniden
   yazar (taze varsa 0-token) · `ilişkili-aç` → ilişkili YENİ task **önerir (taslak)** (`_iliskili_task_onerileri`
   AI ≤`_MAX_ILISKILI`=5) → `onayla` UYGULAR (`_issue_olustur`+`jira_issue_link` Relates, aynı proje) · `iptal`/`yardım`.
   **KENDİ KENDİNE YETERLİ bağlam** (`gorev_analiz_et(ekran_baglami=False)`): Jira'dan komut veren birinin

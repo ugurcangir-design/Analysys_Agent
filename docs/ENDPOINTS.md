@@ -200,7 +200,9 @@ POST /api/jira-kopru/tara  owner — elle tek tur (komutlu yeni yorumları hemen
 YORUMU olarak yazar (`jira_yorum_ekle`, canonical `atlassian_post`). Inbound/webhook GEREKMEZ (polling + OAuth).
 Komutlar: `analiz [talimat]` → sonucu **task GÖVDESİNE** yazar (`_govdeye_yaz`: `## 📌 Orijinal Talep` +
 orijinal KORUNUR + `## 🤖 Teknik Analiz`); açık sorular + RAG kelimeleri **yoruma**. Çıktı `son_analiz`
-önbelleğine (60dk) · `güncelle` (son analizi gövdeye yeniden yaz, taze varsa 0-token) · `ilişkili-aç`
+önbelleğine (60dk; açık sorular da) · `cevap <metin>` (açık sorulara cevap → analizi cevaplarla YENİDEN
+üretir, `onceki_sorular` ile soruları YAKINSAR → gövde güncellenir, kalan sorular yoruma) · `düzelt <talimat>`
+(yalnız ilgili kısmı `gorev_analiz_duzelt` ile düzeltir → gövde) · `güncelle` (son analizi gövdeye yeniden yaz, taze varsa 0-token) · `ilişkili-aç`
 (ilişkili yeni task **önerir** — taslak, `_iliskili_task_onerileri` AI ≤5) · `onayla` (bekleyen ilişkili
 taslağı UYGULAR: `_issue_olustur`+`jira_issue_link` Relates, aynı projede) · `iptal` · `yardım`.
 **KENDİ KENDİNE YETERLİ bağlam** (`gorev_analiz_et(ekran_baglami=False)`, ekran filtresi/notu YOK):

@@ -31,16 +31,20 @@ acilan_tasklar: list = []        # oluşturulan issue'lar
 kurulan_linkler: list = []       # (inward, outward, tip)
 
 analiz_cagrilari: list = []      # gorev_analiz_et'e geçen ekran_baglami'yı yakala
+analiz_girdi: list = []          # (cevaplar, onceki_sorular, description) — cevap/özyineleme testi
 
 jk.gorev_getir = lambda key: {"key": key, "summary": f"{key} başlık", "description": "açıklama"}
 
 
-def _sahte_analiz(gorev, cevaplar="", **kw):
+def _sahte_analiz(gorev, cevaplar="", onceki_sorular="", **kw):
     analiz_cagrilari.append(kw.get("ekran_baglami", "YOK"))
-    return {"markdown": f"# Analiz {gorev['key']}\n\n(cevap arg: {cevaplar or 'yok'})", "acik_sorular": ""}
+    analiz_girdi.append({"cevaplar": cevaplar, "onceki": onceki_sorular, "desc": gorev.get("description", "")})
+    acik = "Açık soru tespit edilmedi." if cevaplar else "Q-T-001: belirsizlik var?"
+    return {"markdown": f"# Analiz {gorev['key']}\n\n(cevap: {cevaplar or 'yok'})", "acik_sorular": acik}
 
 
 jk.gorev_analiz_et = _sahte_analiz
+jk.gorev_analiz_duzelt = lambda gorev, mevcut, talimat: f"{mevcut}\n\n[DÜZELTİLDİ: {talimat}]"
 jk.gorev_jiraya_yaz = lambda key, md: yazilan_aciklama.__setitem__(key, md) or True
 jk._iliskili_task_onerileri = lambda md, gorev: [
     {"summary": "BE endpoint ekle", "description": "market servisi", "katman": "BE"},
@@ -112,6 +116,30 @@ kontrol("task keyword'leri çıkarıldı (durak kelimeler elenmiş)",
 # ── #1: orijinal talep ayıklama (tekrar analizde korunur) ────────────────────
 onceki = "## 📌 Orijinal Talep\n\nfree-text search isteniyor\n\n---\n\n## 🤖 Teknik Analiz (Analyst Agent)\n\neski analiz"
 kontrol("orijinal talep tekrar analizde korunur", jk._orijinal_talep_ayikla(onceki) == "free-text search isteniyor")
+
+# ── özyineleme önlemi: analiz GİRDİSİ orijinal talep (gövde değil) ────────────
+og = jk._orijinal_gorev({"key": "MBSTRADE-9", "summary": "s",
+                         "description": "## 📌 Orijinal Talep\n\nORJ metin\n\n---\n\n## 🤖 Teknik Analiz (Analyst Agent)\n\nESKİ ANALİZ"})
+kontrol("gövdeye analiz yazılmışsa girdi = orijinal talep", og["description"] == "ORJ metin")
+kontrol("gövdeden analiz bölümü ayıklanır (düzelt için)",
+        jk._analiz_bolumu_ayikla("## 📌 Orijinal Talep\n\nX\n\n---\n\n## 🤖 Teknik Analiz (Analyst Agent)\n\nANALİZ GÖVDESİ") == "ANALİZ GÖVDESİ")
+
+# ── cevap → analizi cevaplarla YENİDEN üretir, soruları yakınsar, gövdeye yazar ──
+durum2: dict = {}
+jk._komut_uygula("analiz", "", "MBSTRADE-5", PFX, durum2)
+kontrol("analiz açık soruyu önbelleğe aldı", "Q-T-001" in durum2["son_analiz"]["MBSTRADE-5"].get("acik", ""))
+kontrol("analiz girdisi orijinal (gövde değil)", analiz_girdi[-1]["desc"] == "açıklama")
+yazilan_aciklama.clear()
+r = jk._komut_uygula("cevap", "Q-T-001: Event Name korunur", "MBSTRADE-5", PFX, durum2)
+kontrol("cevap gövdeyi güncelledi", "MBSTRADE-5" in yazilan_aciklama)
+kontrol("cevap önceki soruları yakınsamaya geçirdi", "Q-T-001" in analiz_girdi[-1]["onceki"])
+kontrol("cevap → açık soru kalmadı bilgisi", "açık soru kalmadı" in r.lower())
+
+# ── düzelt → yalnız ilgili kısmı düzeltir, gövdeye yazar ──────────────────────
+yazilan_aciklama.clear()
+r = jk._komut_uygula("duzelt", "§7'ye debounce süresi ekle", "MBSTRADE-5", PFX, durum2)
+kontrol("düzelt ilgili kısmı düzeltip gövdeye yazdı",
+        "MBSTRADE-5" in yazilan_aciklama and "DÜZELTİLDİ" in yazilan_aciklama["MBSTRADE-5"])
 
 # ── döngü koruması: kendi 🤖 yanıtımız komut sayılmaz ────────────────────────
 kontrol("kendi yanıtı komut değil", jk._komut_coz(jk.ROBOT_IMZA + " ✅ güncellendi", PFX) is None)
