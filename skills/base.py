@@ -3010,6 +3010,43 @@ def _canli_app_sifre_redakte(metin: str) -> str:
     return metin
 
 
+# ─── Sır redaksiyonu (P1-D güvenlik) — loglara/çıktıya sır sızmasını önle ───────────
+# Bilinen sır değerleri (API anahtarı, canlı-uygulama şifresi) + genel anahtar desenleri her
+# log kaydından/metinden temizlenir. Literaller `sir_kaydet` ile eklenir (açılışta + filtre save'de).
+_sir_lock = threading.Lock()
+_SIR_LITERALLER: set[str] = set()
+_SIR_DESENLER = [
+    re.compile(r"sk-ant-[A-Za-z0-9_\-]{16,}"),   # Anthropic API anahtarı
+    re.compile(r"sk-[A-Za-z0-9_\-]{24,}"),        # genel gizli anahtar biçimi
+]
+
+
+def sir_kaydet(*degerler) -> None:
+    """Redaksiyon için sır literalleri ekle (>=8 karakter). Fail-safe."""
+    with _sir_lock:
+        for d in degerler:
+            s = str(d or "").strip()
+            if len(s) >= 8:
+                _SIR_LITERALLER.add(s)
+
+
+def sir_redakte(metin: str) -> str:
+    """Metindeki bilinen sır literallerini ve anahtar desenlerini «sır» ile maskeler. Fail-safe."""
+    if not metin:
+        return metin
+    try:
+        with _sir_lock:
+            literaller = tuple(_SIR_LITERALLER)
+        for lit in literaller:
+            if lit in metin:
+                metin = metin.replace(lit, "«sır»")
+        for pat in _SIR_DESENLER:
+            metin = pat.sub("«sır»", metin)
+    except Exception:
+        pass
+    return metin
+
+
 # ─── Token/maliyet sayacı (P0 madde 2) — süreç-geneli birikimli; telemetri okur ────
 # Her AI çağrısı buraya girdi/çıktı/cache token + maliyet ekler. Emit noktaları başta okuyup
 # sonda delta alır (in-process); run.py gibi tek-analizlik subprocess'te sayaç 0'dan başlar.

@@ -61,6 +61,56 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class _SirRedaksiyonFiltre(logging.Filter):
+    """P1-D: her log kaydından bilinen sır değerlerini (API anahtarı, canlı-app şifresi) ve anahtar
+    desenlerini temizler. Defense-in-depth — sır yanlışlıkla loglanırsa diske/konsola sızmaz."""
+    def filter(self, record):
+        try:
+            from skills.base import sir_redakte
+            msg = record.getMessage()
+            red = sir_redakte(msg)
+            if red != msg:
+                record.msg = red
+                record.args = ()
+        except Exception:
+            pass
+        return True
+
+
+for _h in logging.getLogger().handlers:
+    _h.addFilter(_SirRedaksiyonFiltre())
+
+
+def _sirlari_yukle() -> None:
+    """Redaksiyon için bilinen sırları kaydet: ANTHROPIC_API_KEY + canlı-uygulama şifresi. Fail-safe."""
+    try:
+        from skills.base import sir_kaydet, load_context_filter
+        sir_kaydet(os.getenv("ANTHROPIC_API_KEY", ""))
+        _ctx = load_context_filter() or {}
+        sir_kaydet((_ctx.get("live_app_auth") or {}).get("password", ""))
+    except Exception:
+        pass
+
+
+def _hassas_dosya_izinlerini_sertlestir() -> None:
+    """P1-D: .env ve reference/context_filter.json 0600 değilse sıkılaştır (grup/diğer erişimi kes)."""
+    import stat as _stat
+    for yol in (Path(__file__).parent / ".env", Path(__file__).parent / "reference" / "context_filter.json"):
+        try:
+            if not yol.exists():
+                continue
+            mod = yol.stat().st_mode
+            if mod & (_stat.S_IRWXG | _stat.S_IRWXO):   # grup veya diğer için herhangi bir bit
+                os.chmod(yol, 0o600)
+                logger.warning("Güvenlik: %s izinleri 0600'e sıkılaştırıldı (grup/diğer erişimi vardı).", yol.name)
+        except OSError:
+            pass
+
+
+_sirlari_yukle()
+_hassas_dosya_izinlerini_sertlestir()
+
+
 def _eski_loglari_temizle(gun: int = 30) -> None:
     """Tarih bazlı eski app-YYYYMMDD.log dosyalarını sil (rotation öncesinden kalanlar)."""
     import re as _re
@@ -3450,6 +3500,12 @@ def context_filter_kaydet():
     try:
         os.chmod(p, 0o600)
     except OSError:
+        pass
+    # Yeni/değişen canlı-uygulama şifresini log redaksiyon sır listesine ekle (P1-D).
+    try:
+        from skills.base import sir_kaydet
+        sir_kaydet(filtre["live_app_auth"]["password"])
+    except Exception:
         pass
     logger.info("Bağlam filtresi güncellendi.")
     return jsonify({"ok": True, "filtre": filtre})

@@ -22,6 +22,13 @@
   doğru ölçer; global sayaç yine tüm-süreç toplamını tutar, run.py için). `_telemetri_olay` artık
   thread-local capture kullanır. **Madde 4 ile uyum:** Durdur tek `worker_tid` yerine `job["worker_tids"]`
   kümesindeki TÜM pool thread'lerini killpg eder. iptal kontrolü submit öncesi + adım başında.
+- **D — Güvenlik sertleştirme** ✅: (a) **Sır redaksiyonu:** `base.sir_kaydet/sir_redakte` +
+  `app._SirRedaksiyonFiltre` → tüm log kayıtlarından ANTHROPIC_API_KEY, canlı-app şifresi ve anahtar
+  desenleri (`sk-ant-…`/`sk-…`) «sır» ile maskelenir. Sırlar açılışta (`_sirlari_yukle`) + şifre değişince
+  (`context_filter_kaydet`) kaydedilir. (b) **Dosya izni:** açılışta `_hassas_dosya_izinlerini_sertlestir`
+  `.env` + `context_filter.json`'ı 0600'e sıkılaştırır (gevşekse). (c) **API anahtarı:** kullanıcı
+  tercihiyle düz metin kalır (keychain/şifreleme bilinçli olarak uygulanmadı); redaksiyon+izin+gitignore
+  ile korunur. Test: literal+desen redaksiyon, logging filtresi uçtan uca, izin sıkılaştırma doğrulandı.
 
 ## P0 iyileştirmeler (token/güvenlik/durdurma) — devam ediyor
 - **Madde 1 — canlı-uygulama şifre maskeleme** ✅ (`f326daa`): `GET /api/context-filter` şifreyi

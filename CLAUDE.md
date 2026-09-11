@@ -170,7 +170,7 @@ sıfırlanma saati `/api/cli/durum` header göstergesinde görünür (`cli_durum
 4. Yeni output dosyası → `IZIN_VERILEN_CIKTILAR` (app.py). Yeni Jira field → `jira_agent.py` + `skills/jira_tasks.py`.
 5. Prompt önceliği: ekrandaki **Özel Prompt** (`context_filter.json → ozel_prompt`, analiz-bazlı, varsayılanın YERİNE geçer) > `reference/prompts.json` (kalıcı override) > `VARSAYILAN_PROMPTLAR` (base.py).
 6. `sys.executable` kullan, Python yolu hard-code etme. `env_oku()` tırnakları strip eder.
-7. **GÜVENLİK: canlı-uygulama parolası** (`context_filter.json` `live_app_auth.password`) `GET /api/context-filter`'da TARAYICIYA GÖNDERİLMEZ — maskeli (`has_password` bool). POST'ta boş parola gelirse mevcut KORUNUR (maskeli UI silmesin); `sifre_temizle:true` açıkça boşaltır. Diskte 0600+gitignore. Tam keychain: P1.
+7. **GÜVENLİK: canlı-uygulama parolası** (`context_filter.json` `live_app_auth.password`) `GET /api/context-filter`'da TARAYICIYA GÖNDERİLMEZ — maskeli (`has_password` bool). POST'ta boş parola gelirse mevcut KORUNUR (maskeli UI silmesin); `sifre_temizle:true` açıkça boşaltır. Diskte 0600+gitignore. **Sır redaksiyonu (P1-D):** `base.sir_kaydet/sir_redakte` + `app._SirRedaksiyonFiltre` tüm loglardan API anahtarı/şifre/`sk-…` desenlerini «sır» ile maskeler; açılışta `_hassas_dosya_izinlerini_sertlestir` `.env`+`context_filter.json`'ı 0600 yapar. API anahtarı kullanıcı tercihiyle düz metin kalır (keychain uygulanmadı — bilinçli).
 
 ## İlgili dosyalar — TÜM REPOYU TARAMA
 Görev başında geniş dizinleri (`reference/`, `venv/`, `logs/`, `output/`) tarama. İhtiyaca göre:
