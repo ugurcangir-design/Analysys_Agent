@@ -944,6 +944,16 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     </div>
 
     <div class="box new">
+      <strong>Durdur artık gerçekten durdurur <span class="pill new">Yeni</span></strong>
+      Bir görev analizi sürerken <strong>Durdur</strong>'a bastığınızda, o an çalışan yapay zekâ
+      çağrısı <strong>anında sonlandırılır</strong> — eskiden çağrı arka planda bitene kadar
+      (token harcayarak) sürer, yalnızca sonucu atılırdı. Artık süreç öldürülür, kalan adımlar
+      çalışmaz ve o ana kadarki sonuçlar ekranda kalır. Bu, yanlış başlatılan uzun bir analizi
+      hemen kesip <strong>token tasarrufu</strong> sağlar. (Not: doğrudan API modunda ağ çağrısı
+      kesilemez; iptal yalnızca sonraki adımları durdurur.)
+    </div>
+
+    <div class="box new">
       <strong>Tüm Görevler + statü filtresi <span class="pill new">Yeni</span></strong>
       Görevler çekildiğinde, "Hızlı İşleme" ve "Detaylı Analiz" başlıklarının üstünde
       <strong>Tüm Görevler</strong> ana başlığı çıkar. İçindeki <em>statü çubuğu</em>, çekilen
@@ -1767,7 +1777,7 @@ pip install -r requirements.txt   # gerekirse</code></pre>
     <p>Ekibinize bildirin. Geliştirici GitHub'da <code>ugurcangir-design/Analysys_Agent</code> deposunda issue açabilir.</p>
 
     <div style="margin-top:64px; padding-top:24px; border-top:1px solid var(--border); font-size:12px; color:var(--text3); text-align:center;">
-      <strong>Analyst Studio</strong> · v2026.08 · Kullanıcı Kılavuzu<br>
+      <strong>Analyst Studio</strong> · v2026.09 · Kullanıcı Kılavuzu<br>
       Bu doküman <code>KILAVUZ.html</code> dosyasıdır; depo köküne kayıtlıdır
     </div>
   </main>
