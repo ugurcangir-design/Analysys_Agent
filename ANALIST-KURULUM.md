@@ -80,6 +80,10 @@ Bu komut: sanal ortamı kurar, paketleri yükler, `.env` dosyasını **doğru va
 > `.env` dosyasına dokunmanıza gerek yok — analist için hazır gelir.
 > Kurulumda "swiftc bulunamadı / ikon oluşmadı" derse sorun değil; `./start.sh` ile açarsınız.
 
+> **Eskiden bu uygulamayı kullanıyorduysanız (opsiyonel):** Owner'ın `.env`'ini KOPYALAMAYIN
+> (owner ekranları sızar). Jira/AI ayarlarınızı uygulama içinden yeniden girin; referans
+> dokümanlarınızı **Referanslar → Senkronize** ile temiz şekilde çekin — elle dosya taşımaya gerek yok.
+
 ---
 
 ## Bölüm C — Başlatma ve ilk ayar
@@ -126,7 +130,9 @@ Tarayıcıda açın: **http://localhost:5003**
 | "Python 3.10 gerekli" | `brew install python@3.12` → tekrar `bash setup.sh`. |
 | Sayfa açılmıyor (5003) | Uygulamanın çalıştığından emin olun (ikon/`./start.sh`); tarayıcıda `http://localhost:5003`. |
 | Analiz hata verdi | Ekrandaki hata kartı "ne oldu / ne yapmalı" der; teknik ayrıntıyı "Teknik ayrıntı" altından açıp ekip liderine iletin. |
-| Sol menüde **Yetki** veya **Kullanım Raporu** görünüyor (analistte olmamalı) | Bunlar owner'a özeldir; `.env`'inize yanlışlıkla `USAGE_DASHBOARD` / `YETKI_PANELI` gelmiş demektir. Kaldırın: `sed -i '' '/^USAGE_DASHBOARD=/d; /^YETKI_PANELI=/d' .env` → sonra **Güncelleme → Yeniden Başlat**. (Kurulumu her zaman `bash setup.sh` ile yapın; ekip liderinin `.env`'ini/klasörünü kopyalamayın.) |
+| Sol menüde **Yetki** veya **Kullanım Raporu** görünüyor (analistte olmamalı) | Bunlar owner'a özeldir; `.env`'inize yanlışlıkla owner bayrağı (`OWNER_KONSOL` veya `YETKI_PANELI`) gelmiş demektir. Kaldırın: `sed -i '' '/^OWNER_KONSOL=/d; /^YETKI_PANELI=/d' .env` → sonra **Güncelleme → Yeniden Başlat**. (Kurulumu her zaman `bash setup.sh` ile yapın; ekip liderinin `.env`'ini/klasörünü kopyalamayın — owner ekranları sızar.) |
+| "Adres kullanımda" / boş sayfa (5003) | Başka bir kopya zaten 5003'te olabilir. `.env`'de `PORT=5003` olduğundan ve eski uygulamanızın 5002'de kaldığından emin olun. |
+| Masaüstü ikonu oluşmadı | `xcode-select --install` → sonra `bash create_app.sh`. İkon olmadan da `./start.sh` ile çalışır. |
 
 ---
 
