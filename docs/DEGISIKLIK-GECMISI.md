@@ -3,6 +3,17 @@
 > Ana referans: [CLAUDE.md](../CLAUDE.md). Tarihsel kayıt — büyük bir faz/özellik
 > tamamlandığında buraya özet ekle.
 
+## P0 iyileştirmeler (token/güvenlik/durdurma) — devam ediyor
+- **Madde 1 — canlı-uygulama şifre maskeleme** ✅ (`f326daa`): `GET /api/context-filter` şifreyi
+  tarayıcıya göndermez (`has_password` bool + username); `POST` şifreyi korur/temizler (`sifre_temizle`).
+- **Madde 2 — token/maliyet kaydı** ✅: her AI çağrısı `skills/base.py`'deki süreç-geneli birikimli
+  sayaca girdi/çıktı/cache token + maliyet ekler (CLI: JSON `usage`+`total_cost_usd`; API: `yanit.usage`,
+  `_api_kesilme_uyar` içinden). API: `token_sayac_oku()`/`token_delta(baz)`/`_token_ekle()`. `telemetri.olay_yaz`
+  yeni `token` alanı alır → `events.jsonl`/Sheet'e yazılır. Emit noktaları: `run.py` (subprocess taze → sayaç=koşu
+  toplamı), app.py in-process (`_telemetri_olay(..., token_bas=_token_bas())` → delta). `telemetri.istatistik`
+  artık `token_ozet` (genel) + her analistte `token{}` döndürür (0-token deterministik özet). Gelecek maliyet
+  dashboard'ının temeli.
+
 ## UI v3 — yeniden tasarım + ekran/menü düzeni (YALNIZ v2) ✅
 - **Görsel dil:** slate + indigo palet (koyu/açık tema), Space Grotesk başlık, yüksek kontrast, 10px köşe;
   token tabanlı (`:root`/`[data-theme]`) → tüm ekranlara yansır. Renk anlamı: kırmızı=çalışan işlem,

@@ -302,15 +302,34 @@ def gorunurluk_kontrol():
     return None
 
 
+def _token_bas() -> dict | None:
+    """AI çağrısı öncesi token sayaç anlık değeri (delta için baz). Fail-safe."""
+    try:
+        from skills.base import token_sayac_oku
+        return token_sayac_oku()
+    except Exception:
+        return None
+
+
 def _telemetri_olay(olay: str, durum: str, sure_ms: int,
                     model: str | None = None, ai_modu: str | None = None,
-                    baglam: dict | None = None, jira: dict | None = None) -> None:
-    """In-process analizler (görev analiz, mutabakat, görev güncelle) için emit — fail-safe."""
+                    baglam: dict | None = None, jira: dict | None = None,
+                    token_bas: dict | None = None) -> None:
+    """In-process analizler (görev analiz, mutabakat, görev güncelle) için emit — fail-safe.
+    `token_bas`: işlem öncesi _token_bas() ile alınan baz; delta hesaplanıp olaya eklenir."""
     try:
         from skills import telemetri
         analist = session.get("username") or None  # None → telemetri analist.json/env'e düşer
+        token = None
+        if token_bas is not None:
+            try:
+                from skills.base import token_delta
+                _d = token_delta(token_bas)
+                token = _d if _d.get("cagri") else None
+            except Exception:
+                token = None
         telemetri.olay_yaz(olay=olay, durum=durum, analist=analist, sure_ms=sure_ms,
-                           model=model, ai_modu=ai_modu, baglam=baglam, jira=jira)
+                           model=model, ai_modu=ai_modu, baglam=baglam, jira=jira, token=token)
     except Exception:
         pass
 
@@ -3743,6 +3762,7 @@ def _gorev_is_calistir(job_id: str) -> None:
             job["aktif_key"] = adim["key"]
         key = adim["key"]
         _bas = time.time()
+        _tbas = _token_bas()
         try:
             gorev = adim.get("gorev") or gorev_getir(key)
             if not gorev:
@@ -3769,14 +3789,15 @@ def _gorev_is_calistir(job_id: str) -> None:
                 job["sonuclar"][key] = {**sonuc, "summary": gorev.get("summary", ""),
                                         "katman": adim.get("katman", "")}
             _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
-                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key, "islem": adim.get("mode", "analiz")})
+                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key, "islem": adim.get("mode", "analiz")},
+                            token_bas=_tbas)
         except Exception as e:
             logger.error("Görev iş adımı hatası (%s): %s", key, e)
             with _gorev_is_lock:
                 job["sonuclar"][key] = {"hata": str(e), "summary": adim.get("summary", ""),
                                         "katman": adim.get("katman", "")}
             _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
-                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key})
+                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key}, token_bas=_tbas)
     with _gorev_is_lock:
         if not job.get("iptal"):
             job["durum"] = "bitti"
@@ -3889,6 +3910,7 @@ def jira_gorev_analiz():
         if not gorev:
             return jsonify({"ok": False, "error": f"Görev okunamadı: {gkey}"}), 400
     _bas = time.time()
+    _tbas = _token_bas()
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
@@ -3907,14 +3929,14 @@ def jira_gorev_analiz():
                                 onceki_sorular=(data.get("onceki_sorular") or ""))
         _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
                         model=_model, ai_modu=_ai_modu,
-                        baglam={"gorev": gorev.get("key")})
+                        baglam={"gorev": gorev.get("key")}, token_bas=_tbas)
         # Geriye uyumlu: hem markdown (teknik analiz) hem acik_sorular ayrı sekme için
         return jsonify({"ok": True, "key": gorev["key"],
                         "markdown": sonuc.get("markdown", ""),
                         "acik_sorular": sonuc.get("acik_sorular", "")})
     except Exception as e:
         _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key")})
+                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key")}, token_bas=_tbas)
         logger.error(f"Görev analiz hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -3935,6 +3957,7 @@ def jira_gorev_duzelt():
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
     _bas = time.time()
+    _tbas = _token_bas()
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
@@ -3942,7 +3965,8 @@ def jira_gorev_duzelt():
         from skills.jira_gorevleri import gorev_analiz_duzelt
         yeni = gorev_analiz_duzelt(gorev, markdown, talimat)
         _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key"), "islem": "duzelt"})
+                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key"), "islem": "duzelt"},
+                        token_bas=_tbas)
         return jsonify({"ok": True, "key": gorev["key"], "markdown": yeni})
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -4103,6 +4127,7 @@ def mockup_generate():
     if not surec_dosya.exists():
         return jsonify({"ok": False, "error": "surec-analizi.md bulunamadı. Önce süreç analizi yapın."}), 400
     _bas = time.time()
+    _tbas = _token_bas()
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai = "cli" if USE_CLAUDE_CLI else "api"
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
@@ -4110,11 +4135,11 @@ def mockup_generate():
         from skills.html_mockup import html_mockup_uret
         yol = html_mockup_uret()
         _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai)
+                        model=_model, ai_modu=_ai, token_bas=_tbas)
         return jsonify({"ok": True, "dosya": yol.name, "boyut": yol.stat().st_size})
     except Exception as e:
         _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai)
+                        model=_model, ai_modu=_ai, token_bas=_tbas)
         logger.error(f"Mockup üretim hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -4134,6 +4159,7 @@ def mockup_duzelt():
     if not mockup.exists():
         return jsonify({"ok": False, "error": "Önce 'HTML Prototip Oluştur' ile prototip üretin."}), 400
     _bas = time.time()
+    _tbas = _token_bas()
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai = "cli" if USE_CLAUDE_CLI else "api"
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
@@ -4146,10 +4172,10 @@ def mockup_duzelt():
             pass
         from skills.html_mockup import html_mockup_duzelt
         yol = html_mockup_duzelt(talimat)
-        _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai)
+        _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai, token_bas=_tbas)
         return jsonify({"ok": True, "dosya": yol.name, "boyut": yol.stat().st_size, "geri_al": True})
     except Exception as e:
-        _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai)
+        _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai, token_bas=_tbas)
         logger.error(f"Mockup düzeltme hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 

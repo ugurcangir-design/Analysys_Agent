@@ -141,8 +141,12 @@ def olay_yaz(
     ai_modu: str | None = None,
     jira: dict | None = None,
     baglam: dict | None = None,
+    token: dict | None = None,
 ) -> None:
-    """Tek kullanım olayını lokal JSONL'e yazar + uzak sink'e gönderir. Asla hata fırlatmaz."""
+    """Tek kullanım olayını lokal JSONL'e yazar + uzak sink'e gönderir. Asla hata fırlatmaz.
+
+    `token`: {girdi, cikti, cache_yaz, cache_oku, cagri, maliyet_usd} — o işlemde harcanan
+    AI token/maliyet birikimi (base.token_delta). Yoksa None (0-token deterministik işlemler)."""
     try:
         kayit = {
             "ts": datetime.now().isoformat(timespec="seconds"),
@@ -154,6 +158,7 @@ def olay_yaz(
             "ai_modu": ai_modu,
             "jira": jira or None,
             "baglam": baglam or None,
+            "token": token or None,
             "makine": socket.gethostname(),
             "app_versiyon": _app_versiyon(),
         }
@@ -249,6 +254,8 @@ def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) ->
     ozet = {"bugun": 0, "bu_hafta": 0, "bu_ay": 0}
     toplam_task = 0
     son_tasklar: list[dict] = []
+    # Token/maliyet toplamı (P0 madde 2) — genel + analist bazında birikim.
+    token_ozet = {"girdi": 0, "cikti": 0, "cache_yaz": 0, "cache_oku": 0, "cagri": 0, "maliyet_usd": 0.0}
 
     for e in filtreli:
         a = e.get("analist") or "bilinmeyen"
@@ -261,6 +268,7 @@ def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) ->
         an = analistler.setdefault(a, {
             "analist": a, "toplam": 0, "basarili": 0, "hatali": 0,
             "sure_ms_toplam": 0, "jira_task": 0, "tipler": {}, "tip_sure_ms": {},
+            "token": {"girdi": 0, "cikti": 0, "cache_yaz": 0, "cache_oku": 0, "cagri": 0, "maliyet_usd": 0.0},
         })
         an["toplam"] += 1
         an["basarili" if durum == "ok" else "hatali"] += 1
@@ -268,6 +276,16 @@ def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) ->
         an["jira_task"] += task_adedi
         an["tipler"][olay] = an["tipler"].get(olay, 0) + 1
         an["tip_sure_ms"][olay] = an["tip_sure_ms"].get(olay, 0) + sure
+
+        tk = e.get("token")
+        if isinstance(tk, dict):
+            for k in token_ozet:
+                try:
+                    v = tk.get(k, 0) or 0
+                    an["token"][k] += v
+                    token_ozet[k] += v
+                except Exception:
+                    pass
 
         tip_toplam[olay] = tip_toplam.get(olay, 0) + 1
         toplam_task += task_adedi
@@ -305,6 +323,7 @@ def istatistik(gun: int = 90, donem: str = "gun", analist: str | None = None) ->
         "toplam_jira_task": toplam_task,
         "analist_sayisi": len(analistler),
         "ozet": ozet,
+        "token_ozet": {**token_ozet, "maliyet_usd": round(token_ozet["maliyet_usd"], 4)},
         "analistler": sirali,
         "tum_analistler": list(tum_analistler),
         "tip_toplam": tip_toplam,

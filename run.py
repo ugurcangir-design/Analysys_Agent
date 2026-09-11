@@ -46,9 +46,16 @@ def _telemetri_emit(mod: str, durum: str, sure_ms: int) -> None:
         if mod == "jira_gonder":
             jira = telemetri.jira_sayac_oku()   # {toplam, keyler}
             jira["islem"] = "acildi"
+        # Token/maliyet (P0 madde 2): subprocess taze başlar → sayaç = bu koşunun toplamı.
+        try:
+            from skills.base import token_sayac_oku
+            _tk = token_sayac_oku()
+            token = _tk if _tk.get("cagri") else None
+        except Exception:
+            token = None
         telemetri.olay_yaz(
             olay=mod, durum=durum, sure_ms=sure_ms,
-            model=model, ai_modu=ai_modu, jira=jira, baglam=baglam or None,
+            model=model, ai_modu=ai_modu, jira=jira, baglam=baglam or None, token=token,
         )
     except Exception:
         pass

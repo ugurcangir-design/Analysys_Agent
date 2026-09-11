@@ -13,6 +13,7 @@ import logging
 import shutil
 import signal
 import subprocess
+import threading
 import time
 from pathlib import Path
 from dotenv import load_dotenv
@@ -2991,6 +2992,48 @@ def _canli_app_sifre_redakte(metin: str) -> str:
     return metin
 
 
+# ─── Token/maliyet sayacı (P0 madde 2) — süreç-geneli birikimli; telemetri okur ────
+# Her AI çağrısı buraya girdi/çıktı/cache token + maliyet ekler. Emit noktaları başta okuyup
+# sonda delta alır (in-process); run.py gibi tek-analizlik subprocess'te sayaç 0'dan başlar.
+_token_lock = threading.Lock()
+_TOKEN_SAYAC = {"girdi": 0, "cikti": 0, "cache_yaz": 0, "cache_oku": 0, "cagri": 0, "maliyet_usd": 0.0}
+
+
+def _token_ekle(girdi=0, cikti=0, cache_yaz=0, cache_oku=0, maliyet=0.0) -> None:
+    with _token_lock:
+        _TOKEN_SAYAC["girdi"] += int(girdi or 0)
+        _TOKEN_SAYAC["cikti"] += int(cikti or 0)
+        _TOKEN_SAYAC["cache_yaz"] += int(cache_yaz or 0)
+        _TOKEN_SAYAC["cache_oku"] += int(cache_oku or 0)
+        _TOKEN_SAYAC["cagri"] += 1
+        _TOKEN_SAYAC["maliyet_usd"] += float(maliyet or 0.0)
+
+
+def token_sayac_oku() -> dict:
+    """Birikimli token sayacının kopyası."""
+    with _token_lock:
+        return dict(_TOKEN_SAYAC)
+
+
+def token_delta(baslangic: dict | None) -> dict:
+    """`baslangic` (token_sayac_oku() ile alınmış) ile şimdi arasındaki farkı döndürür."""
+    son = token_sayac_oku()
+    b = baslangic or {}
+    return {k: (son.get(k, 0) - b.get(k, 0)) for k in son}
+
+
+def _api_usage_kaydet(yanit) -> None:
+    """anthropic API yanıtının usage'ını sayaca ekler (fail-safe)."""
+    try:
+        u = getattr(yanit, "usage", None)
+        if u:
+            _token_ekle(girdi=getattr(u, "input_tokens", 0), cikti=getattr(u, "output_tokens", 0),
+                        cache_yaz=getattr(u, "cache_creation_input_tokens", 0),
+                        cache_oku=getattr(u, "cache_read_input_tokens", 0))
+    except Exception:
+        pass
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -3105,6 +3148,15 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     if not yanit:
         raise RuntimeError("claude CLI 'result' alanı boş döndü.")
     _cli_durum_yaz(True, None, kaynak="analiz")   # başarılı çağrı → CLI kullanılabilir
+    # Token/maliyet sayacı (P0 madde 2): CLI JSON'daki usage + total_cost_usd birikimli sayaca.
+    try:
+        _u = veri.get("usage") or {}
+        _token_ekle(girdi=_u.get("input_tokens", 0), cikti=_u.get("output_tokens", 0),
+                    cache_yaz=_u.get("cache_creation_input_tokens", 0),
+                    cache_oku=_u.get("cache_read_input_tokens", 0),
+                    maliyet=veri.get("total_cost_usd", 0.0))
+    except Exception:
+        pass
 
     # Canlı gözlem İSTENDİ ama GERÇEKLEŞMEMİŞ olabilir mi? (sessiz-düşüş tespiti — Faz 7)
     # Tek turn (hiç araç kullanılmadı) veya browser aracı reddi → MCP/Chrome erişilememiş
@@ -3214,7 +3266,9 @@ def _api_cagri_direct(
 
 
 def _api_kesilme_uyar(yanit, max_tokens: int) -> None:
-    """Yanıt max_tokens limitine takılıp kesildiyse uyarı loglar."""
+    """Yanıt max_tokens limitine takılıp kesildiyse uyarı loglar.
+    Ayrıca token/maliyet sayacını günceller (P0 madde 2) — her API çağrısı buradan geçer."""
+    _api_usage_kaydet(yanit)
     if getattr(yanit, "stop_reason", None) == "max_tokens":
         kullanim = getattr(yanit, "usage", None)
         cikti_tok = getattr(kullanim, "output_tokens", "?") if kullanim else "?"
