@@ -406,6 +406,12 @@ tablo satırı, (3) **fallback** — yapısal HİÇ soru yoksa `_parse_liste_sor
 düz NUMARALI liste (`1. …`) soruları yakalar, ID yoksa sıra numarasından türetir (`Q-001…`; merge (id,kaynak_dosya)
 ile anahtarladığından dosyalar arası çakışmaz). Analiz açık soruları numaralı liste ürettiğinde (özel prompt/model
 sapması) "Sorular" sekmesi artık boş kalmaz. Yapısal format varsa fallback TETİKLENMEZ (regresyon yok).
+**Onay kapısında inline cevaplama (FE):** süreç ve teknik onay adımlarının KENDİSİNDE açık sorular tek-tek
+cevap kutularıyla gösterilir (`_onaySorulariRender`/`_onaySoruKart`/`_onaySorulariUygula`, container
+`#onay-sorular-surec|teknik`) — Sorular sekmesiyle AYNI backend (`/api/sorular/<id>` kaydet + `/api/sorular/uygula`
+uygula, `_sorularUygulaBekle` poll). Boş kutu = atla; "Cevapları Uygula" → analiz güncellenir, sorular yakınsar,
+sonra "Devam Et". Tam 5-aksiyon (Beklet/Varsayım/Atla) için "Sorular sekmesinde aç" linki durur. Render koruması:
+analist yazarken ezmez (`dataset.dolu`), apply sonrası zorla tazeler, gate gizlenince sıfırlanır.
 
 ## Canlı Uygulama (Chrome MCP) — ekran + servis gözlemi
 Bağlam filtresinde `live_app.target_url` (+ en fazla 5 `extra_urls`) doluysa süreç/teknik analiz
