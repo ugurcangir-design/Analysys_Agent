@@ -302,30 +302,32 @@ def gorunurluk_kontrol():
     return None
 
 
-def _token_bas() -> dict | None:
-    """AI çağrısı öncesi token sayaç anlık değeri (delta için baz). Fail-safe."""
+def _token_bas() -> bool:
+    """AI çağrısı öncesi bu thread için token capture başlat (paralel-doğru; P1-C). Fail-safe.
+    Dönen True yalnızca 'capture başlatıldı' işaretidir — _telemetri_olay(token_bas=...) ile eşleşir."""
     try:
-        from skills.base import token_sayac_oku
-        return token_sayac_oku()
+        from skills.base import token_capture_baslat
+        token_capture_baslat()
+        return True
     except Exception:
-        return None
+        return False
 
 
 def _telemetri_olay(olay: str, durum: str, sure_ms: int,
                     model: str | None = None, ai_modu: str | None = None,
                     baglam: dict | None = None, jira: dict | None = None,
-                    token_bas: dict | None = None) -> None:
+                    token_bas: bool | None = None) -> None:
     """In-process analizler (görev analiz, mutabakat, görev güncelle) için emit — fail-safe.
-    `token_bas`: işlem öncesi _token_bas() ile alınan baz; delta hesaplanıp olaya eklenir."""
+    `token_bas`: _token_bas() ile bu thread'de capture başlatıldıysa True; biriken token olaya eklenir."""
     try:
         from skills import telemetri
         analist = session.get("username") or None  # None → telemetri analist.json/env'e düşer
         token = None
-        if token_bas is not None:
+        if token_bas:
             try:
-                from skills.base import token_delta
-                _d = token_delta(token_bas)
-                token = _d if _d.get("cagri") else None
+                from skills.base import token_capture_al
+                _d = token_capture_al()
+                token = _d if (_d and _d.get("cagri")) else None
             except Exception:
                 token = None
         telemetri.olay_yaz(olay=olay, durum=durum, analist=analist, sure_ms=sure_ms,
@@ -3747,31 +3749,36 @@ _gorev_is_lock = threading.Lock()
 _GOREV_IS_LIMIT = 12             # bellek: en yeni N işi tut
 
 
+# Paralel görev analizi (P1-C): ilişkili FE/BE task'ları eşzamanlı analiz edilir. Eşzamanlılık tavanı
+# GOREV_PARALEL (varsayılan 3) — CLI abonelik modunda çok yüksek olması 429 limitini hızlandırabilir.
+_GOREV_PARALEL = max(1, int(os.getenv("GOREV_PARALEL", "3")))
+
+
 def _gorev_is_calistir(job_id: str) -> None:
-    from skills.jira_gorevleri import (gorev_analiz_et, gorev_analiz_duzelt,
-                                       gorev_standart_formatla, gorev_getir)
+    from concurrent.futures import ThreadPoolExecutor
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
-    from skills.base import DurdurulduError as _DurdurulduError
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
     job = _gorev_isler.get(job_id)
     if not job:
         return
-    # Gerçek 'Durdur' (madde 4): worker thread ident'i kaydet ki Durdur endpoint'i o an süren
-    # claude CLI sürecini killpg edebilsin (yoksa AI çağrısı token yakarak tamamlanana dek sürerdi).
-    with _gorev_is_lock:
-        job["worker_tid"] = threading.get_ident()
-    for i, adim in enumerate(job["adimlar"]):
+    job.setdefault("worker_tids", set())
+
+    def _adim_isle(i: int, adim: dict) -> None:
+        # Her adım kendi pool thread'inde çalışır. Gerçek 'Durdur' (madde 4) için thread ident'i
+        # job'a yaz ki Durdur endpoint'i o an süren claude CLI'ı killpg edebilsin (paralelde çoklu).
+        from skills.jira_gorevleri import (gorev_analiz_et, gorev_analiz_duzelt,
+                                           gorev_standart_formatla, gorev_getir)
+        from skills.base import DurdurulduError as _DurdurulduError
         with _gorev_is_lock:
             if job.get("iptal"):
-                job["durum"] = "durduruldu"
-                job["aktif_key"] = None
                 return
+            job["worker_tids"].add(threading.get_ident())
             job["aktif_index"] = i
             job["aktif_key"] = adim["key"]
         key = adim["key"]
         _bas = time.time()
-        _tbas = _token_bas()
+        _tbas = _token_bas()   # bu thread için token capture (paralel-doğru)
         try:
             gorev = adim.get("gorev") or gorev_getir(key)
             if not gorev:
@@ -3801,13 +3808,11 @@ def _gorev_is_calistir(job_id: str) -> None:
                             model=_model, ai_modu=_ai_modu, baglam={"gorev": key, "islem": adim.get("mode", "analiz")},
                             token_bas=_tbas)
         except _DurdurulduError:
-            # Analist 'Durdur' → süren claude CLI öldürüldü. Hata sayma; işi durdur, döngüyü kır.
+            # Analist 'Durdur' → süren claude CLI öldürüldü. Hata sayma; işi iptal işaretle.
             logger.info("Görev analizi durduruldu (analist) — adım %s yarıda kesildi.", key)
             with _gorev_is_lock:
                 job["iptal"] = True
                 job["durum"] = "durduruldu"
-                job["aktif_key"] = None
-            return
         except Exception as e:
             logger.error("Görev iş adımı hatası (%s): %s", key, e)
             with _gorev_is_lock:
@@ -3815,8 +3820,22 @@ def _gorev_is_calistir(job_id: str) -> None:
                                         "katman": adim.get("katman", "")}
             _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
                             model=_model, ai_modu=_ai_modu, baglam={"gorev": key}, token_bas=_tbas)
+
+    adimlar = list(enumerate(job["adimlar"]))
+    isci = min(_GOREV_PARALEL, len(adimlar)) or 1
+    if isci == 1:
+        for i, adim in adimlar:
+            if job.get("iptal"):
+                break
+            _adim_isle(i, adim)
+    else:
+        with ThreadPoolExecutor(max_workers=isci, thread_name_prefix="gorev") as ex:
+            list(ex.map(lambda ia: _adim_isle(ia[0], ia[1]), adimlar))
     with _gorev_is_lock:
-        if not job.get("iptal"):
+        if job.get("iptal"):
+            if job.get("durum") == "calisiyor":
+                job["durum"] = "durduruldu"
+        else:
             job["durum"] = "bitti"
         job["aktif_key"] = None
 
@@ -3886,12 +3905,14 @@ def jira_gorev_is_durdur():
         job["iptal"] = True
         if job["durum"] == "calisiyor":
             job["durum"] = "durduruldu"
-        _tid = job.get("worker_tid")
-    # O an süren claude CLI alt-sürecini process-grubuyla öldür (varsa).
-    oldurdu = False
+        _tids = list(job.get("worker_tids") or ([] if not job.get("worker_tid") else [job["worker_tid"]]))
+    # O an süren claude CLI alt-süreçlerini process-grubuyla öldür (paralelde birden çok olabilir).
+    oldurdu = 0
     try:
         from skills.base import cli_proc_durdur
-        oldurdu = cli_proc_durdur(_tid)
+        for _tid in _tids:
+            if cli_proc_durdur(_tid):
+                oldurdu += 1
     except Exception:
         pass
     return jsonify({"ok": True, "cli_oldurdu": oldurdu})

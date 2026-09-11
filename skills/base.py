@@ -3015,16 +3015,36 @@ def _canli_app_sifre_redakte(metin: str) -> str:
 # sonda delta alır (in-process); run.py gibi tek-analizlik subprocess'te sayaç 0'dan başlar.
 _token_lock = threading.Lock()
 _TOKEN_SAYAC = {"girdi": 0, "cikti": 0, "cache_yaz": 0, "cache_oku": 0, "cagri": 0, "maliyet_usd": 0.0}
+# Thread-local birikim (P1-C paralel doğruluğu): görev analizi eşzamanlı çalışınca global-sayaç
+# delta'sı yanlış olur (adım A'nın baz→emit aralığı adım B'nin token'larını da kapsar). Her worker
+# thread'i kendi capture'ını başlatır → yalnız o thread'in çağrıları ona yazılır. Global sayaç yine
+# tüm süreç toplamını tutar (run.py subprocess'i için).
+_token_local = threading.local()
+_TOKEN_ALANLAR = ("girdi", "cikti", "cache_yaz", "cache_oku", "cagri", "maliyet_usd")
 
 
 def _token_ekle(girdi=0, cikti=0, cache_yaz=0, cache_oku=0, maliyet=0.0) -> None:
+    d = {"girdi": int(girdi or 0), "cikti": int(cikti or 0), "cache_yaz": int(cache_yaz or 0),
+         "cache_oku": int(cache_oku or 0), "cagri": 1, "maliyet_usd": float(maliyet or 0.0)}
     with _token_lock:
-        _TOKEN_SAYAC["girdi"] += int(girdi or 0)
-        _TOKEN_SAYAC["cikti"] += int(cikti or 0)
-        _TOKEN_SAYAC["cache_yaz"] += int(cache_yaz or 0)
-        _TOKEN_SAYAC["cache_oku"] += int(cache_oku or 0)
-        _TOKEN_SAYAC["cagri"] += 1
-        _TOKEN_SAYAC["maliyet_usd"] += float(maliyet or 0.0)
+        for k in _TOKEN_ALANLAR:
+            _TOKEN_SAYAC[k] += d[k]
+    acc = getattr(_token_local, "acc", None)
+    if acc is not None:
+        for k in _TOKEN_ALANLAR:
+            acc[k] += d[k]
+
+
+def token_capture_baslat() -> None:
+    """Bu thread için taze token capture başlat (paralel görev analizinde adım-başına doğru ölçüm)."""
+    _token_local.acc = {k: (0.0 if k == "maliyet_usd" else 0) for k in _TOKEN_ALANLAR}
+
+
+def token_capture_al() -> dict | None:
+    """Bu thread'de capture aktifse biriken token'ları döndürür (ve capture'ı kapatır); değilse None."""
+    acc = getattr(_token_local, "acc", None)
+    _token_local.acc = None
+    return dict(acc) if acc is not None else None
 
 
 def token_sayac_oku() -> dict:

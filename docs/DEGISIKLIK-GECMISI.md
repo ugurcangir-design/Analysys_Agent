@@ -15,6 +15,13 @@
   `_api_cagri_direct` CLI modunda `anthropic`'i tembel import eder (modül düzeyinde import edilmiyordu).
   Limit + sıfırlanma saati zaten `/api/cli/durum` header göstergesinde. `api_cagri_kapanisli` `_api_cagri`
   üzerinden fallback'i devralır.
+- **C — Görev analizini paralelleştir** ✅: çok adımlı görev analizi işleri (ilişkili FE/BE task'ları,
+  "Sadece Client" grubu) artık `ThreadPoolExecutor` ile **eşzamanlı** çalışır (tavan `GOREV_PARALEL`=3;
+  1 → seri fallback). 3 task ≈ 3× hız. **Madde 2 ile uyum:** global-sayaç delta'sı paralelde yanlış
+  olurdu → `base.token_capture_baslat/al` **thread-local** capture eklendi (her adım kendi token'ını
+  doğru ölçer; global sayaç yine tüm-süreç toplamını tutar, run.py için). `_telemetri_olay` artık
+  thread-local capture kullanır. **Madde 4 ile uyum:** Durdur tek `worker_tid` yerine `job["worker_tids"]`
+  kümesindeki TÜM pool thread'lerini killpg eder. iptal kontrolü submit öncesi + adım başında.
 
 ## P0 iyileştirmeler (token/güvenlik/durdurma) — devam ediyor
 - **Madde 1 — canlı-uygulama şifre maskeleme** ✅ (`f326daa`): `GET /api/context-filter` şifreyi
