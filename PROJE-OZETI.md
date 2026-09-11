@@ -129,7 +129,9 @@ AI hiçbir bilgiyi "uydurmaz", her çıktıyı sağlanan kaynaklara dayandırır
 - **Halüsinasyon koruması (Entity Whitelist):** Endpoint, tablo, rol adı
   gibi varlıklar yalnızca referanslarda gerçekten geçiyorsa kullanılır.
 - **Çakışma yönetimi:** İki kaynak çelişirse öncelik sırası uygulanır
-  (Swagger > Confluence > BRD > Jira > UI kodu) ve çelişki raporlanır.
+  (Swagger > Canlı Uygulama Gözlemi > Confluence > BRD/Süreç > Jira > UI) ve çelişki
+  raporlanır. İlke: **gözlemlenen gerçek veri, tarif edilen istekten (BRD) üstündür** —
+  BRD hatalı/güncel-olmayan olabilir; MCP ile doğrulanan gerçek davranış esastır.
 - **İzlenebilirlik:** Her aşama numaralı ID üretir (BRD: FR/NFR, süreç:
   PA/BR/EK, teknik: T-FE/T-BE); ID'ler aşamalar arası takip edilir.
 - **Bağlam filtresi:** Kullanıcı anahtar kelime/Jira anahtarı belirterek

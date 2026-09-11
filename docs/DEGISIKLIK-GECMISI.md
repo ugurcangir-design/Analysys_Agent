@@ -1,7 +1,81 @@
 # Değişiklik Geçmişi / Tamamlanan İşler (referans)
 
-> Ana referans: [CLAUDE.md](../CLAUDE.md). Tarihsel kayıt — büyük bir faz/özellik
-> tamamlandığında buraya özet ekle.
+> Ana referans: [CLAUDE.md](../CLAUDE.md). Bu dosya **son/devam eden işleri tam metinle** +
+> daha eski tamamlanmış faz ve düzeltmelerin **özet index'ini** tutar. Eski işlerin TAM
+> açıklamaları → [DEGISIKLIK-ARSIV.md](DEGISIKLIK-ARSIV.md).
+> Büyük bir faz/özellik tamamlandığında buraya özet ekle; olgunlaşınca (yeni işler üstüne
+> geldikçe) detayı arşive taşıyıp burada index satırına indir.
+
+## P1 iyileştirmeler — devam ediyor
+- **A — Token/maliyet paneli** ✅: Kullanım Raporu artık madde 2'de toplanan token verisini gösterir.
+  `#ku-ozet`'e **Token / Maliyet** kart grubu (girdi/çıktı/cache okuma token + tahmini maliyet USD;
+  yalnız veri varsa görünür); analist özet tablosuna **Token** (girdi+çıktı, tooltip'te kırılım) +
+  **Maliyet** sütunları (yoksa '·'). Excel export'ta Analist Özeti sayfasına 4 token sütunu eklendi.
+  Deterministik (0 token). CLI abonelik modunda maliyet bilgilendirme amaçlıdır.
+- **B — CLI limit (429) dayanıklılığı** ✅: CLI kullanım limiti artık `base.CliLimitError` (reset alanlı)
+  fırlatır. `_api_cagri` bunu yakalar → **ANTHROPIC_API_KEY varsa** çağrıyı otomatik API moduyla tamamlar
+  (analistin işi kesilmez); anahtar yoksa net hata yükselir. `CLI_LIMIT_API_FALLBACK=false` ile kapatılır.
+  `_api_cagri_direct` CLI modunda `anthropic`'i tembel import eder (modül düzeyinde import edilmiyordu).
+  Limit + sıfırlanma saati zaten `/api/cli/durum` header göstergesinde. `api_cagri_kapanisli` `_api_cagri`
+  üzerinden fallback'i devralır.
+- **C — Görev analizini paralelleştir** ✅: çok adımlı görev analizi işleri (ilişkili FE/BE task'ları,
+  "Sadece Client" grubu) artık `ThreadPoolExecutor` ile **eşzamanlı** çalışır (tavan `GOREV_PARALEL`=3;
+  1 → seri fallback). 3 task ≈ 3× hız. **Madde 2 ile uyum:** global-sayaç delta'sı paralelde yanlış
+  olurdu → `base.token_capture_baslat/al` **thread-local** capture eklendi (her adım kendi token'ını
+  doğru ölçer; global sayaç yine tüm-süreç toplamını tutar, run.py için). `_telemetri_olay` artık
+  thread-local capture kullanır. **Madde 4 ile uyum:** Durdur tek `worker_tid` yerine `job["worker_tids"]`
+  kümesindeki TÜM pool thread'lerini killpg eder. iptal kontrolü submit öncesi + adım başında.
+- **D — Güvenlik sertleştirme** ✅: (a) **Sır redaksiyonu:** `base.sir_kaydet/sir_redakte` +
+  `app._SirRedaksiyonFiltre` → tüm log kayıtlarından ANTHROPIC_API_KEY, canlı-app şifresi ve anahtar
+  desenleri (`sk-ant-…`/`sk-…`) «sır» ile maskelenir. Sırlar açılışta (`_sirlari_yukle`) + şifre değişince
+  (`context_filter_kaydet`) kaydedilir. (b) **Dosya izni:** açılışta `_hassas_dosya_izinlerini_sertlestir`
+  `.env` + `context_filter.json`'ı 0600'e sıkılaştırır (gevşekse). (c) **API anahtarı:** kullanıcı
+  tercihiyle düz metin kalır (keychain/şifreleme bilinçli olarak uygulanmadı); redaksiyon+izin+gitignore
+  ile korunur. Test: literal+desen redaksiyon, logging filtresi uçtan uca, izin sıkılaştırma doğrulandı.
+
+## P0 iyileştirmeler (token/güvenlik/durdurma) — devam ediyor
+- **Madde 1 — canlı-uygulama şifre maskeleme** ✅ (`f326daa`): `GET /api/context-filter` şifreyi
+  tarayıcıya göndermez (`has_password` bool + username); `POST` şifreyi korur/temizler (`sifre_temizle`).
+- **Madde 2 — token/maliyet kaydı** ✅: her AI çağrısı `skills/base.py`'deki süreç-geneli birikimli
+  sayaca girdi/çıktı/cache token + maliyet ekler (CLI: JSON `usage`+`total_cost_usd`; API: `yanit.usage`,
+  `_api_kesilme_uyar` içinden). API: `token_sayac_oku()`/`token_delta(baz)`/`_token_ekle()`. `telemetri.olay_yaz`
+  yeni `token` alanı alır → `events.jsonl`/Sheet'e yazılır. Emit noktaları: `run.py` (subprocess taze → sayaç=koşu
+  toplamı), app.py in-process (`_telemetri_olay(..., token_bas=_token_bas())` → delta). `telemetri.istatistik`
+  artık `token_ozet` (genel) + her analistte `token{}` döndürür (0-token deterministik özet). Gelecek maliyet
+  dashboard'ının temeli.
+- **Madde 3 — getirim bütçesi + prompt-cache genişletme** ✅: (a) `MAX_CHARS_REF_GLOBAL`
+  (`.env`, varsayılan 140000) — tüm referans tiplerinin TOPLAMI için tavan. Per-tip limitler tek
+  başına 280K karakter (~70K token) getirebiliyordu; `_ref_bloklari_olustur` artık tipleri sırayla
+  (Confluence→Jira→Servis→Canlı→Diğer) global bütçe dolana dek doldurur, sonra keser (0/negatif →
+  sınırsız, eski davranış). (b) Görev analizinde ikinci cache breakpoint: görev içeriği (key/başlık/
+  açıklama + analist notu) cevap/düzeltme turları arasında değişmez → refs breakpoint'ine ek olarak
+  görev bloğuna da `cache_control` konur; cevap turlarında görev içeriği cache'ten okunur (sistem+refs+
+  görev = 3 breakpoint, Anthropic tavanı 4). CLI modu cache_control'ü yok sayar (API modu kazanır).
+- **Madde 4 — gerçek "Durdur" (görev analizi hard-kill)** ✅: görev analizi arka plan thread'inde
+  çalışıyor; içindeki `claude -p` çağrısı önceden bloklu `subprocess.run`'dı → 'Durdur' bayrağı konsa da
+  süren AI çağrısı token yakarak tamamlanana dek sürüyordu. Artık `base._cli_calistir` killable Popen
+  (`start_new_session=True` → torunlarla ayrı grup) + thread-keyed registry (`_CLI_PROC_REG`);
+  `cli_proc_durdur(tid)` o worker'ın CLI sürecini killpg eder. `/api/jira/gorev/is/durdur` worker
+  thread ident'i üzerinden ANINDA öldürür (`cli_oldurdu` döner); worker `DurdurulduError`'ı iptal olarak
+  işler (hata değil). **Regresyon önlemi:** `start_new_session` claude'u run.py grubundan çıkardığından
+  `_surec_durdur`'un killpg(run.py)'ı artık claude'a ulaşmaz → run.py'ye SIGTERM/SIGINT handler eklendi,
+  `cli_tum_durdur()` ile kendi claude çocuğunu öldürüp çıkar (entegrasyon testiyle doğrulandı). API modu:
+  HTTP çağrısı kesilemez, iptal bayrağı sonraki adımları durdurur.
+
+## UI v3 — yeniden tasarım + ekran/menü düzeni (YALNIZ v2) ✅
+- **Görsel dil:** slate + indigo palet (koyu/açık tema), Space Grotesk başlık, yüksek kontrast, 10px köşe;
+  token tabanlı (`:root`/`[data-theme]`) → tüm ekranlara yansır. Renk anlamı: kırmızı=çalışan işlem,
+  amber=analist onayı, yeşil=başarı, indigo=marka.
+- **İşlem göstergeleri:** üst barda kalıcı işlem çipi (`#run-chip`, her ekran) + tam-ekran İşlem Modu HUD
+  (`#islem-modu`, JARVIS tarzı kırmızı reaktör; kapatınca iş arka planda sürer).
+- **Menü/ekran:** açılır-kapanır sol menü + katlanır grup başlıkları; kart tabanlı Ana Sayfa (`pano.html`);
+  sol altta analist adı/rolü (`/api/analist`) + üst-bar avatarı; Kılavuz menüden alındı, üst-bar **?** düğmesi açar;
+  sağ-üst Ayarlar düğmesi kaldırıldı.
+- **Yeniden adlandırma:** Jira Görevleri → **Task Analizi** (iç anahtar `jira-gorevler` korundu), Kullanım →
+  **Kullanım Raporu**, Yetki & Denetim → **Yetki**.
+- **Denetim (audit) KALDIRILDI:** `skills/denetim.py`, `/api/denetim`, `logs/audit.jsonl`, `_denetim()` emitleri,
+  `/api/saglik` `denetim{}`, Yetki'deki Denetim paneli — hepsi çıkarıldı. Analist iş takibi tamamen Kullanım Raporu
+  (telemetri). Testler güncellendi (smoke 27, auth/rol 20).
 
 ## Kullanım İzleme (Telemetri) ✅
 - **`skills/telemetri.py`** — analiz olaylarını yalnız metadata olarak loglar (analist, olay tipi,
@@ -10,446 +84,80 @@
   `istatistik()` = 0-token deterministik özet (analist × tür × zaman, başarı, süre, task).
 - **Transport:** Google Apps Script → özel Sheet, **write-only** (analistler yazar, okuyamaz). Owner
   `USAGE_SINK_KEY` ile "Uzaktan Çek" (`/api/usage/pull`). Kurulum: `docs/telemetri-apps-script.md`.
-- **Owner-gate:** `USAGE_DASHBOARD=true` — AUTH'tan bağımsız; yalnız owner `.env`'inde. Analist
-  build'lerinde yok → "Kullanım" sekmesi gizli + `/api/usage/*` 403 (`admin_gerekli` AUTH kapalıyken
-  herkesi geçirdiğinden ayrı bayrak zorunlu). `auth/me` → `usage_admin`.
+- **Owner-gate:** `OWNER_KONSOL=true` (eski adı `USAGE_DASHBOARD`; bkz. arşiv) — AUTH'tan bağımsız; yalnız
+  owner `.env`'inde. Analist build'lerinde yok → sekme gizli + `/api/usage/*` 403. `auth/me` → `usage_admin`.
 - **Emit noktaları:** `run.py` (surec/teknik/brd/kapsam/jira_gonder; parent yalnız timeout), app.py
   in-process (mutabakat, gorev_analiz). Jira sayımı iki oluşturma yolundan da toplanır. Analist
   kimliği subprocess'e `ANALIST` env ile geçer. Endpoint: `/api/usage/stats|pull|export`; UI:
-  owner-only "Kullanım" sekmesi (özet kartlar + analist tablosu + tür kırılımı + Excel).
+  owner-only "Kullanım Raporu" sekmesi (özet kartlar + analist tablosu + tür kırılımı + Excel).
 
-## Faz 1 — Skill ayrıştırma ✅
-`agent.py` → 13 satırlık import bridge; tüm iş mantığı `skills/` altında.
+---
 
-## Faz 2 ✅
-- **Confluence yazma:** `skills/confluence_yaz.py` + Markdown→Storage Format
-- **Jira hiyerarşi:** `skills/jira_tasks.py` — preview/create iki adımlı, FE/BE katman, modal seçim
-- **API Şema & DDL:** teknik analiz Bölüm 3 (CREATE TABLE) ve Bölüm 4 (OpenAPI YAML)
-- **HTML Prototip:** `skills/html_mockup.py` + mockup.html çıktısı
+## Kilometre taşları ve düzeltmeler — özet index
+> Tam açıklamalar: **[DEGISIKLIK-ARSIV.md](DEGISIKLIK-ARSIV.md)** (aynı başlıklarla, tarihsel sıra).
+> Aşağıdaki satırlar hepsi **✅ tamamlandı** (ruff temiz + doğrulanmış); detay için arşive bak.
 
-## Faz 3 ✅
-- **Deduplication:** atlassian helper'ları tek noktaya (skills/atlassian.py)
-- **RAG tüm analizlerde:** `brd_analizi` ve `kapsam_analizi`'ne referans entegrasyonu
-- **Jira JSON → kompakt markdown:** `_jira_json_to_md` ile ~%40 token tasarrufu
-- **Tip bazlı ref bölümleri:** Confluence/Jira/Swagger ayrı bloklar, ayrı limitler
-- **FE/BE katman ayrımı:** süreç → teknik → Jira boyunca; modal FE/BE rozeti
-- **15 promptun yeniden yazımı:** ROL/GÖREV/ÇALIŞMA YÖNTEMİ/RAG İLKESİ yapısı
-- **EK-XXX, T-FE/T-BE, FR/NFR/US/I, YE/KL/DG** yeni ID tipleri
-- **`_ORTAK_EK_KURALLAR` güncellemesi:** aşama bazlı ID tablosu, FE/BE katman
-- **Stabilite:** log rotation + eski log temizliği, atomik .env yazımı (chmod 600),
-  subprocess crash recovery, API retry (exponential backoff), session cookie flags,
-  zip-bomb koruması
-- **GitHub self-update:** /api/git/status + /api/git/pull (sadece güncelleme sayfasında)
-- **Heartbeat fix:** Cmd+Shift+R refresh'te uygulama kapanmıyor; SUSPEND_SURE=30s, KAPAT_SURE=45s
-- **Belgeleme:** `PROJE-OZETI.md` (AI portföy) + `KILAVUZ.html` (ekip kılavuzu)
+### Fazlar (mimari kilometre taşları)
+- **Faz 1 — Skill ayrıştırma:** `agent.py` → import bridge; iş mantığı `skills/` altında.
+- **Faz 2:** Confluence yazma, Jira hiyerarşi (FE/BE), API Şema & DDL, HTML Prototip.
+- **Faz 3:** atlassian dedup, RAG tüm analizlerde, Jira JSON→kompakt md, tip-bazlı ref, FE/BE ayrımı,
+  15 promptun yeniden yazımı, yeni ID tipleri, stabilite (log rotation/retry/crash recovery), GitHub self-update.
+- **Faz 4 — Teknik analiz kalite + Jira Görevleri:** üç aşamalı teknik analiz, çıktı kesilme koruması,
+  Jira Görevleri sekmesi (triyaj/sınıflandırma/yorum/formatla/analiz et), `markdown_to_adf` RAG-yorum temizliği.
+- **Faz 5 — Backlog Senkron + Jira Görevleri iyileştirmeleri:** deterministik UAT→TRADE/OPS takip Excel'i
+  (cerrahi lxml zip), "Tüm Görevler"+statü filtresi, Analist Notu, "Sadece Client", export, bulkfetch tazelik,
+  görev-bazlı yalın teknik analiz, canlı gözlem MCP ekonomisi, WCAG AA, CLI 401 OAuth teşhisi.
+- **Faz 6 — Backlog → Backlog Mutabakat:** board-to-board mutabakat (`mutabakat()` 0 token; KESİN/YÜKSEK/
+  ADAY/EŞLEŞMEYEN katmanları), openpyxl çok-sayfalı rapor, `_jira_site_url()`, yeni UI; gerçek veriyle doğrulandı.
+- **Faz 7 — UAT Mutabakat:** ekran adı "UAT Mutabakat", UAT sıra no + sıralı liste, stat-kartı filtre, rozetler.
+- **Faz 8 — Süreç Analizi Confluence şablonu + HTML Prototip canlı-uygulama baz'ı:** ekran-merkezli şablon
+  (AMAÇ→MOCKUP→GEREKSİNİMLER→DB→NOTLAR, ID'ler gömülü), mockup canlı-app URL'inden tasarım dili alır.
+- **Faz 9 — Süreç analizi RAG düzeltmesi + İlişkili/Etki:** PDF filtre bug'ı (`_filtre_metni_oku`),
+  baştan-kesme (`_keyword_odakli_metin`), İlişkili/Etki (IB-XXX) bölümü, Confluence 404 token-yenileme bug'ı.
+- **Faz 2 (revizyon iş akışı) — Adım sohbeti + geri dönüş + hedefli soru:** `/api/adim/duzelt` (hedefli bölüm
+  düzenleme + oto-onay), `/api/geri-don` (TEKNIK_ONAY→ONAY_BEKLENIYOR), `_sorulari_hedefli_uygula`.
+- **Faz 3 (ürün) — Rol-duyarlı pano + onay bağlamı + disk temizliği:** `/api/pano` "Sıradaki iş" kartları,
+  onay kartı karar bağlamı, `skills/disk_temizlik.py` + zamanlayıcı (yalnız yeniden-üretilebilir dosyalar).
+- **Faz 4 (ürün) — Analist-dostu hata mesajları:** `skills/hatalar.py insanlastir` (regex → başlık/ne oldu/
+  ne yapmalı/teknik iz), `workflow.ozet().hata_ozet`, UI hata kartı + toast.
+- **Ray görünümü:** Süreç/Teknik (6 adım) ve BRD (4 adım) tek-kolon adım akışı; klasik paneller DOM'da korunur
+  (`.gorunum-klasik`), aksiyon blokları aktif adıma TAŞINIR (kopya değil); "Klasik görünüm" ile geri; tag `klasik-surec-ekrani-yedek`.
 
-## Faz 4 — Teknik analiz kalite + Jira Görevleri ✅
-- **Teknik analiz üç aşamalı:** Aşama 1 teknik analiz → kapsam denetimi + AI denetçi → Aşama 2 açık sorular
-- **Çıktı kesilme koruması:** `_teknik_uret_tam()` retry + `_xml_ayir` tolerans (CLI erken bitirme)
-- **Jira Görevleri sekmesi** (`skills/jira_gorevleri.py`): Epic/Story alt görev triyajı,
-  iki fazlı sınıflandırma (yapısal + AI), benzer-içerik tespiti, yorumlar, Standart Formatla
-  (Haiku) / Teknik Analiz Et (Sonnet + Haiku açık sorular), tam ekran modal, Jira'ya yazma
-- **markdown_to_adf:** HTML yorumlarını siler (RAG meta-yorumu Jira'ya sızmıyor)
+### UAT Mutabakat — artımlı düzeltmeler
+- Durum kolonu hızlı filtresi (istemci-taraflı, AND).
+- "Create In Error" / "Created in Error" varyantları UAT kapsam dışı (`UAT_HARIC_DURUMLAR` + casefold ağı).
+- Durum filtresi: kapsam-dışı seçenek temizliği + dropdown UX/görsel (caret, huni, `.is-aktif`).
+- Atanan (assignee) kolonu + filtre (UAT + Hedef TRADE/OPS), generic `_bsFiltreTh`, "(Atanmamış)" sentinel.
+- İptal kovası + Epic/Story eleme (`_kapsayici_tip_mi`, `_iptal_ayir`); İptal Edildi stat kartı + Excel sayfası.
+- KESİN eşleşme gerekçesi: ilişki/bağlılık türü + yön (`_iliski_sinifi`).
+- Kapsam dışı ama linkli hedef task'lar eşleşmede (bug fix; `link_hedef_index`).
+- Story köprüsü (transitif eşleşme) — ortak Story üzerinden dolaylı; sonra PARENT (alt görev) bağını da kapsar.
+- Story köprüsü YANLIŞ POZİTİF düzeltmesi (kritik): köprü yalnız **hedef board story'leri** üzerinden.
+- "Epic/Story altı" modu ÖZYİNELEMELİ (BFS, tüm alt-ağaç).
+- İptal board bazlı + hedef "Story" kolonu (proje filtresi, Excel sütunları).
+- Jira task key link'leri geri geldi (boş `jira_site_url` cache'leme bug'ı + `_bsKeyLink` yedek).
+- Bir UAT → çok hedef: özet satır + tıkla-genişlet; distinct UAT sayımı; Excel "UAT İş Adedi".
 
-## Faz 5 — Backlog Senkron + Jira Görevleri iyileştirmeleri ✅
-- **Backlog Senkron** (`skills/backlog_senkron.py` + `page-backlog-senkron` + 3 endpoint): Product'ın
-  UAT board'unda (MBSUATEAM) açtığı taskların TRADE/OPS karşılıklarını takip Excel'ine işler.
-  **0 LLM tokenı — tamamen deterministik** (yalnızca Jira REST + Excel). Bağ: UAT --relates to-->
-  TRADE/OPS. Değişmeyene iş yapmaz (yan durum dosyası ile `updated`+eşleme kıyası). Tek agent-kolonu
-  **UAT - BOARD EŞLEME** (EŞLENDİ/EŞLENMEDİ; Jira linki VEYA kolon Q'daki manuel MBSUATEAM referansı).
-  **Cerrahi lxml zip yazımı:** hücre-içi görseller (richData), Excel Tablosu, hyperlink'ler bit-bit
-  korunur (openpyxl bunları düşürüyordu); yeni satır/kolonlar tabloya dahil edilir (ref+autoFilter+CF
-  genişletme → renk/filtre korunur). Orijinal ezilmez; zaman damgalı kopya. Bağımlılık: `openpyxl`, `lxml`.
-- **Jira Görevleri — "Tüm Görevler" + statü filtresi** (UI, 0 token): sonuç alanının üstünde tüm
-  görevleri listeleyen ana başlık + dinamik Jira statü chip'leri (çoklu seçim). Mevcut iki başlık
-  (Hızlı İşleme / Detaylı Analiz) + arama + AI Sınıflandır + Sadece Client korunur.
-- **Jira Görevleri — Analist Notu** (`context_filter → gorev_analist_notu`): opsiyonel, kalıcı alan;
-  doluysa "Teknik Analiz Et" notu mevcut promptla BİRLİKTE dikkate alır (doğruluk kurallarını
-  gevşetmeden), boşsa yok sayar. Yalnızca teknik analizi etkiler.
-- **Sadece Client İşleri** (`/gorevler/sadece-client`): BFF/BE değişikliği gerektirmeyen, yalnızca
-  frontend görevleri batch (20'lik) AI ile ayıklar; bağlı BE task'ları dikkate alır.
-- **Görev listesi export:** üç grup (+ Tüm Görevler) için kopyala/CSV (anahtar + başlık).
-- **Bulkfetch tazelik:** görev/backlog çekiminde `search/jql` yerine `issue/bulkfetch` — arama indeksi
-  eventually-consistent olduğundan güncel içerik anında görünür.
-- **Görev-bazlı YALIN teknik analiz** (`gorev_teknik_analiz` promptu): ağır 11-bölüm şablonu yerine
-  yalnızca ilgili kısımlar (token/süre tasarrufu). Spekülasyon yasağı eklendi.
-- **Canlı gözlem MCP verimlilik kuralları:** tek geçiş, snapshot/network ekonomisi, bitiş koşulu →
-  görev bazlı canlı gözlem süresi/token maliyeti düşürüldü (doğruluktan ödün yok).
-- **Açık renk tema okunabilirliği (WCAG AA):** `--text3` 5.3:1 vb. kontrast düzeltmeleri.
-- **CLI 401 OAuth teşhisi:** `_cli_oturum_hatasi_mi` → Türkçe yeniden-giriş rehberi.
+### CLI / model / hata mesajları
+- CLI 429 mesajı: "session limit" (5 saatlik pencere) vs genel kota netleştirmesi → sonra tek-sebep iddiasını
+  bırakıp Claude Code `/status`·`/usage`'a yönlendirme.
+- CLI modeli Fable olmasın: `--model` DAİMA açık geçilir (`CLAUDE_CLI_MODEL`, vars. `sonnet`); Jira analizi
+  AbortController ile iptal edilebilir.
+- Header'da canlı **CLI limit göstergesi** (`cli_durum_oku/probe`, `output/cli-usage-state.json`, `/api/cli-usage`).
 
-## Faz 6 — Backlog Senkron → Backlog Mutabakat (yeniden tasarım) ✅
-Ekran, elle yüklenen takip-Excel senkronundan **board-to-board mutabakat** aracına dönüştürüldü.
-- **Excel yükleme + senkron kaldırıldı** (`/api/backlog/upload`, `/api/backlog/senkronize`, cerrahi
-  lxml zip yazımı). `skills/backlog_senkron.py` baştan yazıldı; eski takip Excel'leri ve
-  `senkron_state.json` silindi (git'te hiç izlenmemişti — `backlog/` gitignore).
-- **`mutabakat()`** (0 token): UAT board'unu tam tarar, hedef board'ları `mod`'a göre toplar
-  (`tum`/`epic`/`keyword`), katmanlı eşleştirir: KESİN (mevcut issue-link) → YÜKSEK (Jaccard ≥ 0.55) →
-  ADAY (0.35–0.55) → EŞLEŞMEYEN (UAT = açıkta kalan iş, hedef = kaynağı UAT'de yok). `jira_gorevleri`'nden
-  `_issue_ayrıstir` + `_benzerlik_jetonlari` + `alt_gorevleri_cek` yeniden kullanıldı.
-- **`rapor_uret()`** (`/api/backlog/export`): openpyxl ile sıfırdan çok sayfalı `.xlsx` (Eşleşenler /
-  Eşleşmeyen UAT / Eşleşmeyen TRADE-OPS). Yeni dosya olduğu için cerrahi yazıma gerek yok.
-- **`_jira_site_url()`:** browse link'leri için site adresini accessible-resources'tan cloud_id
-  eşleşmesiyle alır (cache'li); `.env JIRA_URL`'e güvenmez (OAuth callback tutabiliyor).
-- **UI:** kaynak/kapsam formu (UAT + hedef board + tarama modu), 6 stat kartı, 4 sonuç tablosu
-  (link'li, güven rozetli), Excel Raporu İndir. Nav/breadcrumb "Backlog Mutabakat".
-- **Gerçek veriyle doğrulandı:** UAT=209, hedef=1747 → 174 eşleşen, 1 aday, 42 açıkta kalan UAT,
-  1588 eşleşmeyen hedef; rapor + indirme uçtan uca çalışıyor.
-
-## Faz 7 — UAT Mutabakat: sıra no + sıralı liste + UI iyileştirmeleri ✅
-- **Ekran adı** "Backlog Mutabakat" → **"UAT Mutabakat"** (nav/breadcrumb/başlık/KILAVUZ; iç sayfa id
-  `backlog-senkron`, modül `backlog_senkron`, endpoint `/api/backlog/*` tarihsel olarak korundu).
-  Rapor dosya adı `Backlog_Mutabakat_*` → `UAT_Mutabakat_*`.
-- **UAT sıra no + sıralı liste:** her satır UAT key'inin sonundaki sayıyla (`_sira_no`, MBSUATEAM-116→116)
-  "Sıra" kolonunda gösterilir; tüm kovalar bu no'ya göre ARTAN sıralanır (eski karışık liste — link
-  eşleşmeleri string-sıralı + benzerlik eşleşmeleri oluşturma sırasında — düzeltildi). Export'a da "Sıra".
-- **UI (önceki turda):** stat kartları FİLTRE (`bsFiltrele`); satır rozetleri (✓ Eşleşti / ● Aday /
-  ✕ Eşleşmedi); durum farkı (UAT≠Hedef) amber+"≠" vurgu; task key'leri Jira browse link (bold + ↗).
-- **Doğrulandı:** Eşleşenler 1,16,17…; Eşleşmeyen UAT 140,141,142… artan; Sıra=key no; export "Sıra"
-  kolonu (MBSUATEAM-1→1). ruff temiz.
-
-## Faz 8 — Süreç Analizi Confluence şablonu + HTML Prototip canlı-uygulama baz'ı ✅
-- Süreç analizi çıktı formatı, ekibin Confluence sayfalarıyla (örn. mbs2/Categories, Retailer Management)
-  **aynı iskelete** çevrildi: metadata tablosu → **AMAÇ → MOCKUP → GEREKSİNİMLER** (İş Gereksinimleri↔İş
-  Kuralları + Aktörler + numaralı **Ekranlar** [Alan Adı/Buton Adı | Açıklama tabloları] + Süreç Adımları)
-  → **ÖNERİLEN DB ALANLARI → GELİŞTİRME NOTLARI** (Sistemler, Kabul Kriterleri, Karar Tabloları, Açık Sorular).
-- **B yaklaşımı — pipeline korundu:** eski 13-bölüm akış yapısı yerine ekran-merkezli şablon, ama
-  ID'ler (A/BR/PA/AF/EF/EK/AC/Q) bölümlere gömülü → `surec_id_kapsam`/RTM çalışır; `### Süreç Adımları`
-  başlığı mermaid çapası; `| Q-001 |` tablosu Soru Defteri çapası korundu. `VARSAYILAN_PROMPTLAR
-  ["surec_analizi"]` yeniden yazıldı; `surec_analizi_rol`'daki sabit "Bölüm 8" referansı genelleştirildi.
-- **Doğrulandı:** ruff temiz; birleşik prompt "Süreç Adımları"+mermaid+yeni bölümler içeriyor;
-  `sorular._TABLO_SORU_SATIR` yeni `| Q-001 |` satırını yakalıyor. Gerçek analiz ÇALIŞTIRILMADI (kota).
-- **HTML Prototip canlı-uygulama baz'lı** (`html_mockup.py` + `html_mockup_base`): mockup artık
-  context_filter `live_app` URL'i (+ alt URL'ler) tanımlıysa `canli_uygulama_baglami_hazirla()` ile
-  Chrome MCP gezinme görevi kurup `_api_cagri(..., canli_uygulama_kapsami="surec")` ile Playwright MCP'yi
-  açıyor → gözlemlenen ekranın tasarım dili + component desenleri baz alınıyor; içerik süreç analizinin
-  Ekranlar (EK-XXX) bölümünden; tüm component'ler çalışır. URL yoksa generic fallback. `html_mockup_base`'in
-  eski "Bölüm 9" referansı yeni formata (GEREKSİNİMLER → Ekranlar) taşındı. `MAX_TOKENS_MOCKUP` 8K→12K.
-  Stub testiyle doğrulandı (kapsam="surec" geçiyor, gezinme görevi mesajlarda); gerçek mockup ÇALIŞTIRILMADI.
-
-## Faz 9 — Süreç analizi RAG düzeltmesi + İlişkili/Etki analizi ✅
-Şikâyet: süreç analizi referans dokümanı/board'ları dikkate almadan yüzeysel çıktı üretti.
-- **Kök neden (PDF filtre bug'ı):** confluence referansı olarak konan `TradePanel_1_7_9.pdf` (6.7 MB),
-  `filtrele_referanslar`'da `read_text` ile binary okunup keyword eşleşmezdi → RAG'e HİÇ girmezdi.
-  `_filtre_metni_oku` (PDF-farkında, `pdf_oku`/fitz) eklendi; confluence filtresi dosya adı VEYA içerik
-  eşleşmesiyle dahil ediyor (ilgili farklı-adlı sayfa da gelir).
-- **Kök neden 2 (baştan kesme):** ilgili bölüm PDF'in %25'inde (209K/836K); RAG dosya başına ilk 15K'yı
-  okurdu → kaçardı. `_keyword_odakli_metin` eklendi: büyük dosyada baştan kesmek yerine keyword geçen
-  yerlerin etrafından pencereler alır. Doğrulandı: RAG bloğu artık "publish overview" bölümünü içeriyor.
-- **İlişkili/Etki:** `surec_analizi`'ye **İlişkili Ekranlar / Süreçler ve Etki Analizi** (IB-XXX) bölümü +
-  **KAYNAK KULLANIMI (ZORUNLU)** bloğu eklendi; `surec_analizi_rol`'a "İLİŞKİ & ETKİ" çalışma adımı.
-- **Veri boşluğu (kullanıcı tarafı):** `reference/jira` boş (board senkronu yok) → agent board kullanamaz;
-  ayrıca 6.7 MB PDF yerine ilgili Confluence sayfalarını .md senkronlamak RAG için daha isabetli.
-- **Doğrulandı:** ruff temiz; boot OK; RAG zinciri "publish overview" içeriyor. Gerçek analiz ÇALIŞTIRILMADI.
-- **Confluence sync 404 bug'ı (`atlassian_get`):** Referans güncellemede
-  `404 ... /ex/confluence/{cloud}/wiki/api/v2/spaces?keys=mbs2` hatası. Kök neden: OAuth token süresi
-  dolduğunda Atlassian **Confluence gateway'i 401 yerine 404 döndürüyor** (Jira 401 döner → refresh
-  çalışır; Confluence 404 → eski kod refresh tetiklemez). `atlassian_get` artık confluence'ta **404'te de**
-  token yenileyip bir kez tekrar deniyor; hâlâ 404 ise gerçek bulunamadı. (Space key "mbs2" geçerli —
-  taze token'la 200/results=1; case sorunu yoktu.) Doğrulandı: atlassian_get mbs2 space'ini buluyor.
-
-## UAT Mutabakat — Durum kolonu hızlı filtresi ✅
-Eşleşenler ve Teyit bekleyen adaylar tablolarında (`_bsTabloEsles`, templates/index.html) iki **Durum**
-başlığı artık her tablodaki mevcut Jira durumlarıyla dolu bir `<select>` filtresi. UAT Özet sonrası
-(uat_durum) ve Hedef Özet sonrası (hedef_durum) kolonlar bağımsız seçilir, birlikte **AND** olarak süzer;
-seçime uygun kayıt yoksa "Seçilen duruma uygun kayıt yok" satırı çıkar. Deterministik/istemci-taraflı
-(satırlarda `data-fuat`/`data-fhedef` normalize değerler; token harcamaz). Doğrulandı: mock veriyle 2 select
-+ doğru benzersiz seçenekler, tek/çift kolon süzme ve boş-durum mesajı çalışıyor; ruff temiz.
-
-## UAT Mutabakat — "Create In Error" UAT taskları kapsam dışı ✅
-`skills/backlog_senkron.py`: UAT board'undan (MBSUATEAM) çekilen tasklar artık `UAT_HARIC_DURUMLAR`
-(şu an `["Create In Error"]`) durumlarını hariç tutuyor — hatalı/iptal kayıtlar mutabakata girmesin.
-JQL'e `AND status NOT IN ("Create In Error")` eklendi; ayrıca özel workflow'da durum adı eşleşmezse diye
-çekilen kayıtlarda `casefold` ile **elde güvenlik ağı** filtresi var. Hedef (TRADE/OPS) tarafı etkilenmez.
-Doğrulandı: ruff temiz, JQL doğru üretiliyor, import/boot OK.
-
-## UAT Mutabakat — "Created in Error" yazım varyantı da hariç ✅
-`UAT_HARIC_DURUMLAR` artık `["Created in Error", "Create In Error"]` — Jira board'unda görülen gerçek
-statü "Created in Error" (`-d`'li). Tablodaki "≠" statünün parçası değil, UAT≠Hedef fark işaretidir.
-Elde güvenlik ağı casefold ile büyük/küçük harf varyantlarını da yakalar.
-
-## UAT Mutabakat — Durum filtresi: seçenek temizliği + görsel iyileştirme ✅
-- **"Created in Error" seçeneği kaldırıldı:** `_BS_FILTRE_HARIC` (backend `UAT_HARIC_DURUMLAR` ile hizalı)
-  ile bu durumlar dropdown seçeneklerinden de elenir — kapsam dışı statü filtre listesinde görünmez.
-- **Dropdown UX/görsel:** özel ok imi (SVG caret), huni ikonlu büyük-harf "DURUM" etiketi, hover/focus
-  vurgusu; filtre seçiliyken `.is-aktif` ile accent kenarlık + tint arka plan → hangi kolonun süzüldüğü
-  bir bakışta belli. Doğrulandı: "Created in Error" seçeneklerde yok, huni ikonu render, aktif sınıf
-  seçince eklenip boşalınca kalkıyor (tarayıcı mock testi + görsel).
-
-## UAT Mutabakat — Atanan (assignee) kolonu + filtre & dropdown görsel düzeltmesi ✅
-- **Atanan kişi:** UAT task'ının assignee'si backend çıktısına eklendi (`_satir.uat_atanan`, `_sade.atanan`;
-  parser zaten `assignee`=displayName veriyordu). Eşleşenler/Adaylar ve Eşleşmeyen UAT tablolarında
-  **Atanan** kolonu (boşsa soluk "—"), Excel raporuna da yazılıyor (Eşleşenler sayfası "UAT Atanan",
-  Eşleşmeyen UAT sayfası "Atanan").
-- **Atanan filtresi:** başlıkta hızlı filtre; "Herkes" + benzersiz kişiler + "(Atanmamış)" seçeneği.
-  Durum filtreleriyle birlikte **AND** çalışır (hem duruma hem atanan kişiye göre süzme).
-- **Genel filtre altyapısı:** `_bsDurumFiltreTh/_bsDurumFiltrele` → generic `_bsFiltreTh(tid, alan, kaynak,
-  etiket, satirlar, opt)` + `_bsFiltrele(tid)`; data-attr (`fuat/fhedef/fatanan/fdurum`) ile kaynak alan
-   adı ayrıştırıldı. "(Atanmamış)" için `_BS_BOS='__bos__'` sentinel (boş değere eşleşir).
-- **Dropdown görsel (görev 1):** sabit yükseklik (26px, box-sizing), özel caret hep görünür, aktif hâlde
-  yalnız accent kenarlık+tint (eski şişkin inset gölge kaldırıldı), `vertical-align:bottom` ile hizalı,
-  ellipsis. Ekranda taşma/boyut sorunu giderildi.
-- Doğrulandı: ruff temiz; tarayıcı mock testinde durum+atanan+atanmamış filtreleri ve AND kombinasyonu
-  doğru; görsel ekran görüntüsüyle onaylandı. **Not:** eski bir düzenlemede string'e kazara NUL (\x00)
-  girmişti — Python ile temizlendi (`_BS_BOS='__bos__'`).
-
-## UAT Mutabakat — Hedef (TRADE/OPS) atanan kolonu + filtresi ✅
-Eşleşenler/Adaylar tablosunda Hedef tarafı için de atanan eklendi: `_satir.hedef_atanan`, Excel'de
-"Hedef Atanan" sütunu. Frontend'de Hedef Durum'dan sonra **Atanan** kolonu + `fhatanan` filtresi
-(`hedef_atanan` kaynağı; "Herkes"/kişiler/"(Atanmamış)"). Böylece tabloda dört bağımsız filtre
-(UAT Durum, UAT Atanan, Hedef Durum, Hedef Atanan) AND mantığıyla birlikte çalışır — UAT durumu +
-Hedef atananı gibi çapraz kombinasyonlar dahil. (Eşleşmeyen TRADE/OPS tablosunda atanan+filtre zaten
-`_sade.atanan` ile mevcuttu.) Doğrulandı: ruff temiz, tarayıcı mock testinde 4 filtre + çapraz AND +
-"(Atanmamış)" doğru, görsel onaylandı.
-
-## UAT Mutabakat — İptal kovası + Epic/Story eleme ✅
-- **Epic/Story kapsam dışı:** her iki board'da kapsayıcı tipler (`_KAPSAYICI_TIP_ADLARI` → epic/story/…)
-  `_kapsayici_tip_mi` ile elenir; yalnızca yaprak iş kalemleri karşılaştırılır.
-- **İptal kovası:** iptal statüsündeki task'lar (İptal Edildi / CANCEL / CANCELED — mevcut
-  `_iptal_statusu_mu`) `_iptal_ayir` ile ana akıştan çıkarılıp ayrı **`iptaller`** kovasına alınır
-  (UAT+Hedef birlikte, Proje sütunlu). Eşleşen/açıkta kalan listeleriyle karışmaz.
-- **Ekran:** yeni "İptal Edildi" stat kartı (mor, tıklayınca yalnız İptal Edilenler kutusu) + `bs-g-iptal`
-  grubu; `_bsTabloTek` artık `opt` alıyor (`rozet:false` → "Eşleşme" kolonu gizli, `bosMesaj`). İptal
-  kutusunda Durum+Atanan filtreleri var (durum filtresi CANCEL/CANCELED/İptal varyantlarını ayırır).
-- **Excel:** yeni "İptal Edilenler" sayfası; Eşleşmeyen TRADE-OPS sayfasına da "Atanan" sütunu eklendi.
-- Doğrulandı: ruff temiz; backend simülasyonda Epic/Story elenmesi + 3 iptal varyantı doğru; tarayıcıda
-  kart/kutu/filtre ve "yalnız iptaller" izolasyonu ekran görüntüsüyle onaylandı.
-
-## UAT Mutabakat — KESİN eşleşme gerekçesi: ilişki/bağlılık türü + yön ✅
-Eşleştirme kuralı değişmedi; yalnızca gerekçe zenginleşti. KESİN (mevcut Jira bağlantısı) eşleşmelerde
-`_iliski_sinifi` ile bağın türü sınıflanıyor: **bağlılık** (block/depend/clone/duplicate/cause/split
-ipuçları) ↔ gevşek **ilişki** (relates). Gerekçe artık link'in GERÇEK yönünü gösteriyor:
-`Jira <tür>: <kaynak> "<ilişki>" <hedef>` (örn. hedef tarafında bulunan link'te "MBSTRADE-9 blocks
-MBSUATEAM-2"). `kesin_ciftler` değeri (kaynak_key, ilişki, hedef_key) tuple'ına çevrildi. Metin mevcut
-"Gerekçe" kolonuna ve Excel'e otomatik akar (yeni kolon/kova yok). Doğrulandı: ruff temiz; sınıflandırıcı
-İng/TR varyantlarda doğru; UAT-tarafı/hedef-tarafı/relates senaryolarında yön doğru.
-
-## UAT Mutabakat — kapsam dışı ama linkli hedef task'lar eşleşmede (bug fix) ✅
-**Sorun:** MBSUATEAM-124, MBSTRADE-1404'e Jira "relates to" ile bağlı olmasına rağmen "Eşleşmeyen UAT
-(açıkta kalan iş)" görünüyordu. Kök neden: KESİN eşleşme yalnızca hedef task **taranan sette**
-(`hedef_index`) ise kuruluyordu; epic/keyword modunda ya da alt-görev gibi durumlarda linkli hedef task
-sette olmayınca eşleşme kaçıyordu.
-**Çözüm:** Fetch sonrası, UAT task'larının hedef-projedeki (MBSTRADE/MBSOPS) key'lere olan ama `hedef_index`'te
-olmayan linkleri toplanır; bu key'ler `_keyleri_cek` (bulkfetch) ile tek tek çekilip `link_hedef_index`'e
-alınır (Epic/Story ve iptal olanlar hariç). KESİN eşleşme artık `hedef_index` VEYA `link_hedef_index`'e
-bakar; satır bu birleşik kaynaktan kurulur. Bu ek hedefler similarity/eşleşmeyen_hedef'e katılmaz, board
-toplamını şişirmez; gerekçeye "· kapsam dışı hedef" notu eklenir. Doğrulandı: gerçek MBSUATEAM-124 →
-MBSTRADE-1404 artık KESİN eşleşiyor (hedef boş sette bile); ruff temiz. Not: "tüm board" modunda hedef
-zaten sette olduğundan ek sorgu no-op.
-
-## UAT Mutabakat — Story köprüsü (transitif eşleşme) ✅
-**İhtiyaç:** MBSTRADE-1549 gibi bir hedef task, bir Story'ye (MBSTRADE-1464 "Hikaye") linkli; o Story de bir
-UAT taskına (MBSUATEAM-129) linkli. Story'ye bağlı alt task'lar "Eşleşmeyen TRADE/OPS" görünüyordu; oysa iş
-zaten story üzerinden takip ediliyor.
-**Çözüm:** KESİN eşleşmeye 1b adımı eklendi — UAT ve hedef task'lar AYNI Story'ye issue-link ile bağlıysa
-dolaylı eşleşirler. `_kopru_link_mi` (link hedefi tipi Story/Hikaye) ile `uat_koprusu`/`hedef_koprusu`
-haritaları kurulur; ortak story'de her (uat, hedef) çifti eşleştirilir. Köprü **yalnız Story seviyesinde**
-(`_KOPRU_TIP_ADLARI`={story,hikaye}); Epic/Initiative bilinçli hariç (aksi halde geniş kapsayıcılar yanlış
-pozitif üretir). `kesin_ciftler` değeri artık hazır gerekçe string'i; doğrudan link (1a) ile köprü (1b)
-aynı dedup'tan geçer, doğrudan gerekçe önceliklidir. Doğrulandı: gerçek veride MBSTRADE-1549 ↔ MBSUATEAM-129
-(ortak story MBSTRADE-1464) eşleşiyor; farklı story'ye (1133) bağlı olup UAT tarafı olmayanlar köprü kurmaz;
-ruff temiz.
-
-## UAT Mutabakat — bir UAT → çok hedef: özet satır + tıkla-genişlet ✅
-**Sorun:** Bir UAT taskı birden çok TRADE/OPS işine bağlanınca (özellikle Story köprüsüyle) UAT satırda
-tekrar ediyor, tablo şişiyordu; "Eşleşen" sayısı da çift sayıyordu.
-**Çözüm (kullanıcı tercihi: özet satır + genişlet):** `_bsTabloEsles` artık eşleşmeleri UAT key'e göre
-gruplar. Tek hedefli UAT → düz satır (`bs-tek-sat`, 4 filtre alanı). Çok hedefli UAT → tıklanabilir
-**özet satır** (`bs-ozet-sat`, "▸ N eşleşen iş" rozeti + key önizleme) ve gizli **detay satırları**
-(`bs-detay-sat`, ↳ girintili). `_bsGrupAc` aç/kapa; key linkine tıklama grubu açmaz.
-`_bsFiltrele` gruplu-farkında: UAT Durum/Atanan filtresi özet satıra (grubu bütün süzer), Hedef
-Durum/Atanan filtresi detaya uygulanır ve eşleşen grup otomatik genişler; tek-satırlar tüm filtrelere
-uyar. "Eşleşen"/"Aday" stat kartı + grup başlığı artık **distinct UAT** sayısı, alt etikette toplam iş.
-Excel'e "UAT İş Adedi" kolonu eklendi (düz satır korunur). Doğrulandı: grup/tek render, aç-kapa, chevron,
-UAT vs Hedef filtre ayrımı, çapraz AND, boş-durum, distinct sayım ve Excel kolonu — tarayıcı testi +
-ekran görüntüsü + openpyxl testi.
-
-## UAT Mutabakat — Story köprüsü artık PARENT (alt görev) bağını da kapsıyor ✅
-**Sorun:** MBSUATEAM-33, Story MBSTRADE-1215'e issue-link'li; ama story'nin dev task'ları (MBSTRADE-1404
-vb.) story'ye issue-link ile DEĞİL, **parent-child (alt görev)** ile bağlı. Story köprüsü yalnız
-issue-link'e baktığından bu tasklar köprülenmiyor, UAT-33 "açıkta kalan" görünüyordu.
-**Çözüm:** parser (`_issue_ayrıstir`) artık `parent_key`/`parent_type` döndürür (`_ISSUE_ALANLARI` zaten
-"parent" çekiyordu). Köprü kurulumu `_story_baglari(g)` ile genelleştirildi: bir görevin bağlı olduğu
-Story key'leri = Story tipli issue-link'ler + Story tipli parent. Epic yine hariç (yanlış pozitif önlemi).
-Doğrulandı: MBSUATEAM-33 ↔ MBSTRADE-1215'in alt task'ları (1404/1405/1406/1560…) artık eşleşiyor; ruff temiz.
-
-## Uygulama — güvenilir "Yeniden Başlat" + os.execv restart bug'ı düzeltmesi ✅
-**Sorun:** Backend değişikliği sonrası "Güncelle" çoğu zaman restart etmiyordu — `git pull` yerel dosyalar
-zaten güncel olduğunda "Already up to date" deyip erken dönüyor, `os.execv` restart hiç tetiklenmiyordu.
-Ayrıca `os.execv` restart'ın KENDİSİ bozuktu: execv, Flask'ın dinlediği socket FD'sini yeni sürece
-devrettiği için bind "Address already in use" veriyordu (süreç düşüyordu). Sekme kapatıp açmak/sayfa
-yenilemek Python sürecini hiç yeniden başlatmadığından backend eski kodda kalıyordu (kullanıcı şikâyeti).
-**Çözüm:**
-- Yeni `/api/restart` endpoint'i (koşulsuz) + Güncelleme sekmesinde **"Yeniden Başlat"** düğmesi
-  (`yenidenBaslat()`), git pull yapmadan süreci yeniden başlatır.
-- Restart mekanizması `_yeniden_baslat_zamanla()`'da toplandı ve os.execv'den vazgeçildi: mevcut süreç
-  `os._exit(0)` ile kapanır (dinlenen socket serbest kalır), ayrık (start_new_session) yeni süreç ~1.5 sn
-  gecikmeyle aynı komutla başlar → port boşaldıktan sonra temiz bind. "Güncelle" restart'ı da bu ortak
-  yolu kullanır (aynı bug düzeldi).
-- "Zaten güncel" mesajı artık "Yeniden Başlat"a yönlendiriyor; Nasıl Çalışır metni ikisinin farkını açıklar.
-- Doğrulandı: POST /api/restart sonrası eski PID kapanıp ~3 sn'de yeni PID ile porta bağlanıyor; buton+fn UI'da.
-
-## UAT Mutabakat — Story köprüsü YANLIŞ POZİTİF düzeltmesi (kritik) ✅
-**Sorun:** Story köprüsü, paylaşılan story'nin hangi board'da olduğuna bakmıyordu. Bir UAT task bir
-**UAT-board story'sine** (örn. MBSUATEAM-158 → MBSUATEAM-139) bağlıysa ve bir TRADE task da aynı UAT
-story'sine relate ediyorsa, ikisi yanlışça eşleşiyordu (MBSUATEAM-158 → MBSTRADE-1502 gibi; oysa 1502
-başka bir UAT taskına ait). Bu, çok sayıda sahte eşleşme üretip gerçekten açıkta kalan task'ları
-gizliyordu (eşleşmeyen_uat yapay olarak 2 görünüyordu; gerçekte ~29).
-**Not:** Önce "moddan bağımsız köprü" (kapsam dışı hedef çekme) commit'i (39e9960) geri alındı; sahte
-eşleşmenin kök nedeni o değil, köprünün board kısıtı eksikliğiydi (temel kodda da vardı).
-**Çözüm:** Köprü artık YALNIZ **hedef board'a (MBSTRADE/MBSOPS) ait story'ler** üzerinden kurulur
-(`_hedef_story_baglari` — story key'inin projesi hedef projelerde olmalı). UAT-board story'leri
-(UAT-tarafı gruplama) köprü sayılmaz. Doğrulandı: MBSUATEAM-158 artık açıkta; MBSUATEAM-33 (→MBSTRADE-1215)
-ve -129 (→MBSTRADE-1464) doğru eşleşiyor; UAT-story köprüsü sayısı 0; eşleşmeyen_uat=29 (gerçekçi).
-
-## UAT Mutabakat — "Epic/Story altı" modu artık ÖZYİNELEMELİ (tüm alt-ağaç) ✅
-**Sorun:** `alt_gorevleri_cek` yalnız BİR seviye iniyordu. Kullanıcı bir Epic girince onun doğrudan
-çocukları (story'ler) geliyordu; ama story'ler Epic/Story kuralıyla dışlandığından ve story'lerin
-alt-task'ları (2 seviye alt) hiç çekilmediğinden, dev işleri hedef sette olmuyordu → story köprüsü
-kurulamıyor, MBSUATEAM-33 gibi task'lar epic modunda "açıkta kalan" görünüyordu.
-**Çözüm:** `_hedef_gorevleri_topla` epic dalı özyinelemeli (BFS) hale getirildi: bir çocuk kapsayıcıysa
-(Epic altındaki Story gibi) onun da altına inilir → Epic → Story → alt-task tümü gelir. Kapsayıcının
-kendisi listeye eklenmez; yaprak görevler hedef board'la sınırlanır; döngü koruması (`gorulen_ust`).
-`alt_gorevleri_cek` (Jira Görevleri ekranı da kullanır) tek-seviye sözleşmesini korur — özyineleme yalnız
-Mutabakat epic modunda. Doğrulandı: Epic MBSTRADE-1149 alt-ağacı 206 görev (1215'in alt-task'ları dahil);
-MBSUATEAM-33 epic modunda EŞLEŞEN(8); MBSUATEAM-158 açıkta (yanlış eşleşme yok); eşleşmeyen_uat=29.
-
-## UAT Mutabakat — İptal board bazlı + hedef "Story" kolonu ✅
-Kullanıcı Excel karşılaştırması: İptal kovası tüm board'ları birleştirdiğinden (114 = TRADE 84, OPS 20,
-UAT 10) UAT sayısı görünmüyordu; board bazlı ayrım UAT tarafını (10) netleştirir → 129 UAT toplam + 10 UAT
-iptal + 1 Story (MBSUATEAM-139) = 140 (Excel'le birebir).
-- **İptal board bazlı:** İptal (ve Eşleşmeyen TRADE/OPS) tablosuna **Proje filtresi** eklendi
-  (`_bsTabloTek` projeKolon → `fproje`); "İptal Edildi" stat kartı etiketi board kırılımı gösterir
-  ("· UAT N"), tooltip tam kırılım.
-- **Story kolonu (kullanıcı tercihi: mevcut + Story kolonu):** her hedef task satırında bağlı olduğu
-  HEDEF board story'si gösterilir (`_satir.hedef_story`, `_sade.story`; yalnız hedef-proje story'leri —
-  `_story_isle` ile görevlere `_story` işlenir). Eşleşen/Aday tablosunda "Story" kolonu, Eşleşmeyen
-  TRADE/OPS ve İptal tablolarında da Story; Excel'e "Hedef Story"/"Story" sütunları.
-- Doğrulandı: Story alanları doluyor (MBSTRADE-1404→"MBSTRADE-1133, MBSTRADE-1215"); İptal Proje filtresi
-  MBSUATEAM seçince yalnız UAT iptallerini gösteriyor; ruff temiz; Excel başlıkları doğru.
-
-## Sadece Teknik Analiz — yeni yüklenen doküman kaçırılıyordu (bug fix) ✅
-**Sorun (analist geri bildirimi):** Yeni bir süreç analizi dökümanı yükleyip "Sadece Teknik Analiz"e
-basınca, güncel yükleme yerine BİR ÖNCEKİ versiyon kullanılıyordu.
-**Kök neden:** `/api/run-teknik`, `output/surec-analizi.md` VARSA koşulsuz koruyordu; yükleme endpoint'i
-`input/`'u temizler ama `surec-analizi.md`'ye dokunmadığından önceki versiyon kalıyordu.
-**Çözüm:** Yüklenen .md/.txt, mevcut `surec-analizi.md`'den DAHA YENİ ise (mtime) yeni yükleme kullanılır
-(analist yeni analiz yükledi); değilse (AI'ın ürettiği çıktı daha yeni) üretilmiş analiz korunur. Böylece
-hem yeni yükleme işlenir hem de orijinal koruma (ham kaynağın AI çıktısını ezmemesi) sürer — full
-pipeline'da kaynak, AI çıktısından eski olduğu için kopyalanmaz. İzole mtime testiyle 4 senaryo doğrulandı;
-ruff temiz.
-
-## Süreç/Teknik Analiz — takılı "Hata oluştu" + tekrar eden hata bildirimi düzeltmesi ✅
-**Sorun:** Header'da sürekli "Hata oluştu" ve altta tekrar eden "22 dakika … zaman aşımı" bildirimi.
-**Kök neden:** (1) `output/workflow-state.json` eski bir sürümün 1320s (22dk) timeout hatasında takılıydı
-(kod artık 2700s/45dk); durum "hata" olduğu için topbar `DURUM_ETIKET[HATA]="Hata oluştu"` gösteriyordu.
-(2) `updateUI` her çağrıldığında (poll, **sekme değişimi** `updateUI(_lastState)`, ilk yükleme) hata
-toast'unu YENİDEN atıyordu → bildirim tekrar tekrar çıkıyordu.
-**Çözüm:** (1) Takılı workflow durumu `sifirla()` ile idle'a çekildi → header "Hazır". (2) Hata toast'u
-artık yalnız hataya GEÇİŞTE gösteriliyor (`_oncekiWfDurum`/`_wfIlkRender` izleyicileri): ilk render'da
-mevcut/eski hata toast'lanmaz (header zaten gösterir), sekme değişimi/yeniden render tekrar atmaz, oturum
-içi gerçek yeni hata bir kez toast. Doğrulandı: topbar "Hazır"; tarayıcı testinde 3 render→0 toast, gerçek
-geçiş→1 toast; ruff temiz, konsol hatasız.
-
-## CLI 429 hata mesajı — "session limit" vs genel kota netleştirmesi ✅
-**Kullanıcı:** Jira Görevleri'nde teknik analizde "You've hit your session limit · resets 3:50pm" alıyor
-ama Claude Desktop'ta hâlâ kotası görünüyor.
-**Durum:** Bu gerçek bir `claude -p` 429'u; uygulama doğru aktarıyor. Karışıklık: "session limit" = Claude
-aboneliğinin **5 SAATLİK oturum penceresi**, Desktop'taki genel/haftalık kotadan AYRIDIR. Ayrıca `claude`
-CLI farklı bir hesaba giriş yapmışsa da bu tablo çıkar.
-**Çözüm:** `_api_cagri_cli` 429 dalındaki mesaj netleştirildi: result'ta "session" geçiyorsa 5 saatlik
-oturum penceresi olduğu ve Desktop kotasından ayrı olduğu açıkça belirtiliyor; her durumda `claude` CLI'ın
-giriş hesabının Desktop'takiyle aynı olduğunu doğrulama (terminalde `claude`→`/login`) yönergesi eklendi.
-Kod/eşleştirme değişmedi — sadece hata mesajı bilgilendirici. ruff temiz.
-
-## CLI 429 mesajı düzeltmesi 2 — tek sebep iddia etme, /status'a yönlendir ✅
-Kullanıcı ekran görüntüsü: 5 saatlik limit %35 (bol), haftalık %4, ama **usage credits $45.27/$48.24
-(kırmızı)**. Yani önceki "5 saatlik oturum doldu" ifadesi bu vaka için yanıltıcıydı. CLI hesabı
-doğrulandı: `ugurcangir@gmail.com` = Desktop ile AYNI (hesap uyuşmazlığı yok). 429 mesajı artık tek bir
-sebep iddia etmiyor (5 saatlik / haftalık / usage-credit olabilir) ve kesin durum için Claude Code'un
-KENDİ `/status`·`/usage` görünümüne yönlendiriyor; API moduna geçiş (ANTHROPIC_API_KEY + USE_CLAUDE_CLI=
-false) alternatifi korunuyor. ruff temiz.
-
-## CLI modeli Fable olmasın (--model) + Jira analizini iptal edebilme ✅
-**(1) Fable/premium model:** CLI modu (`claude -p`) `--model` geçmiyordu → Claude Code KENDİ varsayılanını
-seçiyordu (alias listesinde 'fable' de var → premium/pahalı → istenmeyen ücretli kullanım). Artık
-`--model` DAİMA açıkça geçiliyor (`CLAUDE_CLI_MODEL`, varsayılan `sonnet`; .env ile değiştirilebilir).
-`--model` bayrağı `claude --help` ile doğrulandı (alias: sonnet|opus|haiku|fable veya tam ad).
-**(2) İşlemi kapatma:** Jira Görevleri teknik analiz modalında istek AbortController ile sarıldı; ✕/İptal
-artık süren isteği gerçekten **abort** ediyor (limit/asılı kalmada "işlem yapılıyor" takılı kalmasın).
-Bekleme metnine "İptal'e basabilirsiniz" ipucu; AbortError ayrı "İşlem iptal edildi" mesajı. Doğrulandı:
-tarayıcıda jgPreviewKapat in-flight isteği abort ediyor, modal temizleniyor; ruff temiz, NUL yok.
-
-## Header'da CLI limit göstergesi ✅
-Claude Code CLI'ın 5-saatlik oturum limiti Claude Desktop SOHBET sayaçlarından AYRIDIR ve agent buna
-tabidir; kullanıcılar bunu karıştırıyordu. Header'a (bir sayfaya değil) canlı bir **CLI limit** göstergesi
-eklendi — her kullanıcı KENDİ hesabının durumunu görür (yerel `claude` auth'u kullanılır).
-- Backend `skills/base.py`: `cli_durum_oku`/`cli_durum_probe`/`_cli_durum_yaz` + `_cli_env_hazirla`
-  (env kurulumu yardımcıya çıkarıldı). Durum, gerçek analiz çağrılarından **bedava** yakalanır (429→dolu+
-  reset, başarı→uygun) ve diske yazılır (`output/cli-usage-state.json`, alt süreç+app paylaşır).
-- `/api/cli-usage` (GET son bilinen durum; `?probe=1` minimal `claude -p` haiku çağrısıyla tazeler — limit
-  doluysa $0). API modunda "API modu" gösterir.
-- Header göstergesi (topbar): yeşil "CLI: uygun" / kırmızı "CLI limit dolu · <reset>" / sarı "kontrol et" /
-  accent "API modu"; tıkla → probe ile tazele; tooltip Desktop-farkını açıklar.
-- Doğrulandı: GET son durumu, probe canlı "limit dolu · 3:50pm" döndürdü (state dosyası yazıldı), header
-  kırmızı gösterdi; ruff temiz, NUL yok.
-
-## Görev Teknik Analizi promptu — çözüm odaklı (gözlem dökümü azaltıldı) ✅
-**Analist geri bildirimi:** Jira görev teknik analizi çok fazla gözlem bilgisi/gereksiz içerik üretiyordu;
-gözlenen servis (sport id ile istek kabul eden) çözüm olarak sunulmuyordu; amaç geliştiriciye isteri net
-anlatmak olmalı.
-**Kök neden:** `gorev_teknik_analiz` promptundaki "GÖZLEM SINIRI — SPEKÜLASYON YASAK" kuralı fazla genişti;
-gözlemi çözüme çevirmeyi de caydırıp ham gözlem dökümüne yol açıyordu.
-**Çözüm (base.py VARSAYILAN_PROMPTLAR):** Prompt çözüm-odaklı yeniden yazıldı: ROL "geliştiriciye isteri +
-somut çözüm"; yeni **"GÖZLEMİ ÇÖZÜME ÇEVİR"** bölümü (gözlenen servis/endpoint/yetenek ÇÖZÜM olarak
-sunulmalı — sport id örneğiyle); bölümler `## Gereksinim` + `## Çözüm` odaklı; "GEREKSİZ GÖZLEM/DÖKÜM YAZMA
-— her gözlem çözümü desteklemeli"; spekülasyon sınırı SUNUCU-İÇİ kök nedenle sınırlandı (gözlenen yetenekten
-çözüm önermek serbest/beklenir). Doğrulandı: prompt yükleniyor, tüm bölümler mevcut; ruff temiz. Not: etkiyi
-görmek için görev yeniden analiz edilmeli (CLI limiti açıkken ya da API modunda).
-
-## Swagger fetch — HTML yerine gerçek OpenAPI spec'i çöz (kök neden) ✅
-**Analist:** Verdiği Swagger servisini (Tradoria definition-service/markets, sportId parametreli) agent
-görmemiş/analize eklememiş. **Kök neden:** `/api/reference/fetch-be`, URL JSON döndürmediğinde (Swagger
-UI HTML sayfası geldiğinde) `except` dalında HAM HTML'i olduğu gibi kaydediyordu → `reference/services/
-Tradoria.json` içinde 0 endpoint, sadece Swagger UI HTML boilerplate → RAG'e çöp gidiyor, agent endpoint'i
-göremiyordu.
-**Çözüm:** `_swagger_spec_cek` — URL doğrudan spec değilse (HTML), gerçek OpenAPI URL'ini çözer
-(swagger-initializer.js + HTML içindeki `url:"…"` + yaygın yollar: v3/api-docs, swagger.json, openapi.json,
-swagger-config `urls[]`). YALNIZ geçerli spec (paths/openapi/swagger) kaydedilir; 0 endpoint ya da
-çözülemezse net hata + HAM HTML ASLA kaydedilmez. Ek güvenlik: RAG yükleyici (`_ref_bloklari_olustur`)
-geçersiz servis dosyalarını (OpenAPI olmayan) atlar. Bozuk Tradoria.json silindi (yeniden eklenmeli).
-Doğrulandı: mock testte HTML UI URL'i → /v3/api-docs'a çözülüp markets+sportId spec'i alındı; spec yoksa
-None; ruff temiz.
-
-## Swagger çözücü aynı-host önceliği + görev promptu "mevcut yetenek" kuralı ✅
-Analistin verdiği Swagger UI URL'i, initializer varsayılan **petstore.swagger.io**'ya işaret ettiğinden
-çözücü yanlış (Petstore demo) spec'i kaydediyordu → agent gerçek `GET /api/v1/market?sportId=` yeteneğini
-göremeyip "servise özellik eklenmeli" diyordu. Düzeltmeler:
-- **`_swagger_spec_cek`**: spec adayları AYNI-HOST önce denenir; `petstore.swagger.io` demo adayları elenir.
-  (Kullanıcı doğru `.../v3/api-docs`'u verince Tradoria Definition Service — 45 endpoint, `sportId`'li
-  `/api/v1/market` — doğru kaydedildi.)
-- **`gorev_teknik_analiz` promptu**: "MEVCUT YETENEĞİ 'YENİ İŞ' SANMA" kuralı — çözümden önce Swagger'ı
-  tara, gereken parametre (sportId) VARSA onu KULLAN, 'eklenmeli' deme; zaten var olan parametre dururken
-  dolaylı (sport-NAME) eşleştirme anlatma; yeni çözümle gereksizleşen davranışı (ekrandaki sport-name
-  arama filtresi) çözümün parçası olarak "kaldırılmalı, çünkü…" diye belirt.
-Doğrulandı: mock testte initializer petstore'a işaret etse de aynı-host /v3/api-docs seçildi; prompt yeni
-kurallarla yükleniyor; ruff temiz.
-
-## Görev teknik analizi — başlıklar ekip formatına geri alındı ✅
-Analist: son prompt değişikliğinde başlıklar (Gereksinim/Çözüm) ekibin mevcut task formatından sapmıştı.
-Kullanıcı tercihi: değişiklik ÖNCESİ başlıklar. `gorev_teknik_analiz` bölüm başlıkları geri alındı:
-`## Amaç ve Kapsam` / `## Etkilenen Alanlar` / `## Teknik Değişiklikler` / `## Kabul Kriterleri` (bu
-sırayla, "TAM BU BAŞLIK ADLARIYLA — başlık adını DEĞİŞTİRME" kuralıyla → LLM başlık uydurmaz). Son
-turlardaki çözüm-odaklı kurallar KORUNDU (GÖZLEMİ ÇÖZÜME ÇEVİR, MEVCUT YETENEĞİ 'YENİ İŞ' SANMA,
-sportId endpoint'ini kullan, gereksizleşen sport-name filtresini "Teknik Değişiklikler" altında belirt).
-"Basit task'ta yalnız ilgili bölümler" kuralı da yerinde. Doğrulandı: prompt eski başlıkları + kuralları
-birlikte içeriyor; ruff temiz.
-
-## Header durum göstergesi — sekmeye göre güncelle (stale JG mesajı sızmıyor) ✅
-Analist: Jira Görevleri'nde "3 görev çekildi" mesajı başka ekranlara geçince güncellenmeyip takılı
-kalıyordu. Kök neden: `switchTab`, JG dışı sekmede yalnız `else if (_lastState)` ile workflow durumunu
-geri yüklüyordu; `_lastState` yoksa (workflow analizi hiç çalışmadıysa) üst bar hiç sıfırlanmıyordu.
-Çözüm: `switchTab` üst barı sekmeye göre günceller — JG → son JG durumu (`_jgSonDurum`); Süreç/BRD →
-workflow durumu; diğer ekranlar → nötr "Hazır" (`_topbarNotr`, `_jgSonDurum`'a dokunmaz → JG'ye dönünce
-geri gelir). Doğrulandı: JG "3 görev çekildi" → Mutabakat/Ayarlar "Hazır" → JG'ye dönüş "3 görev çekildi";
-Süreç (state yok) "Hazır". NUL yok.
+### Süreç/Teknik + Task Analizi + uygulama düzeltmeleri
+- Güvenilir "Yeniden Başlat": `/api/restart` + os.execv restart bug'ı (socket FD devri) → `os._exit`+ayrık süreç.
+- "Sadece Teknik Analiz" yeni yüklenen dokümanı kaçırıyordu (mtime karşılaştırması).
+- Takılı "Hata oluştu" + tekrar eden hata toast'u (workflow sıfırla + yalnız geçişte toast).
+- Header durum göstergesi sekmeye göre güncellenir (stale JG mesajı sızmıyor).
+- Görev teknik analizi promptu: çözüm-odaklı (gözlem→çözüm) → başlıklar ekip formatına geri alındı →
+  ana 11-başlık formatına hizalandı (dokunulan başlık dolu, dokunulmayan hiç açılmaz).
+- Swagger fetch gerçek OpenAPI spec'i çözer (`_swagger_spec_cek`, aynı-host önceliği, petstore elenir);
+  "mevcut yeteneği yeni iş sanma" kuralı.
+- Test geri bildirimi 4 düzeltme: Tümünü Sil mezar-taşı, CLI hesap info, Pano Yenile geri bildirim, kalıntı doküman
+  "aktif oturum" (`/api/oturum.aktif` + `/api/oturum/temizle`) — pano + Analiz Dosyaları.
+- Jira Ayarları sadeleştirme: site adresi otomatik algılanır (callback ≠ site URL).
+- Task Analizi olgunlaştırma: modalı ana akış (JARVIS + cevaplanabilir sorular + iteratif düzelt) → soru-bazlı
+  cevap girişi → ilişkili FE/BE (iki ayrı analiz + task switcher + katman sözleşmesi) → işlem-sürerken güvenlik
+  (kilit/guard) → arka plan iş modeli + gömülü panel (kapatınca kesilmez) → açık soru YAKINSAMASI (drift önlemi).
+- Owner konsol bayrağı yenilendi: `USAGE_DASHBOARD` → **`OWNER_KONSOL`** (kopyalanmış eski bayrak ekranı açmaz).

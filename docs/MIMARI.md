@@ -59,6 +59,8 @@ MAX_CHARS_BRD=100_000  MAX_CHARS_GENEL=30_000
 MAX_CHARS_REF=15_000   # dosya başına
 MAX_CHARS_CONF_TOT=80_000  MAX_CHARS_JIRA_TOT=60_000  MAX_CHARS_SERVIS_TOT=60_000
 MAX_CHARS_LIVE_APP_TOT=60_000  MAX_CHARS_DIGER_TOT=20_000
+MAX_CHARS_REF_GLOBAL=140_000  # GETİRİM BÜTÇESİ: tüm tiplerin TOPLAM tavanı (.env; 0=sınırsız).
+                              # _ref_bloklari_olustur tipleri sırayla doldurur, bütçe dolunca keser.
 
 # Token limitleri
 MAX_TOKENS_UZUN=16_000  (süreç analizi)   MAX_TOKENS_KISA=3_000
@@ -121,6 +123,9 @@ doğrulama/şeffaflık bilgisidir, gereksinim değildir. Her Jira yazma yolu iki
   detaylandırılır. Ham UI kaynak kodu okuma/yükleme arayüzü kaldırılmıştır.
 - **Prompt caching:** system prompt → `cache_control: ephemeral`; stable user blocks (ref+MCP hedefleri+mockup) son
   bloğa cache breakpoint; `anthropic-beta: prompt-caching-2024-07-31`. 5 dk içi tekrar ~%90 tasarruf.
+  **Görev analizinde 2. breakpoint (madde 3):** görev içeriği (key/başlık/açıklama + analist notu) cevap/düzeltme
+  turları arasında değişmez → refs breakpoint'ine ek olarak görev bloğuna da konur; cevap turlarında görev
+  içeriği cache'ten okunur (sistem+refs+görev = 3 breakpoint, tavan 4). CLI modu cache_control yok sayar.
   THINKING yolunda da aktif (`_api_cagri_direct`) — eskiden yalnızca non-thinking yol cache'liyordu,
   EXTENDED_THINKING açıkken her çağrı tam input token maliyeti ödüyordu.
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
@@ -191,6 +196,9 @@ görevi kurulur ve `_api_cagri(..., canli_uygulama_kapsami="surec")` ile CLI mod
 analizinin **GEREKSİNİMLER → Ekranlar** (EK-XXX, Alan/Buton tabloları) bölümüdür. Tüm component'ler çalışır
 (nav geçiş, form submit+doğrulama, tablo mock veri, modal aç/kapa). URL yoksa generic tasarım ipucuna düşer
 (fallback korunur). `html_mockup_base` promptu buna göre güncellendi (eski "Bölüm 9" referansı yeni formata taşındı).
+- **Sohbetle iteratif düzeltme:** `html_mockup_duzelt(talimat)` mevcut `mockup.html` + talimat → güncellenmiş HTML;
+  `/api/mockup/duzelt` + `/api/mockup/geri-al` (yedek/undo), görüntüleyicide "Sohbetle düzelt" satırı — analist
+  istediği hâle gelene kadar düzeltir, "✓ Onayla" ile kabul eder; teknik analiz `mockup.html`'i kaynak alır.
 
 ## ID Şeması (aşamalar arası izlenebilirlik)
 ```
@@ -267,6 +275,17 @@ takip-Excel senkron akışı — upload + cerrahi lxml yazımı — bu sürümde
   3. **ADAY** — Jaccard `ESIK_ORTA` (0.35) ile `ESIK_YUKSEK` arası → analist teyit eder.
   4. **EŞLEŞMEYEN** — UAT tarafı (açıkta kalan iş) VE hedef tarafı (kaynağı UAT'de olmayan) ayrı ayrı.
   Dönüş: `eslesenler`, `adaylar`, `eslesmeyen_uat`, `eslesmeyen_hedef`, `sayimlar`, `jira_url`.
+- **Eşleştirme incelikleri (sonraki eklemeler):**
+  - **Kapsam dışı hedef:** UAT issue-link'i hedef-projedeki bir key'e işaret ediyorsa, o hedef taranan sette
+    olmasa bile `_keyleri_cek` ile çekilip KESİN eşleşmeye dahil edilir.
+  - **Story köprüsü (dolaylı/transitif):** UAT ve hedef task AYNI Story/Hikaye'ye bağlıysa eşleşir —
+    `_story_baglari`: Story tipli issue-link VEYA Story tipli **parent** (alt görev doğrudan Story altında);
+    yalnız Story seviyesi, Epic hariç (parser `parent_key`/`parent_type` verir).
+  - **Kapsam dışı bırakılanlar:** Epic/Story (kapsayıcı) tipler + UAT board'unda `UAT_HARIC_DURUMLAR`
+    ("Created in Error" vb.). **İptaller** (İptal Edildi/CANCEL/CANCELED — `_iptal_statusu_mu`) ana akıştan
+    ayrılıp ayrı `iptaller` kovasında toplanır (JQL `status NOT IN` + elde güvenlik ağı).
+  - **Atanan (assignee):** UAT ve hedef task'ların atananı da çıktıda (`uat_atanan`/`hedef_atanan`/`atanan`) →
+    ekranda kolon + Durum/Atanan başlık filtreleri (istemci taraflı, AND); Excel raporunda Atanan kolonu.
 - **`jira_url` (browse link'leri için):** canonical `atlassian.jira_site_url()` accessible-resources
   endpoint'inden cloud_id eşleşmesiyle site adresini (ör. `https://firma.atlassian.net`) alır, süreç
   boyunca cache'ler. **`.env` `JIRA_URL`'e GÜVENMEZ** — o bazı kurulumlarda OAuth callback adresini tutuyor;
@@ -382,6 +401,17 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   **Onayla** → `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf; HTML yorumları silinir).
 
 Soru Defteri durumları: `acik / bekleniyor / cevaplandi / atlandi / varsayim` (kalıcı `output/sorular.json`, atomik).
+**Parse formatları (`parse_md_sorular`, öncelik sırasıyla):** (1) `### Q-T-001:` yapısal blok, (2) `| Q-001 |`
+tablo satırı, (3) **fallback** — yapısal HİÇ soru yoksa `_parse_liste_sorulari`: "Açık Sorular" başlığı altındaki
+düz NUMARALI liste (`1. …`) soruları yakalar, ID yoksa sıra numarasından türetir (`Q-001…`; merge (id,kaynak_dosya)
+ile anahtarladığından dosyalar arası çakışmaz). Analiz açık soruları numaralı liste ürettiğinde (özel prompt/model
+sapması) "Sorular" sekmesi artık boş kalmaz. Yapısal format varsa fallback TETİKLENMEZ (regresyon yok).
+**Onay kapısında inline cevaplama (FE):** süreç ve teknik onay adımlarının KENDİSİNDE açık sorular tek-tek
+cevap kutularıyla gösterilir (`_onaySorulariRender`/`_onaySoruKart`/`_onaySorulariUygula`, container
+`#onay-sorular-surec|teknik`) — Sorular sekmesiyle AYNI backend (`/api/sorular/<id>` kaydet + `/api/sorular/uygula`
+uygula, `_sorularUygulaBekle` poll). Boş kutu = atla; "Cevapları Uygula" → analiz güncellenir, sorular yakınsar,
+sonra "Devam Et". Tam 5-aksiyon (Beklet/Varsayım/Atla) için "Sorular sekmesinde aç" linki durur. Render koruması:
+analist yazarken ezmez (`dataset.dolu`), apply sonrası zorla tazeler, gate gizlenince sıfırlanır.
 
 ## Canlı Uygulama (Chrome MCP) — ekran + servis gözlemi
 Bağlam filtresinde `live_app.target_url` (+ en fazla 5 `extra_urls`) doluysa süreç/teknik analiz
@@ -528,3 +558,26 @@ gibi "temizle" akışları hâlâ çalışır çünkü ilgili alanı açıkça b
 - `markdown_to_adf` nested list'leri düzleştirir.
 - History limiti 5 (sabit, `save_to_history()`). Tek input dosyası (çok yüklenirse ilk).
 - Atlassian-only (Azure DevOps/GitHub Issues yok). macOS-only dağıtım. Tek aktif analiz (sunucu modunda).
+## Task Analizi (Jira görev analizi) — UI akışı
+> Backend çekme/sınıflandırma: yukarıdaki "Jira Görevleri Özelliği". Bu bölüm UI akışıdır. Dağınık tek-seferlik düzeltmeler `docs/DEGISIKLIK-ARSIV.md`'de (özet index: `docs/DEGISIKLIK-GECMISI.md`). Değişince güncelle.
+
+- **Modal-içi JARVIS reaktör:** üretim/düzeltme sırasında `#jg-proc` (`_jgProcBaslat/_jgProcBitir` + geçen-süre + model readout).
+- **İlişkili FE/BE analizi:** görevin bağlı task'ları varsa 'Teknik Analiz Et' önce **seçim paneli** açar (`_jgSecimGoster`): birincil + bağlı task'lar, her biri katman (FE/BE, tahmin `_jgKatmanTahmin`). 'Seçilenleri Analiz Et' her task'ı AYRI analiz eder (`jgIliskiliAnalizBaslat`), diğerleri `iliskili_keys` bağlamı olur; karşı katman yalnız `## Bağımlılık ve Arayüz (FE↔BE)` sözleşmesi olarak yazılır (`gorev_analiz_et(gorev, iliskili, katman)` + `gorev_getir`). Sonuçlar `_jgAnalizSeti`'te; task DEĞİŞTİRİCİ (`_jgSwitcherRender`/`_jgSonucGoster`), her analiz KENDİ Jira görevine ayrı yazılır.
+- **Açık soru YAKINSAMASI:** `_gorev_acik_sorular_uret(teknik, gorev, cevaplar, onceki_sorular)` — takip turunda önceki tur soruları + cevaplar prompt'a girer; cevaplanan sorular ÇIKAR, kalan açık olanlar AYNI ID+metinle korunur, yalnız yeni bloklayan belirsizlik eklenir (max 6) → sorular turlar içinde azalır/biter (drift yok). Frontend `jgCevaplariIsle` `onceki_sorular: s.acik_sorular` geçer.
+- **Arka plan iş modeli (GÖMÜLÜ + kesintisiz):** analiz/cevap/düzelt/formatla `POST /api/jira/gorev/is/baslat` → arka plan thread (`_gorev_isler`, `_gorev_is_calistir`); UI `_jgIsBaslat`→`/is/durum` polling (`_jgPollDurum`, 2.5sn). **Çok adımlı işler EŞZAMANLI (P1-C, ThreadPoolExecutor, `GOREV_PARALEL`=3)** — ilişkili FE/BE paralel; token ölçümü thread-local (`token_capture_baslat/al`). Panel MODAL değil GÖMÜLÜ (`#jg-preview-card.jg-inline` → `#page-jira-gorevler`); kapatınca iş sürer, üstte 'sürüyor/✓tamamlandı' çipi (`_jgSurenChipGuncelle`), dönünce `_jgReattach` (localStorage `jg-aktif-job`).
+- **GERÇEK Durdur (P0-4):** `/is/durdur` o an süren `claude -p`'yi killpg ile ANINDA öldürür (`base._cli_calistir` killable Popen + thread-keyed `_CLI_PROC_REG`, `cli_proc_durdur`); worker `DurdurulduError`'ı iptal sayar, `job["worker_tids"]` tüm pool thread'lerini kapsar. `_cli_calistir` `start_new_session=True` → run.py SIGTERM/SIGINT handler'ı `cli_tum_durdur()` ile köprüler (`_surec_durdur` killpg'i claude'a ulaşsın).
+- **İşlem güvenliği:** üretim/düzeltme sürerken Onayla/Düzelt/Cevapları-İşle PASİF + switcher KİLİTLİ (`_jgSwitcherKilit`) → işlem bitmeden başka task içeriği gösterilmez, Jira'ya YAZILMAZ. Her açık soru ayrı kart+cevap kutusu (`_jgSorulariAyristir/_jgSorulariRender`). İteratif düzelt `#jg-duzelt`→`jgAnalizDuzelt`→`/api/jira/gorev/duzelt` (yalnız ilgili kısım). Sorular/cevaplar Jira'ya YAZILMAZ; Onayla yalnız analiz metnini yazar.
+- **Bağlam filtresi kaydı:** `jgAnaliz`/`jgCevaplariIsle` öncesi `_jgFiltreKaydet` (buildContextFilter→POST) ekrandaki filtreyi diske yazar. Görev prompt'u ana süreç→teknik formatının başlık kümesini kullanır; yalnız DOKUNULAN başlıklar dolar. NOT: `reference/` boşsa RAG 0 döner.
+
+## Telemetri (Kullanım İzleme) — `skills/telemetri.py`
+> `backlog_senkron`/UAT → "## UAT Mutabakat"; `html_mockup` → "## HTML Prototip"; skills modül listesi → CLAUDE.md.
+
+- **Kapsam:** yalnız metadata; olaylar `logs/usage/events.jsonl`'e append + opsiyonel `USAGE_SINK_URL`'e fire-and-forget POST (Apps Script → Sheet write-only; bkz. `docs/telemetri-apps-script.md`). `istatistik()` 0-token deterministik özet.
+- **Emit noktaları:** `run.py` (surec/teknik/brd/kapsam/jira_gonder; parent `_bekle` yalnız timeout'ta) · app.py in-process (mutabakat, gorev_analiz, gorev_guncelle, mockup `/api/mockup/generate`).
+- **KRİTİK — `_sink_gonder` SENKRON POST** (daemon thread DEĞİL): kısa-ömürlü subprocess (run.py) çıkışında daemon thread öldürülüp POST kaybolurdu → süreç/teknik/brd/kapsam Sheet'e HİÇ ulaşmazdı. olay_yaz işlem sonunda çağrıldığından senkron bloklama sorun değil.
+- **Token/maliyet (P0-2 + P1-A):** her AI çağrısı `base.py` birikimli sayaca girdi/çıktı/cache token + maliyet ekler (CLI `usage`+`total_cost_usd`; API `yanit.usage`, `_api_kesilme_uyar` içinden). `token_sayac_oku/token_delta/_token_ekle`; paralelde `token_capture_baslat/al` (thread-local). `olay_yaz(..., token={...})`. Emit: run.py sayaç=koşu toplamı (subprocess taze); app.py `_telemetri_olay(token_bas=...)`. `istatistik()` `token_ozet` (genel) + analist `token{}`. API-cache replay 0 token. Dashboard: `#ku-ozet` Token/Maliyet kartları + analist tablosu sütunları + Excel 4 sütun.
+- **Owner-gate:** `OWNER_KONSOL=true` (AUTH'tan BAĞIMSIZ; analist build'lerinde yok → Kullanım+Yetki sekmeleri gizli + `/api/usage/*` 403). ESKİ `USAGE_DASHBOARD` ARTIK OKUNMAZ (kopyalanan owner `.env`'i ekranları açıyordu → `OWNER_KONSOL`'a yenilendi). `auth/me` `usage_admin` döner.
+- **Analist kimliği:** UI'dan Ayarlar → "Analist Adı Soyadı" → `analist.json` (gitignore, makineye özel; `/api/analist`, owner-gate YOK). Öncelik: login username > `ANALIST` env > `analist.json` > `ANALYST_NAME` env > OS user; subprocess'e `ANALIST` env ile geçer.
+- **Jira key izleme:** `jira_key_ekle()` (jira_gonder → `islem:"acildi"`); `/api/jira/gorev/guncelle` → olay `gorev_guncelle` (`islem:"guncellendi"`). Task adedi `jira_task_arttir()` (hem `jira_agent` hem `jira_tasks`). Excel'de **Detay** (olay-bazlı, key'lerle).
+- **Çift sayım önleme:** `olaylari_oku()` — `remote.jsonl` (Sheet, tüm ekip) VARSA yalnız onu okur (owner olayı hem lokal hem Sheet'te → aksi halde iki kez sayardı); yoksa lokal `events.jsonl`. Owner 'Uzaktan Çek' ile tazeler. HTTP `requests` (macOS SSL). Sink URL `VARSAYILAN_SINK_URL` gömülü (yalnız-yazma; `USAGE_SINK_URL` override).
+- **Ölçümleme:** isim-sıralı sabit id · dönem bazlı `istatistik(gun, donem, analist)` (gün/hafta/ay trend + tek-analist filtresi) · Analist Özeti (Toplam İşlem/Başarılı/Hatalı/Açılan Task/Toplam Süre=efor) · Analist × Tür matrisi (sabit sütunlar; Teknik Analiz [süreç→teknik] ≠ Görev Analizi [Jira task]) · analist seçilince tür bazında Ort. Süre (yalnız aynı tip içinde ortalanır).

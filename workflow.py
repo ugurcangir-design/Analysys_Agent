@@ -45,7 +45,10 @@ GECERLI_GECISLER: dict[str, list[str]] = {
     Durum.SUREC_ANALIZI_CALISIYOR:         [Durum.ONAY_BEKLENIYOR, Durum.HATA],
     Durum.ONAY_BEKLENIYOR:                 [Durum.TEKNIK_ANALIZ_CALISIYOR, Durum.IDLE],
     Durum.TEKNIK_ANALIZ_CALISIYOR:         [Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR, Durum.HATA],
-    Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:   [Durum.JIRA_GONDERILIYOR, Durum.SUREC_TAMAMLANDI, Durum.IDLE],
+    # ONAY_BEKLENIYOR'a GERİ DÖNÜŞ: analist teknik adımında süreçte bir sorun görürse süreç
+    # analizini YENİDEN ÇALIŞTIRMADAN (hedefli bölüm düzeltmesiyle) geri dönüp devam edebilsin.
+    Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:   [Durum.JIRA_GONDERILIYOR, Durum.SUREC_TAMAMLANDI, Durum.IDLE,
+                                            Durum.ONAY_BEKLENIYOR],
     Durum.JIRA_GONDERILIYOR:               [Durum.JIRA_TAMAMLANDI, Durum.HATA],
     Durum.JIRA_TAMAMLANDI:                 [Durum.IDLE],
     Durum.SUREC_TAMAMLANDI:                [Durum.IDLE],
@@ -216,6 +219,18 @@ def teknik_bitir() -> dict:
     return guncelle(Durum.SUREC_TAMAMLANDI, "Teknik analiz tamamlandı.")
 
 
+def surec_adimina_geri_don() -> dict:
+    """Teknik onayından SÜREÇ onayına geri dön — TEKNIK_ANALIZ_ONAY_BEKLENIYOR → ONAY_BEKLENIYOR.
+    Süreç analizi YENİDEN ÇALIŞTIRILMAZ, teknik-analiz.md SİLİNMEZ (analist süreçte hedefli
+    düzeltme yapar, 'Devam Et' ile teknik güncellenir). Önceki adımı tekrar etmeden geri dönüş."""
+    state = oku()
+    if state["durum"] != Durum.TEKNIK_ANALIZ_ONAY_BEKLENIYOR:
+        raise ValueError(f"Teknik analiz onayı beklenmiyor, mevcut durum: {state['durum']}")
+    state["onaylandi"] = None
+    _kaydet(state)
+    return guncelle(Durum.ONAY_BEKLENIYOR, "Süreç analizi adımına geri dönüldü (düzeltme için).")
+
+
 def teknik_reddet() -> dict:
     """Teknik analiz reddi — TEKNIK_ANALIZ_ONAY_BEKLENIYOR → IDLE"""
     state = oku()
@@ -265,6 +280,17 @@ def calisiyor_mu() -> bool:
     return oku()["durum"] in CALISMA_DURUMLARI
 
 
+def _hata_ozet(hata: str | None) -> dict | None:
+    """Analist-dostu hata (Faz 4): skills.hatalar bağımsızdır (base import etmez) → run.py'de de ucuz."""
+    if not hata:
+        return None
+    try:
+        from skills.hatalar import insanlastir
+        return insanlastir(hata)
+    except Exception:
+        return None
+
+
 def ozet() -> dict:
     state = oku()
     durum = state["durum"]
@@ -274,6 +300,7 @@ def ozet() -> dict:
         "pipeline": state["pipeline"],
         "mesaj": state["mesaj"],
         "hata": state["hata"],
+        "hata_ozet": _hata_ozet(state["hata"]),   # {kategori,baslik,aciklama,oneri,ozet,ham} | None
         "onaylandi": state["onaylandi"],
         "calisiyor": durum in CALISMA_DURUMLARI,
         "onay_bekleniyor": durum == Durum.ONAY_BEKLENIYOR,

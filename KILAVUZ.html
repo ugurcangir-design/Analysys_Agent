@@ -197,7 +197,7 @@
       <a href="#a-delta"   class="h2">6.4 CR / Delta analizi</a>
       <a href="#a-mockup"  class="h2">6.5 HTML prototip</a>
       <a href="#a-jira"    class="h2">6.6 Jira (FE/BE seçim)</a>
-      <a href="#a-gorevler" class="h2">6.7 Jira görevleri triyajı</a>
+      <a href="#a-gorevler" class="h2">6.7 Task Analizi (triyaj)</a>
       <a href="#a-backlog" class="h2">6.8 UAT Mutabakat</a>
       <a href="#akis-brd"  class="h1">7. BRD Akışı</a>
       <a href="#sorular"   class="h1">8. Soru Defteri</a>
@@ -224,6 +224,22 @@
   </aside>
 
   <main>
+    <div style="background:#0e3530;border:1px solid #0d9488;border-left:4px solid #2dd4bf;border-radius:12px;padding:14px 18px;margin-bottom:22px;color:#e8eef2;font-size:14px;line-height:1.6">
+      <strong style="color:#5fe3d3">🆕 v2 test sürümündesiniz.</strong>
+      Yenilikler: <b>Revizyon</b> (konuşarak bölüm-hedefli düzeltme + onay), <b>Çıktılar</b> (tazelik/köken rozeti),
+      aşamalı <b>Süreç</b> akışı, ayrı <b>Delta</b> ekranı, komut paleti <b>⌘K</b> ve otomatik güncelleme.<br>
+      <b>Yeni arayüz (v3):</b> yenilenmiş tasarım (koyu/açık tema), <b>açılır-kapanır sol menü</b> ve grup başlıkları,
+      kart tabanlı <b>Ana Sayfa</b>, sol altta <b>analist adınız</b> (Ayarlar'dan tanımlayın), analiz çalışırken
+      <b>İşlem Modu</b> göstergesi, ve sağ üstteki <b>?</b> düğmesiyle açılan bu <b>Kılavuz</b> (menüden kaldırıldı).<br>
+      <b>Ray görünümü:</b> Süreç/Teknik ve BRD ekranları tek kolon dikey adım akışıdır — yalnız sıradaki adım açık,
+      bitenler tek satır özete iner (tıkla → çıktı açılır), sonrakiler soluk bekler. Eski düzeni tercih edersen ekran
+      başlığındaki <b>Klasik görünüm</b> düğmesiyle anında geri dön (tercih tarayıcında saklanır; işlevler iki görünümde aynıdır).<br>
+      <b>Adım adım çalışma:</b> Ana Sayfa'da <b>Sıradaki iş</b> kartı sırada ne olduğunu söyler (bekleyen onay, açık/kritik
+      soru, bekleyen revizyon). Onay kartlarında <b>Bu adımı düzelt</b> ile yalnız ilgili bölümü düzeltirsin;
+      <b>◂ Süreç analizine dön</b> önceki adımı yeniden çalıştırmadan geri götürür. Sistem sahibi için sağlık
+      kartlarında CLI durumu, disk kullanımı ve <b>zamanlanmış disk temizliği</b> (günde bir, iş yokken; "Şimdi temizle") vardır.
+      Ayrıntılı analist kılavuzu ve kurulum: <em>ekip lideriyle paylaşılan v2 kılavuz bağlantısı</em>.
+    </div>
     <h1 class="title">Analyst Studio — Kullanıcı Kılavuzu</h1>
     <p class="lede">
       Bu kılavuz, ekibin Analyst Studio'yu kurmasını ve günlük analiz işlerinde
@@ -639,11 +655,14 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
       <h4>Onayla veya yeniden çalıştır</h4>
       <ul>
         <li><strong>Sorun yok</strong> → <em>Onayla &amp; Teknik Analize Geç</em></li>
-        <li><strong>Bir bölüm eksik/yanlış</strong> → <em>Yeniden Çalıştır</em> butonu + düzeltme notu yaz (örn. <em>"Bölüm 3'te ödeme akışı eksik, ekle"</em>)</li>
+        <li><strong>Bir bölüm eksik/yanlış</strong> → onay kartındaki <em>Bu adımı düzelt</em> kutusuna tek satır yaz; talimatta <strong>bölüm ID'si</strong> (örn. <code>PA-003</code>) veya <strong>bölüm adı</strong> geçsin (örn. <em>"PA-003'e iptal koşulu ekle"</em>, <em>"İş Kuralları bölümüne BR-007 ekle"</em>) → Uygula. Yalnız o bölüm düzenlenir ve <em>otomatik uygulanır</em>; Revizyon ekranından Geri Al mümkündür.</li>
+        <li><strong>Hedef bölüm bulunamadı</strong> uyarısı → talimata ID/bölüm adı ekle; olmuyorsa <em>Tam yeniden üret</em> (son çare — tüm dokümanı düzeltme notuyla yeniden yazar).</li>
       </ul>
       <div class="box tip">
-        <strong>Yeniden Çalıştır = cerrahi</strong>
-        Tüm dokümanı baştan üretmez; yalnızca belirttiğin bölümü günceller. ID'ler ve format korunur.
+        <strong>Adım sohbeti = cerrahi, geri dönüş = ücretsiz</strong>
+        Teknik analizi incelerken süreçte bir hata görürsen <em>◂ Süreç analizine dön</em> ile süreç adımına dönersin:
+        süreç analizi <strong>yeniden çalışmaz</strong>, teknik analiz dosyan silinmez. Süreçte hedefli düzeltmeyi yap,
+        <em>Devam Et</em> ile teknik analiz güncel süreçten yeniden üretilir.
       </div>
     </div>
 
@@ -777,9 +796,9 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
     </div>
 
     <!-- ============== 6.6 JIRA GÖREVLERİ ============== -->
-    <h3 id="a-gorevler">6.7 Jira görevleri triyajı <span class="pill new">Yeni</span></h3>
+    <h3 id="a-gorevler">6.7 Task Analizi (triyaj) <span class="pill new">Yeni</span></h3>
     <p>Doküman yüklemeden, <strong>mevcut</strong> bir Jira Epic/Story altındaki görevleri çekip iki gruba ayırır:
-       <em>hızlı işleme alınacaklar</em> ve <em>detaylı analiz gerekenler</em>. Sol menü → <strong>Jira Görevleri</strong>.
+       <em>hızlı işleme alınacaklar</em> ve <em>detaylı analiz gerekenler</em>. Sol menü → <strong>Task Analizi</strong>.
        (Jira bağlantısı gerekir — bkz. 4.2.)</p>
 
     <div class="step">
@@ -922,6 +941,16 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
         Onaylama, Jira görevinin mevcut açıklamasının <em>tamamını</em> yenisiyle değiştirir (geri alınamaz).
         Önizlemeyi gözden geçirmeden onaylama. Açık Sorular Jira'ya yazılmaz.
       </div>
+    </div>
+
+    <div class="box new">
+      <strong>Durdur artık gerçekten durdurur <span class="pill new">Yeni</span></strong>
+      Bir görev analizi sürerken <strong>Durdur</strong>'a bastığınızda, o an çalışan yapay zekâ
+      çağrısı <strong>anında sonlandırılır</strong> — eskiden çağrı arka planda bitene kadar
+      (token harcayarak) sürer, yalnızca sonucu atılırdı. Artık süreç öldürülür, kalan adımlar
+      çalışmaz ve o ana kadarki sonuçlar ekranda kalır. Bu, yanlış başlatılan uzun bir analizi
+      hemen kesip <strong>token tasarrufu</strong> sağlar. (Not: doğrudan API modunda ağ çağrısı
+      kesilemez; iptal yalnızca sonraki adımları durdurur.)
     </div>
 
     <div class="box new">
@@ -1410,7 +1439,7 @@ Doküman yükle <span class="arr">→</span> Süreç Analizi <span class="arr">�
       <tr><td>Ana Uygulama URL</td><td><code>https://dev.example.com/order</code></td><td>Claude MCP/Chrome bu ekrandan başlayarak canlı gözlem toplar</td></tr>
       <tr><td>Gözlem Kapsamı <span class="pill new">Yeni</span></td><td><em>"Güncelle butonu akışını uygula"</em></td><td>Doluysa tüm ekran taranmaz; yalnızca tarif edilen akış derinlemesine incelenir</td></tr>
       <tr><td>Alt URL'ler <em>(katlanır)</em></td><td><code>/order/detail</code>, <code>/order/edit</code></td><td>En fazla 5 ek ekran sırayla gezilir</td></tr>
-      <tr><td>Giriş Bilgileri <em>(katlanır)</em> <span class="pill new">Yeni</span></td><td>test hesabı</td><td>Login duvarında otomatik giriş; Jira Görevleri ile paylaşılır, git'e gitmez</td></tr>
+      <tr><td>Giriş Bilgileri <em>(katlanır)</em> <span class="pill new">Yeni</span></td><td>test hesabı</td><td>Login duvarında otomatik giriş; Task Analizi ile paylaşılır, git'e gitmez</td></tr>
       <tr><td>Örnek ekran olarak kullan</td><td>Buton açık</td><td>Süreç analizi isterleri ana URL'deki ekran yapısına göre detaylandırır</td></tr>
     </table>
     <div class="box tip">
@@ -1556,6 +1585,10 @@ pip install -r requirements.txt   # gerekirse</code></pre>
 
     <!-- ============== 15 SORUN ============== -->
     <h2 id="sorun">16. Sorun Giderme</h2>
+    <p>Analiz hata verirse Süreç/BRD ekranındaki hata kartı <strong>ne olduğunu</strong> ve <strong>ne yapmanız gerektiğini</strong>
+      düz Türkçe söyler (kullanım limiti, oturum düştü, zaman aşımı, ağ, disk dolu, doküman okunamadı…); teknik iz
+      <em>Teknik ayrıntı</em> altında katlıdır — ekip lideriyle paylaşırken onu açıp kopyalayın. Aşağıdaki tablo kurulum ve
+      ortam sorunları içindir.</p>
     <table>
       <tr><th>Belirti</th><th>Olası neden ve çözüm</th></tr>
       <tr>
@@ -1744,7 +1777,7 @@ pip install -r requirements.txt   # gerekirse</code></pre>
     <p>Ekibinize bildirin. Geliştirici GitHub'da <code>ugurcangir-design/Analysys_Agent</code> deposunda issue açabilir.</p>
 
     <div style="margin-top:64px; padding-top:24px; border-top:1px solid var(--border); font-size:12px; color:var(--text3); text-align:center;">
-      <strong>Analyst Studio</strong> · v2026.08 · Kullanıcı Kılavuzu<br>
+      <strong>Analyst Studio</strong> · v2026.09 · Kullanıcı Kılavuzu<br>
       Bu doküman <code>KILAVUZ.html</code> dosyasıdır; depo köküne kayıtlıdır
     </div>
   </main>

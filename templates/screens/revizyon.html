@@ -1,0 +1,257 @@
+    <!-- EKRAN: Revizyon (v2 Faz 1) — sohbetle bölüm-hedefli düzeltme + değişiklik
+         geçmişi + onay/ret. Backend: /api/revizyon/* (skills/revizyon*.py).
+         Kendi markup + davranışını taşır (Faz 0 ekran-eklenebilir mimari). -->
+    <div class="page" id="page-revizyon">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Revizyon</h1>
+          <p>Analiz çıktısını konuşarak, bölüm-hedefli düzelt. Her değişiklik geçmişe düşer; sen onaylayınca çıktıya yazılır.</p>
+        </div>
+      </div>
+
+      <style>
+        #page-revizyon .rz-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+        #page-revizyon select,#page-revizyon input,#page-revizyon textarea{
+          background:var(--surface2);color:var(--text);border:1px solid var(--border);
+          border-radius:var(--radius-sm);padding:8px 10px;font:inherit}
+        #page-revizyon textarea{width:100%;min-height:70px;resize:vertical}
+        #page-revizyon .rz-btn{background:var(--surface3);color:var(--text);border:1px solid var(--border-strong);
+          border-radius:var(--radius-sm);padding:8px 14px;cursor:pointer;font:inherit;font-weight:500}
+        #page-revizyon .rz-btn:hover{border-color:var(--accent)}
+        #page-revizyon .rz-btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+        #page-revizyon .rz-btn.danger{color:var(--red);border-color:var(--red-soft)}
+        #page-revizyon .rz-btn:disabled{opacity:.5;cursor:not-allowed}
+        #page-revizyon .rz-card{background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius);padding:16px 18px;margin-bottom:14px}
+        #page-revizyon .rz-card h3{margin:0 0 10px;font-size:14px;color:var(--text2);
+          text-transform:uppercase;letter-spacing:.04em}
+        #page-revizyon .rz-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        @media (max-width:820px){ #page-revizyon .rz-grid{grid-template-columns:1fr} }
+        #page-revizyon .rz-tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+        #page-revizyon .rz-tl li{display:flex;gap:10px;align-items:baseline;font-size:13px;
+          padding:8px 10px;background:var(--surface2);border-radius:var(--radius-sm)}
+        #page-revizyon .rz-badge{font-size:11px;padding:1px 8px;border-radius:10px;white-space:nowrap;font-weight:600}
+        #page-revizyon .rz-badge.beklemede{background:var(--yellow-soft);color:var(--yellow)}
+        #page-revizyon .rz-badge.onaylandi{background:var(--green-soft);color:var(--green)}
+        #page-revizyon .rz-badge.reddedildi{background:var(--red-soft);color:var(--red)}
+        #page-revizyon .rz-pending{border:1px solid var(--yellow);background:var(--yellow-soft)}
+        #page-revizyon .rz-diff{font-family:ui-monospace,monospace;font-size:12.5px;white-space:pre-wrap;
+          background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+          padding:10px;max-height:320px;overflow:auto;line-height:1.5}
+        #page-revizyon .rz-diff .add{color:var(--green)}
+        #page-revizyon .rz-diff .del{color:var(--red)}
+        #page-revizyon .rz-diff .hdr{color:var(--text3)}
+        #page-revizyon .rz-vers{display:flex;gap:8px;align-items:center;font-size:13px;
+          padding:7px 10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:6px}
+        #page-revizyon .rz-empty{color:var(--text3);font-size:13px;padding:8px 0}
+        #page-revizyon .rz-mut{color:var(--text3);font-size:12px}
+      </style>
+
+      <div class="rz-bar">
+        <label class="rz-mut" for="rz-dosya">Çıktı:</label>
+        <select id="rz-dosya" onchange="rzOturumGetir()">
+          <option value="surec-analizi.md">Süreç Analizi</option>
+          <option value="teknik-analiz.md">Teknik Analiz</option>
+          <option value="brd-analizi.md">BRD Analizi</option>
+          <option value="kapsam-analizi.md">Kapsam Analizi</option>
+          <option value="acik-sorular.md">Açık Sorular</option>
+          <option value="alternatif-surecler.md">Alternatif Süreçler</option>
+        </select>
+        <button class="rz-btn" onclick="rzBaslat()" id="rz-baslat-btn">Oturum Başlat</button>
+        <span id="rz-durum" class="rz-mut"></span>
+      </div>
+
+      <div id="rz-yok" class="rz-card rz-empty" style="display:none">
+        Bu çıktı için revizyon oturumu yok. Çıktı üretildikten sonra "Oturum Başlat" ile aç.
+      </div>
+
+      <div id="rz-govde" style="display:none">
+        <!-- Bölüm-hedefli düzeltme -->
+        <div class="rz-card">
+          <h3>Bölüm-hedefli düzeltme</h3>
+          <div class="rz-bar">
+            <input id="rz-anahtar" placeholder="Bölüm (örn. PA-001 veya başlık metni)" style="flex:1;min-width:220px">
+          </div>
+          <textarea id="rz-talimat" placeholder="Ne değişsin? Örn: 'Giriş adımına 2FA doğrulaması ekle.'"></textarea>
+          <div class="rz-bar" style="margin-top:10px">
+            <button class="rz-btn primary" onclick="rzBolumDuzenle()" id="rz-duzenle-btn">Öneri Oluştur</button>
+            <span class="rz-mut">Yalnız hedef bölüm AI'a gider — tüm doküman yeniden üretilmez.</span>
+          </div>
+        </div>
+
+        <!-- Bekleyen öneri (onay/ret) -->
+        <div id="rz-bekleyen" class="rz-card rz-pending" style="display:none"></div>
+
+        <div class="rz-grid">
+          <!-- Değişiklik geçmişi -->
+          <div class="rz-card">
+            <h3>Değişiklik geçmişi</h3>
+            <ul class="rz-tl" id="rz-gecmis"></ul>
+          </div>
+          <!-- Versiyonlar -->
+          <div class="rz-card">
+            <h3>Versiyonlar</h3>
+            <div id="rz-versiyonlar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    // ─── Revizyon ekranı davranışı (v2 Faz 1) ─────────────────────────────────
+    let _rzPollTimer = null;
+
+    function rzDosya() { return document.getElementById('rz-dosya').value; }
+
+    async function rzYukle() {            // switchTab kancasından çağrılır
+      await rzOturumGetir();
+    }
+
+    async function _rzFetch(url, opts) {
+      const r = await fetch(url, opts);
+      return r.json();
+    }
+
+    async function rzOturumGetir() {
+      const dosya = rzDosya();
+      const durumEl = document.getElementById('rz-durum');
+      try {
+        const d = await _rzFetch(`/api/revizyon/${dosya}`);
+        if (!d.ok) { durumEl.textContent = d.error || 'Hata'; return; }
+        document.getElementById('rz-yok').style.display    = d.var ? 'none' : 'block';
+        document.getElementById('rz-govde').style.display  = d.var ? 'block' : 'none';
+        document.getElementById('rz-baslat-btn').disabled  = d.var;
+        if (d.calisiyor) {
+          durumEl.textContent = '⏳ Bölüm düzenleniyor…';
+          _rzPollBasla();
+        } else {
+          durumEl.textContent = d.hata ? ('⚠ ' + d.hata) : '';
+        }
+        if (d.oturum) rzRender(d.oturum);
+      } catch (e) { durumEl.textContent = 'Bağlantı hatası'; }
+    }
+
+    async function rzBaslat() {
+      const d = await _rzFetch(`/api/revizyon/${rzDosya()}/baslat`, {method:'POST'});
+      if (!d.ok) { toast(d.error || 'Oturum açılamadı', 'error'); return; }
+      toast('Revizyon oturumu açıldı', 'success');
+      rzOturumGetir();
+    }
+
+    async function rzBolumDuzenle() {
+      const anahtar = document.getElementById('rz-anahtar').value.trim();
+      const talimat = document.getElementById('rz-talimat').value.trim();
+      if (!anahtar || !talimat) { toast('Bölüm ve talimat gerekli', 'error'); return; }
+      document.getElementById('rz-duzenle-btn').disabled = true;
+      const d = await _rzFetch(`/api/revizyon/${rzDosya()}/bolum-duzenle`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({anahtar, talimat}),
+      });
+      if (!d.ok) {
+        toast(d.error || 'Düzenleme başlatılamadı', 'error');
+        document.getElementById('rz-duzenle-btn').disabled = false;
+        return;
+      }
+      document.getElementById('rz-durum').textContent = '⏳ Bölüm düzenleniyor…';
+      _rzPollBasla();
+    }
+
+    function _rzPollBasla() {
+      if (_rzPollTimer) return;
+      _rzPollTimer = setInterval(async () => {
+        const d = await _rzFetch(`/api/revizyon/${rzDosya()}`);
+        if (d.calisiyor) return;
+        clearInterval(_rzPollTimer); _rzPollTimer = null;
+        document.getElementById('rz-duzenle-btn').disabled = false;
+        document.getElementById('rz-durum').textContent = d.hata ? ('⚠ ' + d.hata) : '';
+        if (d.hata) toast(d.hata, 'error');
+        else toast('Öneri hazır — onayına sunuldu', 'success');
+        if (d.oturum) rzRender(d.oturum);
+      }, 2000);
+    }
+
+    function _rzDiffBoya(diff) {
+      return diff.split('\n').map(l => {
+        const e = l.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        if (l.startsWith('+')) return `<span class="add">${e}</span>`;
+        if (l.startsWith('-')) return `<span class="del">${e}</span>`;
+        if (l.startsWith('@') || l.startsWith('---') || l.startsWith('+++')) return `<span class="hdr">${e}</span>`;
+        return e;
+      }).join('\n');
+    }
+
+    async function rzRender(o) {
+      // Geçmiş (tersten — en yeni üstte)
+      const gEl = document.getElementById('rz-gecmis');
+      gEl.innerHTML = (o.gecmis || []).slice().reverse().map(r => `
+        <li>
+          <span class="rz-badge ${r.onay_durumu}">${r.onay_durumu}</span>
+          <span><b>${r.tip}</b> ${r.ozet ? '· ' + r.ozet : ''}
+          <div class="rz-mut">${r.onceki_versiyon || '—'} → ${r.yeni_versiyon} · ${(r.zaman||'').replace('T',' ')}</div></span>
+        </li>`).join('') || '<li class="rz-empty">Kayıt yok</li>';
+
+      // Versiyonlar (geri-al düğmesiyle)
+      const vEl = document.getElementById('rz-versiyonlar');
+      vEl.innerHTML = (o.versiyonlar || []).map(v => {
+        const aktif = v.id === o.aktif_versiyon;
+        return `<div class="rz-vers">
+          <b>${v.id}</b>${aktif ? ' <span class="rz-badge onaylandi">aktif</span>' : ''}
+          <span class="rz-mut" style="flex:1">${v.not || ''}</span>
+          ${aktif ? '' : `<button class="rz-btn" onclick="rzGeriAl('${v.id}')">Bu sürüme dön</button>`}
+        </div>`;
+      }).join('') || '<div class="rz-empty">Versiyon yok</div>';
+
+      // Bekleyen öneri
+      const bEl = document.getElementById('rz-bekleyen');
+      if (o.bekleyen) {
+        const r = o.bekleyen;
+        let diffHtml = '<div class="rz-mut">Değişiklik önizlemesi yükleniyor…</div>';
+        bEl.style.display = 'block';
+        bEl.innerHTML = `
+          <h3>Bekleyen öneri · ${r.id}</h3>
+          <p style="margin:0 0 8px"><b>${r.ozet || r.istek || 'Düzenleme'}</b></p>
+          ${r.istek ? `<p class="rz-mut" style="margin:0 0 10px">İstek: ${r.istek}</p>` : ''}
+          <div class="rz-diff" id="rz-diff">${diffHtml}</div>
+          <div class="rz-bar" style="margin-top:12px">
+            <button class="rz-btn primary" onclick="rzOnayla('${r.id}')">Onayla ve yaz</button>
+            <button class="rz-btn danger" onclick="rzReddet('${r.id}')">Reddet</button>
+          </div>`;
+        // Diff (önceki aktif → önerilen)
+        const d = await _rzFetch(`/api/revizyon/${rzDosya()}/diff?a=${r.onceki_versiyon}&b=${r.yeni_versiyon}`);
+        document.getElementById('rz-diff').innerHTML = d.ok
+          ? _rzDiffBoya(d.diff || '(fark yok)') : '<span class="del">diff alınamadı</span>';
+      } else {
+        bEl.style.display = 'none';
+      }
+    }
+
+    async function rzOnayla(rid) {
+      const d = await _rzFetch(`/api/revizyon/${rzDosya()}/onayla`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({revizyon_id: rid}),
+      });
+      if (!d.ok) { toast(d.error || 'Onaylanamadı', 'error'); return; }
+      toast('Onaylandı ve çıktıya yazıldı', 'success');
+      if (d.oturum) rzRender(d.oturum);
+    }
+
+    async function rzReddet(rid) {
+      const d = await _rzFetch(`/api/revizyon/${rzDosya()}/reddet`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({revizyon_id: rid}),
+      });
+      if (!d.ok) { toast(d.error || 'Reddedilemedi', 'error'); return; }
+      toast('Öneri reddedildi', 'info');
+      if (d.oturum) rzRender(d.oturum);
+    }
+
+    async function rzGeriAl(vid) {
+      const d = await _rzFetch(`/api/revizyon/${rzDosya()}/geri-al`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({versiyon_id: vid}),
+      });
+      if (!d.ok) { toast(d.error || 'Geri alınamadı', 'error'); return; }
+      toast(`${vid} sürümüne dönüldü`, 'success');
+      if (d.oturum) rzRender(d.oturum);
+    }
+    </script>

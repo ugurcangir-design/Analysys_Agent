@@ -16,6 +16,7 @@ Soru Defteri — analiz çıktılarındaki açık soruları kalıcı kayda alır
 """
 
 import json
+import time
 import re
 from datetime import datetime
 from pathlib import Path
@@ -126,12 +127,52 @@ def _parse_tablo_sorulari(metin: str, dosya_adi: str) -> list[dict]:
     return sonuc
 
 
+# "Açık Sorular" başlığı + altındaki NUMARALI liste — bazı analizler (ve özel
+# promptlar) soruları `### Q-XXX` / `| Q-XXX |` yerine düz numaralı liste olarak
+# üretiyor ("## 5. Açık Sorular\n1. ...\n2. ..."). Yapısal format bulunamazsa bu
+# fallback devreye girer → sorular yine de yakalanıp cevaplanabilir.
+_ACIK_BASLIK = re.compile(r"^#{1,6}[^\n]*[Aa]ç[ıİIi]k\s+[Ss]oru", re.MULTILINE)
+_NUM_ITEM = re.compile(r"^\s{0,3}(\d{1,3})[.)]\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _parse_liste_sorulari(metin: str, dosya_adi: str) -> list[dict]:
+    """"Açık Sorular" başlığı altındaki NUMARALI liste öğelerini soru olarak yakalar.
+    Yapısal (### / tablo) format YOKKEN fallback. ID yoksa sıra numarasından türetilir
+    (Q-001…); merge (id, kaynak_dosya) ile anahtarladığından dosyalar arası çakışmaz."""
+    hm = _ACIK_BASLIK.search(metin)
+    if not hm:
+        return []
+    blok_bas = metin.find("\n", hm.start())
+    if blok_bas == -1:
+        return []
+    sonraki = re.search(r"^#{1,6}\s", metin[blok_bas + 1:], re.MULTILINE)
+    blok = metin[blok_bas + 1: blok_bas + 1 + sonraki.start()] if sonraki else metin[blok_bas + 1:]
+    sonuc = []
+    for i, m in enumerate(_NUM_ITEM.finditer(blok), start=1):
+        ham = m.group(2).strip()
+        if not ham:
+            continue
+        qid_m = re.match(r"^(Q-[A-Za-z0-9-]+|PO-\d+)\b\s*[:.\-)]?\s*(.*)", ham)
+        if qid_m and qid_m.group(2).strip():
+            sid, soru = qid_m.group(1), qid_m.group(2).strip()
+        else:
+            sid, soru = f"Q-{i:03d}", ham
+        sonuc.append({
+            "id": sid, "kaynak_dosya": dosya_adi,
+            "baslik": soru[:80], "kategori": "", "katman": "",
+            "oncelik": "", "bagli_id": "", "soru": soru,
+            "mevcut_durum": "", "beklenen_yanit": "", "sorumlu": "", "etki": "",
+        })
+    return sonuc
+
+
 def parse_md_sorular(md_yol: Path) -> list[dict]:
     """Bir .md dosyasından yapılandırılmış soru bloklarını çıkarır.
 
-    İki format destekler:
+    Üç format destekler (öncelik sırasıyla):
     1. Yapılandırılmış blok: `### Q-T-001: Başlık` (teknik analiz, BRD soruları)
     2. Tablo satırı: `| Q-001 | ...` (süreç analizi Bölüm 12)
+    3. FALLBACK — "Açık Sorular" başlığı altında düz NUMARALI liste (yapısal yoksa)
 
     Aynı id iki formatta varsa blok formatı kazanır (daha zengin veri).
     """
@@ -178,24 +219,47 @@ def parse_md_sorular(md_yol: Path) -> list[dict]:
     for tablo_soru in _parse_tablo_sorulari(metin, md_yol.name):
         if tablo_soru["id"] not in gorulen_idler:
             sonuc.append(tablo_soru)
+            gorulen_idler.add(tablo_soru["id"])
+
+    # 3) FALLBACK — yapısal (blok/tablo) HİÇ soru bulunamadıysa, "Açık Sorular"
+    # başlığı altındaki numaralı listeyi yakala (özel prompt / model sapması).
+    if not sonuc:
+        sonuc = _parse_liste_sorulari(metin, md_yol.name)
 
     return sonuc
 
 
 # ─── Birleştirme (Merge) ──────────────────────────────────────────────────────
 
-def parse_ve_birlestir() -> dict:
+def parse_ve_birlestir(taze_esik: float | None = None) -> dict:
     """Tüm kaynak çıktıları tara, mevcut soru defteriyle birleştir.
+
+    `taze_esik` (float, epoch): verilirse yalnız mtime >= taze_esik olan (bu OTURUMA ait)
+    çıktı dosyaları taranır; bayat (önceki oturumdan) çıktıların soruları GÖSTERİLMEZ ve
+    defterden düşürülür. Böylece yeni doküman yüklenip henüz analiz yapılmadıysa (eski
+    surec-analizi.md/acik-sorular.md bayat), Sorular ekranında hayalet soru kalmaz —
+    yalnız TAMAMLANMIŞ güncel analizin gerçek açık soruları görünür (tüm analiz tipleri).
 
     Birleştirme kuralları:
     - id + kaynak_dosya eşleşen mevcut soru: durum/cevap/varsayım/güncellenme KORUNUR,
       yeni içerik (soru metni vb.) güncellenir
     - Yeni soru: "acik" durumuyla eklenir
-    - Çıktıdan kaybolan eski soru: SİLİNMEZ (analist cevaplamış olabilir; durum=kapandi gibi
-      işaretlenmedi — analist bilinçli atla/cevapla seçtiyse zaten görünmez)
+    - Çıktıdan kaybolan (ama kaynak dosyası HÂLÂ TAZE) eski soru: SİLİNMEZ (analist cevaplamış olabilir)
+    - Kaynak dosyası BAYAT/eksik olan soru: düşürülür (önceki oturuma aitti)
     """
+    def _taze(dosya_adi: str) -> bool:
+        yol = OUTPUT_DIR / dosya_adi
+        if not yol.exists():
+            return False
+        if taze_esik is not None and yol.stat().st_mtime < taze_esik:
+            return False
+        return True
+
     mevcut = sorular_yukle()
     indeks = {(s["id"], s["kaynak_dosya"]): s for s in mevcut.get("sorular", [])}
+    # Mezar-taşları: analist sildiyse (id,kaynak) → silme zamanı. Kaynak dosya bu zamandan
+    # SONRA yeniden üretilmedikçe, soru markdown'dan geri EKLENMEZ.
+    tomb = {(t.get("id"), t.get("kaynak_dosya")): t.get("at", 0) for t in mevcut.get("silinen", [])}
 
     simdi = datetime.now().isoformat(timespec="seconds")
     yeni_listesi = []
@@ -203,8 +267,18 @@ def parse_ve_birlestir() -> dict:
     guncellenen = 0
 
     for dosya_adi in KAYNAK_DOSYALAR:
+        if not _taze(dosya_adi):
+            continue   # bayat/eksik kaynak → bu oturumun soruları değil, atla
+        try:
+            _kaynak_mtime = (OUTPUT_DIR / dosya_adi).stat().st_mtime
+        except OSError:
+            _kaynak_mtime = 0
         for parsed in parse_md_sorular(OUTPUT_DIR / dosya_adi):
             anahtar = (parsed["id"], parsed["kaynak_dosya"])
+            if anahtar in tomb:
+                if _kaynak_mtime <= tomb[anahtar]:
+                    continue                    # silinmiş + kaynak yeniden üretilmemiş → geri ekleme
+                del tomb[anahtar]               # kaynak yeniden üretildi → mezar-taşı geçersiz, geri getir
             eski = indeks.pop(anahtar, None)
             if eski:
                 # Korunan alanlar (analist veri girmişse bozma)
@@ -223,12 +297,27 @@ def parse_ve_birlestir() -> dict:
                 eklenen += 1
             yeni_listesi.append(parsed)
 
-    # Çıktıda artık olmayan eski sorular — koruyalım (kaynak dosya silindi olabilir)
-    for kalanlar in indeks.values():
-        yeni_listesi.append(kalanlar)
+    # Çıktıda artık olmayan sorular: kaynak dosyası HÂLÂ TAZE ise koru (analist cevaplamış
+    # olabilir); BAYAT/eksik ise düşür (önceki oturuma aitti — hayalet soru bırakma).
+    for kalan in indeks.values():
+        if _taze(kalan.get("kaynak_dosya", "")):
+            yeni_listesi.append(kalan)
+
+    # Mezar-taşlarını buda: yalnız kaynağı HÂLÂ TAZE ve HENÜZ yeniden üretilmemiş olanları koru
+    # (yeni oturumda — kaynak bayat — mezar-taşı düşer; kaynak yeniden üretildiyse zaten pop edildi).
+    silinen_kalan = []
+    for (sid, skaynak), at in tomb.items():
+        if not _taze(skaynak):
+            continue
+        try:
+            if (OUTPUT_DIR / skaynak).stat().st_mtime <= at:
+                silinen_kalan.append({"id": sid, "kaynak_dosya": skaynak, "at": at})
+        except OSError:
+            pass
 
     yeni_veri = {
         "sorular": yeni_listesi,
+        "silinen": silinen_kalan,
         "son_parse": simdi,
         "istatistik": istatistik_hesapla(yeni_listesi),
         "_son_islem": {"eklenen": eklenen, "guncellenen": guncellenen},
@@ -277,17 +366,49 @@ def soru_guncelle(
     return hedef
 
 
+def _tombstone_ekle(data: dict, silinenler: list[dict]) -> None:
+    """Silinen (id, kaynak_dosya) çiftlerini deftere 'silinen' mezar-taşı olarak ekle (epoch damgalı).
+    `parse_ve_birlestir` bu çiftleri, kaynak dosya SİLME zamanından SONRA yeniden üretilmedikçe,
+    markdown'dan yeniden EKLEMEZ. Böylece 'Tümünü Sil' / tekil silme kalıcı olur; yeni analiz
+    (kaynak yeniden üretilince) mezar-taşını geçersiz kılar."""
+    tomb = {(t.get("id"), t.get("kaynak_dosya")): t for t in data.get("silinen", [])}
+    at = time.time()
+    for s in silinenler:
+        k = (s.get("id"), s.get("kaynak_dosya"))
+        if k[0] and k[1] is not None:
+            tomb[k] = {"id": k[0], "kaynak_dosya": k[1], "at": at}
+    data["silinen"] = list(tomb.values())
+
+
 def soru_sil(soru_id: str, kaynak_dosya: str) -> bool:
-    """Bir soruyu defterinden tamamen kaldırır. True = silindi."""
+    """Bir soruyu defterinden tamamen kaldırır (ve mezar-taşlar). True = silindi."""
     data = sorular_yukle()
     sorular = data.get("sorular", [])
     yeni = [s for s in sorular if not (s.get("id") == soru_id and s.get("kaynak_dosya") == kaynak_dosya)]
     if len(yeni) == len(sorular):
         return False
     data["sorular"] = yeni
+    _tombstone_ekle(data, [{"id": soru_id, "kaynak_dosya": kaynak_dosya}])
     data["istatistik"] = istatistik_hesapla(yeni)
     sorular_kaydet(data)
     return True
+
+
+def tumunu_sil(durum_filtre: str = "") -> int:
+    """Soru defterini temizler (ve mezar-taşlar → geri gelmezler). `durum_filtre` verilirse yalnız
+    o durumdakiler silinir. Silinen adet döner."""
+    data = sorular_yukle()
+    mevcut = data.get("sorular", [])
+    if durum_filtre:
+        silinecek = [s for s in mevcut if s.get("durum") == durum_filtre]
+        kalan = [s for s in mevcut if s.get("durum") != durum_filtre]
+    else:
+        silinecek, kalan = list(mevcut), []
+    data["sorular"] = kalan
+    _tombstone_ekle(data, silinecek)
+    data["istatistik"] = istatistik_hesapla(kalan)
+    sorular_kaydet(data)
+    return len(silinecek)
 
 
 # ─── İstatistik ───────────────────────────────────────────────────────────────

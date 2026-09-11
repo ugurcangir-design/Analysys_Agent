@@ -1,0 +1,60 @@
+    <!-- PARÇA: Otomatik güncelleme bildirimi (v2 Faz 2.5) — ekran değil, script.
+         /api/guncelleme/durum'u 60 sn'de bir sorar; yeni sürüm varsa üstte banner:
+         "iş bitince otomatik uygulanır" + "Şimdi güncelle". Uygulanınca restart'ı
+         bekler (/api/version hash değişince sayfayı yeniler). -->
+    <div id="og-banner" class="ds-callout acc" style="display:none;margin:12px 26px 0;position:relative;z-index:5"></div>
+    <script>
+    // ─── Otomatik güncelleme bildirimi ─────────────────────────────────────────
+    let _ogHash = null, _ogUygulandi = false;
+    function _ogEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+    async function _ogVersiyon() {
+      try { return (await (await fetch('/api/version')).json()).hash || null; } catch (e) { return null; }
+    }
+
+    async function ogKontrol(kontrol) {
+      const el = document.getElementById('og-banner'); if (!el) return;
+      let d;
+      try { d = await (await fetch('/api/guncelleme/durum' + (kontrol ? '?kontrol=1' : ''))).json(); }
+      catch (e) { return; }
+      if (!d.ok || !d.yeni_surum) { el.style.display = 'none'; return; }
+      const liste = (d.degisiklikler || []).slice(0, 5).map(x => '• ' + _ogEsc(x)).join('<br>');
+      const durum = d.uygulaniyor ? 'Güncelleniyor — sayfa birazdan yenilenecek…'
+        : d.engel ? 'Otomatik uygulanmıyor: ' + _ogEsc(d.engel)
+        : d.bekleme_nedeni ? 'Şu an ' + _ogEsc(d.bekleme_nedeni) + ' — iş bitince otomatik uygulanır.'
+        : 'İş yokken otomatik uygulanır.';
+      el.innerHTML = `<div class="grow">
+          <div class="ct">Yeni sürüm hazır <span class="ds-chip acc mono" style="margin-left:6px">${d.behind} commit</span>
+            ${d.uzak ? `<span class="ds-chip neu mono" style="margin-left:4px">${_ogEsc(d.uzak.hash)}</span>` : ''}</div>
+          <p>${durum}${liste ? '<br><span style="color:var(--text3)">' + liste + '</span>' : ''}</p>
+        </div>
+        ${(!d.uygulaniyor && !d.engel) ? '<button class="btn btn-primary btn-sm" onclick="ogSimdi()">Şimdi güncelle</button>' : ''}
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('og-banner').style.display='none'" title="Gizle">✕</button>`;
+      el.style.display = 'flex';
+      if (d.uygulaniyor) _ogRestartBekle();
+    }
+
+    async function ogSimdi() {
+      const r = await fetch('/api/guncelleme/simdi', { method:'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (d.ok && d.yeniden_basliyor) { toast('Güncelleme uygulanıyor, yeniden bağlanılacak…', 'success'); _ogRestartBekle(); }
+      else if (d.ok) toast(d.mesaj || 'Zaten güncel', 'info');
+      else toast(d.error || 'Güncellenemedi', 'error');
+      ogKontrol(false);
+    }
+
+    function _ogRestartBekle() {
+      if (_ogUygulandi) return; _ogUygulandi = true;
+      const t = setInterval(async () => {
+        const h = await _ogVersiyon();
+        if (h && _ogHash && h !== _ogHash) { clearInterval(t); toast('Yeni sürüm yüklendi', 'success'); setTimeout(() => location.reload(), 800); }
+      }, 3000);
+      setTimeout(() => { clearInterval(t); location.reload(); }, 60000);   // emniyet
+    }
+
+    (async () => {
+      _ogHash = await _ogVersiyon();
+      setTimeout(() => ogKontrol(false), 8000);
+      setInterval(() => ogKontrol(false), 60000);
+    })();
+    </script>

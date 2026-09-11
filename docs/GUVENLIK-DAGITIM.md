@@ -52,6 +52,14 @@ Sadece yapılandırma/yönetim endpoint'lerinde:
 - `/kilavuz` route KILAVUZ.html'i serve eder → SPA'da "Kılavuz" sekmesinde iframe ile gösterilir
 - `.env` chmod 0600, atomik yazım (tmp.replace)
 - Path traversal: `_guvenli_yol()` helper'ı tüm dosya yolu girdilerinde kullanılır
+- **Sır redaksiyonu (P1-D):** `base.sir_kaydet/sir_redakte` + `app._SirRedaksiyonFiltre` — TÜM log
+  kayıtlarından bilinen sırlar (ANTHROPIC_API_KEY, canlı-uygulama şifresi) ve anahtar desenleri
+  (`sk-ant-…`, `sk-…`) «sır» ile maskelenir (diske/konsola sızmaz). Sırlar açılışta `_sirlari_yukle`,
+  şifre değişince `context_filter_kaydet` ile kaydedilir. AI çıktısı ayrıca `_canli_app_sifre_redakte`.
+- **Dosya izni sertleştirme (P1-D):** açılışta `_hassas_dosya_izinlerini_sertlestir` — `.env` ve
+  `reference/context_filter.json` grup/diğer erişimine açıksa 0600'e sıkılaştırılır (uyarı loglar).
+- **API anahtarı:** kullanıcı tercihiyle `.env`'de düz metin TUTULUR (at-rest şifreleme/keychain
+  uygulanmadı — bilinçli karar). Redaksiyon + 0600 + gitignore ile korunur.
 
 ## Onboarding (Yeni Başlayan Eğitimi)
 

@@ -1,0 +1,68 @@
+    <!-- EKRAN: Yetki (v2) — owner-only. Görünürlük yönetimi: analistlerden gizlenen
+         ekran/aksiyonlar. Backend: /api/gorunurluk. Kullanıcı yönetimi Ayarlar'da (/api/users).
+         Not: Denetim/audit kaydı v2'de kaldırıldı — analist iş takibi Kullanım Raporu'nda. -->
+    <div class="page" id="page-yetki">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Yetki</h1>
+          <p>Analistlerin görmeyeceği ekran ve aksiyonları seç. Seçim tüm analistlere güncellemeyle iner.</p>
+        </div>
+        <div class="ph-actions">
+          <button class="btn btn-outline btn-sm" onclick="switchTab('settings')">Kullanıcılar (Ayarlar)</button>
+        </div>
+      </div>
+
+      <div class="ds-callout" style="margin-bottom:14px">
+        <div class="grow"><div class="ct">İki rol</div>
+          <p><b>Owner</b> (bu makine / <code>ADMIN_USER</code>) her şeyi görür ve yönetir. <b>Analist</b> aşağıda işaretlediklerin hariç tüm ekran ve işlemleri kullanır. Seçim <code>gorunurluk.json</code>'a yazılır; analistlere güncellemeyle iner. Sunucu tarafında da uygulanır.</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Görünürlük — analistlerden gizle</span>
+          <span class="ds-panel-tag">OWNER</span>
+          <span class="panel-spacer"></span>
+          <span id="yt-gor-durum" class="mono-meta"></span>
+          <button class="btn btn-primary btn-sm" onclick="ytGorKaydet()">Kaydet</button>
+        </div>
+        <div class="panel-body" id="yt-gor-liste"><div class="mono-meta">Yükleniyor…</div></div>
+      </div>
+    </div>
+
+    <script>
+    // ─── Yetki ekranı (v2) — görünürlük yönetimi ────────────────────────────
+    function _ytEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+    let _ytKatalog = [];
+
+    async function ytYukle() { await ytGorYukle(); }
+
+    async function ytGorYukle() {
+      const el = document.getElementById('yt-gor-liste');
+      const d = await (await fetch('/api/gorunurluk')).json();
+      if (!d.ok) { el.innerHTML = '<div class="ds-callout warn"><div class="grow"><div class="ct">' + _ytEsc(d.error || 'Yetkisiz') + '</div></div></div>'; return; }
+      _ytKatalog = d.katalog || [];
+      const gizli = new Set(d.gizli || []);
+      const gruplar = {};
+      _ytKatalog.forEach(k => (gruplar[k.grup] = gruplar[k.grup] || []).push(k));
+      el.innerHTML = Object.entries(gruplar).map(([g, ks]) => `
+        <div class="ds-sec-label" style="margin-top:6px">${_ytEsc(g)}</div>
+        ${ks.map(k => `<label class="ds-tglrow" style="cursor:pointer">
+            <input type="checkbox" class="yt-gor-cb" value="${_ytEsc(k.id)}" ${gizli.has(k.id) ? 'checked' : ''} style="accent-color:var(--accent);width:15px;height:15px">
+            <div><div class="ds-tgl-txt">${_ytEsc(k.ad)}</div><div class="ds-tgl-sub">${_ytEsc(k.aciklama || '')}</div></div>
+            <span class="ds-chip ${gizli.has(k.id) ? 'old' : 'ok'}" style="margin-left:auto">${gizli.has(k.id) ? 'Analiste gizli' : 'Açık'}</span>
+          </label>`).join('')}`).join('');
+      el.querySelectorAll('.yt-gor-cb').forEach(cb => cb.addEventListener('change', () => {
+        const chip = cb.closest('label').querySelector('.ds-chip');
+        chip.className = 'ds-chip ' + (cb.checked ? 'old' : 'ok'); chip.textContent = cb.checked ? 'Analiste gizli' : 'Açık';
+      }));
+    }
+
+    async function ytGorKaydet() {
+      const gizli = [...document.querySelectorAll('.yt-gor-cb:checked')].map(cb => cb.value);
+      const r = await fetch('/api/gorunurluk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ gizli }) });
+      const d = await r.json();
+      const st = document.getElementById('yt-gor-durum');
+      if (d.ok) { st.textContent = '✓ Kaydedildi'; toast('Görünürlük kaydedildi — analistlere güncellemeyle iner', 'success'); setTimeout(() => st.textContent = '', 2500); }
+      else toast(d.error || 'Kaydedilemedi', 'error');
+    }
+    </script>

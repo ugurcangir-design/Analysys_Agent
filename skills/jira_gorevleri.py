@@ -256,6 +256,13 @@ def _kapsayici_mi(issuetype: dict | None) -> bool:
     return str(it.get("name", "")).strip().lower() in _KAPSAYICI_TIP_ADLARI
 
 
+def gorev_getir(key: str) -> dict | None:
+    """Tek bir Jira görevini TAM (açıklama + bağlantılar dahil) görev sözlüğü olarak getirir.
+    İlişkili FE/BE analizinde, listede yüklü olmayan bağlı task'ları çekmek için."""
+    ham = _tek_issue_ham(key, _cloud_id())
+    return _issue_ayrıstir(ham) if ham else None
+
+
 def _tek_issue_ham(key: str, cloud_id: str) -> dict | None:
     """Tek issue'yu HAM olarak doğrudan okur (tip kontrolü + ayrıştırma için).
     Bulunamazsa/hata olursa None."""
@@ -708,7 +715,12 @@ def gorev_standart_formatla(gorev: dict) -> str:
 
 # ─── Özellik 2: Teknik Analiz ile Detaylandır ────────────────────────────────
 
-def gorev_analiz_et(gorev: dict) -> dict:
+_KATMAN_ETIKET = {"fe": "Frontend (FE)", "be": "Backend (BE)", "belirsiz": ""}
+
+
+def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = None,
+                    katman: str = "", onceki_sorular: str = "", ekran_baglami: bool = True,
+                    rag_ctx: dict | None = None, canli_baglam_override: str | None = None) -> dict:
     """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
     görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
     tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
@@ -725,19 +737,31 @@ def gorev_analiz_et(gorev: dict) -> dict:
     # referansları topla. referans_dosyalari_hazirla() zaten load_context_filter()
     # + filtrele_referanslar() çağırıyor — atlamıyor. Burada ayrıca filtre durumunu
     # log ve çıktı meta yorumu için yakalıyoruz (analist şeffaflığı).
-    ctx = load_context_filter() or {}
+    # Jira Köprüsü (ekran_baglami=False): analiz KENDİ KENDİNE YETERLİ olmalı —
+    # ekranda kayıtlı bağlam filtresine + analist notuna BAĞLI KALMAZ (Jira'dan komut
+    # veren kişi onları göremez/değiştiremez → yanlış task'a ait filtre analizi saptırır).
+    # Bağlam yalnız task'ın kendi içeriği + komut argümanı (cevaplar). RAG filtresiz (task-güdümlü).
+    ctx = (load_context_filter() or {}) if ekran_baglami else {}
+    # RAG filtresi: ekranda → kayıtlı filtre; köprüde → task'tan türetilen keyword'ler
+    # (rag_ctx). rag_ctx None ise köprüde filtresiz (task-güdümlü tüm referanslar).
+    if ekran_baglami:
+        rag_override = None
+        filtre_kaynak = ctx
+    else:
+        rag_override = rag_ctx or {}
+        filtre_kaynak = rag_ctx or {}
     aktif_filtreler = []
-    if ctx.get("keywords"):
-        aktif_filtreler.append(f"kelime:{','.join(ctx['keywords'])}")
-    if ctx.get("jira_keys"):
-        aktif_filtreler.append(f"jira:{','.join(ctx['jira_keys'])}")
-    if ctx.get("confluence_pages"):
-        aktif_filtreler.append(f"conf:{','.join(ctx['confluence_pages'])}")
+    if filtre_kaynak.get("keywords"):
+        aktif_filtreler.append(f"kelime:{','.join(filtre_kaynak['keywords'])}")
+    if filtre_kaynak.get("jira_keys"):
+        aktif_filtreler.append(f"jira:{','.join(filtre_kaynak['jira_keys'])}")
+    if filtre_kaynak.get("confluence_pages"):
+        aktif_filtreler.append(f"conf:{','.join(filtre_kaynak['confluence_pages'])}")
 
     stable_bloklar: list[dict] = []
     referans_sayisi = 0
     try:
-        ref_dosyalar = referans_dosyalari_hazirla()
+        ref_dosyalar = referans_dosyalari_hazirla(ctx_override=rag_override)
         referans_sayisi = len(ref_dosyalar)
         if aktif_filtreler:
             print(f"  🔍 Bağlam filtresi aktif — {' | '.join(aktif_filtreler)}")
@@ -750,7 +774,10 @@ def gorev_analiz_et(gorev: dict) -> dict:
 
     # Canlı Uygulama (Chrome MCP) — Jira Görevleri ekranının KENDİ hedefi (live_app_gorev).
     # Süreç/Teknik Analiz ekranının URL'inden bağımsızdır; iki akış birbirini ezmez.
-    canli_baglam = canli_uygulama_baglami_hazirla(gorev=True)
+    # Köprü, base-URL + task-güdümlü hedef ile kendi canlı-gözlem bağlamını verir
+    # (canli_baglam_override); ekran akışı kendi live_app_gorev hedefini kullanır.
+    canli_baglam = canli_baglam_override if canli_baglam_override is not None \
+        else canli_uygulama_baglami_hazirla(gorev=True)
     if canli_baglam:
         print("  🌐 Canlı uygulama (görev bazlı) MCP/Chrome hedefi dahil ediliyor...")
         stable_bloklar.append({"type": "text", "text": canli_baglam})
@@ -778,6 +805,55 @@ def gorev_analiz_et(gorev: dict) -> dict:
             f"Not:\n{analist_notu}"
         )})
 
+    # Prompt-cache genişletme (P0 madde 3): görev içeriği (key/başlık/açıklama + analist notu) tur'lar
+    # arasında DEĞİŞMEZ; yalnız cevaplar/önceki-sorular değişir. Buraya ikinci cache breakpoint koyarak
+    # (refs breakpoint'ine ek) cevap/düzeltme turlarında görev içeriği de cache'ten okunur — her turda
+    # yeniden token ödemek yerine. Sistem(1)+refs(1)+görev(1) = 3 breakpoint (Anthropic tavanı 4).
+    icerik[-1]["cache_control"] = {"type": "ephemeral"}
+
+    # Analist cevapları (opsiyonel) — modaldeki "Açık Sorular"a verilen cevaplar. Doluysa, analizi
+    # bu cevaplara göre YENİDEN yaz: cevaplanan belirsizlikleri ÇÖZ, ilgili bölümü netleştir.
+    cevaplar = (cevaplar or "").strip()
+    if cevaplar:
+        print("  💬 Analist cevapları dikkate alınıyor (belirsizlikler çözülecek).")
+        icerik.append({"type": "text", "text": (
+            "### ANALİST CEVAPLARI (önceki açık sorulara) — DİKKATE AL\n"
+            "Analist aşağıda önceki turdaki açık soruların bir kısmını cevapladı. Teknik analizi bu cevaplara "
+            "göre GÜNCELLE: cevaplanan belirsizlikleri ÇÖZ (artık o konuları `[K: ❓ Belirsiz]` / `⚠ VARSAYIM` "
+            "bırakma, cevaba göre kesinleştir), ilgili bölümü buna göre yaz. Cevaplanmayan konular açık soru "
+            "olarak kalabilir. Cevapları uydurma bilgiyle genişletme — yalnız verileni uygula.\n\n"
+            f"Analist cevapları:\n{cevaplar}"
+        )})
+    # İLİŞKİLİ FE/BE ANALİZİ (opsiyonel) — bağlı KARŞI-katman task'lar bağlam olarak eklenir; analiz
+    # BU görevin katmanına odaklanır, karşı katmanın İÇ implementasyonunu yazmaz, yalnız ARAYÜZ/SÖZLEŞMEyi verir.
+    katman = (katman or "").strip().lower()
+    kat_et = _KATMAN_ETIKET.get(katman, "")
+    if iliskili:
+        satirlar = []
+        for r in iliskili:
+            rkat = _KATMAN_ETIKET.get((r.get("katman") or "").lower(), "") or "katman?"
+            aciklama = (r.get("description") or "(açıklama yok)").strip()
+            satirlar.append(f"### Bağlı task {r.get('key','')} [{rkat}] — {r.get('summary','')}\n{aciklama[:4000]}")
+        icerik.append({"type": "text", "text": (
+            "### İLİŞKİLİ (KARŞI KATMAN) TASK'LAR — BAĞLAM\n"
+            "Aşağıdaki task'lar bu görevle ilişkili ve genellikle KARŞI katmandır. Bunların İÇ "
+            "implementasyonunu ANALİZ ETME (onlar ayrı analiz edilir). Yalnızca bu görevle ARAYÜZ/BAĞIMLILIK "
+            "ilişkisini kur.\n\n" + "\n\n".join(satirlar)
+        )})
+    if kat_et:
+        icerik.append({"type": "text", "text": (
+            f"### KATMAN ODAĞI: {kat_et}\n"
+            f"Bu görev bir {kat_et} işidir. Analizi {kat_et} katmanının İÇ işine odakla "
+            f"({'ekran/bileşen/state/validasyon/istemci akışı' if katman=='fe' else 'veri modeli/endpoint/iş kuralı/servis'} vb.). "
+            + ("İlişkili karşı-katman task(lar)ıyla etkileşimi AYRI bir `## Bağımlılık ve Arayüz (FE↔BE)` "
+               "başlığında SÖZLEŞME olarak ver: "
+               + ("FE'nin BE'den beklediği endpoint/alan/istek-yanıt sözleşmesi (hangi çağrı, hangi alanlar, "
+                  "beklenen yanıt şekli/durum). Karşı katmanın nasıl yapacağını YAZMA."
+                  if katman == "fe" else
+                  "BE'nin FE'ye SUNACAĞI endpoint/alan/yanıt sözleşmesi (method/path, istek/yanıt alanları, "
+                  "durum kodları) ve hangi FE task'ının tükettiği. FE'nin nasıl render edeceğini YAZMA.")
+               if iliskili else "Karşı katman işini bu analize KATMA.")
+        )})
     icerik.append(
         {"type": "text", "text": "Bu görev için teknik analiz raporunu üret (açık sorular HARİÇ — onlar ayrı adımda üretilecek)."}
     )
@@ -797,7 +873,7 @@ def gorev_analiz_et(gorev: dict) -> dict:
     # Aşama 2 — Açık Sorular (haiku, kısa). Hata olursa teknik analizi kaybetme.
     acik = ""
     try:
-        acik = _gorev_acik_sorular_uret(teknik, gorev)
+        acik = _gorev_acik_sorular_uret(teknik, gorev, cevaplar=cevaplar, onceki_sorular=onceki_sorular)
     except Exception as e:
         print(f"  ⚠ Görev açık soruları üretilemedi: {e}")
 
@@ -806,19 +882,57 @@ def gorev_analiz_et(gorev: dict) -> dict:
     return {"markdown": ozet + teknik, "acik_sorular": acik}
 
 
-def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
-    """Aşama-2 açık sorular: üretilen teknik analiz + görev kapsamına göre
-    geliştirme ekibinin başlamadan netleştirmesi gereken sorular. Haiku — ucuz,
-    hızlı. Çıktı Markdown; boşsa UI'da panel gizlenir."""
+_GOREV_DUZELT_SISTEM = (
+    "Kıdemli teknik analistsin. Sana MEVCUT bir Jira görev teknik analizi + tek bir DÜZELTME TALİMATI "
+    "verilecek. Talimatın istediği kısmı düzelt; DOKUNULMAYAN bölümleri AYNEN koru — yeniden yazma, "
+    "kısaltma, başlık değiştirme. Aynı Markdown biçimini, bölüm başlıklarını ve ID şemasını koru. "
+    "Doğruluk, gözlemlenebilirlik ve spekülasyon-yasağı kurallarını GEVŞETME (gözleyemediğini uydurma). "
+    "Tüm (güncellenmiş) analizi eksiksiz olarak <teknik_analiz>…</teknik_analiz> içinde dön."
+)
+
+
+def gorev_analiz_duzelt(gorev: dict, mevcut_markdown: str, talimat: str) -> str:
+    """İteratif düzeltme: mevcut teknik analiz + talimat → yalnız ilgili kısmı düzeltilmiş tam analiz.
+    HTML prototip 'sohbetle düzelt' deseninin görev-analizi karşılığı. Jira'ya YAZMAZ (önizleme)."""
+    talimat = (talimat or "").strip()
+    if not talimat:
+        raise ValueError("Düzeltme talimatı boş.")
+    mevcut = (mevcut_markdown or "").strip()
+    if not mevcut:
+        raise ValueError("Düzeltilecek analiz yok.")
+    icerik = [
+        {"type": "text", "text": f"### Mevcut Teknik Analiz\n\n{mevcut}"},
+        {"type": "text", "text": f"### Kaynak Görev: {gorev.get('key','')} — {gorev.get('summary','')}"},
+        {"type": "text", "text": f"### Düzeltme Talimatı (yalnız bunu uygula)\n{talimat}"},
+    ]
+    yanit = _api_cagri(_GOREV_DUZELT_SISTEM, [{"role": "user", "content": icerik}],
+                       max_tokens=MAX_TOKENS_COMBINED, thinking=extended_thinking_acik())
+    return _meta_notlari_temizle(_xml_ayir(_metin_sikistir(yanit), "teknik_analiz"))
+
+
+def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict,
+                             cevaplar: str = "", onceki_sorular: str = "") -> str:
+    """Aşama-2 açık sorular: üretilen teknik analiz + görev + (varsa) ÖNCEKİ tur soruları/cevapları.
+    Amaç: geliştirmeyi GERÇEKTEN bloklayan soruları toplamak ve TURLAR İÇİNDE YAKINSAMAK — her turda
+    AZALMALI, birkaç turda bitmeli (drift/tekrar yok). Haiku — ucuz. Boşsa UI'da panel gizlenir."""
+    takip = bool(cevaplar.strip() or onceki_sorular.strip())
     sistem = (
-        "Kıdemli teknik analistsin. Sana üretilmiş bir teknik analiz + ilgili Jira görevi "
-        "verilecek. Geliştirme ekibinin kod yazmaya başlamadan önce netleştirmesi gereken "
-        "açık soruları topla.\n\n"
-        "KURALLAR:\n"
-        "- Teknik analizde `[K: ❓ Belirsiz]` veya `⚠ VARSAYIM` işaretli her konuyu bir soruya çevir\n"
-        "- Soru BAĞIMSIZ cevaplanabilir, tek konuya odaklı olmalı\n"
-        "- Önem sırasına göre (Kritik → Yüksek → Orta → Düşük) sırala\n"
-        "- Hiç gerçek belirsizlik yoksa SADECE şu satırı dön: 'Açık soru tespit edilmedi.'\n\n"
+        "Kıdemli teknik analistsin. Sana üretilmiş bir teknik analiz + Jira görevi (ve varsa ÖNCEKİ TUR "
+        "açık soruları + analistin CEVAPLARI) verilir. Amaç: geliştiricinin başlamasını GERÇEKTEN "
+        "ENGELLEYEN açık soruları toplamak ve TURLAR İÇİNDE YAKINSAMAK — her turda soru sayısı AZALMALI, "
+        "birkaç turda BİTMELİ.\n\n"
+        "YAKINSAMA KURALLARI (EN ÖNEMLİSİ — önceki tur verildiyse):\n"
+        "- Analistin CEVAPLADIĞI ya da artık analizde cevabı BULUNAN her soruyu ÇIKAR — bir daha SORMA, "
+        "yeniden İFADE ETME, bölerek/çoğaltarak geri getirme.\n"
+        "- Hâlâ gerçekten açık kalan önceki soruları AYNI ID ve AYNI metinle KORU (yeniden yazma).\n"
+        "- YALNIZ verilen cevapların ORTAYA ÇIKARDIĞI, bloklayan YENİ bir belirsizlik varsa ekle (yeni ID).\n"
+        "- Reworded/benzer soru ÜRETME. Kalanlar bloklamıyorsa 'Açık soru tespit edilmedi.' dön.\n\n"
+        "GENEL KURALLAR:\n"
+        "- Yalnız `[K: ❓ Belirsiz]`/`⚠ VARSAYIM` işaretli VE geliştirmeyi BLOKLAYAN konular soru olur; "
+        "tercihe bağlı/kozmetik/küçük konu için SORU ÜRETME.\n"
+        "- Önem: Kritik/Yüksek öncelikli; Orta/Düşük ancak gerçekten gerekiyorsa. **EN FAZLA 6 soru.**\n"
+        "- Soru bağımsız cevaplanabilir, tek konuya odaklı olmalı.\n"
+        "- Hiç bloklayan belirsizlik yoksa SADECE şu satırı dön: 'Açık soru tespit edilmedi.'\n\n"
         "Çıktı Türkçe Markdown, XML bloğu içinde:\n\n"
         "<acik_sorular>\n"
         "### Q-T-001: [Başlık]\n"
@@ -833,8 +947,17 @@ def _gorev_acik_sorular_uret(teknik_metni: str, gorev: dict) -> str:
         {"type": "text", "text": f"### Kaynak Jira Görevi: {gorev.get('key','')}\n\n"
                                  f"**Başlık:** {gorev.get('summary','')}\n\n"
                                  f"**Açıklama:**\n{gorev.get('description','') or '(açıklama yok)'}"},
-        {"type": "text", "text": "Yukarıdaki teknik analiz ve görevdeki tüm açık konuları soru olarak topla."},
     ]
+    if onceki_sorular.strip():
+        icerik.append({"type": "text", "text": (
+            "### ÖNCEKİ TUR AÇIK SORULAR (yakınsama için — cevaplanan/çözülenleri ÇIKAR; kalan gerçekten "
+            "açık olanları AYNI ID+metinle koru; benzerini yeniden üretme)\n\n" + onceki_sorular.strip())})
+    if cevaplar.strip():
+        icerik.append({"type": "text", "text": (
+            "### ANALİSTİN CEVAPLARI (bu konular ARTIK KAPALI — tekrar SORMA)\n\n" + cevaplar.strip())})
+    icerik.append({"type": "text", "text": (
+        "Yakınsama kurallarına göre KALAN gerçekten bloklayan açık soruları üret (mümkün olduğunca AZ)."
+        if takip else "Geliştirmeyi gerçekten bloklayan açık konuları (en fazla 6) soru olarak topla.")})
     # canli_uygulama_kapsami verilmiyor: bu aşama zaten üretilmiş teknik analiz
     # metnini özetler, hiçbir browsing talimatı içermez — canlı uygulama hiç açılmaz.
     yanit = _api_cagri(sistem, [{"role": "user", "content": icerik}],

@@ -1,0 +1,130 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Analyst Studio v2 — Tasarım Sistemi katmanı (Faz 2.0)
+   Mevcut :root token'ları (index.html) kaynak-gerçektir; bu dosya YALNIZ
+   onlara dayanan yeni/standart bileşenleri ekler. `ds-` ön eki → mevcut
+   sınıflarla çakışmaz, eski ekranlar etkilenmez. Yeni ekranlar (2.1+)
+   bu vokabülerden kurulur. Mockup kaynağı: artifact fa43b8e2.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Durum rozeti — anlam rengi (aksan'dan ayrı), tutarlı boyut ─────────── */
+.ds-chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:1.5}
+.ds-chip .d{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ds-chip.ok  {background:var(--green-soft); color:var(--green)}
+.ds-chip.warn{background:var(--yellow-soft);color:var(--yellow)}
+.ds-chip.old,.ds-chip.risk{background:var(--red-soft);color:var(--red)}
+.ds-chip.info{background:var(--blue-soft);  color:var(--blue)}
+.ds-chip.acc {background:var(--accent-soft);color:var(--accent-deep)}
+.ds-chip.neu {background:var(--surface2);   color:var(--text2);border:1px solid var(--border)}
+.ds-chip.mono{font-family:'Geist Mono',monospace;letter-spacing:.03em;font-size:10.5px}
+
+/* ── Bölüm etiketi (küçük, büyük harf) ─────────────────────────────────── */
+.ds-sec-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.1em;
+  text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px}
+
+/* ── Aşama göstergesi (iş akışı ekrandan okunur) ───────────────────────── */
+.ds-stepper{display:flex;align-items:stretch;margin-bottom:20px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.ds-step{flex:1;display:flex;align-items:center;gap:11px;padding:13px 16px;position:relative;min-width:0}
+.ds-step + .ds-step{border-left:1px solid var(--border)}
+.ds-step .num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;font-weight:600;flex-shrink:0;font-family:'Geist Mono',monospace}
+.ds-step .lbl{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap}
+.ds-step .sub{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-step.done .num{background:var(--green-soft);color:var(--green);border:1px solid var(--green)}
+.ds-step.active .num{background:var(--accent);color:var(--on-accent)}
+.ds-step.todo .num{background:var(--surface2);color:var(--text3);border:1px solid var(--border-strong)}
+.ds-step.todo .lbl{color:var(--text3);font-weight:500}
+.ds-step.active{background:linear-gradient(180deg,rgba(45,212,191,.06),transparent)}
+.ds-step.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent)}
+
+/* ── Panel başlığı uzantıları (aşama etiketi + not) ────────────────────── */
+.ds-panel-tag{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--accent-soft);
+  color:var(--accent-deep);font-family:'Geist Mono',monospace;letter-spacing:.04em;white-space:nowrap}
+.ds-panel-note{margin-left:auto;font-size:10.5px;color:var(--text3);text-align:right}
+
+/* ── Alan / giriş standardı ────────────────────────────────────────────── */
+.ds-field{display:flex;flex-direction:column;gap:5px}
+.ds-flabel{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;
+  font-family:'Geist Mono',monospace}
+.ds-inp{background:var(--surface2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  padding:8px 11px;font-size:12.5px;color:var(--text);font-family:inherit;width:100%;outline:none}
+.ds-inp::placeholder{color:var(--text3)}
+.ds-inp:focus{border-color:var(--accent);box-shadow:var(--focus-ring)}
+.ds-hint{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);margin-top:6px}
+.ds-hint .i{width:14px;height:14px;border-radius:50%;border:1px solid var(--text3);display:inline-flex;
+  align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+
+/* ── Toggle satırı ─────────────────────────────────────────────────────── */
+.ds-tglrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.ds-tglrow:last-child{border-bottom:none}
+.ds-tgl{width:32px;height:18px;border-radius:9px;background:var(--accent);position:relative;flex-shrink:0;transition:background .15s}
+.ds-tgl.off{background:var(--surface3)}
+.ds-tgl::after{content:"";position:absolute;top:2px;left:16px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+.ds-tgl.off::after{left:2px;background:var(--text3)}
+.ds-tgl-txt{font-size:12px;color:var(--text)}
+.ds-tgl-sub{font-size:10.5px;color:var(--text3)}
+
+/* ── Açılır "Gelişmiş" satırı (progressive disclosure) ─────────────────── */
+.ds-disc{display:flex;align-items:center;gap:9px;padding:10px 14px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--surface);color:var(--text2);font-size:12.5px;font-weight:500;
+  margin-bottom:14px;cursor:pointer;user-select:none}
+.ds-disc:hover{border-color:var(--text3)}
+.ds-disc .arrow{margin-left:auto;color:var(--text3);transition:transform .18s}
+.ds-disc.open .arrow{transform:rotate(90deg)}
+
+/* ── Vurgu kutusu (sıradaki adım / bilgi) ──────────────────────────────── */
+.ds-callout{display:flex;gap:11px;align-items:center;padding:12px 14px;background:var(--surface);
+  border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:var(--radius)}
+.ds-callout.acc{border-left-color:var(--accent)}
+.ds-callout.warn{border-left-color:var(--yellow)}
+.ds-callout .ct{font-size:12px;font-weight:600;color:var(--text)}
+.ds-callout p{margin:3px 0 0;font-size:11.5px;color:var(--text2)}
+.ds-callout .grow{flex:1;min-width:0}
+
+/* ── Aktif oturum barı (çıktıların hangi işe ait olduğu) ───────────────── */
+.ds-session{display:flex;align-items:center;gap:14px;padding:13px 16px;background:var(--surface);
+  border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);margin-bottom:18px;flex-wrap:wrap}
+.ds-session .si{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:'Geist Mono',monospace}
+.ds-session .sv{font-size:13px;color:var(--text);font-weight:600;margin-top:2px}
+.ds-session .sep{width:1px;height:30px;background:var(--border)}
+.ds-session .end{margin-left:auto}
+
+/* ── Çıktı kartı (kaynak · zaman · sürüm + tazelik) ────────────────────── */
+.ds-olist{display:flex;flex-direction:column;gap:10px}
+.ds-ocard{display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius)}
+.ds-ocard.stale{opacity:.72}
+.ds-oicon{width:34px;height:34px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--text2);flex-shrink:0}
+.ds-ocard.cur .ds-oicon{color:var(--accent);border-color:var(--accent-soft);background:var(--accent-soft)}
+.ds-ometa{flex:1;min-width:0}
+.ds-otitle{font-size:13.5px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.ds-ometa-row{display:flex;gap:14px;margin-top:5px;font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;flex-wrap:wrap}
+.ds-ometa-row b{color:var(--text2);font-weight:500}
+.ds-oact{display:flex;gap:7px;flex-shrink:0}
+
+/* ── Arşiv / katlanır grup satırı ──────────────────────────────────────── */
+.ds-archive{display:flex;align-items:center;gap:9px;padding:11px 14px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--surface);color:var(--text2);font-size:12.5px;font-weight:500;
+  cursor:pointer;margin-top:16px;user-select:none}
+.ds-archive:hover{border-color:var(--text3)}
+.ds-archive .cnt{font-size:10.5px;color:var(--text3);font-family:'Geist Mono',monospace}
+.ds-archive .arrow{margin-left:auto;color:var(--text3);transition:transform .18s}
+.ds-archive.open .arrow{transform:rotate(90deg)}
+
+/* ── Boş durum (rehberli) ──────────────────────────────────────────────── */
+.ds-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:34px 20px;text-align:center;
+  border:1.5px dashed var(--border-strong);border-radius:var(--radius);color:var(--text3);font-size:12.5px}
+.ds-empty .t{font-size:13.5px;font-weight:600;color:var(--text2)}
+.ds-empty .ico{width:28px;height:28px;color:var(--text3)}
+
+/* ── Nav: owner-only grup kilidi ───────────────────────────────────────── */
+.nav-section .ds-lock{margin-left:auto;color:var(--text3);opacity:.7;width:11px;height:11px}
+
+/* ── Erişilebilirlik: klavye odağı her etkileşimli öğede görünür ───────── */
+.ds-stepper [tabindex]:focus-visible,.ds-disc:focus-visible,.ds-archive:focus-visible,.ds-tglrow:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius-sm)}
+@media (prefers-reduced-motion:reduce){
+  .ds-tgl,.ds-tgl::after,.ds-disc .arrow,.ds-archive .arrow{transition:none}
+}

@@ -1,0 +1,207 @@
+    <!-- EKRAN: Ana Sayfa / Pano (v3) — ilk açılışta gelen dashboard, KART tabanlı.
+         Üstte aktif oturum + hızlı eylem kartları; altında sistem sağlığı kartları
+         (owner; değilse gizli). Backend: /api/oturum (herkes) + /api/saglik (owner). -->
+    <div class="page active" id="page-pano">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Ana Sayfa</h1>
+          <p>Aktif işin ve sistemin durumu tek bakışta. Buradan analize başla, çıktılara ve revizyona geç.</p>
+        </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm" id="pano-yenile-btn" onclick="panoYenile(this)">↻ Yenile</button></div>
+      </div>
+
+      <div id="pano-oturum"></div>
+
+      <!-- Rol-duyarlı "sıradaki iş" (HERKES): bekleyen onay adımı, açık/kritik soru, bekleyen revizyon, çalışan iş.
+           Analist önce "ne yapmalıyım"ı görür; sağlık kartları (owner) aşağıda ayrı kalır. -->
+      <div class="ds-sec-label" style="margin-top:6px">Sıradaki iş</div>
+      <div id="pano-is" class="pano-cards"><div class="mono-meta">Yükleniyor…</div></div>
+
+      <div class="ds-sec-label" style="margin-top:18px">Hızlı eylemler</div>
+      <div class="pano-cards">
+        <div class="pano-card act" onclick="switchTab('surec')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="7" cy="5" r="1.6" fill="currentColor"/><circle cx="14" cy="12" r="1.6" fill="currentColor"/><circle cx="10" cy="19" r="1.6" fill="currentColor"/></svg></div>
+          <div class="pc-t">Süreç / Teknik Analiz</div>
+          <div class="pc-s">Doküman yükle, analiz üret</div>
+        </div>
+        <div class="pano-card act" onclick="switchTab('ciktilar')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg></div>
+          <div class="pc-t">Analiz Dosyaları</div>
+          <div class="pc-s">Güncel çıktılar &amp; sürümler</div>
+        </div>
+        <div class="pano-card act" onclick="switchTab('revizyon')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <div class="pc-t">Revizyon</div>
+          <div class="pc-s">Konuşarak bölüm düzelt</div>
+        </div>
+        <div class="pano-card act" onclick="switchTab('jira-gorevler')">
+          <div class="pc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9l8-5 8 5v6l-8 5-8-5z"/></svg></div>
+          <div class="pc-t">Task Analizi</div>
+          <div class="pc-s">Task çek, analiz et</div>
+        </div>
+      </div>
+
+      <div id="pano-saglik-bolum" style="display:none">
+        <div class="ds-sec-label" style="margin-top:18px">Sistem sağlığı</div>
+        <div id="pano-saglik" class="pano-cards"><div class="mono-meta">Yükleniyor…</div></div>
+      </div>
+    </div>
+
+    <style>
+      #page-pano .pano-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+      #page-pano .pano-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+        padding:15px 16px;display:flex;flex-direction:column;min-width:0}
+      #page-pano .pano-card.act{cursor:pointer;transition:border-color .15s,transform .1s,box-shadow .15s}
+      #page-pano .pano-card.act:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+      #page-pano .pc-ic{width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-bottom:11px}
+      #page-pano .pc-ic svg{width:18px;height:18px}
+      #page-pano .pc-t{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--text)}
+      #page-pano .pc-s{font-size:11.5px;color:var(--text3);margin-top:2px}
+      /* sağlık kartı */
+      #page-pano .pc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px}
+      #page-pano .pc-label{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.07em;color:var(--text3);text-transform:uppercase}
+      #page-pano .pc-value{font-family:'Geist Mono',monospace;font-size:17px;color:var(--text);margin-top:10px;overflow-wrap:anywhere}
+      #page-pano .pc-sub{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.55;overflow-wrap:anywhere}
+      /* sıradaki iş kartı — sol kenar rengi: amber=analist sırası, kırmızı=çalışıyor, yeşil=temiz */
+      #page-pano .pano-card.is{border-left:3px solid var(--border-strong)}
+      #page-pano .pano-card.is.turn{border-left-color:var(--yellow)}
+      #page-pano .pano-card.is.run{border-left-color:var(--run)}
+      #page-pano .pano-card.is.ok{border-left-color:var(--green)}
+      #page-pano .pc-act{margin-top:10px}
+    </style>
+
+    <script>
+    // ─── Ana Sayfa / Pano (v3, kart tabanlı) ────────────────────────────────────
+    function _pnEsc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+    function _pnZ(ts){return ts?new Date(ts*1000).toLocaleString('tr-TR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}):'—';}
+    const _PN={ok:'ok',warn:'warn',bad:'old'};
+    function _pnChip(t,tip){return `<span class="ds-chip ${_PN[tip]||'neu'}"><span class="d"></span>${_pnEsc(t)}</span>`;}
+    // Sağlık kartı: mono etiket + durum çipi (üst), büyük değer, alt açıklama. valueHtml ham HTML olabilir.
+    function _pnStatCard(label,chip,valueHtml,sub){
+      return `<div class="pano-card"><div class="pc-head"><span class="pc-label">${_pnEsc(label)}</span>${chip||''}</div>
+        <div class="pc-value">${valueHtml}</div><div class="pc-sub">${_pnEsc(sub||'')}</div></div>`;
+    }
+
+    async function panoYukle(){
+      _panoOturum();
+      _panoIs();
+      _panoSaglik();
+    }
+
+    // Yenile — görünür geri bildirim (idle durumda içerik aynı kalınca "çalışmadı" sanılıyordu).
+    async function panoYenile(btn){
+      if(btn){ btn.disabled=true; btn.textContent='↻ Yenileniyor…'; }
+      try{ await Promise.all([_panoOturum(), _panoIs(), _panoSaglik()]); toast('Ana sayfa yenilendi','success'); }
+      catch(e){ toast('Yenilenemedi','error'); }
+      finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Yenile'; } }
+    }
+
+    // Sıradaki iş (herkes) — /api/pano. Kartlar: bekleyen onay · açık sorular · bekleyen revizyon · çalışan iş.
+    async function _panoIs(){
+      const el=document.getElementById('pano-is');
+      let d; try{ d=await (await fetch('/api/pano')).json(); }catch(e){ el.innerHTML=''; return; }
+      if(!d.ok){ el.innerHTML=''; return; }
+      const w=d.workflow||{}, so=d.sorular||{}, rev=d.bekleyen_revizyon||[];
+      const kart=(cls,label,chip,val,sub,act)=>`<div class="pano-card is ${cls}"><div class="pc-head"><span class="pc-label">${_pnEsc(label)}</span>${chip||''}</div>
+        <div class="pc-value">${val}</div><div class="pc-sub">${_pnEsc(sub||'')}</div>${act?`<div class="pc-act">${act}</div>`:''}</div>`;
+      const k=[];
+      if(w.calisiyor && !d.onay){
+        k.push(kart('run','Çalışan iş',_pnChip('devam ediyor','warn'),'<b>'+_pnEsc(w.etiket||w.durum)+'</b>','Bitince onay adımı burada görünür.',
+          `<button class="btn btn-outline btn-xs" onclick="switchTab('surec')">İzle</button>`));
+      }else if(d.onay){
+        k.push(kart('turn','Sıra sende',_pnChip('onay bekliyor','warn'),'<b>'+_pnEsc(d.onay.etiket)+'</b>',
+          `${so.kritik?'⚠ '+so.kritik+' kritik açık soru · ':''}${so.acik} açık soru · hedefli düzeltme için "Bu adımı düzelt"`,
+          `<button class="btn btn-primary btn-xs" onclick="switchTab('surec')">Onay adımına git</button> <button class="btn btn-outline btn-xs" onclick="switchTab('output','${_pnEsc(d.onay.dosya)}')">Dosyayı incele</button>`));
+      }else if(w.tamamlandi){
+        k.push(kart('ok','İş akışı',_pnChip('tamamlandı','ok'),'<b>Tamamlandı</b>','Yeni doküman yükleyerek yeni oturum başlatabilirsin.',
+          `<button class="btn btn-outline btn-xs" onclick="switchTab('surec')">Yeni analiz</button>`));
+      }else{
+        k.push(kart('','İş akışı',_pnChip('hazır','neu'),'<b>Bekleyen iş yok</b>','Doküman yükleyip analize başla.',
+          `<button class="btn btn-primary btn-xs" onclick="switchTab('surec')">Analize başla</button>`));
+      }
+      k.push(kart(so.kritik?'turn':(so.acik?'':'ok'),'Açık sorular',so.kritik?_pnChip(so.kritik+' kritik','bad'):_pnChip(so.acik?'cevap bekliyor':'temiz',so.acik?'warn':'ok'),
+        '<b>'+so.acik+'</b>',so.uygulanmamis?`${so.uygulanmamis} cevap henüz analize işlenmedi`:'Cevaplanan sorular hedefli olarak analize işlenir.',
+        so.acik||so.uygulanmamis?`<button class="btn btn-outline btn-xs" onclick="switchTab('output','__sorular__')">Sorulara git</button>`:''));
+      if(rev.length){
+        k.push(kart('turn','Bekleyen revizyon',_pnChip(rev.length+' öneri','warn'),'<b>'+rev.length+'</b>','Onay bekleyen bölüm önerisi: '+rev.join(', '),
+          `<button class="btn btn-outline btn-xs" onclick="switchTab('revizyon')">Revizyona git</button>`));
+      }
+      el.innerHTML=k.join('');
+    }
+
+    // Yüklü dokümanı kaldır + workflow sıfırla (aktif oturum yokken kalıntı dokümanı temizle).
+    async function oturumTemizle(){
+      if(!confirm('Yüklü doküman kaldırılacak ve oturum sıfırlanacak. Devam?')) return;
+      try{
+        const r=await fetch('/api/oturum/temizle',{method:'POST'}); const d=await r.json();
+        if(d.ok){ toast('Doküman kaldırıldı — aktif oturum temizlendi','success'); panoYukle(); }
+        else toast(d.error||'Kaldırılamadı','error');
+      }catch(e){ toast('Bağlantı hatası','error'); }
+    }
+
+    async function _panoOturum(){
+      const el=document.getElementById('pano-oturum');
+      let d; try{ d=await (await fetch('/api/oturum')).json(); }catch(e){ el.innerHTML=''; return; }
+      if(!d.dokuman){
+        el.innerHTML=`<div class="ds-callout acc"><div class="grow"><div class="ct">Yeni bir analize başla</div><p>Henüz aktif oturum yok. Bir doküman yükleyip süreç veya BRD analizini başlat.</p></div><button class="btn btn-primary btn-sm" onclick="switchTab('surec')">Analize git</button></div>`;
+        return;
+      }
+      // Doküman var AMA aktif oturum yok (workflow idle) → önceki oturumdan kalmış ya da yeni yüklenmiş.
+      // "Aktif oturum" DEME; yüklü doküman olarak göster, başlat/kaldır seçeneği ver.
+      if(!d.aktif){
+        el.innerHTML=`<div class="ds-callout"><div class="grow"><div class="ct">Aktif oturum yok · yüklü doküman: ${_pnEsc(d.dokuman.ad)}</div><p>Bu doküman için analiz çalışmıyor. Başlatabilir ya da kaldırabilirsiniz.</p></div>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('surec')">Analize başla</button>
+          <button class="btn btn-outline btn-sm" onclick="oturumTemizle()">Kaldır</button></div>`;
+        return;
+      }
+      const wf=d.workflow||{};
+      const durum=wf.calisiyor?_pnChip(wf.etiket,'warn'):wf.tamamlandi?_pnChip(wf.etiket,'ok'):_pnChip(wf.etiket||'Hazır','neu');
+      const guncel=(d.ciktilar||[]).filter(c=>c.var&&c.tazelik==='guncel').length;
+      el.innerHTML=`<div class="ds-session">
+        <div><div class="si">Aktif oturum</div><div class="sv">${_pnEsc(d.dokuman.ad)}</div></div>
+        <div class="sep"></div><div><div class="si">Başladı</div><div class="sv">${_pnZ(d.baslangic)}</div></div>
+        <div class="sep"></div><div><div class="si">Güncel çıktı</div><div class="sv">${guncel}</div></div>
+        ${d.jira_key?`<div class="sep"></div><div><div class="si">Jira</div><div class="sv">${_pnEsc(d.jira_key)}</div></div>`:''}
+        <div class="end">${durum}</div></div>`;
+    }
+
+    async function panoModelKaydet(model){
+      try{
+        const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cli_model:model})});
+        const d=await r.json();
+        if(d.ok){ toast('Analiz modeli: '+model+' (sonraki analizlerde geçerli)','success'); _panoSaglik(); }
+        else toast(d.error||'Kaydedilemedi','error');
+      }catch(e){ toast('Bağlantı hatası','error'); }
+    }
+
+    async function _panoSaglik(){
+      const bolum=document.getElementById('pano-saglik-bolum');
+      const el=document.getElementById('pano-saglik');
+      let d; try{ d=await (await fetch('/api/saglik')).json(); }catch(e){ bolum.style.display='none'; return; }
+      if(!d.ok){ bolum.style.display='none'; return; }   // owner değil → sağlık gizli
+      bolum.style.display='';
+      const ai=d.ai,g=d.guncelleme,w=d.workflow;
+      const aiChip=ai.modu==='api'?_pnChip('API modu','ok'):ai.cli_uygun===true?_pnChip('CLI hazır','ok'):ai.cli_uygun===false?_pnChip('CLI limitte','bad'):_pnChip('CLI bilinmiyor','warn');
+      // CLI modunda analiz modeli arayüzden seçilir (API key gerekmez; kredi-gerektiren modeller listede yok).
+      let modelHtml='<b>'+_pnEsc(ai.model||'—')+'</b>';
+      if(ai.modu==='cli' && (ai.model_secenekler||[]).length){
+        const secenekler=ai.model_secenekler.slice();
+        if(!secenekler.some(m=>m.id===ai.model)) secenekler.unshift({ad:ai.model,id:ai.model});
+        modelHtml=`<select id="pano-model" onchange="panoModelKaydet(this.value)" title="Analiz modeli (mevcut abonelik/lisans ile — API key gerekmez)" style="background:var(--surface2);color:var(--text);border:1px solid var(--border-strong);border-radius:5px;padding:3px 8px;font:inherit;font-size:13px;max-width:100%">
+          ${secenekler.map(m=>`<option value="${_pnEsc(m.id)}" ${m.id===ai.model?'selected':''}>${_pnEsc(m.ad)}</option>`).join('')}
+        </select>`;
+      }
+      const gChip=g.hata?_pnChip('Kontrol hatası','bad'):g.yeni_surum?_pnChip(`Yeni sürüm (${g.behind})`,'warn'):_pnChip(g.otomatik?'Güncel':'Elle','ok');
+      const wChip=w.calisiyor?_pnChip(w.etiket,'warn'):_pnChip(w.etiket||'Hazır','ok');
+      // Not: "Veri kaynakları", "Disk" ve "Disk temizlik" kartları kaldırıldı (analiste gereksiz
+      // sistem gürültüsü; disk temizliği arka planda zaten otomatik, loglar Güncelleme ekranında).
+      el.innerHTML=[
+        _pnStatCard('Sürüm',_pnChip(d.surum.hash||'?','ok'),'<b>'+_pnEsc(d.surum.hash||'?')+'</b>',`dal ${d.surum.dal||'—'} · ${d.surum.tarih||'—'}`),
+        `<div class="pano-card"><div class="pc-head"><span class="pc-label">AI / Kota</span>${aiChip}</div>
+          <div class="pc-value">${modelHtml}</div><div class="pc-sub">mod ${_pnEsc(ai.modu)} · reset ${_pnEsc(ai.cli_reset||'—')}</div></div>`,
+        _pnStatCard('Güncelleme',gChip,'<b>'+(g.otomatik?'otomatik':'elle')+'</b>',`engel ${g.engel||'—'} · son kontrol ${_pnZ(g.son_kontrol)}`),
+        _pnStatCard('İş akışı',wChip,'<b>'+_pnEsc(w.durum||'idle')+'</b>',`meşgul: ${w.mesgul||'hayır'}`),
+      ].join('');
+    }
+    </script>

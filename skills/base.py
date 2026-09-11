@@ -13,6 +13,7 @@ import logging
 import shutil
 import signal
 import subprocess
+import threading
 import time
 from pathlib import Path
 from dotenv import load_dotenv
@@ -32,6 +33,38 @@ USE_CLAUDE_CLI = os.getenv("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "
 # ücretli kullanım). Bu yüzden --model DAİMA açıkça geçilir; .env ile ayarlanabilir.
 # Varsayılan "sonnet" (analiz için dengeli; Fable/Opus premium modellerinden kaçınır).
 CLAUDE_CLI_MODEL = os.getenv("CLAUDE_CLI_MODEL", "sonnet").strip()
+
+# CLI modunda arayüzde ÖNERİLEN model seçenekleri (API key GEREKMEZ — mevcut Claude.ai
+# aboneliği/lisansı ile). Takma ad = o sınıfın EN YENİ modeli; ayrıca belirli sürümü
+# sabitlemek için tam model ID'leri. Availability plana/kotaya bağlıdır (yoksa analiz
+# hata verir, kullanıcı geri döner). Liste kapalı değildir — "Özel model ID" ile
+# herhangi bir geçerli model de girilebilir (bkz. _cli_model_gecerli_mi).
+# Etiketli seçenekler: (görünen ad, --model değeri). Fable gibi "usage credits"
+# (ek ücret/kredi) gerektiren modeller BİLİNÇLİ olarak DIŞLANDI — abonelik kapsamında
+# API key/kredi gerektirmeyen modeller. Kaynak: Claude Code model seçici.
+CLI_MODEL_SECENEKLER = (
+    {"ad": "Opus 5",     "id": "claude-opus-5"},
+    {"ad": "Sonnet 5",   "id": "claude-sonnet-5"},
+    {"ad": "Haiku 4.5",  "id": "claude-haiku-4-5-20251001"},
+    {"ad": "Opus 4.8",   "id": "claude-opus-4-8"},
+    {"ad": "Opus 4.7",   "id": "claude-opus-4-7"},
+    {"ad": "Opus 4.6",   "id": "claude-opus-4-6"},
+    {"ad": "Sonnet 4.6", "id": "claude-sonnet-4-6"},
+)
+
+# Güvenli model değeri: takma ad ya da model ID. Boşluk/kabuk metakarakteri YOK
+# (--model'e argüman olarak gider). Uzun-bağlam varyantı `sonnet[1m]` de kabul.
+_CLI_MODEL_DESEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\-\[\]]{0,60}")
+
+
+def cli_model_gecerli_mi(m: str) -> bool:
+    return bool(m) and _CLI_MODEL_DESEN.fullmatch(m.strip()) is not None
+
+
+def aktif_cli_model() -> str:
+    """Analiz için kullanılacak GÜNCEL CLI modeli — .env/os.environ'dan CANLI okunur
+    (arayüzden değiştirilince yeniden başlatmadan geçerli olsun). Boşsa varsayılan."""
+    return (os.getenv("CLAUDE_CLI_MODEL") or CLAUDE_CLI_MODEL or "sonnet").strip()
 
 if not USE_CLAUDE_CLI:
     try:
@@ -120,6 +153,13 @@ MAX_CHARS_SERVIS_TOT =  60_000   # Swagger/OpenAPI toplamı
 MAX_CHARS_LIVE_APP_TOT = 60_000   # Claude MCP/Chrome canlı uygulama gözlemi
 MAX_CHARS_DIGER_TOT  =  20_000   # Diğer referanslar toplamı
 
+# GETİRİM BÜTÇESİ (P0 madde 3) — TÜM referans tiplerinin TOPLAMI için tavan.
+# Per-tip limitler tek başına 80+60+60+60+20 = 280K karakter (~70K token) getirebilir;
+# her AI çağrısında bu ham maliyet. Global bütçe toplamı sınırlar (token/perf). Tipler
+# TIP_KONFIG sırasıyla (Confluence→Jira→Servis→Canlı→Diğer) doldurulur; bütçe dolunca kesilir.
+# .env `MAX_CHARS_REF_GLOBAL` ile ayarlanır (0/negatif → sınırsız, eski davranış).
+MAX_CHARS_REF_GLOBAL = int(os.getenv("MAX_CHARS_REF_GLOBAL", "140000"))
+
 MAX_TOKENS_UZUN     = 16_000   # süreç analizi: Confluence şablonu (AMAÇ/MOCKUP/GEREKSİNİMLER/DB/NOTLAR) + ekranlar + açık sorular +
                                # izlenebilirlik matrisi. 8K kesiliyordu.
 MAX_TOKENS_KISA     =  3_000
@@ -136,13 +176,16 @@ PROMPTS_PATH = REF_DIR / "prompts.json"
 _ORTAK_EK_KURALLAR = (
     "\n\n## EK KURALLAR — Kaynak Önceliği ve Çakışma Yönetimi\n\n"
     "Birden fazla referans aynı bilgi için farklı değerler içerdiğinde, aşağıdaki ÖNCELİK SIRASINI uygula:\n\n"
-    "**Öncelik Sırası (yüksek → düşük):**\n"
-    "1. **Swagger / OpenAPI** — Endpoint, request/response şeması, HTTP status\n"
-    "2. **Confluence Teknik Dokümantasyon** — Mimari kararlar, sistem dokümantasyonu\n"
-    "3. **BRD / Süreç Analizi** — İş gereksinimleri, ekran tanımları, kabul kriterleri\n"
-    "4. **Canlı Uygulama Gözlemi** — Claude MCP/Chrome ekran ve network davranışı\n"
-    "5. **Jira Task İçerikleri** — Geçmiş geliştirme kararları\n"
+    "**Öncelik Sırası (yüksek → düşük) — GÖZLEMLENEN GERÇEK VERİ, TARİF EDİLEN İSTEKTEN ÜSTÜNDÜR:**\n"
+    "1. **Swagger / OpenAPI** — çalışan API sözleşmesi (endpoint, request/response şeması, HTTP status)\n"
+    "2. **Canlı Uygulama Gözlemi** — Claude MCP/Chrome ile doğrulanmış gerçek ekran ve network davranışı\n"
+    "3. **Confluence Teknik Dokümantasyon** — mimari kararlar, sistem dokümantasyonu\n"
+    "4. **BRD / Süreç Analizi** — iş gereksinimleri; İSTEĞİ tarif eder, hatalı/eksik olabilir\n"
+    "5. **Jira Task İçerikleri** — geçmiş geliştirme kararları\n"
     "6. **UI bağlamı** — ham kaynak koddan değil, canlı uygulama gözleminden gelir\n\n"
+    "Gerekçe: Swagger ve canlı gözlem VAR OLAN gerçeği (kodun fiilen çalıştığı hali) verir; BRD/süreç "
+    "dokümanı istenen'i anlatır ve yanlış veya güncel-olmayan yazılmış olabilir. Somut/olgusal veride "
+    "(endpoint, alan adı, tip, gerçek davranış) çelişki varsa gerçek veri kazanır.\n\n"
     "**Çakışma Tespit Kuralı:**\n"
     "Aynı entity için iki kaynak ÇELİŞEN bilgi içeriyorsa:\n"
     "1. Yüksek öncelikli kaynağı kullan (ana metin)\n"
@@ -265,14 +308,17 @@ Bu bir RAG görevidir. Ürettiğin her bilgi sağlanan kaynaklara dayanmalıdır
 - Kaynaktan dolaylı çıkarılan → `[K: 🔍 Türetilmiş]` + Açık Sorular'a doğrulama notu
 - Hiçbir kaynakta olmayan → ASLA uydurma; Açık Sorular'a soru olarak taşı
 
-# BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
-1. Ana doküman (BRD/süreç tarifi) — birincil kaynak, iş gereksiniminin kendisi
-2. Swagger/OpenAPI — mevcut endpoint, path, request/response şeması;
+# BAĞLAM KULLANIMI (çelişkide öncelik: yüksek → düşük)
+# Ana doküman analizin KONUSUDUR — NE yapılacağını o tanımlar. Ancak OLGUSAL/teknik veride
+# (endpoint, alan adı, tip, gerçek davranış) çelişki olursa GÖZLEMLENEN gerçek veri ana
+# dokümanın üstündedir: doküman İSTEĞİ yazar ve hatalı/güncel-olmayan olabilir.
+1. Swagger/OpenAPI — çalışan API sözleşmesi (endpoint, path, request/response şeması);
    süreç adımlarında ve GELİŞTİRME NOTLARI → Sistemler ve Entegrasyonlar bölümünde kullan
-3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
-4. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, akış, mesaj,
+2. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış gerçek ekran, akış, mesaj,
    validasyon ve network davranışı; `[K: Canlı UI:<route>]` / `[K: Network:<METHOD> <path>]`
    kaynak etiketiyle kullan
+3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
+4. Ana doküman (BRD/süreç tarifi) — iş gereksinimi/istek; hatalı veya güncel-olmayan olabilir
 5. Jira task geçmişi — geçmiş geliştirme kararları; çelişen yeni gereksinim
    → Açık Sorular'a
 6. UI bağlamı — ham kaynak koddan değil, canlı uygulama gözleminden gelen ekran/route/bileşen yapısı
@@ -630,15 +676,17 @@ veya muğlak alan YASAK — belirsizlik Açık Sorular'a taşınır.
 - Standart pattern'den türetilen → `[K: 🔍 Türetilmiş]` + Açık Sorular'a not
 - Hiçbir kaynakta olmayan entity/endpoint/tablo → ASLA uydurma; Açık Sorular'a
 
-# BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
-1. Süreç Analizi — birincil girdi; BR/AC/PA/EF/AF/EK ID'lerini referans al,
-   her teknik karar bir süreç ID'sini karşılamalı, izlenebilirlik matrisinde göster
-2. Swagger/OpenAPI — mevcut endpoint adı, path, request/response şeması; aynen kullan
+# BAĞLAM KULLANIMI (çelişkide öncelik: yüksek → düşük)
+# Süreç Analizi birincil GİRDİDİR — her teknik karar bir süreç ID'sini (BR/AC/PA/EF/AF/EK)
+# karşılamalı ve izlenebilirlik matrisinde gösterilmeli. Ancak OLGUSAL/teknik veride
+# (endpoint, alan adı, tip, gerçek davranış) çelişki olursa GÖZLEMLENEN gerçek veri üstündür.
+1. Swagger/OpenAPI — çalışan API sözleşmesi (endpoint adı, path, request/response şeması); aynen kullan
+2. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış ekran, validasyon, mesaj,
+   kullanıcı akışı ve network çağrıları; Bölüm 5/7/9'da kaynak göster
 3. Confluence — mevcut mimari kararlar, DB şeması, RBAC rolleri
-4. Jira task geçmişi — geçmiş geliştirme kararları; çelişki varsa açık not düş
-5. Canlı uygulama gözlemi — Claude MCP/Chrome ile görülen ekran, validasyon, mesaj,
-   kullanıcı akışı ve network çağrılarını Bölüm 5/7/9'da kaynak göster
-6. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipdeki ekran, bileşen ve UX kararlarını yansıt
+4. Süreç Analizi — birincil girdi ve izlenebilirlik çapası; iş gereksinimini tarif eder
+5. Jira task geçmişi — geçmiş geliştirme kararları; çelişki varsa açık not düş
+6. HTML prototip — Bölüm 7 (Frontend İş Kırılımı)'nda prototipteki ekran, bileşen ve UX kararlarını yansıt
 7. UI bağlamı — ham kaynak koddan değil, canlı uygulama gözleminden gelen ekran/route/bileşen listesini çıkar
 
 Referans YOKSA: süreç analizine dayan; eksik teknik bağlamı Açık Sorular'da belirt.
@@ -760,12 +808,15 @@ açıkça raporlanır.
 - BRD'de olmayan ama gerekli olan → varsayma; PO sorusu olarak sor
 - Kendi varsayımını gereksinim gibi yazma
 
-# BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
-1. BRD dokümanı — birincil kaynak; her gereksinim, kısıt, kabul kriteri
-2. Swagger/OpenAPI — mevcut API kapsamı; BRD'deki entegrasyon
-   gereksinimleri mevcut servislerle uyumlu mu?
+# BAĞLAM KULLANIMI (çelişkide öncelik: yüksek → düşük)
+# BRD analizin KONUSUDUR — onu değerlendiriyorsun. OLGUSAL çelişkide (mevcut API / sistem /
+# gerçek davranış) gözlemlenen gerçek veri BRD'nin üstündedir; çelişkiyi "Eksiklikler ve
+# Tutarsızlıklar"a taşı (BRD istek yazar, hatalı/güncel-olmayan olabilir).
+1. Swagger/OpenAPI — mevcut API kapsamı; BRD entegrasyon gereksinimleri mevcut servislerle uyumlu mu?
+2. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış mevcut davranış; BRD ile çelişen gerçek durum
 3. Confluence — mevcut mimari kararlar; BRD ile çelişen sistem kısıtları
-4. Jira task geçmişi — bu gereksinimler daha önce ele alındı mı?
+4. BRD dokümanı — analizin konusu; her gereksinim, kısıt, kabul kriteri (istek — hatalı olabilir)
+5. Jira task geçmişi — bu gereksinimler daha önce ele alındı mı?
 
 Referans YOKSA: yalnızca BRD'ye dayan; teknik uygulanabilirlik konularını
 PO sorusu olarak işaretle.
@@ -900,12 +951,15 @@ görmesini sağlar. Ekip bu raporu okuyarak:
 - Alternatifler gerçekçi ve uygulanabilir olmalı — hayali çözüm üretme
 
 # BAĞLAM KULLANIMI (öncelik: yüksek → düşük)
+# İki BRD karşılaştırmanın KONUSUDUR (ne değişti). Değişimin teknik ETKİSİNİ değerlendirirken
+# OLGUSAL çelişkide gözlemlenen gerçek veri (Swagger/canlı) BRD iddiasının üstündedir.
 1. Mevcut BRD (baseline) — karşılaştırmanın referans noktası
 2. Revize BRD (yüklenen) — değerlendirilen yeni versiyon
 3. Önceki BRD Analizi (varsa) — revize BRD'nin bilinen eksikleri
-4. Swagger/OpenAPI — kapsam değişiminin API etkisi; yeni endpoint gerekir mi?
-5. Confluence — mevcut mimari/sistem kısıtları değişimi etkiliyor mu?
-6. Jira task geçmişi — benzer kapsam değişiklikleri daha önce yaşandı mı?
+4. Swagger/OpenAPI — çalışan API sözleşmesi; kapsam değişiminin API etkisi, yeni endpoint gerekir mi?
+5. Canlı uygulama gözlemi — Claude MCP/Chrome ile doğrulanmış mevcut davranış; değişimin gerçek etkisi
+6. Confluence — mevcut mimari/sistem kısıtları değişimi etkiliyor mu?
+7. Jira task geçmişi — benzer kapsam değişiklikleri daha önce yaşandı mı?
 7. Canlı uygulama gözlemi — her alternatifin UI etkisi
 
 Referans YOKSA: yalnızca iki BRD'ye dayan; teknik etki tahminlerini
@@ -1246,20 +1300,33 @@ added / updated / removed olabilir."""
             "- Yeni çözümle GEREKSİZ hale gelen mevcut bir davranışı (ör. sportId ile tüm marketler "
             "döndüğü için ekrandaki sport-name arama filtresi) ÇÖZÜMÜN parçası olarak açıkça belirt: "
             "'<X> kaldırılmalı, çünkü <kısa gerekçe>'.\n\n"
-            "# SEÇİLEBİLİR BÖLÜMLER (yalnızca ilgili olanları, TAM BU BAŞLIK ADLARIYLA ve bu sırayla — "
-            "ekip formatı; başlık adını DEĞİŞTİRME)\n"
-            "- `## Amaç ve Kapsam` — 1-2 cümle: ne yapılacak, hangi ekran/modül/iş; geliştiriciden tam "
-            "olarak ne isteniyor. (Neredeyse her görevde gerekir.)\n"
-            "- `## Etkilenen Alanlar` — dokunulan ekran/bileşen/dosya/servis (biliniyorsa, kısa liste).\n"
-            "- `## Teknik Değişiklikler` — SOMUT yapılacak işin özü; adımlar/kurallar. Gözlenen/Swagger'daki "
-            "servisleri burada ÇÖZÜM olarak kullan (ör. `GET /api/v1/market?sportId=…`). Gereksizleşen "
-            "davranışı da burada belirt (ör. 'sport-name arama filtresi kaldırılmalı, çünkü …'). Hem FE hem "
-            "BE etkileniyorsa kısaca AYIR (FE / BE). Yeni endpoint/alan/DB YALNIZCA gerçekten gerekiyorsa; "
-            "kaynağı/gözlemi olmadan İCAT ETME.\n"
-            "- `## Kabul Kriterleri` — test edilebilir maddeler (AC-1, AC-2…). Test edilebilir davranış "
-            "varsa ZORUNLU; salt-metin/konfig işiyse atlanabilir.\n\n"
-            "Gerekmedikçe DDL, mermaid diyagram, ayrıntılı API tablosu, rol matrisi gibi AĞIR bölümlere "
-            "GİRME.\n\n"
+            "# BÖLÜMLER — EKİP FORMATI (ana süreç→teknik analiz / task açma akışıyla AYNI başlıklar; TAM BU "
+            "ADLAR ve bu SIRA; başlık adını DEĞİŞTİRME)\n"
+            "Aşağıdaki başlık kümesi, süreç analizinden sonra Jira task'ı açılırken kullanılan teknik-analiz "
+            "formatının AYNISIDIR. İKİ KURAL BİRLİKTE:\n"
+            "  (a) Görevin GERÇEKTEN dokunduğu her başlığı YAZ ve içini DOLU-SOMUT doldur (geliştirici o başlıktan "
+            "doğrudan iş çıkarabilsin) — 'kısa' bahanesiyle gerçek gereksinimi atlama.\n"
+            "  (b) Görevin dokunmadığı başlığı HİÇ AÇMA — boş başlık, 'bu modülde X işi yok' dolgusu, "
+            "'kapsam dışı' notu YAZMA. (Gereksiz başlık istenmiyor.)\n"
+            "- `## 1. Amaç ve Hedefler` — ZORUNLU: ne yapılacak, hangi ekran/modül/iş, geliştiriciden tam ne "
+            "isteniyor; karşılanan süreç/gereksinim ID'leri (varsa).\n"
+            "- `## 2. İş Gereksinimleri` — dokunulan ekran/bileşen/modal kırılımı; her bileşenin kuralı "
+            "(zorunlu/opsiyonel, biçim, validasyon), ilgili BR/AC. (Bileşen/alan işi varsa yaz.)\n"
+            "- `## 3. Teknik Gereksinimler` — uçtan uca akış(lar) adım adım; hangi adımda ne olur, hangi servis "
+            "çağrılır. Gözlenen/Swagger servisini ÇÖZÜM olarak kullan; gereksizleşen davranışı 'kaldırılmalı, "
+            "çünkü…' diye belirt. (Neredeyse her görevde gerekir.)\n"
+            "- `## 4. Veritabanı Tasarımı` — YALNIZ gerçek DB işi varsa: etkilenen/yeni tablo + gerçek DDL. Yoksa AÇMA.\n"
+            "- `## 5. API Tasarımı` — YALNIZ endpoint işi varsa: method/path/istek/yanıt; MEVCUT endpoint'i KULLAN "
+            "(kaynağı/gözlemi olmadan İCAT ETME). Yoksa AÇMA.\n"
+            "- `## 6. İş Mantığı ve Algoritma Detayları` — YALNIZ önemsiz-olmayan kural/hesap/karar varsa. Yoksa AÇMA.\n"
+            "- `## 7. Frontend İş Kırılımı` — YALNIZ FE işi varsa: bileşen(ler) (dosya adı), props, state, validasyon, UX. Yoksa AÇMA.\n"
+            "- `## 8. Role Management` — YALNIZ yetki/rol etkisi varsa. Yoksa AÇMA.\n"
+            "- `## 9. Hata Yönetimi ve İstisna Tanımları` — YALNIZ tanımlı hata/istisna davranışı varsa. Yoksa AÇMA.\n"
+            "- `## 10. Teknik Borç ve Riskler` — YALNIZ somut risk/borç/bağımlılık varsa (ör. bağlı BE task'ı). Yoksa AÇMA.\n"
+            "- `## 11. Kabul Kriterleri` — test edilebilir davranış varsa ZORUNLU (AC-1, AC-2…).\n"
+            "ÇEKİRDEK: 1, 3 ve (test edilebilirse) 11 neredeyse her görevde DOLU olmalı; FE görevinde 7, DB "
+            "görevinde 4, endpoint görevinde 5 de eklenir. Numarayı, dokunulmayan başlık atlandığı için "
+            "atlamak SERBEST (ör. yalnız 1,3,7,11 çıkabilir) — kalanları uydurup doldurma.\n\n"
             "# KALİTE (bundan ÖDÜN YOK)\n"
             "- Her teknik iddiayı kaynağa dayandır: `[K: Jira]`, `[K: Confluence:<sayfa>]`, "
             "`[K: Swagger:<dosya>]`, `[K: Canlı UI:<route>]`, `[K: Network:<METHOD> <path>]`; "
@@ -1821,10 +1888,18 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
 
     bloklari: list[dict] = []
     kullanilan: list[str] = []
+    # Getirim bütçesi (madde 3): tüm tipler boyunca birikimli tavan. <=0 → sınırsız.
+    global_kalan = MAX_CHARS_REF_GLOBAL if MAX_CHARS_REF_GLOBAL > 0 else None
 
     for baslik, aciklama, dosya_listesi, tip_limit, jira_modu in TIP_KONFIG:
         if not dosya_listesi:
             continue
+        if global_kalan is not None and global_kalan <= 0:
+            logger.info("Getirim bütçesi (%d) doldu — kalan referans tipleri atlandı.", MAX_CHARS_REF_GLOBAL)
+            break
+        # Bu tipin limiti global kalanın üstüne çıkamaz.
+        if global_kalan is not None:
+            tip_limit = min(tip_limit, global_kalan)
 
         metinler: list[str] = []
         toplam = 0
@@ -1869,6 +1944,9 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
             metinler.append(f"#### {rel}\n{metin}")
             kullanilan.append(rel)
             toplam += len(metin)
+
+        if global_kalan is not None:
+            global_kalan -= toplam
 
         if metinler:
             bloklari.append({
@@ -1959,6 +2037,16 @@ def _keyword_odakli_metin(metin: str, keywords: list, limit: int, ad: str) -> st
     veya metin zaten kısaysa mevcut baştan-kesme davranışına döner."""
     if len(metin) <= limit or not keywords:
         return _metin_kes(metin, limit, ad)
+    # v2 Faz 3.c — BM25 retrieval: ilgili parçaları alaka sırasına göre getir.
+    # Herhangi bir hata/uyumsuzlukta AŞAĞIDAKİ mevcut keyword-window davranışına düşer.
+    try:
+        from .retrieval import en_alakali_parcalar
+        r = en_alakali_parcalar(metin, " ".join(str(k) for k in keywords), k=8, butce=limit)
+        if r.get("secilen"):
+            return (f"[BM25 retrieval — {ad}: '{', '.join(keywords)}' için en alakalı bölümler]\n"
+                    + r["metin"])
+    except Exception:
+        pass
     lc = metin.lower()
     pencere = 1800
     araliklar = []
@@ -2119,7 +2207,8 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
     }
 
 
-def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
+def canli_uygulama_baglami_hazirla(gorev: bool = False, base_url_override: str = "",
+                                   hedef_tarif: str = "") -> str | None:
     """Bağlam filtresindeki canlı uygulama URL'lerinden Claude MCP/Chrome görevi üretir.
 
     `gorev=True` → Jira Görevleri (task bazlı) ekranının KENDİ `live_app_gorev` hedefini
@@ -2145,7 +2234,16 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         extra_urls = [u for u in extra_urls_raw if str(u).strip()] if isinstance(extra_urls_raw, list) else []
         use_as_sample = bool(live_app.get("use_as_sample"))
         gozlem_kapsami = str(live_app.get("gozlem_kapsami", "")).strip()
-    urls = _benzersiz_liste([target_url] + extra_urls)
+    # Jira Köprüsü (görev-güdümlü): sabit ekran URL'i yerine uygulamanın ANA girişini
+    # (base_url_override) kullan; hedef ekran task içeriğinden (hedef_tarif) türetilir →
+    # model login sonrası uygulamanın kendi menüsüyle ilgili ekrana gider. Ekran-bağımlı değil.
+    if base_url_override:
+        urls = _benzersiz_liste([base_url_override])
+        use_as_sample = False
+    else:
+        urls = _benzersiz_liste([target_url] + extra_urls)
+    if hedef_tarif.strip():
+        gozlem_kapsami = hedef_tarif.strip()   # task-güdümlü hedef → ODAKLI gözlem modu
     if not urls:
         return None
 
@@ -2245,6 +2343,16 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "o adımı atla ve raporda 'Canlı Gözlem Kapsamı' altında nedeniyle belirt.\n"
     )
 
+    nav_notu = ""
+    if base_url_override:
+        nav_notu = (
+            "### GİRİŞ VE HEDEF EKRANA GİDİŞ\n"
+            "Giriş noktası uygulamanın ANA adresidir (yukarıdaki URL). Gerekiyorsa önce giriş yap; "
+            "ardından aşağıda tarif edilen ekran/işlev ana sayfada DEĞİLSE uygulamanın KENDİ menüsü/"
+            "navigasyonuyla ilgili ekrana git. Doğru ekranı görünen menü/başlıklardan bul; ekranı "
+            "bulamazsan veya birden çok aday varsa VARSAYIM ÜRETME — Gözlem Kapsamı'nda belirt.\n\n"
+        )
+
     if gozlem_kapsami:
         # ODAKLI MOD: analist ekranın tamamını değil, belirli bir bölümü/akışı istiyor.
         # Tam tarama planı YERİNE tarif edilen kapsam derinlemesine incelenir — daha
@@ -2256,8 +2364,10 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
             "önceliğin bu kapsamı UÇTAN UCA ve DERİNLEMESİNE incelemek. Kapsam dışı bölümleri "
             "yalnızca bu akışı doğrudan etkilediği kadar gözle.\n\n"
             f"{sirali}\n\n"
+            f"{ornek_ekran_notu}"
             f"{giris_notu}"
-            "ODAKLI GÖZLEM KAPSAMI (analist tanımladı):\n"
+            f"{nav_notu}"
+            "ODAKLI GÖZLEM KAPSAMI (hedef akış/ekran):\n"
             f"{gozlem_kapsami}\n\n"
             "Uygulama adımları (verimli sırayla — gereksiz tur yapma):\n"
             "1. Hedef URL'yi aç. TEK snapshot ile (gerekirse `browser_find`) kapsamdaki "
@@ -2482,7 +2592,11 @@ def filtrele_referanslar(all_files: list, ctx: dict) -> list:
     return filtered
 
 
-def referans_dosyalari_hazirla() -> list[Path]:
+def referans_dosyalari_hazirla(ctx_override: dict | None = None) -> list[Path]:
+    """Referans dosyalarını (RAG) toplar. `ctx_override` verilmezse (None) ekranda
+    KAYITLI bağlam filtresi (load_context_filter) uygulanır — varsayılan davranış.
+    `{}` verilirse HİÇ filtre uygulanmaz (tüm dosyalar; task-güdümlü/bağımsız analiz —
+    Jira Köprüsü buradan yararlanır: birinin ekranındaki bayat filtreye bağlı kalmaz)."""
     uzantilar = ["*.md", "*.txt", "*.pdf", "*.html", "*.json", "*.yaml", "*.yml"]
     tum_dosyalar: list[Path] = []
     for dizin in [CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR]:
@@ -2496,7 +2610,7 @@ def referans_dosyalari_hazirla() -> list[Path]:
                     tum_dosyalar.append(f)
     if not tum_dosyalar:
         return []
-    ctx = load_context_filter()
+    ctx = ctx_override if ctx_override is not None else load_context_filter()
     if ctx:
         filtreli = filtrele_referanslar(tum_dosyalar, ctx)
         aktif = []
@@ -2711,7 +2825,10 @@ def live_app_mcp_config_yaz() -> Path | None:
             "playwright": {
                 "command": npx,
                 "args": [
-                    "-y", "@playwright/mcp@latest",
+                    # Sürüm PİNLİ — @latest yükseltmesi bir aracı yeniden adlandırır veya
+                    # capability arkasına taşırsa LIVE_APP_ALLOWED_TOOLS eşleşmesi bozulur →
+                    # araç sessizce reddedilip gözlem yapılmaz. Yükseltme bilinçli yapılmalı.
+                    "-y", "@playwright/mcp@0.0.80",
                     "--headless",
                     "--browser", "chrome",
                     "--user-data-dir", str(LIVE_APP_PROFILE_DIR),
@@ -2876,6 +2993,246 @@ def cli_durum_probe() -> dict:
     return cli_durum_oku()
 
 
+GOZLEM_DURUM_DOSYA = OUTPUT_DIR / ".gozlem-durum.json"
+
+
+def _gozlem_durum_yaz(yapildi: bool, turns: int, reddedilen: list, kapsam: str) -> None:
+    """Son canlı-uygulama gözlem denemesinin MAKİNE-DOĞRULANMIŞ durumu (UI 'Gözlem Raporu'
+    rozeti). Model öz-raporundan bağımsız: num_turns/permission_denials'a dayanır. Fail-safe."""
+    try:
+        from datetime import datetime
+        GOZLEM_DURUM_DOSYA.parent.mkdir(parents=True, exist_ok=True)
+        GOZLEM_DURUM_DOSYA.write_text(json.dumps({
+            "yapildi": bool(yapildi), "num_turns": int(turns or 0),
+            "reddedilen": list(reddedilen or []), "kapsam": kapsam,
+            "zaman": datetime.now().isoformat(timespec="seconds"),
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def gozlem_durum_oku() -> dict | None:
+    try:
+        if GOZLEM_DURUM_DOSYA.exists():
+            return json.loads(GOZLEM_DURUM_DOSYA.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
+
+def _canli_app_sifre_redakte(metin: str) -> str:
+    """Belt-and-suspenders: prompt'taki 'şifreyi çıktıya yazma' kuralına EK olarak,
+    yapılandırılmış canlı-uygulama giriş şifresi çıktıda görünürse DETERMİNİSTİK temizle.
+    Model kurala uymazsa şifrenin output/'a + API cache'ine yazılmasını önler."""
+    try:
+        ctx = load_context_filter() or {}
+        sifre = str((ctx.get("live_app_auth") or {}).get("password") or "").strip()
+        if sifre and len(sifre) >= 4 and sifre in metin:
+            metin = metin.replace(sifre, "«redakte»")
+            logger.warning("Canlı-uygulama şifresi çıktıda görüldü ve redakte edildi (prompt kuralına ek güvenlik).")
+    except Exception:
+        pass
+    return metin
+
+
+# ─── Sır redaksiyonu (P1-D güvenlik) — loglara/çıktıya sır sızmasını önle ───────────
+# Bilinen sır değerleri (API anahtarı, canlı-uygulama şifresi) + genel anahtar desenleri her
+# log kaydından/metinden temizlenir. Literaller `sir_kaydet` ile eklenir (açılışta + filtre save'de).
+_sir_lock = threading.Lock()
+_SIR_LITERALLER: set[str] = set()
+_SIR_DESENLER = [
+    re.compile(r"sk-ant-[A-Za-z0-9_\-]{16,}"),   # Anthropic API anahtarı
+    re.compile(r"sk-[A-Za-z0-9_\-]{24,}"),        # genel gizli anahtar biçimi
+]
+
+
+def sir_kaydet(*degerler) -> None:
+    """Redaksiyon için sır literalleri ekle (>=8 karakter). Fail-safe."""
+    with _sir_lock:
+        for d in degerler:
+            s = str(d or "").strip()
+            if len(s) >= 8:
+                _SIR_LITERALLER.add(s)
+
+
+def sir_redakte(metin: str) -> str:
+    """Metindeki bilinen sır literallerini ve anahtar desenlerini «sır» ile maskeler. Fail-safe."""
+    if not metin:
+        return metin
+    try:
+        with _sir_lock:
+            literaller = tuple(_SIR_LITERALLER)
+        for lit in literaller:
+            if lit in metin:
+                metin = metin.replace(lit, "«sır»")
+        for pat in _SIR_DESENLER:
+            metin = pat.sub("«sır»", metin)
+    except Exception:
+        pass
+    return metin
+
+
+# ─── Token/maliyet sayacı (P0 madde 2) — süreç-geneli birikimli; telemetri okur ────
+# Her AI çağrısı buraya girdi/çıktı/cache token + maliyet ekler. Emit noktaları başta okuyup
+# sonda delta alır (in-process); run.py gibi tek-analizlik subprocess'te sayaç 0'dan başlar.
+_token_lock = threading.Lock()
+_TOKEN_SAYAC = {"girdi": 0, "cikti": 0, "cache_yaz": 0, "cache_oku": 0, "cagri": 0, "maliyet_usd": 0.0}
+# Thread-local birikim (P1-C paralel doğruluğu): görev analizi eşzamanlı çalışınca global-sayaç
+# delta'sı yanlış olur (adım A'nın baz→emit aralığı adım B'nin token'larını da kapsar). Her worker
+# thread'i kendi capture'ını başlatır → yalnız o thread'in çağrıları ona yazılır. Global sayaç yine
+# tüm süreç toplamını tutar (run.py subprocess'i için).
+_token_local = threading.local()
+_TOKEN_ALANLAR = ("girdi", "cikti", "cache_yaz", "cache_oku", "cagri", "maliyet_usd")
+
+
+def _token_ekle(girdi=0, cikti=0, cache_yaz=0, cache_oku=0, maliyet=0.0) -> None:
+    d = {"girdi": int(girdi or 0), "cikti": int(cikti or 0), "cache_yaz": int(cache_yaz or 0),
+         "cache_oku": int(cache_oku or 0), "cagri": 1, "maliyet_usd": float(maliyet or 0.0)}
+    with _token_lock:
+        for k in _TOKEN_ALANLAR:
+            _TOKEN_SAYAC[k] += d[k]
+    acc = getattr(_token_local, "acc", None)
+    if acc is not None:
+        for k in _TOKEN_ALANLAR:
+            acc[k] += d[k]
+
+
+def token_capture_baslat() -> None:
+    """Bu thread için taze token capture başlat (paralel görev analizinde adım-başına doğru ölçüm)."""
+    _token_local.acc = {k: (0.0 if k == "maliyet_usd" else 0) for k in _TOKEN_ALANLAR}
+
+
+def token_capture_al() -> dict | None:
+    """Bu thread'de capture aktifse biriken token'ları döndürür (ve capture'ı kapatır); değilse None."""
+    acc = getattr(_token_local, "acc", None)
+    _token_local.acc = None
+    return dict(acc) if acc is not None else None
+
+
+def token_sayac_oku() -> dict:
+    """Birikimli token sayacının kopyası."""
+    with _token_lock:
+        return dict(_TOKEN_SAYAC)
+
+
+def token_delta(baslangic: dict | None) -> dict:
+    """`baslangic` (token_sayac_oku() ile alınmış) ile şimdi arasındaki farkı döndürür."""
+    son = token_sayac_oku()
+    b = baslangic or {}
+    return {k: (son.get(k, 0) - b.get(k, 0)) for k in son}
+
+
+def _api_usage_kaydet(yanit) -> None:
+    """anthropic API yanıtının usage'ını sayaca ekler (fail-safe)."""
+    try:
+        u = getattr(yanit, "usage", None)
+        if u:
+            _token_ekle(girdi=getattr(u, "input_tokens", 0), cikti=getattr(u, "output_tokens", 0),
+                        cache_yaz=getattr(u, "cache_creation_input_tokens", 0),
+                        cache_oku=getattr(u, "cache_read_input_tokens", 0))
+    except Exception:
+        pass
+
+
+# ─── Gerçek "Durdur" — çalışan claude CLI sürecini öldürme (P0 madde 4) ─────────
+# Görev analizi arka plan thread'inde çalışır; içindeki `claude -p` çağrısı bloklar.
+# 'Durdur'un GERÇEKTEN token yakmayı kesmesi için çalışan alt-süreci öldürmeliyiz.
+# Her CLI çağrısı kendi worker thread'inde Popen'ını buraya kaydeder; Durdur endpoint'i
+# (ayrı Flask thread'i) worker thread ident'i üzerinden killpg eder. start_new_session=True
+# → torunlar da (Playwright/MCP) grup ile ölür. _surec_durdur ile aynı desen, ama in-process.
+_cli_lock = threading.Lock()
+_CLI_PROC_REG: dict[int, subprocess.Popen] = {}   # worker thread ident → çalışan claude Popen
+
+
+class DurdurulduError(RuntimeError):
+    """Analist 'Durdur' ile CLI süreci öldürüldü — hata değil, kasıtlı iptal."""
+
+
+class CliLimitError(RuntimeError):
+    """claude CLI kullanım limiti (429) — abonelik penceresi doldu. `reset` sıfırlanma zamanı (varsa).
+    `_api_cagri` bunu yakalayıp API anahtarı varsa otomatik API moduna düşer (P1-B dayanıklılık)."""
+    def __init__(self, mesaj: str, reset: str | None = None):
+        super().__init__(mesaj)
+        self.reset = reset
+
+
+def _api_anahtari_var() -> bool:
+    """API moduna fallback için ANTHROPIC_API_KEY tanımlı mı? (analist CLI makinelerinde genelde yok)."""
+    return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
+
+
+def cli_proc_durdur(thread_ident: int | None) -> bool:
+    """Belirtilen worker thread'inde çalışan claude CLI sürecini process-grubuyla sonlandırır.
+    True → bir süreç bulunup öldürüldü. Fail-safe."""
+    if thread_ident is None:
+        return False
+    with _cli_lock:
+        p = _CLI_PROC_REG.get(thread_ident)
+    if not (p and p.poll() is None):
+        return False
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except Exception:
+        try:
+            p.terminate()
+        except Exception:
+            return False
+    logger.info("Görev analizi CLI süreci durduruldu (analist).")
+    return True
+
+
+def cli_tum_durdur() -> int:
+    """Kayıtlı TÜM çalışan claude CLI süreçlerini process-grubuyla öldürür → öldürülen sayısı.
+    run.py subprocess'i SIGTERM/SIGINT aldığında (ör. _surec_durdur killpg) kendi claude çocuğunu
+    bununla öldürür; start_new_session ile çocuk ayrı gruba düştüğü için killpg(run.py) ona ulaşmaz."""
+    with _cli_lock:
+        procs = list(_CLI_PROC_REG.values())
+    n = 0
+    for p in procs:
+        try:
+            if p and p.poll() is None:
+                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                n += 1
+        except Exception:
+            try:
+                p.terminate()
+            except Exception:
+                pass
+    return n
+
+
+def _cli_calistir(cmd: list, tam_prompt: str, cli_env: dict, timeout: int = 1200):
+    """subprocess.run yerine killable Popen — çalışan süreci thread-keyed registry'ye yazar
+    ki 'Durdur' killpg edebilsin. subprocess.CompletedProcess döndürür (çağıran değişmeden çalışır).
+    Signal ile öldürülürse (negatif returncode) DurdurulduError fırlatır."""
+    tid = threading.get_ident()
+    proc = subprocess.Popen(
+        cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, env=cli_env, start_new_session=True,
+    )
+    with _cli_lock:
+        _CLI_PROC_REG[tid] = proc
+    try:
+        out, err = proc.communicate(input=tam_prompt, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            proc.kill()
+        try:
+            proc.communicate(timeout=5)
+        except Exception:
+            pass
+        raise
+    finally:
+        with _cli_lock:
+            _CLI_PROC_REG.pop(tid, None)
+    if proc.returncode is not None and proc.returncode < 0:
+        # Sinyalle sonlandırıldı → analist 'Durdur' (veya dış kill). Hata sayma, iptal say.
+        raise DurdurulduError("Görev analizi analist tarafından durduruldu.")
+    return subprocess.CompletedProcess(cmd, proc.returncode, out or "", err or "")
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -2911,15 +3268,24 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     _live_args = _live_app_cli_argumanlari(kapsam=canli_uygulama_kapsami)
     if _live_args:
         print(f"  🌐 Canlı uygulama modu: Chrome MCP + {len(LIVE_APP_ALLOWED_TOOLS)} araç izni")
+    # v2 Faz 3.c — Analiz veri kaynakları (Postgres/Jira MCP). Opt-in; varsayılan KAPALI.
+    # Canlı uygulama (Chrome MCP) ile AYNI çağrıda birleştirilmez (--strict-mcp-config
+    # tekildir): canlı uygulama aktifse bu çağrıda veri-MCP atlanır.
+    _analiz_mcp_args: list[str] = []
+    if not _live_args:
+        try:
+            from . import analiz_mcp
+            _analiz_mcp_args = analiz_mcp.cli_argumanlari()
+            if _analiz_mcp_args:
+                print("  🗄  Analiz veri kaynağı: Postgres/Jira MCP araç izni")
+        except Exception:
+            _analiz_mcp_args = []
     # --model DAİMA açıkça geçilir → Claude Code'un varsayılan (ör. Fable) modeli KULLANILMAZ.
-    _model_args = ["--model", CLAUDE_CLI_MODEL] if CLAUDE_CLI_MODEL else []
-    proc = subprocess.run(
-        [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args],
-        input=tam_prompt,
-        capture_output=True,
-        text=True,
-        timeout=1200,
-        env=cli_env,
+    _aktif_model = aktif_cli_model()   # canlı okuma → arayüzden değişince restart gerekmez
+    _model_args = ["--model", _aktif_model] if _aktif_model else []
+    proc = _cli_calistir(
+        [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args, *_analiz_mcp_args],
+        tam_prompt, cli_env, timeout=1200,
     )
     if proc.returncode != 0:
         # stdout JSON ise içinden okunabilir mesaj çıkar (429 limit, billing vb.)
@@ -2934,8 +3300,9 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
                 # kendi limiti/usage-credit'i dolmuş olabilir (farklı ölçülür). Bu yüzden tek
                 # bir sebep iddia etmeyip kullanıcıyı Claude Code'un KENDİ /status'una yönlendir.
                 ham_limit = (v.get("result") or "limit doldu").strip()
-                _cli_durum_yaz(False, _cli_reset_ayikla(ham_limit), kaynak="analiz")
-                raise RuntimeError(
+                _reset = _cli_reset_ayikla(ham_limit)
+                _cli_durum_yaz(False, _reset, kaynak="analiz")
+                raise CliLimitError(
                     f"Claude kullanım limitine ulaşıldı: {ham_limit}. "
                     "Bu, aboneliğin bir kullanım penceresidir (5 saatlik oturum, haftalık kota "
                     "VEYA usage-credit/ek kullanım tükenmesi olabilir) ve Claude Desktop SOHBET "
@@ -2943,7 +3310,8 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
                     "terminalde `claude` çalıştırıp `/status` (ve `/usage`) ile Claude Code'un "
                     "KENDİ limit/kredi görünümüne bakın. Belirtilen saatte sıfırlanır; hemen "
                     "devam etmek için .env'de ANTHROPIC_API_KEY tanımlayıp API moduna geçin "
-                    "(USE_CLAUDE_CLI=false)."
+                    "(USE_CLAUDE_CLI=false).",
+                    reset=_reset,
                 )
             mesaj = v.get("result") or v.get("subtype") or "bilinmeyen hata"
             if _cli_oturum_hatasi_mi(v.get("api_error_status"), mesaj):
@@ -2977,6 +3345,34 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     if not yanit:
         raise RuntimeError("claude CLI 'result' alanı boş döndü.")
     _cli_durum_yaz(True, None, kaynak="analiz")   # başarılı çağrı → CLI kullanılabilir
+    # Token/maliyet sayacı (P0 madde 2): CLI JSON'daki usage + total_cost_usd birikimli sayaca.
+    try:
+        _u = veri.get("usage") or {}
+        _token_ekle(girdi=_u.get("input_tokens", 0), cikti=_u.get("output_tokens", 0),
+                    cache_yaz=_u.get("cache_creation_input_tokens", 0),
+                    cache_oku=_u.get("cache_read_input_tokens", 0),
+                    maliyet=veri.get("total_cost_usd", 0.0))
+    except Exception:
+        pass
+
+    # Canlı gözlem İSTENDİ ama GERÇEKLEŞMEMİŞ olabilir mi? (sessiz-düşüş tespiti — Faz 7)
+    # Tek turn (hiç araç kullanılmadı) veya browser aracı reddi → MCP/Chrome erişilememiş
+    # olabilir; analiz URL'lere dayalı iddiaları DOĞRULANMAMIŞ üretmiş olabilir. Sessiz
+    # kalmasın: net uyarı logla + subprocess çıktısına yaz (analist app log'unda görür).
+    if canli_uygulama_kapsami and _live_args:
+        _denials = veri.get("permission_denials") or []
+        _turns = veri.get("num_turns") or 0
+        _browser_reddi = any(("playwright" in str(d) or "browser" in str(d)) for d in _denials)
+        _yapildi = not (_browser_reddi or _turns <= 1)
+        # UI'nın "Gözlem Raporu" rozeti için makine-doğrulanmış durum (log'un yanında).
+        _gozlem_durum_yaz(yapildi=_yapildi, turns=_turns, reddedilen=[str(d)[:120] for d in _denials],
+                          kapsam=canli_uygulama_kapsami)
+        if not _yapildi:
+            logger.warning(
+                "⚠ CANLI GÖZLEM YAPILMAMIŞ OLABİLİR — MCP/Chrome erişilemedi veya araç reddedildi "
+                "(num_turns=%s, reddedilen=%s). URL'lere dayalı iddialar doğrulanmalı.", _turns, _denials)
+            print("  ⚠ Canlı uygulama gözlemi gerçekleşmemiş olabilir (MCP/Chrome erişilemedi / araç reddedildi) — "
+                  "URL'lere dayalı iddialar DOĞRULANMALI.")
 
     # Çıktı token limitine takılıp KESİLDİYSE kullanıcıyı uyar — eksik
     # analizin sessizce "tam" sanılmasını önler.
@@ -2986,7 +3382,7 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
             "claude CLI çıktısı '%s' nedeniyle erken bitti (num_turns=%s) — "
             "analiz eksik olabilir.", stop, veri.get("num_turns"),
         )
-    return yanit
+    return _canli_app_sifre_redakte(yanit)
 
 
 _RETRY_DENEMELER = 3
@@ -3035,6 +3431,13 @@ def _api_cagri_direct(
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY .env dosyasında tanımlı değil.")
+    # CLI modunda `anthropic` modül düzeyinde import EDİLMEZ (satır 69 koşullu) — API fallback
+    # (P1-B) için burada tembel import edilir; CLI makinesinde paket kuruluysa çalışır.
+    try:
+        import anthropic
+    except ImportError:
+        raise EnvironmentError("anthropic paketi yüklü değil — API moduna geçiş/fallback için gerekli "
+                               "(pip install anthropic).")
     # timeout=1200 (20 dk): SDK default 10 dk, büyük teknik analizde yetmiyor.
     client = anthropic.Anthropic(api_key=api_key, timeout=1200.0)
 
@@ -3067,7 +3470,9 @@ def _api_cagri_direct(
 
 
 def _api_kesilme_uyar(yanit, max_tokens: int) -> None:
-    """Yanıt max_tokens limitine takılıp kesildiyse uyarı loglar."""
+    """Yanıt max_tokens limitine takılıp kesildiyse uyarı loglar.
+    Ayrıca token/maliyet sayacını günceller (P0 madde 2) — her API çağrısı buradan geçer."""
+    _api_usage_kaydet(yanit)
     if getattr(yanit, "stop_reason", None) == "max_tokens":
         kullanim = getattr(yanit, "usage", None)
         cikti_tok = getattr(kullanim, "output_tokens", "?") if kullanim else "?"
@@ -3089,7 +3494,11 @@ _API_CACHE_AKTIF = os.getenv("API_CACHE", "true").lower() in ("1", "true", "yes"
 
 def _api_cache_key(sistem, mesajlar, model, max_tokens, thinking) -> str:
     h = hashlib.sha256()
-    h.update(f"{model}|{max_tokens}|{thinking}|".encode())
+    # CLI modunda gerçek model `model` paramında DEĞİL, aktif_cli_model()'dedir. Anahtar
+    # bunu da içermeli — yoksa analist modeli değiştirince (Sonnet→Opus) aynı girdide ESKİ
+    # modelin sonucu yanlışlıkla "önbellek hit" olarak döner (model seçimi etkisiz kalır).
+    _mod = f"cli:{aktif_cli_model()}" if USE_CLAUDE_CLI else "api"
+    h.update(f"{model}|{_mod}|{max_tokens}|{thinking}|".encode())
     h.update(sistem.encode("utf-8", "ignore"))
     h.update(json.dumps(mesajlar, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8", "ignore"))
     return h.hexdigest()[:40]
@@ -3167,11 +3576,49 @@ def _api_cagri(
             print("  💾 Önbellek hit — API çağrısı atlandı (0 token, aynı girdi)")
             return kayit
     if USE_CLAUDE_CLI:
-        sonuc = _api_cagri_cli(sistem, mesajlar, canli_uygulama_kapsami=canli_uygulama_kapsami)
+        try:
+            sonuc = _api_cagri_cli(sistem, mesajlar, canli_uygulama_kapsami=canli_uygulama_kapsami)
+        except CliLimitError:
+            # P1-B dayanıklılık: CLI limiti (429) doldu → API anahtarı varsa bu çağrıyı otomatik
+            # API moduyla tamamla (analistin işi kesilmesin). Anahtar yoksa (analist CLI makinesi)
+            # net hatayı yükselt. CLI_LIMIT_API_FALLBACK=false ile kapatılır (maliyet kontrolü).
+            _fallback = os.getenv("CLI_LIMIT_API_FALLBACK", "true").lower() in ("1", "true", "yes")
+            if _fallback and _api_anahtari_var():
+                logger.warning("CLI limiti (429) — bu çağrı API moduna otomatik düşürülüyor (fallback).")
+                print("  ⚠ CLI kullanım limiti doldu — bu çağrı API anahtarıyla tamamlanıyor "
+                      "(otomatik fallback; token ücreti işler). Kapatmak için CLI_LIMIT_API_FALLBACK=false.")
+                sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
+            else:
+                raise
     else:
         sonuc = _api_cagri_direct(sistem, mesajlar, model, max_tokens, thinking=thinking)
     _api_cache_yaz(key, sonuc)  # taze sonucu yaz (kesik kayıt varsa üzerine yazar)
     return sonuc
+
+
+def api_cagri_kapanisli(sistem: str, mesajlar: list, kapanis: str, max_tokens: int,
+                        thinking: bool = False, max_deneme: int = 2,
+                        canli_uygulama_kapsami: str | None = None) -> str:
+    """`kapanis` etiketi (ör. '</brd_sorular>') gelene kadar _api_cagri'yi yeniden dener.
+    Birden çok XML bloğu üreten BİRLEŞİK çağrılarda SON bloğun kapanışını kontrol eder:
+    çıktı limitte kesilirse ikinci blok (PO soruları / alternatif süreçler) SESSİZCE
+    kaybolmasın. Kesik gelirse 2+ denemede önbelleği BYPASS eder (yoksa cache aynı kesik
+    yanıtı döndürür); hiçbiri tam değilse en dolu ham yanıtı döndürür (_xml_ayir yarımı ayıklar).
+    _teknik_uret_tam ile aynı desen — teknik analiz kendi kopyasını kullanır (max_tokens farkı)."""
+    en_dolu = ""
+    for deneme in range(1, max_deneme + 1):
+        ham = _api_cagri(sistem, mesajlar, max_tokens=max_tokens, thinking=thinking,
+                         onbellek=(deneme == 1), canli_uygulama_kapsami=canli_uygulama_kapsami)
+        if kapanis in ham:
+            if deneme > 1:
+                print(f"  ✓ {deneme}. denemede tam çıktı üretildi ({kapanis})")
+            return ham
+        if len(ham) > len(en_dolu):
+            en_dolu = ham
+        if deneme < max_deneme:
+            print(f"  ⚠ Çıktı kesik ({kapanis} kapanışı yok) — yeniden deneniyor ({deneme}/{max_deneme})...")
+    print(f"  ⛔ Tam çıktı üretilemedi ({kapanis} yok) — eldeki en dolu kaydedilecek (eksik olabilir).")
+    return en_dolu
 
 
 def _kaydet(dosya_adi: str, icerik: str) -> Path:

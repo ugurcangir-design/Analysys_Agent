@@ -1,0 +1,4 @@
+{
+  "_aciklama": "v2 Faz 3 — Kod kaynağı (repo) yapılandırması. Makineye özel: gerçek dosya gitignore'da. Owner UI'dan (Kaynaklar › Kod Kaynağı) ekler. Repo bağlı DEĞİLKEN analiz normal çalışır; bağlanınca etki analizi/kod referansı dolar.",
+  "repolar": []
+}

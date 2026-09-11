@@ -1,0 +1,243 @@
+    <!-- EKRAN: Kod Kaynağı (v2 Faz 3.a) — analizi gerçek uygulama koduna bağlamanın
+         altyapısı. SALT-OKUMA: repo ağacı, dosya, arama, git geçmiş. Repo bağlı
+         değilse rehberli boş durum. Config owner-only. Backend: /api/kod/*. -->
+    <div class="page" id="page-kod">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Kod Kaynağı</h1>
+          <p>Analizi gerçek uygulama koduna bağla — dosya ağacı, arama ve git geçmişi (salt-okuma).</p>
+        </div>
+        <div class="ph-actions">
+          <select id="kod-etki-dosya" class="ds-inp" style="width:auto;padding:5px 10px" title="Etki analizi için çıktı">
+            <option value="surec-analizi.md">Süreç Analizi</option>
+            <option value="teknik-analiz.md">Teknik Analiz</option>
+            <option value="brd-analizi.md">BRD Analizi</option>
+            <option value="kapsam-analizi.md">Kapsam Analizi</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="kodEtki()" title="Bu çıktıdaki teknik varlıkları kodda ara">Etki analizi</button>
+          <span class="topbar-sep" style="height:20px"></span>
+          <select id="kod-repo" class="ds-inp" style="width:auto;padding:5px 10px" onchange="kodAgac('')"></select>
+          <button class="btn btn-outline btn-sm" onclick="kodConfigAc()" id="kod-config-btn">Repo ekle/düzenle</button>
+        </div>
+      </div>
+
+      <div id="kod-config" class="panel" style="display:none;margin-bottom:14px">
+        <div class="panel-head"><span class="panel-title">Repo yapılandırma</span><span class="ds-panel-tag">OWNER</span>
+          <span class="panel-spacer"></span><span id="kod-config-durum" class="mono-meta"></span>
+          <button class="btn btn-primary btn-sm" onclick="kodConfigKaydet()">Kaydet</button></div>
+        <div class="panel-body">
+          <p class="ds-hint"><span class="i">?</span>Her repo: ad + yerel checkout yolu. Makineye özeldir (git'e girmez). Repo bağlı değilken analiz normal çalışır; bağlanınca kod referansı/etki analizi dolar.</p>
+          <div id="kod-config-satirlar" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="kodConfigSatir()">+ Repo ekle</button>
+        </div>
+      </div>
+
+      <!-- Analiz veri kaynakları (Postgres/Jira MCP) — owner-only, Faz 3.c -->
+      <div id="kod-vk" style="display:none;margin-bottom:14px">
+        <div class="ds-disc" onclick="vkAc()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+          Analiz veri kaynakları — Postgres / Jira MCP <span id="vk-rozet"></span><span class="arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span></div>
+        <div id="vk-panel" class="panel" style="display:none;margin-top:8px"><div class="panel-body">
+          <p class="ds-hint"><span class="i">?</span>Analiz çağrılarına Postgres/Jira MCP + salt-okuma araç izni ekler (canlı uygulama Chrome MCP gibi). Varsayılan KAPALI; aktif edilmeden analiz davranışı değişmez. Gerçek prova kota + canlı bağlantı gerektirir.</p>
+          <div class="ds-grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+            <div>
+              <label class="ds-tglrow" style="cursor:pointer"><input type="checkbox" id="vk-pg-aktif" style="accent-color:var(--accent);width:15px;height:15px"><div><div class="ds-tgl-txt">Postgres MCP</div><div class="ds-tgl-sub" id="vk-pg-durum">bağlantı yok</div></div></label>
+              <input class="ds-inp" id="vk-pg-baglanti" type="password" placeholder="postgresql://kullanici:***@host/db (salt-okuma önerilir)" style="margin-top:6px">
+            </div>
+            <div>
+              <label class="ds-tglrow" style="cursor:pointer"><input type="checkbox" id="vk-jira-aktif" style="accent-color:var(--accent);width:15px;height:15px"><div><div class="ds-tgl-txt">Jira MCP</div><div class="ds-tgl-sub">MCP sunucu komutu</div></div></label>
+              <input class="ds-inp" id="vk-jira-komut" placeholder="komut (örn. npx)" style="margin-top:6px">
+              <input class="ds-inp" id="vk-jira-args" placeholder="argümanlar (boşlukla)" style="margin-top:6px">
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="vkKaydet()">Kaydet</button><span id="vk-durum" class="mono-meta"></span></div>
+        </div></div>
+      </div>
+
+      <div id="kod-bos" class="ds-empty" style="display:none">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>
+        <div class="t">Henüz kod kaynağı bağlı değil</div>
+        <div>Owner "Repo ekle/düzenle" ile bir yerel repo yolu tanımlayınca kod burada taranabilir. Bağlantı olmadan da tüm analiz akışı çalışır — bu altyapı Faz 3 için hazır kurulur.</div>
+      </div>
+
+      <div id="kod-panolar" class="ds-grid" style="display:none;grid-template-columns:1fr 1.4fr;gap:14px">
+        <div class="panel" style="min-height:340px">
+          <div class="panel-head">
+            <span class="panel-title" id="kod-yol-baslik">/</span><span class="panel-spacer"></span>
+            <input id="kod-ara-input" class="ds-inp" style="width:150px;padding:4px 9px;font-size:11.5px" placeholder="Ara…" onkeydown="if(event.key==='Enter')kodAra()">
+          </div>
+          <div class="panel-body" id="kod-agac-govde" style="max-height:52vh;overflow:auto"></div>
+        </div>
+        <div class="panel" style="min-height:340px">
+          <div class="panel-head"><span class="panel-title" id="kod-dosya-baslik">Dosya seç</span><span class="ds-panel-tag" id="kod-dosya-dil" style="display:none"></span><span class="panel-spacer"></span><span id="kod-dosya-meta" class="mono-meta"></span></div>
+          <div class="panel-body" id="kod-dosya-govde" style="max-height:52vh;overflow:auto"><div class="mono-meta">Soldan bir dosya seç ya da ara.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      #page-kod .kod-satir{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12.5px;font-family:'Geist Mono',monospace}
+      #page-kod .kod-satir:hover{background:var(--surface2)}
+      #page-kod .kod-satir .ico{width:14px;height:14px;color:var(--text3);flex-shrink:0}
+      #page-kod .kod-satir.dir .ico{color:var(--accent)}
+      #page-kod pre{margin:0;font-family:'Geist Mono',monospace;font-size:12px;line-height:1.55;white-space:pre;color:var(--text)}
+      #page-kod .kod-hit{padding:6px 8px;border-radius:5px;cursor:pointer;font-family:'Geist Mono',monospace;font-size:11.5px;border-bottom:1px solid var(--border)}
+      #page-kod .kod-hit:hover{background:var(--surface2)}
+      #page-kod .kod-hit b{color:var(--accent)}
+    </style>
+
+    <script>
+    // ─── Kod Kaynağı ekranı (v2 Faz 3.a) ────────────────────────────────────────
+    let _kodRepolar = [], _kodConfigDuzenlenebilir = false;
+    const _K_DIR = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    const _K_FILE = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>';
+    function _kEsc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+    function kodRepo(){return document.getElementById('kod-repo').value;}
+
+    async function kodYukle(){
+      const me = await (await fetch('/api/auth/me')).json().catch(()=>({}));
+      _kodConfigDuzenlenebilir = me.rol === 'owner';
+      document.getElementById('kod-config-btn').style.display = _kodConfigDuzenlenebilir ? '' : 'none';
+      vkYukle();
+      const d = await (await fetch('/api/kod/repolar')).json();
+      _kodRepolar = d.repolar || [];
+      const varRepo = _kodRepolar.filter(r=>r.var);
+      const sel = document.getElementById('kod-repo');
+      sel.innerHTML = varRepo.map(r=>`<option value="${_kEsc(r.ad)}">${_kEsc(r.ad)} · ${r.dosya} dosya</option>`).join('');
+      sel.style.display = varRepo.length ? '' : 'none';
+      // Panolar her zaman görünür (etki analizi repo olmadan da çalışır); ağaç panelinde bilgi.
+      document.getElementById('kod-bos').style.display = 'none';
+      document.getElementById('kod-panolar').style.display = 'grid';
+      document.getElementById('kod-ara-input').style.display = varRepo.length ? '' : 'none';
+      if (varRepo.length) {
+        kodAgac('');
+      } else {
+        document.getElementById('kod-agac-govde').innerHTML =
+          '<div class="ds-empty" style="padding:24px"><div class="t">Repo bağlı değil</div><div>Owner "Repo ekle/düzenle" ile yerel bir repo yolu tanımlayınca ağaç ve arama açılır. Etki analizi (üstteki) repo olmadan da varlık haritası çıkarır.</div></div>';
+        document.getElementById('kod-dosya-govde').innerHTML = '<div class="mono-meta">Üstten bir çıktı seçip "Etki analizi" ile başla.</div>';
+      }
+    }
+
+    async function kodAgac(yol){
+      const d = await (await fetch(`/api/kod/agac?repo=${encodeURIComponent(kodRepo())}&yol=${encodeURIComponent(yol)}`)).json();
+      const el = document.getElementById('kod-agac-govde');
+      document.getElementById('kod-yol-baslik').textContent = '/' + (d.yol||'');
+      if(!d.ok){el.innerHTML=`<div class="ds-callout warn"><div class="grow"><div class="ct">${_kEsc(d.error)}</div></div></div>`;return;}
+      let h = '';
+      if(d.yol){const ust=d.yol.split('/').slice(0,-1).join('/');h+=`<div class="kod-satir dir" onclick="kodAgac('${_kEsc(ust)}')">${_K_DIR}<span>..</span></div>`;}
+      h += d.klasorler.map(k=>`<div class="kod-satir dir" onclick="kodAgac('${_kEsc(k.yol)}')">${_K_DIR}<span>${_kEsc(k.ad)}/</span></div>`).join('');
+      h += d.dosyalar.map(f=>`<div class="kod-satir" onclick="kodDosya('${_kEsc(f.yol)}')">${_K_FILE}<span style="flex:1">${_kEsc(f.ad)}</span><span style="color:var(--text3);font-size:10px">${(f.boyut/1024).toFixed(0)}K</span></div>`).join('');
+      el.innerHTML = h || '<div class="mono-meta">Boş dizin</div>';
+    }
+
+    async function kodDosya(yol){
+      const g = document.getElementById('kod-dosya-govde');
+      g.innerHTML = '<div class="mono-meta">Yükleniyor…</div>';
+      const d = await (await fetch(`/api/kod/dosya?repo=${encodeURIComponent(kodRepo())}&yol=${encodeURIComponent(yol)}`)).json();
+      document.getElementById('kod-dosya-baslik').textContent = yol;
+      const dilEl=document.getElementById('kod-dosya-dil');
+      if(!d.ok){g.innerHTML=`<div class="ds-callout warn"><div class="grow"><div class="ct">${_kEsc(d.error)}</div></div></div>`;dilEl.style.display='none';return;}
+      dilEl.textContent=d.dil||'metin';dilEl.style.display=d.dil?'':'none';
+      document.getElementById('kod-dosya-meta').textContent = (d.boyut/1024).toFixed(1)+' KB'+(d.kesildi?' (kesildi)':'');
+      const num=d.icerik.split('\n').map((l,i)=>String(i+1).padStart(4)).join('\n');
+      g.innerHTML = `<div style="display:flex;gap:12px"><pre style="color:var(--text3);user-select:none">${num}</pre><pre style="flex:1">${_kEsc(d.icerik)}</pre></div>`;
+    }
+
+    async function kodAra(){
+      const q=document.getElementById('kod-ara-input').value.trim();
+      if(q.length<2){toast('En az 2 karakter','error');return;}
+      const g=document.getElementById('kod-dosya-govde');
+      document.getElementById('kod-dosya-baslik').textContent='Arama: '+q;
+      document.getElementById('kod-dosya-dil').style.display='none';
+      g.innerHTML='<div class="mono-meta">Aranıyor…</div>';
+      const d=await (await fetch(`/api/kod/ara?repo=${encodeURIComponent(kodRepo())}&sorgu=${encodeURIComponent(q)}`)).json();
+      if(!d.ok){g.innerHTML=`<div class="ds-callout warn"><div class="grow"><div class="ct">${_kEsc(d.error)}</div></div></div>`;return;}
+      document.getElementById('kod-dosya-meta').textContent=`${d.adet} sonuç · ${d.motor}`;
+      g.innerHTML = d.eslesmeler.map(e=>`<div class="kod-hit" onclick="kodDosya('${_kEsc(e.yol)}')"><b>${_kEsc(e.yol)}</b>:${e.satir_no} — ${_kEsc(e.satir)}</div>`).join('') || '<div class="mono-meta">Sonuç yok</div>';
+    }
+
+    // ── Etki analizi (3.b) ──
+    async function kodEtki(){
+      const dosya=document.getElementById('kod-etki-dosya').value;
+      const g=document.getElementById('kod-dosya-govde');
+      document.getElementById('kod-dosya-baslik').textContent='Etki analizi: '+dosya;
+      document.getElementById('kod-dosya-dil').style.display='none';
+      g.innerHTML='<div class="mono-meta">Varlıklar çıkarılıyor, kodda aranıyor…</div>';
+      const repo=kodRepo();
+      const d=await (await fetch(`/api/etki/${encodeURIComponent(dosya)}${repo?'?repo='+encodeURIComponent(repo):''}`)).json();
+      if(!d.ok){g.innerHTML=`<div class="ds-callout warn"><div class="grow"><div class="ct">${_kEsc(d.error)}</div></div></div>`;return;}
+      document.getElementById('kod-dosya-meta').textContent=`${d.varlik_sayisi} varlık · ${d.etkilenen_dosyalar.length} dosya`;
+      let h='';
+      if(!d.kod_bagli){
+        h+=`<div class="ds-callout" style="margin-bottom:12px"><div class="grow"><div class="ct">Repo bağlı değil — varlık haritası</div><p>Aşağıdaki teknik varlıklar çıktıdan çıkarıldı. Bir kod kaynağı bağlanınca her biri kodda aranıp etkilenen dosyalar burada dolar.</p></div></div>`;
+      } else if(d.etkiler.length){
+        h+=`<div class="ds-sec-label">Etkilenen kod (${d.etkilenen_dosyalar.length} dosya)</div>`;
+        h+=d.etkiler.map(e=>`<div style="margin-bottom:10px">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span class="ds-chip ${e.tip==='endpoint'?'info':'acc'} mono">${_kEsc(e.varlik)}</span><span class="mono-meta">${e.dosyalar.length} dosya · ${e.adet} isabet</span></div>
+          ${e.isabet.slice(0,4).map(i=>`<div class="kod-hit" onclick="kodDosya('${_kEsc(i.yol)}')"><b>${_kEsc(i.yol)}</b>:${i.satir_no} — ${_kEsc(i.satir)}</div>`).join('')}
+        </div>`).join('');
+      } else {
+        h+=`<div class="ds-empty" style="margin-bottom:12px"><div class="t">Kodda eşleşme yok</div><div>Çıktının teknik varlıkları seçili repo'da bulunamadı. Doğru repo mu seçili?</div></div>`;
+      }
+      const vh=d.varliklar;
+      h+=`<div class="ds-sec-label" style="margin-top:8px">Çıkarılan varlıklar</div>`;
+      h+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`;
+      h+=(vh.kod||[]).map(t=>`<span class="ds-chip neu mono" style="cursor:pointer" onclick="document.getElementById('kod-ara-input').value='${_kEsc(t)}';kodAra()">${_kEsc(t)}</span>`).join('');
+      h+=(vh.endpoint||[]).map(t=>`<span class="ds-chip info mono">${_kEsc(t)}</span>`).join('');
+      h+=`</div>`;
+      if((vh.yapisal||[]).length) h+=`<div class="mono-meta" style="margin-top:8px">Yapısal ID'ler: ${vh.yapisal.map(_kEsc).join(', ')}</div>`;
+      g.innerHTML=h;
+    }
+
+    // ── Analiz veri kaynakları (Postgres/Jira MCP) — owner ──
+    async function vkYukle(){
+      if(!_kodConfigDuzenlenebilir){document.getElementById('kod-vk').style.display='none';return;}
+      document.getElementById('kod-vk').style.display='';
+      const d=await (await fetch('/api/analiz-mcp')).json();
+      if(!d.ok)return;
+      const s=d.durum;
+      const aktifSayi=(s.postgres.aktif?1:0)+(s.jira.aktif?1:0);
+      document.getElementById('vk-rozet').innerHTML=aktifSayi?`<span class="ds-chip ok" style="margin-left:8px">${aktifSayi} aktif</span>`:'<span class="ds-chip neu" style="margin-left:8px">kapalı</span>';
+      document.getElementById('vk-pg-aktif').checked=d.postgres_aktif;
+      document.getElementById('vk-pg-durum').textContent=d.postgres_baglanti_var?'bağlantı kayıtlı (değiştirmek için yeni gir)':'bağlantı yok';
+      document.getElementById('vk-jira-aktif').checked=d.jira_aktif;
+      document.getElementById('vk-jira-komut').value=d.jira_komut||'';
+      document.getElementById('vk-jira-args').value=(d.jira_args||[]).join(' ');
+      if(!s.npx) toast('npx bulunamadı — Postgres MCP çalışmayabilir','info');
+    }
+    function vkAc(){const p=document.getElementById('vk-panel');const d=p.closest('#kod-vk').querySelector('.ds-disc');p.style.display=p.style.display==='none'?'':'none';d.classList.toggle('open',p.style.display!=='none');}
+    async function vkKaydet(){
+      const body={postgres:{aktif:document.getElementById('vk-pg-aktif').checked,baglanti:document.getElementById('vk-pg-baglanti').value.trim()},
+        jira:{aktif:document.getElementById('vk-jira-aktif').checked,komut:document.getElementById('vk-jira-komut').value.trim(),args:document.getElementById('vk-jira-args').value.trim().split(/\s+/).filter(Boolean)}};
+      const r=await fetch('/api/analiz-mcp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(d.ok){toast('Analiz veri kaynakları kaydedildi','success');document.getElementById('vk-pg-baglanti').value='';vkYukle();}
+      else toast(d.error||'Kaydedilemedi','error');
+    }
+
+    // ── Owner config ──
+    function kodConfigAc(){const c=document.getElementById('kod-config');c.style.display=c.style.display==='none'?'':'none';if(c.style.display!=='none')kodConfigDoldur();}
+    function kodConfigDoldur(){
+      const el=document.getElementById('kod-config-satirlar');
+      const rs=_kodRepolar.length?_kodRepolar:[{ad:'',yol:'',aktif:true}];
+      el.innerHTML=rs.map((r,i)=>_kodConfigSatirHtml(r,i)).join('');
+    }
+    function _kodConfigSatirHtml(r,i){
+      return `<div class="row" data-i="${i}" style="gap:8px">
+        <input class="ds-inp kod-cf-ad" style="width:150px" placeholder="ad (örn. trade-fe)" value="${_kEsc(r.ad)}">
+        <input class="ds-inp kod-cf-yol" style="flex:1" placeholder="/Users/…/repo" value="${_kEsc(r.yol)}">
+        <label class="ds-tgl-txt" style="display:flex;align-items:center;gap:5px"><input type="checkbox" class="kod-cf-aktif" ${r.aktif!==false?'checked':''} style="accent-color:var(--accent)">aktif</label>
+        <button class="btn btn-ghost btn-sm" onclick="this.closest('.row').remove()">✕</button></div>`;
+    }
+    function kodConfigSatir(){document.getElementById('kod-config-satirlar').insertAdjacentHTML('beforeend',_kodConfigSatirHtml({ad:'',yol:'',aktif:true},99));}
+    async function kodConfigKaydet(){
+      const repolar=[...document.querySelectorAll('#kod-config-satirlar .row')].map(row=>({
+        ad:row.querySelector('.kod-cf-ad').value.trim(),
+        yol:row.querySelector('.kod-cf-yol').value.trim(),
+        aktif:row.querySelector('.kod-cf-aktif').checked,
+      })).filter(r=>r.ad&&r.yol);
+      const r=await fetch('/api/kod/repolar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({repolar})});
+      const d=await r.json();
+      if(d.ok){toast('Kod kaynağı kaydedildi','success');document.getElementById('kod-config').style.display='none';kodYukle();}
+      else toast(d.error||'Kaydedilemedi','error');
+    }
+    </script>

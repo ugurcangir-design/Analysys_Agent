@@ -1,0 +1,5 @@
+{
+  "_aciklama": "v2 Faz 3.c — Analiz veri kaynakları (Postgres/Jira MCP). Makineye özel; gerçek dosya gitignore'da. Owner UI'dan yapılandırır. VARSAYILAN KAPALI: aktif edilmeden analiz çağrılarına hiçbir MCP eklenmez. postgres.baglanti = postgresql://... (salt-okuma kullanıcı önerilir). jira.komut = MCP sunucu komutu.",
+  "postgres": { "aktif": false, "baglanti": "" },
+  "jira": { "aktif": false, "komut": "", "args": [] }
+}

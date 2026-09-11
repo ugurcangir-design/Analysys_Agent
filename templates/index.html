@@ -7,7 +7,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- v2 Faz 2.0 — tasarım sistemi katmanı (ds-* bileşenleri; :root token'ları aşağıdaki inline stilde) -->
+<link rel="stylesheet" href="/static/ds.css">
 <style>
 /* ─────────────────────────────────────────────────────────────────
    Analyst Studio — Kurumsal Yön C
@@ -16,46 +18,53 @@
 
 /* ── Token sistemi ─────────────────────────────────────────────── */
 :root, html[data-theme="dark"] {
-  /* dark (default) */
-  --bg:           #080B12;
-  --surface:      #0E141E;
-  --surface2:     #131A26;
-  --surface3:     #1A2331;
-  --border:       #1E2735;
-  --border-strong:#2A3445;
+  /* dark (default) — yumuşatılmış slate + indigo (v3) */
+  --bg:           #1A1D24;
+  --surface:      #262B35;
+  --surface2:     #2E343F;
+  --surface3:     #363C48;
+  --border:       #333947;
+  --border-strong:#424A58;
 
-  --text:         #E5EAF1;
-  --text2:        #9CA7B8;
-  --text3:        #5F6B7E;
+  --text:         #F2F4F8;
+  --text2:        #B7BECE;
+  --text3:        #808896;
 
-  --sidebar-bg:    #0A0F18;
-  --sidebar-bd:    #171E2B;
+  --sidebar-bg:    #20242D;
+  --sidebar-bd:    #333947;
 
-  --accent:       #2DD4BF;
-  --accent2:      #14B8A6;
-  --accent-soft:  #0E3530;
-  --accent-deep:  #14B8A6;
-  --on-accent:    #03201D;
+  --accent:       #6366F1;
+  --accent2:      #5457E0;
+  --accent-soft:  #2B2F45;
+  --accent-deep:  #A9ABFF;
+  --on-accent:    #FFFFFF;
 
   --green:        #34D399;
-  --green-soft:   #0D3329;
-  --yellow:       #FBBF24;
-  --yellow-soft:  #3A2D08;
+  --green-soft:   #16302A;
+  --yellow:       #F59E0B;
+  --yellow-soft:  #33280F;
   --red:          #F87171;
-  --red-soft:     #3A1414;
+  --red-soft:     #3A1A1A;
   --blue:         #60A5FA;
-  --blue-soft:    #0E2447;
+  --blue-soft:    #16263F;
   --purple:       #C4B5FD;
   --orange:       #FB923C;
 
-  --radius:       6px;
-  --radius-sm:    5px;
-  --radius-xs:    4px;
+  /* çalışan işlem (running) — kırmızı, JARVIS işlem modu */
+  --run:          #EF4444;
+  --run-soft:     #2E1F27;
+  --run-text:     #FF9A9A;
+
+  --font-display: 'Space Grotesk', 'Geist', -apple-system, system-ui, sans-serif;
+
+  --radius:       10px;
+  --radius-sm:    8px;
+  --radius-xs:    6px;
 
   --shadow:       0 1px 0 rgba(0,0,0,.3);
-  --shadow-md:    0 8px 24px rgba(0,0,0,.4);
+  --shadow-md:    0 10px 30px rgba(0,0,0,.4);
 
-  --focus-ring:   0 0 0 3px rgba(45,212,191,.18);
+  --focus-ring:   0 0 0 3px rgba(99,102,241,.22);
 }
 
 html[data-theme="light"] {
@@ -64,28 +73,28 @@ html[data-theme="light"] {
      başlıkları, panel etiketleri, alan açıklamaları ve placeholder'lar
      soluk kalıyordu. Ölçülen yeni değerler (beyaz zemin):
        --text 17.8:1 · --text2 8.1:1 · --text3 5.3:1 */
-  --bg:           #F7F9FC;
+  --bg:           #F5F7FA;
   --surface:      #FFFFFF;
-  --surface2:     #EEF2F7;
-  --surface3:     #E3E9F1;
-  --border:       #D8E0EA;
-  --border-strong:#BAC5D3;
+  --surface2:     #EEF1F6;
+  --surface3:     #E3E8EF;
+  --border:       #E3E8EF;
+  --border-strong:#D3DAE3;
 
-  --text:         #0F1829;
-  --text2:        #44506A;
-  --text3:        #616C80;
+  --text:         #171B22;
+  --text2:        #49535F;
+  --text3:        #5C6673;
 
   --sidebar-bg:   #FFFFFF;
-  --sidebar-bd:   #D8E0EA;
+  --sidebar-bd:   #E3E8EF;
 
-  --accent:       #0F766E;
-  --accent2:      #115E59;
-  --accent-soft:  #D1FAE5;
-  --accent-deep:  #115E59;
+  --accent:       #4F4DD6;
+  --accent2:      #4340C0;
+  --accent-soft:  #ECEBFC;
+  --accent-deep:  #4F4DD6;
   --on-accent:    #FFFFFF;
 
-  --green:        #16A34A;
-  --green-soft:   #DCFCE7;
+  --green:        #0F9D63;
+  --green-soft:   #E4F6EC;
   --yellow:       #B45309;
   --yellow-soft:  #FEF3C7;
   --red:          #DC2626;
@@ -95,10 +104,15 @@ html[data-theme="light"] {
   --purple:       #7C3AED;
   --orange:       #D97706;
 
-  --shadow:       0 1px 2px rgba(20,30,55,.04);
-  --shadow-md:    0 4px 12px rgba(20,30,55,.08);
+  /* çalışan işlem (running) — kırmızı */
+  --run:          #EF4444;
+  --run-soft:     #FDECEC;
+  --run-text:     #C23434;
 
-  --focus-ring:   0 0 0 3px rgba(15,118,110,.15);
+  --shadow:       0 1px 2px rgba(23,27,34,.05);
+  --shadow-md:    0 10px 30px rgba(23,27,34,.10);
+
+  --focus-ring:   0 0 0 3px rgba(79,77,214,.18);
 }
 
 /* Açık temada optik telafi: koyu yazı açık zeminde, açık yazının koyu zeminde
@@ -184,7 +198,7 @@ a:hover { text-decoration: underline; }
 }
 .brand-mark .ico { width: 14px; height: 14px; stroke-width: 2; }
 .brand-meta { flex: 1; min-width: 0; }
-.brand-title { font-size: 12.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.15; }
+.brand-title { font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.15; }
 .brand-sub { font-size: 10px; color: var(--text3); font-family: 'Geist Mono', monospace; margin-top: 1px; }
 
 .sidebar-search {
@@ -213,7 +227,31 @@ a:hover { text-decoration: underline; }
   padding: 10px 8px 5px;
   font-size: 9.5px; font-weight: 600; color: var(--text3);
   text-transform: uppercase; letter-spacing: 0.1em;
+  display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
 }
+.nav-section:hover { color: var(--text2); }
+.nav-sec-chevron { margin-left: auto; width: 11px; height: 11px; flex-shrink: 0; transition: transform .18s; }
+.nav-section.collapsed .nav-sec-chevron { transform: rotate(-90deg); }
+
+/* ── Sidebar daralt/genişlet (Görev 7) ─────────────────────────── */
+.sidebar-toggle {
+  margin-left: auto; background: transparent; border: none; color: var(--text3);
+  cursor: pointer; padding: 3px; border-radius: 4px; display: inline-flex; align-items: center;
+}
+.sidebar-toggle:hover { color: var(--text); background: var(--surface2); }
+.sidebar-toggle .ico { width: 15px; height: 15px; }
+.layout.sidebar-collapsed .sidebar { width: 60px; }
+.layout.sidebar-collapsed .brand-mark,
+.layout.sidebar-collapsed .brand-meta,
+.layout.sidebar-collapsed .nav-label,
+.layout.sidebar-collapsed .nav-section,
+.layout.sidebar-collapsed .sidebar-search span,
+.layout.sidebar-collapsed .sidebar-search .kbd,
+.layout.sidebar-collapsed .analist-kimlik { display: none; }
+.layout.sidebar-collapsed .sidebar-brand { justify-content: center; padding: 14px 0; }
+.layout.sidebar-collapsed .sidebar-search-inner { justify-content: center; padding: 6px; }
+.layout.sidebar-collapsed .nav-item { justify-content: center; padding: 8px; }
+.layout.sidebar-collapsed .sidebar-footer { justify-content: center; }
 .nav-item {
   display: flex; align-items: center; gap: 9px;
   padding: 6px 8px; border-radius: 4px;
@@ -259,6 +297,16 @@ a:hover { text-decoration: underline; }
   font-size: 11px; font-family: inherit;
 }
 .sidebar-footer .theme-toggle:hover { color: var(--text); background: var(--surface2); }
+.analist-kimlik { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; border-radius: 6px; padding: 2px 4px; }
+.analist-kimlik:hover { background: var(--surface2); }
+.analist-kimlik .ak-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(145deg, var(--accent), var(--accent2)); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;
+}
+.analist-kimlik .ak-meta { min-width: 0; line-height: 1.2; }
+.analist-kimlik .ak-ad { font-size: 11.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.analist-kimlik .ak-rol { font-size: 9.5px; color: var(--text3); font-family: 'Geist Mono', monospace; }
 html[data-theme="light"] .theme-toggle .ico-sun,
 html[data-theme="dark"] .theme-toggle .ico-moon { display: inline; }
 html[data-theme="light"] .theme-toggle .ico-moon,
@@ -267,17 +315,79 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 /* ── Status dots ───────────────────────────────────────────────── */
 .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; position: relative; }
 .status-idle    { background: var(--text3); }
-.status-running { background: var(--yellow); }
+.status-running { background: var(--run); }
 .status-running::after, .status-waiting::after {
   content: ''; position: absolute; inset: -3px;
   border-radius: 50%; border: 1px solid currentColor; opacity: .35;
   animation: pulse-ring 1.5s infinite;
 }
-.status-running { color: var(--yellow); }
-.status-waiting { background: var(--blue); color: var(--blue); }
+.status-running { color: var(--run); }
+.status-waiting { background: var(--yellow); color: var(--yellow); }
 .status-done    { background: var(--green); }
 .status-error   { background: var(--red); }
 @keyframes pulse-ring { 0%{transform:scale(1);opacity:.4} 80%{transform:scale(2);opacity:0} 100%{opacity:0} }
+
+/* ── Kalıcı işlem çipi (üst bar, tüm ekranlarda) ───────────────── */
+.run-chip {
+  display: none; align-items: center; gap: 8px; cursor: pointer;
+  border: 1px solid transparent; border-radius: 999px;
+  padding: 4px 11px 4px 8px; font-family: inherit; font-size: 11px; line-height: 1;
+}
+.run-chip.show { display: inline-flex; }
+.run-chip.running { background: var(--run-soft); border-color: rgba(239,68,68,.42); }
+.run-chip.running .rc-label { color: var(--run-text); font-weight: 500; }
+.run-chip.running .rc-meta  { color: var(--run-text); font-family: 'Geist Mono', monospace; opacity: .85; }
+.run-chip.waiting { background: var(--yellow-soft); border-color: rgba(245,158,11,.42); }
+.run-chip.waiting .rc-label { color: var(--yellow); font-weight: 500; }
+.run-chip.waiting .rc-meta  { display: none; }
+.run-chip .rc-spin {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(239,68,68,.28); border-top-color: var(--run);
+  animation: spin .9s linear infinite;
+}
+.run-chip.waiting .rc-spin {
+  width: 8px; height: 8px; border: none; background: var(--yellow);
+  animation: hazir-nabiz 1.3s ease-in-out infinite;
+}
+
+/* ── İşlem Modu (JARVIS HUD, kırmızı) ──────────────────────────── */
+#islem-modu {
+  position: fixed; inset: 0; z-index: 400; display: none;
+  align-items: center; justify-content: center;
+  background: radial-gradient(120% 90% at 50% 42%, #2b1214 0%, #150a0b 58%, #0c0607 100%);
+}
+#islem-modu.show { display: flex; }
+#islem-modu::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(239,68,68,.05) 0 1px, transparent 1px 4px); opacity: .5;
+}
+.im-brk { position: absolute; width: 46px; height: 46px; border: 2px solid #ff4d4d; opacity: .85; }
+.im-brk.tl { top: 26px; left: 26px; border-right: none; border-bottom: none; }
+.im-brk.tr { top: 26px; right: 26px; border-left: none; border-bottom: none; }
+.im-brk.bl { bottom: 26px; left: 26px; border-right: none; border-top: none; }
+.im-brk.br { bottom: 26px; right: 26px; border-left: none; border-top: none; }
+.im-wrap { position: relative; width: 560px; max-width: 90vw; text-align: center; color: #ffe4e4; }
+.im-kicker { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .42em; color: #ff9a9a; text-shadow: 0 0 10px rgba(239,68,68,.5); }
+.im-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; color: #fff2f2; margin-top: 8px; text-shadow: 0 0 18px rgba(239,68,68,.4); }
+.im-reactor { width: 260px; height: 260px; margin: 26px auto 20px; position: relative; }
+.im-reactor > div { position: absolute; border-radius: 50%; }
+.im-r1 { inset: 0; border: 2px solid transparent; border-top-color: #ff4d4d; border-right-color: #ff4d4d; filter: drop-shadow(0 0 6px rgba(239,68,68,.5)); animation: spin 3s linear infinite; }
+.im-r2 { inset: 26px; border: 2px solid transparent; border-bottom-color: #fbbf24; filter: drop-shadow(0 0 5px rgba(251,191,36,.5)); animation: spin 5s linear infinite reverse; }
+.im-r3 { inset: 52px; border: 1px dashed rgba(255,77,77,.45); animation: spin 18s linear infinite; }
+.im-core {
+  inset: 74px; background: radial-gradient(circle, rgba(239,68,68,.3), rgba(239,68,68,.04) 70%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.im-core-pulse { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(circle, rgba(255,154,154,.5), transparent 68%); animation: hazir-nabiz 2.4s ease-in-out infinite; }
+.im-core .im-step { position: relative; font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff2f2; text-shadow: 0 0 20px rgba(239,68,68,.8); }
+.im-core .im-sub { position: relative; font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .18em; color: #ff9a9a; }
+.im-bar { height: 8px; border: 1px solid rgba(239,68,68,.4); border-radius: 6px; padding: 2px; background: rgba(20,10,11,.6); overflow: hidden; }
+.im-bar > span { display: block; width: 34%; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #b91c1c, #ff4d4d 70%, #ffd27a); box-shadow: 0 0 14px rgba(239,68,68,.6); animation: im-indet 1.6s ease-in-out infinite; }
+@keyframes im-indet { 0%{margin-left:-34%} 100%{margin-left:100%} }
+.im-readouts { display: flex; justify-content: center; gap: 26px; margin-top: 16px; font-family: 'Geist Mono', monospace; font-size: 11px; color: #c98a8a; }
+.im-readouts b { color: #ffd0d0; font-weight: 500; }
+.im-note { margin-top: 20px; font-size: 11.5px; color: #a06a6a; }
+.im-actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; }
 
 /* ── Topbar ────────────────────────────────────────────────────── */
 .topbar {
@@ -362,11 +472,47 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
 .ph { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
 .ph-text { flex: 1; min-width: 0; }
 .ph h1 {
-  font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 21px; font-weight: 600; letter-spacing: -0.02em;
   margin: 0 0 3px; color: var(--text);
 }
 .ph p { font-size: 12.5px; color: var(--text2); margin: 0; }
 .ph-actions { display: flex; gap: 6px; align-items: center; }
+/* ── RAY görünümü (tek kolon adım akışı). Klasik paneller .gorunum-klasik ile gizlenir; geri dönüş anında. ── */
+body.gorunum-ray .gorunum-klasik { display: none !important; }
+.ray { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.ray-st { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
+  display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; transition: border-color .2s, box-shadow .2s, opacity .2s; }
+.ray-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-family: 'Geist Mono', monospace; font-size: 12px; border: 1.5px solid var(--border-strong); color: var(--text3); }
+.ray-t { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--text); }
+.ray-s { color: var(--text3); font-size: 12px; margin-top: 1px; }
+.ray-r { display: flex; gap: 8px; align-items: center; justify-content: flex-end; font-size: 12px; color: var(--text3); white-space: nowrap; }
+.ray-body { grid-column: 2 / 4; margin-top: 6px; min-width: 0; }
+.ray-st.done { padding: 9px 16px; opacity: .88; cursor: pointer; }
+.ray-st.done .ray-num { background: var(--green); border-color: var(--green); color: #0B1F17; }
+.ray-st.done .ray-t { font-size: 13px; }
+.ray-st.done .ray-body, .ray-st.next .ray-body { display: none; }
+.ray-st.next { opacity: .5; }
+.ray-st.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ray-st.active .ray-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ray-st.run { border-color: var(--run); box-shadow: 0 0 0 3px rgba(239,68,68,.15); }
+.ray-st.run .ray-num { background: transparent; border-color: var(--run); color: var(--run); animation: rayPulse 1.4s infinite; }
+.ray-st.turn { border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(245,158,11,.15); }
+.ray-st.turn .ray-num { background: var(--yellow); border-color: var(--yellow); color: #1A1200; }
+.ray-st.err { border-color: var(--red); box-shadow: 0 0 0 3px rgba(239,68,68,.15); }
+.ray-st.err .ray-num { background: var(--red); border-color: var(--red); color: #fff; }
+.ray-st.final { grid-template-columns: 1fr; }
+.ray-st.final .ray-body { grid-column: 1; margin-top: 0; }
+.ray-chip { display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist Mono', monospace; font-size: 10.5px; padding: 3px 9px;
+  border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text2); }
+.ray-chip.ok { border-color: rgba(52,211,153,.45); color: var(--green); }
+.ray-chip.turn { border-color: rgba(245,158,11,.5); color: var(--yellow); }
+.ray-chip.run { border-color: rgba(239,68,68,.5); color: var(--run); }
+.ray-chip .d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+@keyframes rayPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.5); } 60% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+/* ray içinde aksiyon bloklarının üst boşluğu */
+.ray-body > div > .action-desc:first-child { margin-top: 0; }
 
 /* ── Panel — base card ────────────────────────────────────────── */
 .panel {
@@ -385,8 +531,8 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
   letter-spacing: -0.005em;
 }
 .panel-head .panel-tag {
-  font-size: 9.5px; font-weight: 600; padding: 1px 6px; border-radius: 3px;
-  background: var(--surface2); color: var(--text3);
+  font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px;
+  background: var(--surface2); color: var(--text2);
   font-family: 'Geist Mono', monospace; letter-spacing: 0.04em;
 }
 .panel-head .panel-spacer { flex: 1; }
@@ -507,28 +653,32 @@ html[data-theme="dark"] .theme-toggle .ico-sun { display: none; }
   letter-spacing: 0.06em; text-transform: uppercase;
   margin-bottom: 5px;
 }
-.field-sub { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
-.field-hint { font-size: 11px; color: var(--text3); margin-top: 5px; display: block; }
-.field-input,
-input[type="text"].field-input,
-input[type="password"].field-input,
-input[type="email"].field-input,
-.ctx-input,
-.source-add-row input,
-.form-group input,
-.conf-publish-row select {
+.field-sub { font-size: 12px; color: var(--text2); margin-bottom: 6px; line-height: 1.55; max-width: 760px; }
+.field-hint { font-size: 12px; color: var(--text2); margin-top: 6px; display: block; line-height: 1.55; max-width: 760px; }
+/* ── Giriş alanları — TEK tutarlı stil, tüm ekranlar ───────────────────────
+   Form reset: hiçbir giriş TARAYICI-VARSAYILANI (beyaz) kalmaz. Okunaklı, göz
+   yormayan ortak taban. Bespoke sınıflar (.prompt-textarea vb.) daha yüksek
+   özgüllükle üzerine yazar; bu taban yalnız "zemin"dir. */
+.field-input, .ctx-input, .setting-input, .source-add-row input,
+.form-group input, .conf-publish-row select {
   width: 100%;
+}
+.field-input, .ctx-input, .setting-input, .source-add-row input,
+.form-group input, .conf-publish-row select,
+input[type="text"], input[type="url"], input[type="email"], input[type="password"],
+input[type="number"], input[type="search"], input[type="tel"], textarea, select {
   background: var(--surface2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 7px 10px;
+  padding: 8px 11px;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 13px;
+  line-height: 1.45;
   font-family: inherit;
   outline: none;
   transition: border-color .12s, box-shadow .12s;
 }
-.field-input:focus,
+input::placeholder, textarea::placeholder { color: var(--text3); opacity: 1; }
 /* ── Canlı uygulama (Chrome MCP) erişim durumu ── */
 .la-durum { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); }
 .la-satir { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -537,13 +687,14 @@ input[type="email"].field-input,
 .la-nokta.ok { background: var(--green); }
 .la-nokta.warn { background: var(--yellow); }
 .la-nokta.err { background: var(--red); }
-.la-ipucu { font-size: 11.5px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+.la-ipucu { font-size: 12px; color: var(--text2); margin-top: 6px; line-height: 1.55; max-width: 760px; }
 textarea.ctx-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 
-.ctx-input:focus,
-.source-add-row input:focus,
-.form-group input:focus,
-.conf-publish-row select:focus {
+.field-input:focus, .ctx-input:focus, .setting-input:focus, .source-add-row input:focus,
+.form-group input:focus, .conf-publish-row select:focus,
+input[type="text"]:focus, input[type="url"]:focus, input[type="email"]:focus,
+input[type="password"]:focus, input[type="number"]:focus, input[type="search"]:focus,
+input[type="tel"]:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: var(--focus-ring);
 }
@@ -600,12 +751,13 @@ textarea.ctx-input { resize: vertical; min-height: 72px; line-height: 1.5; }
   letter-spacing: 0.06em; text-transform: uppercase;
   margin-bottom: 4px;
 }
-.ctx-field-sub { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+.ctx-field-sub { font-size: 12px; color: var(--text2); margin-bottom: 6px; line-height: 1.55; max-width: 760px; }
 .ctx-active-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; padding: 1px 8px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 2px 9px;
   background: var(--accent-soft); color: var(--accent-deep);
-  border-radius: 10px; font-weight: 600;
+  border-radius: 999px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
 }
 
 /* ── Output tabs ───────────────────────────────────────────────── */
@@ -950,6 +1102,24 @@ html[data-theme="light"] .jira-modal { background: rgba(245,247,250,.85); }
 
 /* ── Markdown ──────────────────────────────────────────────────── */
 .md-body { font-size: 13px; line-height: 1.7; color: var(--text); }
+
+/* ── Kanıt çipleri: [K: …] kaynak etiketleri görünür kanıt (gerçek veri > BRD ilkesi) ── */
+.k-chip { display: inline-flex; align-items: center; gap: 4px; font-family: 'Geist Mono', monospace;
+  font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; vertical-align: baseline;
+  white-space: nowrap; line-height: 1.5; border: 1px solid transparent; }
+.k-chip.gercek     { background: var(--green-soft);  color: var(--green); }          /* Swagger · Canlı UI · Network */
+.k-chip.doc        { background: var(--blue-soft);   color: var(--blue); }           /* Confluence */
+.k-chip.brd        { background: var(--surface2);    color: var(--text2); border-color: var(--border); } /* BRD/Süreç */
+.k-chip.jira       { background: var(--accent-soft); color: var(--accent-deep); }    /* Jira */
+.k-chip.turetilmis { background: var(--yellow-soft); color: var(--yellow); }         /* dolaylı çıkarsama */
+.k-chip.belirsiz   { background: var(--red-soft);    color: var(--red); }            /* kaynaksız — doğrulanmalı */
+.k-ozet { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; color: var(--text2); }
+.k-ozet .k-t { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em; color: var(--text3); text-transform: uppercase; }
+.k-ozet .sep { width: 1px; height: 14px; background: var(--border); }
+.gozlem-rozet { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; padding: 3px 10px; border-radius: 999px; }
+.gozlem-rozet.ok  { background: var(--green-soft); color: var(--green); }
+.gozlem-rozet.yok { background: var(--red-soft); color: var(--red); }
 .md-body h1 {
   font-size: 19px; font-weight: 600;
   margin: 20px 0 8px;
@@ -1023,14 +1193,14 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
 .hazirlaniyor {
   display: flex; align-items: center; gap: 18px;
   padding: 22px 24px; margin-bottom: 14px;
-  background: linear-gradient(120deg, rgba(45,168,154,.08), rgba(45,168,154,.02));
-  border: 1px solid rgba(45,168,154,.3); border-radius: var(--radius);
+  background: linear-gradient(120deg, rgba(239,68,68,.10), rgba(239,68,68,.02));
+  border: 1px solid rgba(239,68,68,.34); border-radius: var(--radius);
   position: relative; overflow: hidden;
 }
 /* akan ışık şeridi */
 .hazirlaniyor::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(45,168,154,.10), transparent);
+  background: linear-gradient(90deg, transparent, rgba(239,68,68,.12), transparent);
   transform: translateX(-100%);
   animation: hazir-shimmer 1.8s ease-in-out infinite;
 }
@@ -1043,11 +1213,11 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
   border: 3px solid transparent;
 }
 .hazirlaniyor-spin::before {
-  border-top-color: var(--accent); border-right-color: var(--accent);
+  border-top-color: var(--run); border-right-color: var(--run);
   animation: spin .9s linear infinite;
 }
 .hazirlaniyor-spin::after {
-  inset: 7px; border-bottom-color: var(--accent2);
+  inset: 7px; border-bottom-color: var(--run-text);
   animation: spin 1.4s linear infinite reverse;
 }
 .hazirlaniyor-metin { flex: 1; z-index: 1; }
@@ -1057,13 +1227,13 @@ html[data-theme="light"] .upload-overlay { background: rgba(245,247,250,.88); }
 }
 .hazirlaniyor-baslik::after {
   content: ''; display: inline-block; width: 4px; height: 4px;
-  border-radius: 50%; background: var(--accent);
+  border-radius: 50%; background: var(--run);
   animation: hazir-nabiz 1s ease-in-out infinite;
 }
 @keyframes hazir-nabiz { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
 .hazirlaniyor-alt { font-size: 12px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
 .hazirlaniyor-sure {
-  font-size: 11px; color: var(--accent2); margin-top: 6px;
+  font-size: 11px; color: var(--run-text); margin-top: 6px;
   font-family: 'Geist Mono', monospace;
 }
 
@@ -1598,7 +1768,7 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .jg-dot.ok { background: var(--green); }
 .jg-dot.warn { background: var(--yellow); }
-.jg-sub { font-size: 11.5px; color: var(--text3); }
+.jg-sub { font-size: 12px; color: var(--text2); line-height: 1.55; }
 .jg-group-head { cursor: pointer; user-select: none; gap: 8px; }
 .jg-group-head:hover { background: var(--surface2); }
 /* Grup başlığındaki export kontrolleri — başlığa tıklayınca grup katlanır,
@@ -1693,6 +1863,60 @@ html[data-theme="light"] .suspend-overlay { background: rgba(245,247,250,.92); }
 .jg-modal-tab.aktif .badge { background: var(--accent-soft); color: var(--accent); }
 .jg-modal-body { padding: 16px 22px; flex: 1; overflow: auto; min-height: 0; }
 .jg-modal-aksiyon { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 22px; border-top: 1px solid var(--border); background: var(--surface2); }
+/* Görev analizi — JARVIS işlem paneli (üretim/düzeltme sırasında modal içi) */
+.jg-proc { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 360px; }
+.jg-proc-kicker { font-family: 'Geist Mono', monospace; font-size: 10.5px; letter-spacing: .16em; color: var(--run); opacity: .85; }
+.jg-proc-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; color: var(--text); margin-top: 6px; }
+.jg-proc .im-reactor { margin: 12px auto; }
+.jg-proc-readouts { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--text3); margin-top: 6px; }
+.jg-proc-note { font-size: 12px; color: var(--text3); margin-top: 8px; max-width: 420px; }
+/* Açık Sorular sekmesi — cevaplanabilir */
+.jg-soru-yardim { font-size: 12px; color: var(--text2); line-height: 1.55; margin-bottom: 8px; }
+.jg-soru-lbl { display: block; font-size: 11.5px; color: var(--text3); margin: 10px 0 4px; font-weight: 600; }
+.jg-soru-akt { margin-top: 10px; }
+/* Soru-bazlı cevap kartları */
+#jg-sorular-liste { display: flex; flex-direction: column; gap: 10px; }
+.jg-soru-kart { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface2); }
+.jg-soru-kart .jg-sk-id { font-family: 'Geist Mono', monospace; font-size: 11px; font-weight: 700; color: var(--accent); }
+.jg-soru-kart .jg-sk-onem { font-family: 'Geist Mono', monospace; font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text2); margin-left: 6px; }
+.jg-soru-kart .jg-sk-onem.kritik { border-color: rgba(239,68,68,.5); color: var(--red); }
+.jg-soru-kart .jg-sk-onem.yuksek { border-color: rgba(245,158,11,.5); color: var(--yellow); }
+.jg-soru-kart .jg-sk-soru { font-size: 13px; color: var(--text); margin: 6px 0 3px; font-weight: 600; }
+.jg-soru-kart .jg-sk-detay { font-size: 11.5px; color: var(--text3); line-height: 1.5; }
+.jg-soru-kart .jg-sk-cevap { width: 100%; box-sizing: border-box; margin-top: 8px; min-height: 60px; resize: vertical; }
+.jg-soru-kart.cevapli { border-color: var(--green); }
+#jg-preview-sorular-wrap #jg-preview-sorular { min-height: 200px; }
+/* İteratif düzelt sohbeti (aksiyon barında) */
+.jg-duzelt-row { display: flex; gap: 6px; align-items: center; flex: 1 1 320px; min-width: 260px; }
+.jg-duzelt-row input { flex: 1; min-width: 0; }
+/* İlişkili FE/BE analizi — seçim paneli + task değiştirici */
+.jg-secim { padding: 14px 22px; border-bottom: 1px solid var(--border); }
+.jg-secim-yardim { font-size: 12.5px; color: var(--text2); line-height: 1.55; margin-bottom: 10px; }
+.jg-secim-satir { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--surface2); }
+.jg-secim-satir.birincil { border-color: var(--accent); }
+.jg-ss-key { font-family: 'Geist Mono', monospace; font-weight: 700; font-size: 12px; white-space: nowrap; }
+.jg-ss-sum { flex: 1; font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.jg-ss-rol { font-size: 10.5px; font-family: 'Geist Mono', monospace; color: var(--text3); }
+.jg-kat-sec { background: var(--surface); border: 1px solid var(--border-strong); color: var(--text); border-radius: 6px; padding: 3px 7px; font: inherit; font-size: 11.5px; }
+.jg-secim-akt { margin-top: 10px; display: flex; gap: 8px; }
+.jg-switcher { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 10px 22px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.jg-switcher .jg-sw-lbl { font-size: 11px; color: var(--text3); margin-right: 2px; }
+.jg-switcher button { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text2); border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.jg-switcher button.aktif { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.jg-switcher button .jg-sw-hata { color: var(--red); }
+.jg-switcher.kilit button { opacity: .45; cursor: not-allowed; }
+.jg-switcher.kilit button:not(.aktif) { pointer-events: none; }
+/* Görev paneli GÖMÜLÜ mod (pop-up değil): Task Analizi ekranı içinde kart olarak akar */
+#jg-preview-card.jg-inline { position: static; inset: auto; background: transparent; padding: 0; z-index: auto; }
+#jg-preview-card.jg-inline .jg-modal-icerik { width: 100%; max-width: none; max-height: none; box-shadow: none; margin: 0 0 14px; }
+/* Arka planda süren analiz çipi (panel kapalıyken) */
+.jg-suren-chip { display: none; align-items: center; gap: 10px; margin: 0 0 12px; padding: 9px 12px; border: 1px solid var(--run); background: rgba(239,68,68,.08); border-radius: 9px; font-size: 12.5px; color: var(--text2); }
+.jg-suren-chip.acik { display: flex; }
+.jg-suren-chip.bitti { border-color: var(--green); background: rgba(52,211,153,.08); }
+.jg-suren-chip.bitti .dot { background: var(--green); animation: none; }
+.jg-suren-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--run); animation: rayPulse 1.4s infinite; flex-shrink: 0; }
+.jg-suren-chip .grow { flex: 1; }
+.jg-proc-akt { margin-top: 12px; display: flex; gap: 8px; justify-content: center; }
 .jg-editor-modal { min-height: 480px; max-height: 70vh; }
 .jg-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jg-warn { font-size: 11.5px; color: var(--text3); flex: 1; min-width: 220px; }
@@ -1772,21 +1996,28 @@ function temaDegistir() {
       <div class="brand-mark"><svg class="ico"><use href="#i-layers"/></svg></div>
       <div class="brand-meta">
         <div class="brand-title">Analyst Studio</div>
-        <div class="brand-sub">v1.1 · local</div>
+        <div class="brand-sub">v2.1</div>
       </div>
+      <button class="sidebar-toggle" onclick="sidebarAcKapa()" title="Menüyü daralt / genişlet">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
     </div>
 
     <div class="sidebar-search">
-      <div class="sidebar-search-inner">
+      <div class="sidebar-search-inner" onclick="paletAc()" title="Ekran veya işlem ara (⌘K)">
         <svg class="ico"><use href="#i-search"/></svg>
-        <span>Ara</span>
+        <span>Ara veya komut…</span>
         <span class="kbd">⌘K</span>
       </div>
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section">Pipeline</div>
-      <div class="nav-item active" id="nav-surec" onclick="switchTab('surec')">
+      <div class="nav-item active" id="nav-pano" onclick="switchTab('pano')" style="margin-bottom:4px">
+        <svg class="ico"><use href="#i-server"/></svg>
+        <span class="nav-label">Ana Sayfa</span>
+      </div>
+      <div class="nav-section" data-grup="surec">Analiz</div>
+      <div class="nav-item" id="nav-surec" onclick="switchTab('surec')">
         <svg class="ico"><use href="#i-workflow"/></svg>
         <span class="nav-label">Süreç/Teknik Analiz</span>
       </div>
@@ -1794,34 +2025,50 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-clipboard"/></svg>
         <span class="nav-label">BRD Analizi</span>
       </div>
+      <div class="nav-item" id="nav-delta" onclick="switchTab('delta')">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="nav-label">Delta / CR Analizi</span>
+      </div>
+
+      <div class="nav-section" data-grup="ciktilar">Çıktılar &amp; Revizyon</div>
+      <div class="nav-item" id="nav-ciktilar" onclick="switchTab('ciktilar')">
+        <svg class="ico"><use href="#i-file-text"/></svg>
+        <span class="nav-label">Analiz Dosyaları</span>
+      </div>
+      <div class="nav-item" id="nav-output" onclick="switchTab('output')">
+        <svg class="ico"><use href="#i-file-text"/></svg>
+        <span class="nav-label">Çıktı Dosyaları</span>
+      </div>
+      <div class="nav-item" id="nav-revizyon" onclick="switchTab('revizyon')">
+        <svg class="ico"><use href="#i-refresh"/></svg>
+        <span class="nav-label">Revizyon</span>
+      </div>
+
+      <div class="nav-section" data-grup="jira-gorevler">Jira</div>
       <div class="nav-item" id="nav-jira-gorevler" onclick="switchTab('jira-gorevler')">
         <svg class="ico"><use href="#i-ticket"/></svg>
-        <span class="nav-label">Jira Görevleri</span>
+        <span class="nav-label">Task Analizi</span>
       </div>
       <div class="nav-item" id="nav-backlog-senkron" onclick="switchTab('backlog-senkron')">
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">UAT Mutabakat</span>
       </div>
-      <div class="nav-item" id="nav-kullanim" onclick="switchTab('kullanim')" style="display:none">
-        <svg class="ico"><use href="#i-clock"/></svg>
-        <span class="nav-label">Kullanım</span>
+      <div class="nav-item" id="nav-kopru" onclick="switchTab('kopru')" style="display:none">
+        <svg class="ico"><use href="#i-ticket"/></svg>
+        <span class="nav-label">Jira Köprüsü</span>
       </div>
 
-      <div class="nav-section">Çıktılar</div>
-      <div class="nav-item" id="nav-output" onclick="switchTab('output')">
-        <svg class="ico"><use href="#i-file-text"/></svg>
-        <span class="nav-label">Çıktılar</span>
-      </div>
+      <div class="nav-section" data-grup="referanslar">Kaynaklar</div>
       <div class="nav-item" id="nav-referanslar" onclick="switchTab('referanslar')">
         <svg class="ico"><use href="#i-book"/></svg>
         <span class="nav-label">Referanslar</span>
       </div>
-      <div class="nav-item" id="nav-history" onclick="switchTab('history')">
-        <svg class="ico"><use href="#i-clock"/></svg>
-        <span class="nav-label">Geçmiş</span>
+      <div class="nav-item" id="nav-kod" onclick="switchTab('kod')">
+        <svg class="ico"><use href="#i-code"/></svg>
+        <span class="nav-label">Kod Kaynağı</span>
       </div>
 
-      <div class="nav-section">Sistem</div>
+      <div class="nav-section" data-grup="settings">Yönetim<svg class="ds-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
       <div class="nav-item" id="nav-settings" onclick="switchTab('settings')">
         <svg class="ico"><use href="#i-settings"/></svg>
         <span class="nav-label">Ayarlar</span>
@@ -1838,13 +2085,25 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">Güncelleme</span>
       </div>
-      <div class="nav-item" id="nav-kilavuz" onclick="switchTab('kilavuz')">
-        <svg class="ico"><use href="#i-book"/></svg>
-        <span class="nav-label">Kılavuz</span>
+      <div class="nav-item" id="nav-kullanim" onclick="switchTab('kullanim')" style="display:none">
+        <svg class="ico"><use href="#i-clock"/></svg>
+        <span class="nav-label">Kullanım Raporu</span>
+      </div>
+      <!-- Yetki: yalnız owner KURULUMUNDA (auth/me yetki_admin) — kendi makinesine kuran analist görmez -->
+      <div class="nav-item" id="nav-yetki" onclick="switchTab('yetki')" style="display:none">
+        <svg class="ico"><use href="#i-settings"/></svg>
+        <span class="nav-label">Yetki</span>
       </div>
     </nav>
 
     <div class="sidebar-footer">
+      <div class="analist-kimlik" id="analist-kimlik" onclick="switchTab('settings')" title="Adını Ayarlar'dan düzenle">
+        <div class="ak-avatar" id="ak-avatar">A</div>
+        <div class="ak-meta">
+          <div class="ak-ad" id="ak-ad">Analist adı girin</div>
+          <div class="ak-rol" id="ak-rol">Analist</div>
+        </div>
+      </div>
       <button class="theme-toggle" onclick="temaDegistir()" title="Tema değiştir">
         <svg class="ico ico-sun" style="width:12px;height:12px"><use href="#i-sun"/></svg>
         <svg class="ico ico-moon" style="width:12px;height:12px"><use href="#i-moon"/></svg>
@@ -1863,6 +2122,13 @@ function temaDegistir() {
         <span class="crumb-now" id="crumb-now">Süreç Analizi</span>
       </div>
       <div style="flex:1"></div>
+      <!-- Kalıcı canlı işlem çipi — her ekranda görünür; iş arka planda sürer, tıkla → İşlem Modu -->
+      <button class="run-chip" id="run-chip" onclick="_runChipTikla()" title="İşlem sürüyor — ayrıntı için tıkla">
+        <span class="rc-spin"></span>
+        <span class="rc-label" id="run-chip-label">Analiz</span>
+        <span class="rc-meta" id="run-chip-meta"></span>
+      </button>
+      <span class="topbar-sep" id="run-chip-sep" style="display:none"></span>
       <div class="topbar-meta">
         <span class="status-dot status-idle" id="topbar-dot"></span>
         <span id="topbar-status">Hazır</span>
@@ -1891,24 +2157,53 @@ function temaDegistir() {
         </div>
       </div>
       <span class="topbar-sep"></span>
-      <button class="btn btn-ghost btn-sm" onclick="switchTab('settings')" title="Ayarlar">
-        <svg class="ico"><use href="#i-settings"/></svg>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('kilavuz')" title="Kılavuz / Yardım">
+        <svg class="ico"><use href="#i-help"/></svg>
       </button>
-      <div class="user-avatar" title="Kullanıcı">A</div>
+      <div class="user-avatar" id="topbar-avatar" title="Analist">A</div>
     </div>
 
+    <!-- İşlem Modu (JARVIS HUD) — analiz çalışırken zengin görsel; kapatınca iş arka planda sürer -->
+    <div id="islem-modu" role="dialog" aria-label="İşlem modu">
+      <div class="im-brk tl"></div><div class="im-brk tr"></div><div class="im-brk bl"></div><div class="im-brk br"></div>
+      <div class="im-wrap">
+        <div class="im-kicker">ANALYST STUDIO · İŞLEM MODU</div>
+        <div class="im-title" id="im-title">Analiz çalışıyor</div>
+        <div class="im-reactor">
+          <div class="im-r1"></div><div class="im-r2"></div><div class="im-r3"></div>
+          <div class="im-core"><div class="im-core-pulse"></div><div class="im-step" id="im-step">2/4</div><div class="im-sub" id="im-sub">ADIM</div></div>
+        </div>
+        <div class="im-bar"><span></span></div>
+        <div class="im-readouts">
+          <div>MODEL · <b id="im-model">claude · CLI</b></div>
+          <div>GEÇEN SÜRE · <b id="im-sure">00:00</b></div>
+        </div>
+        <div class="im-note">Analiz arka planda sürüyor — bu ekranı kapatıp başka işe geçebilirsiniz, işlem kesilmez.</div>
+        <div class="im-actions">
+          <button class="btn btn-outline btn-sm" onclick="islemModuKapat()">Kapat — arka planda sürsün</button>
+        </div>
+      </div>
+    </div>
+
+    {# v2 Faz 2.5 — otomatik güncelleme banner'ı (tüm ekranların üstünde) #}
+    {% include "screens/_guncelleme.html" %}
 
     <!-- ─── SÜREÇ ANALİZİ ─── -->
-    <div class="page active" id="page-surec">
+    <div class="page" id="page-surec">
       <div class="ph">
         <div class="ph-text">
           <h1>Süreç/Teknik Analiz</h1>
           <p>Süreç dokümanını analiz et, analist onayı sonrası teknik analiz ve Jira hiyerarşisi üret.</p>
         </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm gorunum-btn" onclick="gorunumDegistir()" title="Tek kolon adım rayı ↔ klasik yatay şerit + panel">Klasik görünüm</button></div>
       </div>
 
-      <!-- Step rail -->
-      <div class="panel" style="margin-bottom:14px">
+      <!-- RAY GÖRÜNÜMÜ (tek kolon adım akışı) — JS ile kurulur; klasik paneller DOM'da KORUNUR (gorunum-klasik),
+           aksiyon blokları (surec-act-*) aktif adımın içine TAŞINIR (kopya değil) → tüm akış/sohbet aynen çalışır. -->
+      <div class="ray" id="surec-ray" style="display:none"></div>
+
+      <!-- Step rail (klasik) -->
+      <div class="panel gorunum-klasik" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">İş Akışı</span>
           <span class="panel-tag">4 ADIM</span>
@@ -1939,11 +2234,11 @@ function temaDegistir() {
         </div>
       </div>
 
-      <!-- Aksiyon alanı -->
-      <div class="panel" style="margin-bottom:14px">
+      <!-- Aksiyon alanı (klasik) -->
+      <div class="panel gorunum-klasik" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">Girdi Dokümanı</span>
-          <span class="panel-tag">STEP 1/4</span>
+          <span class="panel-tag">ADIM 1 · GİRDİ</span>
           <span class="panel-spacer"></span>
         </div>
         <div class="panel-body">
@@ -1996,6 +2291,18 @@ function temaDegistir() {
           <!-- ONAY_BEKLENIYOR -->
           <div id="surec-act-onay" style="display:none">
             <div class="action-desc">Süreç analizi tamamlandı. İnceledikten sonra teknik analiz için devam edin.</div>
+            <div class="mono-meta onay-baglam" id="onay-baglam-surec" style="margin:2px 0 6px;font-size:12px"></div>
+            <!-- AÇIK SORULAR — süreç onayında tek-tek cevapla (Sorular sekmesiyle aynı backend) -->
+            <div class="onay-sorular" id="onay-sorular-surec" style="display:none"></div>
+            <!-- ADIM SOHBETİ — basit: yalnız bu adımın çıktısını, ID/bölüm hedefli düzelt; otomatik uygulanır -->
+            <div class="mockup-gen-row" style="margin:8px 0 10px">
+              <span class="mono-meta" style="white-space:nowrap">Bu adımı düzelt:</span>
+              <input type="text" id="adim-sohbet-surec" autocomplete="off" style="flex:1;min-width:240px"
+                     placeholder="örn: PA-003'e iptal koşulu ekle · İş Kuralları bölümüne BR-007 ekle"
+                     onkeydown="if(event.key==='Enter')adimDuzelt('surec-analizi.md','adim-sohbet-surec','adim-sohbet-surec-msg')">
+              <button class="btn btn-primary btn-xs" id="adim-sohbet-surec-btn" onclick="adimDuzelt('surec-analizi.md','adim-sohbet-surec','adim-sohbet-surec-msg')">Uygula</button>
+              <span class="mockup-gen-msg" id="adim-sohbet-surec-msg"></span>
+            </div>
             <div class="btn-group">
               <button class="btn btn-success" onclick="onayla()">
                 <svg class="ico"><use href="#i-check"/></svg> Devam Et — Teknik Analiz Başlat
@@ -2018,16 +2325,32 @@ function temaDegistir() {
           <div id="surec-act-teknik-onay" style="display:none">
             <!-- İnceleme ekranı -->
             <div id="teknik-onay-review">
-              <div class="action-desc">Teknik analiz oluşturuldu. İnceleyip onaylayın veya revize isteyin.</div>
-              <div style="margin:10px 0 6px">
-                <textarea id="teknik-revize-not" rows="3" style="width:100%;box-sizing:border-box;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;resize:vertical" placeholder="Düzeltilmesi gereken bölümleri açıklayın..."></textarea>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-                  <button class="btn btn-outline btn-sm" id="btn-teknik-revize" onclick="teknikRevizeEt()">
-                    <svg class="ico"><use href="#i-refresh"/></svg> Revize Et
-                  </button>
-                  <span id="teknik-revize-msg" class="mono-meta" style="font-size:12px"></span>
-                </div>
+              <div class="action-desc">Teknik analiz oluşturuldu. İnceleyip onaylayın; gerekiyorsa bu adımı hedefli düzeltin veya süreç adımına dönün.</div>
+              <div class="mono-meta onay-baglam" id="onay-baglam-teknik" style="margin:2px 0 6px;font-size:12px"></div>
+              <!-- AÇIK SORULAR — teknik onayında tek-tek cevapla (Sorular sekmesiyle aynı backend) -->
+              <div class="onay-sorular" id="onay-sorular-teknik" style="display:none"></div>
+              <!-- ADIM SOHBETİ (teknik) — hedefli bölüm düzeltmesi, otomatik uygulanır -->
+              <div class="mockup-gen-row" style="margin:8px 0 6px">
+                <span class="mono-meta" style="white-space:nowrap">Bu adımı düzelt:</span>
+                <input type="text" id="adim-sohbet-teknik" autocomplete="off" style="flex:1;min-width:240px"
+                       placeholder="örn: T-BE-004 endpoint'ine sayfalama ekle · Güvenlik bölümünü genişlet"
+                       onkeydown="if(event.key==='Enter')adimDuzelt('teknik-analiz.md','adim-sohbet-teknik','adim-sohbet-teknik-msg')">
+                <button class="btn btn-primary btn-xs" id="adim-sohbet-teknik-btn" onclick="adimDuzelt('teknik-analiz.md','adim-sohbet-teknik','adim-sohbet-teknik-msg')">Uygula</button>
+                <span class="mockup-gen-msg" id="adim-sohbet-teknik-msg"></span>
               </div>
+              <!-- Tam yeniden-üretim: SON ÇARE (hedefli düzeltme bölüm bulamazsa) -->
+              <details style="margin:0 0 8px">
+                <summary style="cursor:pointer;font-size:12px;color:var(--text3)">Tam yeniden üret (son çare — düzeltme notuyla tüm teknik analizi yeniden yazar)</summary>
+                <div style="margin-top:6px">
+                  <textarea id="teknik-revize-not" rows="2" style="width:100%;box-sizing:border-box;resize:vertical" placeholder="Düzeltilmesi gereken bölümleri açıklayın..."></textarea>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                    <button class="btn btn-outline btn-sm" id="btn-teknik-revize" onclick="teknikRevizeEt()">
+                      <svg class="ico"><use href="#i-refresh"/></svg> Tam Yeniden Üret
+                    </button>
+                    <span id="teknik-revize-msg" class="mono-meta" style="font-size:12px"></span>
+                  </div>
+                </div>
+              </details>
               <div class="btn-group" style="margin-top:8px">
                 <button class="btn btn-success" onclick="teknikOnaylaBasla()">
                   <svg class="ico"><use href="#i-check"/></svg> Onayla
@@ -2036,6 +2359,7 @@ function temaDegistir() {
                   <svg class="ico"><use href="#i-stop"/></svg> Durdur
                 </button>
                 <button class="btn btn-outline btn-sm" onclick="switchTab('output','teknik-analiz.md')">Teknik Analizi İncele</button>
+                <button class="btn btn-outline btn-sm" onclick="surecAdiminaGeriDon()" title="Süreç analizi YENİDEN çalışmaz; hedefli düzeltip 'Devam Et' ile teknik güncellenir">◂ Süreç analizine dön</button>
               </div>
             </div>
             <!-- Jira sorusu (Onayla sonrası) -->
@@ -2075,59 +2399,10 @@ function temaDegistir() {
         </div>
       </div>
 
-      <!-- Özel Prompt (opsiyonel — varsayılan promptların YERİNE geçer) -->
-      <div class="ctx-toggle" id="op-toggle" onclick="toggleOzelPrompt()">
-        <svg class="ico"><use href="#i-edit"/></svg>
-        <span class="ctx-toggle-label">Özel Prompt</span>
-        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Doldurursanız ilgili analiz VARSAYILAN sistem promptu yerine buradaki promptla çalışır. Boş bırakılan alan için mevcut prompt kullanılır. Kalıcı prompt düzenlemesi için Sistem Promptları ekranını kullanın.">?</span>
-        <span id="op-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
-        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
-      </div>
-      <div class="ctx-fields" id="op-fields">
-        <div class="ctx-grid2">
-          <div>
-            <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
-            <div class="ctx-field-sub">Doluysa varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
-            <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
-          </div>
-          <div>
-            <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
-            <div class="ctx-field-sub">Doluysa BUNU kullanır; boşsa süreç özel promptu teknik analize de taşınır (tek prompt tüm pipeline'ı yönetir). Çıktı biçimi (XML) otomatik korunur</div>
-            <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-outline btn-sm" onclick="ozelPromptKaydet()">Kaydet</button>
-          <button class="btn btn-outline btn-sm" onclick="ozelPromptTemizle()">Temizle</button>
-          <span id="op-save-status" class="mono-meta"></span>
-        </div>
-      </div>
-
-      <!-- CR / Delta Analizi — mevcut teknik analizin üzerine değişiklik isteği -->
-      <div class="ctx-toggle" id="da-toggle" onclick="toggleDeltaAnaliz()">
-        <svg class="ico"><use href="#i-refresh"/></svg>
-        <span class="ctx-toggle-label">CR / Delta Analizi</span>
-        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Test ortamına çıkmış bir özellik için gelen değişiklik isteğini (CR) veya bug-fix talebini mevcut teknik analizin ÜZERİNE delta olarak işler — tam analiz tekrarı yapılmaz. Mevcut teknik-analiz.md gerekir. Bağlam Filtresi (referanslar + canlı uygulama) delta analizinde de geçerlidir.">?</span>
-        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
-      </div>
-      <div class="ctx-fields" id="da-fields">
-        <div>
-          <div class="ctx-field-label">Değişiklik İsteği (CR / bug-fix tarifi)</div>
-          <div class="ctx-field-sub">Mevcut teknik analizle karşılaştırılır; yalnızca DELTA raporu üretilir: etkilenen bölümler, değişen gereksinimler, regresyon riski → delta-analizi.md</div>
-          <textarea class="ctx-input" id="da-cr-metni" rows="5" placeholder="örn: Tournament Market ekranındaki hiyerarşik görünüme kategori seviyesinde toplam market sayısı kolonu eklenecek; mevcut filtreler bu kolonu da etkilemeli."></textarea>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-primary btn-sm" id="da-baslat-btn" onclick="deltaAnaliziBaslat()">
-            <svg class="ico"><use href="#i-play"/></svg> Delta Analizi Üret
-          </button>
-          <span id="da-status" class="mono-meta"></span>
-        </div>
-      </div>
-
-      <!-- Bağlam Filtresi -->
+      <!-- Bağlam Filtresi — HAZIRLIK adımı (üretimden önce). Faz 2.2: Girdi panelinin hemen altına taşındı -->
       <div class="ctx-toggle" id="ctx-toggle" onclick="toggleCtx()">
         <svg class="ico"><use href="#i-filter"/></svg>
-        <span class="ctx-toggle-label">Bağlam Filtresi</span>
+        <span class="ctx-toggle-label">Bağlam Filtresi <span class="ds-panel-tag" style="margin-left:8px">HAZIRLIK · ÜRETİMDEN ÖNCE</span></span>
         <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="AI'a hangi referansları (Confluence, Jira, Swagger, canlı uygulama) göstermek istediğinizi daraltır. Canlı uygulama URL'leri doluysa Claude MCP/Chrome ile ekran ve servis gözlemi analize dahil edilir.">?</span>
         <span id="ctx-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
         <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
@@ -2161,7 +2436,7 @@ function temaDegistir() {
           <div class="ctx-group-title"><svg class="ico ico-sm"><use href="#i-monitor"/></svg> Canlı Uygulama (Chrome MCP)</div>
           <div>
             <div class="ctx-field-label">Ana Uygulama URL</div>
-            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler · <strong>Yalnızca bu ekran (Süreç/Teknik Analiz) içindir</strong> — Jira Görevleri ekranının kendi ayrı URL'i vardır, oraya yansımaz</div>
+            <div class="ctx-field-sub">Claude MCP/Chrome bu adresten başlayarak ekranı ve servis çağrılarını gözlemler · <strong>Yalnızca bu ekran (Süreç/Teknik Analiz) içindir</strong> — Task Analizi ekranının kendi ayrı URL'i vardır, oraya yansımaz</div>
             <input class="ctx-input" id="ctx-live-target" type="url" placeholder="https://dev.example.com/app" oninput="updateCtxBadge()">
             <button class="btn btn-outline btn-sm ctx-sample-btn" id="ctx-sample-btn" type="button" onclick="ctxSampleToggle()">
               Örnek ekran olarak kullan
@@ -2202,7 +2477,7 @@ function temaDegistir() {
           </details>
 
           <details class="ctx-more" id="ctx-more-auth">
-            <summary>Giriş Bilgileri <span class="mono-meta">(login duvarında otomatik giriş — Jira Görevleri ile paylaşılır)</span></summary>
+            <summary>Giriş Bilgileri <span class="mono-meta">(login duvarında otomatik giriş — Task Analizi ile paylaşılır)</span></summary>
             <div class="ctx-more-body">
               <div class="ctx-grid2">
                 <input class="ctx-input" id="ctx-live-username" type="text" placeholder="Kullanıcı adı / e-posta" autocomplete="off" oninput="updateCtxBadge()">
@@ -2218,6 +2493,34 @@ function temaDegistir() {
           <span id="ctx-save-status" class="mono-meta"></span>
         </div>
       </div>
+      <!-- Gelişmiş — Özel Prompt (opsiyonel; varsayılan promptların YERİNE geçer). Faz 2.2: en alta, progressive disclosure -->
+      <div class="ctx-toggle" id="op-toggle" onclick="toggleOzelPrompt()">
+        <svg class="ico"><use href="#i-edit"/></svg>
+        <span class="ctx-toggle-label">Gelişmiş — Özel Prompt <span class="ds-panel-tag" style="margin-left:8px;background:var(--surface2);color:var(--text3)">İSTEĞE BAĞLI</span></span>
+        <span class="ipucu" tabindex="0" onclick="event.stopPropagation()" data-ipucu="Doldurursanız ilgili analiz VARSAYILAN sistem promptu yerine buradaki promptla çalışır. Boş bırakılan alan için mevcut prompt kullanılır. Kalıcı prompt düzenlemesi için Sistem Promptları ekranını kullanın.">?</span>
+        <span id="op-active-badge" style="display:none" class="ctx-active-badge">aktif</span>
+        <span class="ctx-toggle-arrow"><svg class="ico ico-sm"><use href="#i-chevron-right"/></svg></span>
+      </div>
+      <div class="ctx-fields" id="op-fields">
+        <div class="ctx-grid2">
+          <div>
+            <div class="ctx-field-label">Süreç Analizi Özel Promptu</div>
+            <div class="ctx-field-sub">Doluysa varsayılan prompt yerine BUNU kullanır; boşsa mevcut prompt geçerli</div>
+            <textarea class="ctx-input" id="op-surec" rows="5" placeholder="örn: Kıdemli iş analistisin. Yüklenen dokümanı şu başlıklarla analiz et: ..." oninput="updateOzelPromptBadge()"></textarea>
+          </div>
+          <div>
+            <div class="ctx-field-label">Teknik Analiz Özel Promptu</div>
+            <div class="ctx-field-sub">Doluysa BUNU kullanır; boşsa süreç özel promptu teknik analize de taşınır (tek prompt tüm pipeline'ı yönetir). Çıktı biçimi (XML) otomatik korunur</div>
+            <textarea class="ctx-input" id="op-teknik" rows="5" placeholder="örn: Kıdemli yazılım mimarısın. Süreç analizini şu bölümlerle teknik analize çevir: ..." oninput="updateOzelPromptBadge()"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="ozelPromptKaydet()">Kaydet</button>
+          <button class="btn btn-outline btn-sm" onclick="ozelPromptTemizle()">Temizle</button>
+          <span id="op-save-status" class="mono-meta"></span>
+        </div>
+      </div>
+
     </div>
 
     <!-- ─── BRD ANALİZİ ─── -->
@@ -2227,10 +2530,13 @@ function temaDegistir() {
           <h1>BRD Pipeline</h1>
           <p>BRD dokümanını analiz et, sorular üret, PO revizyonu sonrası kapsam analizi yap.</p>
         </div>
+        <div class="ph-actions"><button class="btn btn-outline btn-sm gorunum-btn" onclick="gorunumDegistir()">Klasik görünüm</button></div>
       </div>
 
-      <!-- Step rail -->
-      <div class="panel" style="margin-bottom:14px">
+      <div class="ray" id="brd-ray" style="display:none"></div>
+
+      <!-- Step rail (klasik) -->
+      <div class="panel gorunum-klasik" style="margin-bottom:14px">
         <div class="panel-head">
           <span class="panel-title">İş Akışı</span>
           <span class="panel-tag">3 ADIM</span>
@@ -2255,7 +2561,7 @@ function temaDegistir() {
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel gorunum-klasik">
         <div class="panel-head">
           <span class="panel-title">Girdi Dokümanı</span>
           <span class="panel-tag">STEP 1/3</span>
@@ -2352,14 +2658,21 @@ function temaDegistir() {
     </div>
 
     <!-- ─── ÇIKTILAR ─── -->
-    <!-- ── Jira Görevleri ── -->
+    <!-- ── Task Analizi (iç tab anahtarı 'jira-gorevler' — tarihsel) ── -->
     <div class="page" id="page-jira-gorevler">
       <div class="ph">
         <div class="ph-text">
-          <h1>Jira Görevleri</h1>
+          <h1>Task Analizi</h1>
           <p>Epic/Story altındaki görevleri veya tek bir görevi (kendisi + bağlı task'ları) çek ve iki gruba ayır: hızlı işleme alınacaklar vs. detaylı analiz gerekenler.</p>
         </div>
       </div>
+      <!-- Arka planda süren analiz — panel kapalıyken görünür; "Göster" ile geri açılır -->
+      <div class="jg-suren-chip" id="jg-suren-chip">
+        <span class="dot"></span>
+        <span class="grow" id="jg-suren-metin">Analiz sürüyor…</span>
+        <button class="btn btn-outline btn-xs" onclick="_jgPanelAc()">Göster</button>
+      </div>
+      <!-- Görev analiz paneli (GÖMÜLÜ) — JS ile buraya taşınır (#jg-preview-card) -->
 
       <!-- Faz 1: Çekme -->
       <div class="panel" style="margin-bottom:14px">
@@ -2410,7 +2723,7 @@ function temaDegistir() {
             <div class="ctx-field-label" style="display:flex;align-items:center;gap:8px">
               Analist Notu <span style="font-weight:400;color:var(--text3)">— opsiyonel, Teknik Analiz Et'e özel</span>
               <span class="panel-spacer"></span>
-              <button class="btn-link" id="jg-not-temizle" onclick="jgAnalistNotuTemizle()" style="display:none">Temizle</button>
+              <button class="btn btn-outline btn-sm" id="jg-not-temizle" onclick="jgAnalistNotuTemizle()" style="display:none">Temizle</button>
             </div>
             <div class="ctx-field-sub">Bu göreve özel bir yorum, odak noktası veya detaylı bakılması gereken bir akış varsa yazın. Doluysa <strong>"Teknik Analiz Et"</strong> bunu mevcut promptlarla <strong>birlikte</strong> dikkate alır (doğruluk kurallarını gevşetmeden). Boşsa yok sayılır.</div>
             <textarea class="ctx-input" id="jg-analist-notu" rows="2" placeholder="örn: Bu görevde 'Add User' modalındaki rol atama akışına ve validasyon mesajlarına özellikle odaklan; kaydet sonrası yetki tazeleme davranışını değerlendir." onchange="jgAnalistNotuKaydet()"></textarea>
@@ -2539,6 +2852,17 @@ function temaDegistir() {
           </div>
           <button class="jg-modal-kapat" onclick="jgPreviewKapat()" title="Kapat (Esc)">✕</button>
         </div>
+        <!-- İlişkili analiz seçim paneli (bağlı task varsa; üretimden önce) -->
+        <div id="jg-secim" class="jg-secim" style="display:none">
+          <div class="jg-secim-yardim">Bu görevin <b>bağlı task'ları</b> var. Birlikte analiz etmek istediklerini seç — her biri <b>KENDİ katmanına</b> göre AYRI analiz edilir, FE↔BE etkileşimi "Bağımlılık ve Arayüz" başlığında sözleşme olarak yazılır. Her analiz kendi Jira görevine ayrı yazılır.</div>
+          <div id="jg-secim-liste"></div>
+          <div class="jg-secim-akt">
+            <button class="btn btn-primary btn-sm" onclick="jgIliskiliAnalizBaslat()">Seçilenleri Analiz Et</button>
+            <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
+          </div>
+        </div>
+        <!-- Çoklu analiz — task değiştirici (birden çok analiz üretildiğinde) -->
+        <div id="jg-analiz-switcher" class="jg-switcher" style="display:none"></div>
         <div class="jg-modal-tabs" id="jg-modal-tabs">
           <button class="jg-modal-tab aktif" data-tab="ana" onclick="jgModalTab('ana')">Çıktı</button>
           <button class="jg-modal-tab" data-tab="sorular" id="jg-modal-tab-sorular" onclick="jgModalTab('sorular')" style="display:none">
@@ -2546,10 +2870,44 @@ function temaDegistir() {
           </button>
         </div>
         <div class="jg-modal-body">
+          <!-- JARVIS işlem paneli — üretim/düzeltme sürerken (ana akıştaki reaktörün modal-içi karşılığı) -->
+          <div id="jg-proc" class="jg-proc" style="display:none">
+            <div class="jg-proc-kicker">ANALYST STUDIO · İŞLEM MODU</div>
+            <div class="jg-proc-title" id="jg-proc-title">Teknik analiz üretiliyor</div>
+            <div class="im-reactor">
+              <div class="im-r1"></div><div class="im-r2"></div><div class="im-r3"></div>
+              <div class="im-core"><div class="im-core-pulse"></div><div class="im-step" id="jg-proc-ikon">AI</div><div class="im-sub">ANALİZ</div></div>
+            </div>
+            <div class="im-bar"><span></span></div>
+            <div class="jg-proc-readouts">MODEL · <b id="jg-proc-model">claude · CLI</b> &nbsp;·&nbsp; GEÇEN SÜRE · <b id="jg-proc-sure">00:00</b></div>
+            <div class="jg-proc-note">Analiz <b>arka planda</b> sürüyor — bu paneli kapatıp başka işe geçebilirsiniz, iş kesilmez. Bitince burada görünür.</div>
+            <div class="jg-proc-akt">
+              <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">Kapat — arka planda sürsün</button>
+              <button class="btn btn-danger btn-sm" onclick="_jgDurdur()">Durdur</button>
+            </div>
+          </div>
+          <!-- Ana çıktı (teknik analiz / standart format) -->
           <textarea id="jg-preview-editor" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="İçerik yükleniyor…"></textarea>
-          <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." style="display:none" readonly></textarea>
+          <!-- Açık Sorular — CEVAPLANABİLİR: soruları oku, cevapla, "Cevapları İşle" ile analizi yeniden yazdır -->
+          <div id="jg-preview-sorular-wrap" style="display:none">
+            <div class="jg-soru-yardim">Her soruyu altındaki kutuda cevaplayın; <b>Cevapları İşle</b> deyince teknik analiz cevaplarınıza göre yeniden yazılır (belirsizlikler çözülür). Boş bıraktığınız sorular atlanır. Sorular ve cevaplar <b>Jira'ya YAZILMAZ</b>.</div>
+            <!-- Soru-bazlı cevap kartları — JS ile doldurulur (_jgSorulariRender) -->
+            <div id="jg-sorular-liste"></div>
+            <!-- Ayrıştırma başarısızsa ham metin yedeği -->
+            <textarea id="jg-preview-sorular" class="jg-editor jg-editor-modal" spellcheck="false" placeholder="Açık sorular yok." readonly style="display:none"></textarea>
+            <div class="jg-soru-akt">
+              <button class="btn btn-primary btn-sm" id="jg-cevap-isle-btn" onclick="jgCevaplariIsle()">
+                <svg class="ico"><use href="#i-refresh"/></svg> Cevapları İşle → Analizi Yeniden Yaz
+              </button>
+            </div>
+          </div>
         </div>
         <div class="jg-modal-aksiyon">
+          <!-- İteratif düzelt sohbeti (ilgili kısmı düzelt; tam yeniden yazma değil) -->
+          <div class="jg-duzelt-row" id="jg-duzelt-row" style="display:none">
+            <input type="text" id="jg-duzelt" autocomplete="off" placeholder="Bu analizi düzelt — örn: 'Kabul kriterlerine boş tarih senaryosunu ekle'" onkeydown="if(event.key==='Enter')jgAnalizDuzelt()">
+            <button class="btn btn-outline btn-sm" id="jg-duzelt-btn" onclick="jgAnalizDuzelt()">Düzelt</button>
+          </div>
           <span class="jg-warn">⚠ Onayla'ya basınca Jira görevinin açıklaması ÜZERİNE YAZILIR (geri alınamaz). Açık Sorular Jira'ya YAZILMAZ.</span>
           <button class="btn btn-outline btn-sm" onclick="jgPreviewKapat()">İptal</button>
           <button class="btn btn-success" id="jg-approve-btn" onclick="jgJiraGuncelle()">
@@ -2659,7 +3017,7 @@ function temaDegistir() {
     <div class="page" id="page-kullanim">
       <div class="panel">
         <div class="panel-head">
-          <div class="panel-title">Kullanım İzleme</div>
+          <div class="panel-title">Kullanım Raporu</div>
           <span class="panel-tag">yalnız owner</span>
           <div class="panel-spacer"></div>
           <span id="ku-son-guncelleme" style="font-size:11px;color:var(--text3);margin-right:6px"></span>
@@ -2743,6 +3101,18 @@ function temaDegistir() {
             <svg class="ico"><use href="#i-download"/></svg> İndir
           </button>
           <span class="mockup-gen-msg" id="mockup-gen-msg"></span>
+        </div>
+
+        <!-- Mockup sohbet-düzeltme satırı (iteratif; istediği hale gelene kadar) -->
+        <div class="mockup-gen-row" id="mockup-chat-row" style="display:none">
+          <span class="mono-meta" style="white-space:nowrap">Sohbetle düzelt:</span>
+          <input type="text" id="mockup-chat-input" autocomplete="off"
+                 placeholder="örn: başlığı büyüt · market kolonu ekle · renkleri koyulaştır"
+                 onkeydown="if(event.key==='Enter')mockupDuzelt()" style="flex:1;min-width:240px">
+          <button class="btn btn-primary btn-xs" id="mockup-chat-btn" onclick="mockupDuzelt()">Uygula</button>
+          <button class="btn btn-outline btn-xs" id="mockup-geri-btn" onclick="mockupGeriAl()" style="display:none" title="Son düzeltmeyi geri al">↶ Geri Al</button>
+          <button class="btn btn-success btn-xs" onclick="mockupOnayla()" title="Prototipi onayla (bu hâliyle geçerli)">✓ Onayla</button>
+          <span class="mockup-gen-msg" id="mockup-chat-msg"></span>
         </div>
 
         <!-- Jira hiyerarşi satırı -->
@@ -3073,6 +3443,8 @@ function temaDegistir() {
             </label>
           </div>
           <div id="cli-status" style="font-size:11px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);font-family:'Geist Mono',monospace"></div>
+          <!-- CLI'ın hangi hesaba bağlı olduğu (analizler bu hesabın aboneliğinden çalışır) -->
+          <div id="cli-hesap-info" style="font-size:11.5px;margin-top:8px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--accent-soft);border:1px solid var(--border);line-height:1.5"></div>
         </div>
 
         <!-- API Key -->
@@ -3165,15 +3537,20 @@ python cli.py ui ~/export.zip</pre>
               <input type="text" id="jira-project-key" placeholder="PROJ" autocomplete="off">
             </div>
             <div class="form-group">
-              <label>Jira URL <span style="font-weight:400;color:var(--text3)">— Atlassian site adresiniz</span></label>
-              <input type="text" id="jira-url" placeholder="https://sirketiniz.atlassian.net" autocomplete="off" oninput="jiraUrlUyar()">
-              <p style="font-size:11px;color:var(--text3);line-height:1.6;margin:4px 0 0">
-                Sitenizin ana adresi (ör. <code>https://sirketiniz.atlassian.net</code>). Görev linkleri
-                (<code>/browse/…</code>) bundan üretilir. <strong>Aşağıdaki Callback URL DEĞİL</strong> —
-                o, developer console'a kaydettiğiniz adrestir, buraya yazılmaz. Bağlandıktan sonra otomatik
-                de algılanır; bu alan yalnızca yedektir.
-              </p>
-              <p id="jira-url-uyari" style="display:none;font-size:11px;color:var(--yellow,#d97706);line-height:1.6;margin:4px 0 0"></p>
+              <label>Atlassian siteniz <span style="font-weight:400;color:var(--text3)">— görev linkleri (<code>/browse/…</code>) için</span></label>
+              <!-- Site OTOMATİK algılanır (accessible-resources) → salt-okunur göster. Elle giriş yalnız yedek,
+                   'Gelişmiş' altında. Böylece Callback URL ile karışmaz. -->
+              <div id="jira-site-auto" style="font-size:12.5px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);line-height:1.5">Bağlandıktan sonra otomatik algılanır.</div>
+              <details style="margin-top:6px">
+                <summary style="cursor:pointer;font-size:11.5px;color:var(--text3)">Gelişmiş — site adresini elle gir (yalnız otomatik algılama başarısızsa)</summary>
+                <div style="margin-top:6px">
+                  <input type="text" id="jira-url" placeholder="https://sirketiniz.atlassian.net" autocomplete="off" oninput="jiraUrlUyar()">
+                  <p style="font-size:11px;color:var(--text3);line-height:1.6;margin:4px 0 0">
+                    Normalde gerekmez — site, OAuth bağlantısından otomatik alınır. Bu, aşağıdaki <strong>Callback URL değildir</strong>.
+                  </p>
+                  <p id="jira-url-uyari" style="display:none;font-size:11px;color:var(--yellow,#d97706);line-height:1.6;margin:4px 0 0"></p>
+                </div>
+              </details>
             </div>
           </div>
           <div class="btn-group" style="margin-bottom:12px">
@@ -3291,10 +3668,17 @@ python cli.py ui ~/export.zip</pre>
       </div>
     </div>
 
-    <div class="page" id="page-kilavuz">
-      <iframe id="kilavuz-iframe" title="Kullanıcı Kılavuzu"
-        style="width:100%;height:100%;border:none;display:block;background:var(--bg)"></iframe>
-    </div>
+    {# EKRAN PARTIALLARI — Faz 0 modülerleştirme (bkz. templates/screens/README.md).
+       Her ekran kendi markup + davranışını ayrı dosyada taşır, burada include edilir. #}
+    {% include "screens/delta.html" %}
+    {% include "screens/yetki.html" %}
+    {% include "screens/pano.html" %}
+    {% include "screens/kod.html" %}
+    {% include "screens/kopru.html" %}
+    {% include "screens/_palet.html" %}
+    {% include "screens/ciktilar.html" %}
+    {% include "screens/revizyon.html" %}
+    {% include "screens/kilavuz.html" %}
 
   </div><!-- /.main -->
 </div><!-- /.layout -->
@@ -3351,13 +3735,14 @@ function switchTab(tab, hedefDosya) {
   document.getElementById('page-' + tab).classList.add('active');
   const navEl = document.getElementById('nav-' + tab);
   if (navEl) navEl.classList.add('active');
-  const _crumbLabels = {surec:'Süreç/Teknik Analiz',brd:'BRD Analizi','jira-gorevler':'Jira Görevleri','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım',output:'Çıktılar',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz'};
+  const _crumbLabels = {pano:'Ana Sayfa',surec:'Süreç/Teknik Analiz',brd:'BRD Analizi',delta:'Delta / CR Analizi','jira-gorevler':'Task Analizi','backlog-senkron':'UAT Mutabakat',kullanim:'Kullanım Raporu',output:'Çıktı Dosyaları',ciktilar:'Analiz Dosyaları',revizyon:'Revizyon',referanslar:'Referanslar',history:'Geçmiş',settings:'Ayarlar','jira-settings':'Jira Ayarları',prompts:'Sistem Promptları',update:'Güncelleme',kilavuz:'Kılavuz',yetki:'Yetki',saglik:'Sistem Sağlığı',kod:'Kod Kaynağı'};
   const _crumbEl = document.getElementById('crumb-now'); if (_crumbEl) _crumbEl.textContent = _crumbLabels[tab] || tab;
   // Üst bar durumu SEKMEYE göre güncellenir — önceki ekranın mesajı (ör. "3 görev
   // çekildi") başka ekrana SIZMASIN.
   _jgTabAktif = (tab === 'jira-gorevler');
   if (_jgTabAktif) {
-    _jgTopbar(_jgSonDurum || 'Jira Görevleri', false);   // JG'ye dönünce son JG durumu
+    _jgTopbar(_jgSonDurum || 'Task Analizi', false);   // JG'ye dönünce son JG durumu
+    if (typeof _jgReattach === 'function') _jgReattach();   // süren analiz işine yeniden bağlan + çip
     jgCtxBilgiYukle();
   } else if ((tab === 'surec' || tab === 'brd') && _lastState) {
     updateUI(_lastState);          // Süreç/BRD: workflow durumunu geri yükle
@@ -3369,6 +3754,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'output')        { sorularDefteriYenile(); outputTabHazirla(hedefDosya); }
   if (tab === 'settings')      { settingsYukle(); analistYukle(); }
   if (tab === 'jira-settings') jiraConfigYukle();
+  if (tab === 'backlog-senkron') _bsJiraSiteYukle();   // key link'leri için site adresini hazırla
   if (tab === 'prompts')       promptlariYukle();
   if (tab === 'update')        versiyonYukle();
   if (tab === 'referanslar')   { loadSources(); loadRefDocs(); onboardGoster('referanslar', 'page-referanslar'); }
@@ -3377,6 +3763,12 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'output')        onboardGoster('output', 'page-output');
   if (tab === 'prompts')       onboardGoster('prompts', 'page-prompts');
   if (tab === 'kilavuz')       kilavuzYukle();
+  if (tab === 'revizyon')      rzYukle();
+  if (tab === 'ciktilar')      ciYukle();
+  if (tab === 'yetki')         ytYukle();
+  if (tab === 'pano')          panoYukle();
+  if (tab === 'kod')           kodYukle();
+  if (tab === 'kopru')         kopruYukle();
 }
 
 // Kılavuz iframe'i ilk açılışta yükle (lazy). Güncel kod çekilince otomatik tazelenir.
@@ -3474,9 +3866,17 @@ async function kullanimYukle() {
     // Özet: iki anlamlı grup — Aktivite (kümülatif zaman pencereleri) + Seçili Aralık toplamları
     const oz = d.ozet || {};
     const kart = (v, k, vurgu) => `<div class="ku-card${vurgu ? ' vurgu' : ''}"><div class="n">${v}</div><div class="k">${k}</div></div>`;
+    // Token biçimi: 1234→1.2K, 3400000→3.4M (okunur, kompakt)
+    const tokFmt = (n) => { n = Number(n || 0); if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return String(n); };
+    const usdFmt = (n) => '$' + Number(n || 0).toFixed(2);
+    const tk = d.token_ozet || {};
+    const tokenGrubu = (tk.cagri || tk.girdi || tk.cikti)
+      ? `<div class="ku-grup"><div class="ku-grup-lbl" title="AI çağrılarında harcanan token ve tahmini maliyet (CLI JSON usage + API usage). Cache okuma girdiden düşülür.">Token / Maliyet</div><div class="ku-cards">${kart(tokFmt(tk.girdi), 'Girdi Token')}${kart(tokFmt(tk.cikti), 'Çıktı Token')}${kart(tokFmt(tk.cache_oku), 'Cache Okuma', true)}${kart(usdFmt(tk.maliyet_usd), 'Tahmini Maliyet')}</div></div>`
+      : '';
     document.getElementById('ku-ozet').innerHTML =
       `<div class="ku-grup"><div class="ku-grup-lbl">Aktivite (kümülatif)</div><div class="ku-cards">${kart(oz.bugun || 0, 'Bugün', true)}${kart(oz.bu_hafta || 0, 'Bu Hafta', true)}${kart(oz.bu_ay || 0, 'Bu Ay', true)}</div></div>` +
-      `<div class="ku-grup"><div class="ku-grup-lbl">Seçili Aralık Toplamı</div><div class="ku-cards">${kart(d.toplam_analiz, 'Toplam İşlem')}${kart(d.toplam_jira_task, 'Açılan Task')}${kart(d.analist_sayisi, 'Analist')}</div></div>`;
+      `<div class="ku-grup"><div class="ku-grup-lbl">Seçili Aralık Toplamı</div><div class="ku-cards">${kart(d.toplam_analiz, 'Toplam İşlem')}${kart(d.toplam_jira_task, 'Açılan Task')}${kart(d.analist_sayisi, 'Analist')}</div></div>` +
+      tokenGrubu;
     // Zaman trendi — dikey bar chart, okunur tarih etiketleri, TIKLANABİLİR (drill-down)
     const trend = d.trend || []; const maxv = Math.max(1, ...trend.map(t => t.adet));
     const bugunKey = new Date().toISOString().slice(0, 10);
@@ -3492,12 +3892,13 @@ async function kullanimYukle() {
     const td = 'padding:8px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text)';
     const tdc = td + ';text-align:center;font-variant-numeric:tabular-nums';
 
-    // 1) Özet tablo
+    // 1) Özet tablo (token sütunları: analist başına AI token + tahmini maliyet)
+    const tokHucre = (a) => { const t = a.token || {}; const gc = (t.girdi || 0) + (t.cikti || 0); return `<td style="${tdc}" title="Girdi ${(t.girdi||0).toLocaleString('tr')} · Çıktı ${(t.cikti||0).toLocaleString('tr')} · Cache okuma ${(t.cache_oku||0).toLocaleString('tr')}">${gc ? tokFmt(gc) : '·'}</td><td style="${td};text-align:right;font-variant-numeric:tabular-nums">${t.maliyet_usd ? usdFmt(t.maliyet_usd) : '·'}</td>`; };
     let satirlar = (d.analistler || []).map(a =>
-      `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${tdc}">${a.toplam}</td><td style="${tdc};color:var(--ok,#15803d)">${a.basarili}</td><td style="${tdc};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${tdc}">${a.jira_task}</td><td style="${td};text-align:right">${sureFmt(a.sure_ms_toplam)}</td></tr>`
+      `<tr><td style="${td};color:var(--text3);font-variant-numeric:tabular-nums">${a.id}</td><td style="${td};font-weight:600">${a.analist}</td><td style="${tdc}">${a.toplam}</td><td style="${tdc};color:var(--ok,#15803d)">${a.basarili}</td><td style="${tdc};color:var(--err,#b91c1c)">${a.hatali}</td><td style="${tdc}">${a.jira_task}</td><td style="${td};text-align:right">${sureFmt(a.sure_ms_toplam)}</td>${tokHucre(a)}</tr>`
     ).join('');
-    if (!satirlar) satirlar = `<tr><td colspan="7" style="${td};color:var(--text3)">Kayıt yok. ("Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
-    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:560px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${thc}" title="Yaptığı toplam işlem sayısı">Toplam İşlem</th><th style="${thc}" title="Başarıyla tamamlanan">Başarılı</th><th style="${thc}" title="Hata / zaman aşımı">Hatalı</th><th style="${thc}" title="Jira'ya açılan issue adedi">Açılan Task</th><th style="${th};text-align:right" title="İşlemlerin başlangıç→bitiş sürelerinin toplamı (efor)">Toplam Süre</th></tr></thead><tbody>${satirlar}</tbody></table>`;
+    if (!satirlar) satirlar = `<tr><td colspan="9" style="${td};color:var(--text3)">Kayıt yok. ("Uzaktan Çek" ile ekip verisi geldikçe dolar.)</td></tr>`;
+    analistEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:640px"><thead><tr><th style="${th}">#</th><th style="${th}">Analist</th><th style="${thc}" title="Yaptığı toplam işlem sayısı">Toplam İşlem</th><th style="${thc}" title="Başarıyla tamamlanan">Başarılı</th><th style="${thc}" title="Hata / zaman aşımı">Hatalı</th><th style="${thc}" title="Jira'ya açılan issue adedi">Açılan Task</th><th style="${th};text-align:right" title="İşlemlerin başlangıç→bitiş sürelerinin toplamı (efor)">Toplam Süre</th><th style="${thc}" title="Girdi+Çıktı token toplamı (AI çağrıları)">Token</th><th style="${th};text-align:right" title="Tahmini maliyet (CLI/API usage)">Maliyet</th></tr></thead><tbody>${satirlar}</tbody></table>`;
 
     // 2) Analist × Tür matrisi
     const matEl = document.getElementById('ku-matris');
@@ -3540,7 +3941,7 @@ async function kullanimYukle() {
       '<b>Görev Güncelleme</b> = mevcut Jira task\'ının analizle güncellenmesi · ' +
       '<b>Task Açma</b> = Jira\'ya yeni issue oluşturma · ' +
       '<b>UAT Mutabakat</b> = board karşılaştırma.</div>' +
-      '<div><b>Metrikler:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir.</div>';
+      '<div><b>Metrikler:</b> <b>Toplam İşlem</b> = analistin yaptığı tüm işlemler · <b>Başarılı/Hatalı</b> = tamamlanan / hata-timeout · <b>Açılan Task</b> = Jira\'ya açılan issue adedi · <b>Toplam Süre</b> = işlemlerin başlangıç→bitiş sürelerinin toplamı (farklı tipler ortalanmaz). <b>Ort. süre</b> yalnız analist seçilince tür bazında gösterilir. <b>Token</b> = AI çağrılarında harcanan girdi+çıktı token (cache okuma ayrıca; sayacın topladığı gerçek kullanım). <b>Maliyet</b> = tahmini (CLI JSON/API usage); CLI abonelik modunda bilgilendirme amaçlıdır.</div>';
     const sg = document.getElementById('ku-son-guncelleme');
     if (sg) sg.textContent = 'Son güncelleme ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
@@ -3567,20 +3968,83 @@ async function kullanimUzaktanCek() {
     if (btn) { btn.disabled = false; btn.innerHTML = eski || 'Uzaktan Çek'; }
   }
 }
-// Owner ise "Kullanım" sekmesini göster (aksi halde gizli kalır — ekip göremez).
+// ─── Rol uygulama (v2 Faz 2.4) ───────────────────────────────────────────────
+// Owner: her şey görünür (+ Kullanım sekmesi USAGE_DASHBOARD ile). Analist: Yönetim
+// grubu + owner'ın gizlediği id'ler (nav item + element) gizlenir. Sunucu tarafı
+// engel ayrıca uygulanır (gorunurluk_kontrol) — UI gizleme yalnız deneyim içindir.
+const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullanim', 'yetki'];
+function _rolUygula(me) {
+  const akRol = document.getElementById('ak-rol'); if (akRol) akRol.textContent = (me.rol === 'owner') ? 'Owner' : 'Analist';
+  if (me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
+  if (me.usage_admin || me.yetki_admin) { const n = document.getElementById('nav-kopru'); if (n) n.style.display = ''; }
+  if (me.yetki_admin) { const n = document.getElementById('nav-yetki'); if (n) n.style.display = ''; }
+  if (me.rol === 'owner') return;
+  const sec = document.querySelector('.nav-section[data-grup="settings"]'); if (sec) sec.style.display = 'none';
+  _YONETIM_NAV.forEach(id => { const n = document.getElementById('nav-' + id); if (n) { n.style.display = 'none'; n.classList.add('rol-gizli'); } });
+  (me.gizli || []).forEach(id => {
+    const n = document.getElementById('nav-' + id); if (n) { n.style.display = 'none'; n.classList.add('rol-gizli'); }
+    const el = document.getElementById(id); if (el && !el.classList.contains('page')) el.style.display = 'none';
+  });
+}
+
+// ─── Sidebar daralt/genişlet + nav bölümleri aç/kapa (Görev 3a, 7) ───────────
+function sidebarAcKapa() {
+  const kapali = document.querySelector('.layout').classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebar-collapsed', kapali ? '1' : '0'); } catch (e) {}
+  // Daralınca ikon-üstü ipucu için başlıkları title'a taşı
+  document.querySelectorAll('.sidebar-nav .nav-item').forEach(n => {
+    const lbl = n.querySelector('.nav-label');
+    if (lbl) n.title = kapali ? lbl.textContent.trim() : '';
+  });
+}
+function navBolumAcKapa(sec, force) {
+  const yeni = (force !== undefined) ? force : !sec.classList.contains('collapsed');
+  sec.classList.toggle('collapsed', yeni);
+  let el = sec.nextElementSibling;
+  while (el && !el.classList.contains('nav-section')) {
+    el.style.display = yeni ? 'none' : (el.classList.contains('rol-gizli') ? 'none' : '');
+    el = el.nextElementSibling;
+  }
+  if (sec.dataset.grup) { try { localStorage.setItem('nav-collapsed-' + sec.dataset.grup, yeni ? '1' : '0'); } catch (e) {} }
+}
+(function _menuHazirla() {
+  // Sidebar daralt durumunu geri yükle
+  try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.layout').classList.add('sidebar-collapsed'); } catch (e) {}
+  // Nav bölümlerine chevron + tıklama; kayıtlı kapalı durumları uygula
+  document.querySelectorAll('.sidebar-nav .nav-section').forEach(sec => {
+    if (!sec.querySelector('.nav-sec-chevron')) {
+      sec.insertAdjacentHTML('beforeend', '<svg class="nav-sec-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    }
+    sec.addEventListener('click', () => navBolumAcKapa(sec));
+    const g = sec.dataset.grup;
+    if (g) { try { if (localStorage.getItem('nav-collapsed-' + g) === '1') navBolumAcKapa(sec, true); } catch (e) {} }
+  });
+})();
 (async () => {
-  try {
-    const me = await (await fetch('/api/auth/me')).json();
-    if (me && me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
-  } catch (e) {}
+  try { _rolUygula(await (await fetch('/api/auth/me')).json() || {}); } catch (e) {}
+  try { const a = await (await fetch('/api/analist')).json(); _analistKimligiUygula(a.ad_soyad || ''); } catch (e) {}
 })();
 
 // ─── Analist Kimliği (Ayarlar) ─────────────────────────────────────────────────
+function _basHarfler(ad) {
+  const p = (ad || '').trim().split(/\s+/).filter(Boolean);
+  if (!p.length) return 'A';
+  return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
+}
+// Analist adını uygulamanın kalıcı yerlerine yansıt: sidebar kimliği + üst bar avatarı.
+function _analistKimligiUygula(ad) {
+  ad = (ad || '').trim();
+  const ini = _basHarfler(ad);
+  const akAd = document.getElementById('ak-ad'); if (akAd) akAd.textContent = ad || 'Analist adı girin';
+  const akAv = document.getElementById('ak-avatar'); if (akAv) akAv.textContent = ini;
+  const tbAv = document.getElementById('topbar-avatar'); if (tbAv) { tbAv.textContent = ini; tbAv.title = ad || 'Analist'; }
+}
 async function analistYukle() {
   try {
     const d = await (await fetch('/api/analist')).json();
     const el = document.getElementById('analist-input');
     if (el) el.value = d.ad_soyad || '';
+    _analistKimligiUygula(d.ad_soyad || '');
   } catch (e) {}
 }
 async function analistKaydet() {
@@ -3595,6 +4059,7 @@ async function analistKaydet() {
     });
     const d = await r.json();
     if (durum) durum.textContent = d.ok ? ('Kaydedildi: ' + d.ad_soyad) : ('Hata: ' + (d.error || ''));
+    if (d.ok) _analistKimligiUygula(d.ad_soyad);
     if (d.ok && typeof toast === 'function') toast('ok', 'Kaydedildi', 'Analist: ' + d.ad_soyad);
   } catch (e) { if (durum) durum.textContent = 'Kaydedilemedi.'; }
 }
@@ -4245,85 +4710,377 @@ function jgListeCiz(containerId, liste, hazirMi) {
   kap.innerHTML = liste.map(g => _jgKartHtml(g, sinif)).join('');
 }
 
-let _jgAbort = null;   // süren analiz isteğini iptal etmek için (limit/asılı kalma durumunda "İşlemi kapat")
+let _jgProcTimer = null;  // JARVIS geçen-süre sayacı
+let _jgProcModel = '';    // model etiketi (bir kez /api/settings'ten çekilir)
 
-async function _jgIslem(key, endpoint, baslik, bekleMesaji) {
-  const gorev = _jgGorevler[key];
-  if (!gorev) return;
-  const modal = document.getElementById('jg-preview-card');
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-  document.getElementById('jg-preview-title').textContent = baslik + ' — ' + key;
-  document.getElementById('jg-preview-sub').textContent = gorev.summary || '';
-  document.getElementById('jg-preview-editor').value = bekleMesaji + '\n\n(İşlemi durdurmak için İptal\'e basabilirsiniz.)';
-  document.getElementById('jg-preview-sorular').value = '';
-  document.getElementById('jg-modal-tab-sorular').style.display = 'none';
-  jgModalTab('ana');  // varsayılan: ana çıktı
-  document.getElementById('jg-approve-btn').disabled = true;
-  _jgMsg('jg-preview-msg', '');
-  _jgCurrent = null;
-  // Önceki istek varsa iptal et; yenisi için AbortController kur.
-  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} }
-  _jgAbort = new AbortController();
-  const _busignal = _jgAbort.signal;
+async function _jgProcModelYukle() {
+  if (_jgProcModel) return _jgProcModel;
   try {
-    const r = await fetch(endpoint, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gorev }), signal: _busignal
-    });
-    const d = await r.json();
-    if (!d.ok) {
-      document.getElementById('jg-preview-editor').value = '';
-      _jgMsg('jg-preview-msg', d.error || 'Hata', 'err');
-      return;
-    }
-    document.getElementById('jg-preview-editor').value = d.markdown || '';
-    document.getElementById('jg-approve-btn').disabled = false;
-    _jgCurrent = { key: key, summary: gorev.summary || '' };
-    // Açık sorular geldiyse ayrı sekme aç (Jira'ya yazılmaz)
-    if (d.acik_sorular && d.acik_sorular.trim()) {
-      document.getElementById('jg-preview-sorular').value = d.acik_sorular;
-      const tab = document.getElementById('jg-modal-tab-sorular');
-      tab.style.display = '';
-      // soru sayısını çıkar: '### Q-' başlıklarını say
-      const sayi = (d.acik_sorular.match(/^###\s+Q-/gm) || []).length;
-      document.getElementById('jg-sorular-rozet').textContent = sayi || '!';
-    }
-  } catch (e) {
-    document.getElementById('jg-preview-editor').value = '';
-    if (e && e.name === 'AbortError') {
-      _jgMsg('jg-preview-msg', 'İşlem iptal edildi.', 'err');
-    } else {
-      _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err');
-    }
-  } finally {
-    _jgAbort = null;
-  }
+    const d = await (await fetch('/api/settings')).json();
+    _jgProcModel = d.cli_mod ? ((d.cli_model || 'claude') + ' · CLI') : 'API';
+  } catch (e) { _jgProcModel = 'claude'; }
+  return _jgProcModel;
+}
+// JARVIS işlem panelini aç: reaktör + geçen-süre; editör/sorular/düzelt/sekmeler gizlenir.
+function _jgProcBaslat(baslik) {
+  document.getElementById('jg-proc-title').textContent = baslik;
+  document.getElementById('jg-proc-sure').textContent = '00:00';
+  _jgProcModelYukle().then(m => { const el = document.getElementById('jg-proc-model'); if (el) el.textContent = m; });
+  document.getElementById('jg-proc').style.display = 'flex';
+  document.getElementById('jg-preview-editor').style.display = 'none';
+  document.getElementById('jg-preview-sorular-wrap').style.display = 'none';
+  document.getElementById('jg-duzelt-row').style.display = 'none';
+  document.getElementById('jg-modal-tabs').style.display = 'none';
+  // İşlem sürerken: Onayla PASİF (bitmeden Jira'ya gitmesin) + task değiştirici KİLİTLİ (başka
+  // task'a geçip içeriğini gösterip onaylamak engellenir). İptal (aksiyon barında) açık kalır.
+  document.getElementById('jg-approve-btn').disabled = true;
+  const dbtn = document.getElementById('jg-duzelt-btn'); if (dbtn) dbtn.disabled = true;
+  const cbtn = document.getElementById('jg-cevap-isle-btn'); if (cbtn) cbtn.disabled = true;
+  _jgSwitcherKilit(true);
+  const t0 = Date.now();
+  clearInterval(_jgProcTimer);
+  _jgProcTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const el = document.getElementById('jg-proc-sure');
+    if (el) el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+}
+function _jgProcBitir() {
+  clearInterval(_jgProcTimer); _jgProcTimer = null;
+  document.getElementById('jg-proc').style.display = 'none';
+  document.getElementById('jg-modal-tabs').style.display = '';
+  const dbtn = document.getElementById('jg-duzelt-btn'); if (dbtn) dbtn.disabled = false;
+  const cbtn = document.getElementById('jg-cevap-isle-btn'); if (cbtn) cbtn.disabled = false;
+  _jgSwitcherKilit(false);   // Onayla, gösterilen sonucun durumuna göre _jgSonucGoster'da ayarlanır
+}
+// İşlem sürerken task değiştiriciyi kilitle (buton disable + görsel) — geçiş/gösterim engellenir.
+function _jgSwitcherKilit(kilit) {
+  const sw = document.getElementById('jg-analiz-switcher');
+  if (!sw) return;
+  sw.classList.toggle('kilit', kilit);
+  sw.querySelectorAll('button').forEach(b => { b.disabled = kilit; });
 }
 
-// Modal sekme: 'ana' (teknik analiz / standart format) ↔ 'sorular' (açık sorular)
+// ── İlişkili FE/BE analizi — çoklu-task state + seçim + switcher ────────────────
+let _jgAnalizSeti = {};        // key → {markdown, acik_sorular, summary, katman, hata}
+let _jgAktifAnalizKey = null;  // switcher'da gösterilen aktif analiz
+let _jgSecimBirincil = null;   // seçim panelinde analiz edilen birincil task
+
+// Kaba katman tahmini (UI) — analist dropdown ile düzeltebilir.
+function _jgKatmanTahmin(metin) {
+  const s = (metin || '').toLowerCase();
+  const be = /(backend|\bbe\b|api|endpoint|servis|service|\bdb\b|veritaban|migration|\bsql\b|\bjob\b|entegr|repository|controller)/.test(s);
+  const fe = /(frontend|\bfe\b|\bui\b|ekran|form|component|bileşen|react|\bcss\b|sayfa|modal|buton|görünüm|tablo|liste)/.test(s);
+  if (be && !fe) return 'be';
+  if (fe && !be) return 'fe';
+  return 'belirsiz';
+}
+function _jgKatSelect(id, secili) {
+  const o = (v, t) => `<option value="${v}" ${secili === v ? 'selected' : ''}>${t}</option>`;
+  return `<select class="jg-kat-sec" id="${id}">${o('fe', 'FE')}${o('be', 'BE')}${o('belirsiz', 'Belirsiz')}</select>`;
+}
+// Bağlı task varsa: analizden ÖNCE seçim panelini göster (üretim yapma).
+function _jgSecimGoster(key) {
+  const g = _jgGorevler[key] || {};
+  _jgPanelAc();
+  document.getElementById('jg-preview-title').textContent = 'İlişkili Analiz — ' + key;
+  document.getElementById('jg-preview-sub').textContent = g.summary || '';
+  document.getElementById('jg-proc').style.display = 'none';
+  document.getElementById('jg-analiz-switcher').style.display = 'none';
+  document.getElementById('jg-modal-tabs').style.display = 'none';
+  document.getElementById('jg-preview-editor').style.display = 'none';
+  document.getElementById('jg-preview-sorular-wrap').style.display = 'none';
+  document.getElementById('jg-duzelt-row').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = 'none';
+  const bagli = (g.baglantililar || []).filter(b => b.key);
+  const satir = (b, birincil) => `
+    <div class="jg-secim-satir ${birincil ? 'birincil' : ''}">
+      ${birincil ? '<span class="jg-ss-rol">ANALİZ</span>'
+                 : `<input type="checkbox" class="jg-ss-chk" data-key="${escHtml(b.key)}" checked>`}
+      <span class="jg-ss-key">${escHtml(b.key)}</span>
+      <span class="jg-ss-sum">${escHtml(b.summary || '')}</span>
+      ${_jgKatSelect('jg-kat-' + b.key, birincil ? _jgKatmanTahmin((g.summary || '') + ' ' + (g.type || '')) : (b.katman || 'belirsiz'))}
+    </div>`;
+  document.getElementById('jg-secim-liste').innerHTML =
+    satir({ key: key, summary: g.summary }, true) + bagli.map(b => satir(b, false)).join('');
+  document.getElementById('jg-secim').style.display = '';
+  _jgSecimBirincil = key;
+}
+// Saf üretim çağrısı (proc/DOM yönetmez) — {ok, markdown, acik_sorular, error}.
+// ── Arka plan İŞ modeli — panel GÖMÜLÜ, kapatınca kesilmez, polling ile izlenir ──
+let _jgAktifJob = null;    // süren iş id
+let _jgPollTimer = null;   // durum sorgulama
+let _jgIsGosterKey = null; // iş bitince gösterilecek key
+function _jgMesgul() { return !!_jgAktifJob; }
+function _jgPanelAc() {
+  const card = document.getElementById('jg-preview-card');
+  card.style.display = 'flex';
+  const chip = document.getElementById('jg-suren-chip'); if (chip) chip.classList.remove('acik');
+  try { card.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+}
+function _jgPanelGizle() { document.getElementById('jg-preview-card').style.display = 'none'; }
+function _jgSurenChipGuncelle(gorunur, metin) {
+  const chip = document.getElementById('jg-suren-chip'); if (!chip) return;
+  const panelAcik = document.getElementById('jg-preview-card').style.display !== 'none';
+  if (gorunur && !panelAcik) { chip.classList.remove('bitti'); document.getElementById('jg-suren-metin').textContent = metin || 'Analiz sürüyor…'; chip.classList.add('acik'); }
+  else chip.classList.remove('acik');
+}
+
+// Bir analiz sonucunu editör/sorular alanına döker + aktif yapar + switcher'ı günceller.
+function _jgSonucGoster(key) {
+  if (_jgMesgul()) return;   // iş sürerken task içeriği GÖSTERİLMEZ (çift güvenlik)
+  const s = _jgAnalizSeti[key] || {};
+  _jgAktifAnalizKey = key;
+  _jgCurrent = { key: key, summary: s.summary || '' };
+  document.querySelector('.jg-modal-aksiyon').style.display = '';
+  document.getElementById('jg-secim').style.display = 'none';
+  document.getElementById('jg-preview-title').textContent = 'Teknik Analiz — ' + key
+    + (s.katman && s.katman !== 'belirsiz' ? ' [' + s.katman.toUpperCase() + ']' : '');
+  document.getElementById('jg-preview-sub').textContent = s.summary || '';
+  document.getElementById('jg-preview-editor').style.display = '';
+  document.getElementById('jg-preview-editor').value = s.hata ? '' : (s.markdown || '');
+  document.getElementById('jg-approve-btn').disabled = !!s.hata || !s.markdown;
+  document.getElementById('jg-duzelt-row').style.display = s.hata ? 'none' : '';
+  _jgMsg('jg-preview-msg', s.hata ? ('Hata: ' + s.hata) : '', s.hata ? 'err' : '');
+  const tab = document.getElementById('jg-modal-tab-sorular');
+  const a = (s.acik_sorular || '').trim();
+  if (a && !/Açık soru tespit edilmedi/i.test(a)) {
+    const n = _jgSorulariRender(a); tab.style.display = ''; document.getElementById('jg-sorular-rozet').textContent = n || '!';
+  } else { _jgSorulariRender(''); tab.style.display = 'none'; }
+  jgModalTab('ana');
+  _jgSwitcherRender();
+}
+function _jgSwitcherRender() {
+  const keys = Object.keys(_jgAnalizSeti);
+  const sw = document.getElementById('jg-analiz-switcher');
+  if (keys.length < 2) { sw.style.display = 'none'; return; }
+  sw.style.display = '';
+  sw.innerHTML = '<span class="jg-sw-lbl">Analizler:</span>' + keys.map(k => {
+    const s = _jgAnalizSeti[k];
+    const rol = s.katman && s.katman !== 'belirsiz' ? ' [' + s.katman.toUpperCase() + ']' : '';
+    return `<button class="${k === _jgAktifAnalizKey ? 'aktif' : ''}" onclick="_jgSonucGoster('${escHtml(k)}')">${escHtml(k)}${rol}${s.hata ? ' <span class="jg-sw-hata">⚠</span>' : ''}</button>`;
+  }).join('');
+  if (_jgMesgul()) _jgSwitcherKilit(true);   // iş sürerken yeniden çizilirse kilitli kalsın
+}
+
+// İş başlat (adimlar) → arka planda çalışır; polling ile izlenir. temizle=true ise seti sıfırlanır.
+async function _jgIsBaslat(adimlar, procBaslik, gosterKey, temizle) {
+  await _jgFiltreKaydet();
+  if (temizle) { _jgAnalizSeti = {}; _jgAktifAnalizKey = null; }
+  _jgIsGosterKey = gosterKey || (adimlar[0] && adimlar[0].key) || null;
+  _jgPanelAc();
+  document.getElementById('jg-secim').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = '';
+  document.getElementById('jg-preview-title').textContent = 'Teknik Analiz';
+  _jgMsg('jg-preview-msg', '');
+  _jgProcBaslat(procBaslik || 'Analiz üretiliyor');
+  try {
+    const r = await fetch('/api/jira/gorev/is/baslat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adimlar })
+    });
+    const d = await r.json();
+    if (!d.ok) { _jgProcBitir(); _jgMsg('jg-preview-msg', d.error || 'Başlatılamadı', 'err'); return; }
+    _jgAktifJob = d.job;
+    try { localStorage.setItem('jg-aktif-job', d.job); } catch (e) {}
+    _jgPollBaslat();
+  } catch (e) { _jgProcBitir(); _jgMsg('jg-preview-msg', 'Bağlantı hatası: ' + e, 'err'); }
+}
+function _jgPollBaslat() { clearInterval(_jgPollTimer); _jgPollDurum(); _jgPollTimer = setInterval(_jgPollDurum, 2500); }
+async function _jgPollDurum() {
+  if (!_jgAktifJob) { clearInterval(_jgPollTimer); _jgPollTimer = null; return; }
+  let d;
+  try { d = await (await fetch('/api/jira/gorev/is/durum?job=' + encodeURIComponent(_jgAktifJob))).json(); }
+  catch (e) { return; }   // geçici ağ — sonraki turda tekrar
+  if (!d.ok) { clearInterval(_jgPollTimer); _jgPollTimer = null; _jgAktifJob = null; try { localStorage.removeItem('jg-aktif-job'); } catch (e) {} return; }
+  // Gelen sonuçları sete MERGE et (tek-task yeniden üretiminde diğer analizler korunur)
+  for (const k of (d.keyler || [])) {
+    const rs = (d.sonuclar || {})[k];
+    if (rs) _jgAnalizSeti[k] = { markdown: rs.markdown || '', acik_sorular: rs.acik_sorular || '', summary: rs.summary || '', katman: rs.katman || (d.katmanlar || {})[k] || '', hata: rs.hata };
+  }
+  if (d.durum === 'calisiyor') {
+    const cok = (d.toplam || 1) > 1;
+    document.getElementById('jg-proc-title').textContent =
+      (cok ? `Analiz ${(d.aktif_index || 0) + 1}/${d.toplam}: ` : '') + (d.aktif_key || '') + ' üretiliyor';
+    _jgSurenChipGuncelle(true, `Analiz sürüyor · ${d.aktif_key || ''}${cok ? ` (${(d.aktif_index || 0) + 1}/${d.toplam})` : ''}`);
+  } else {
+    clearInterval(_jgPollTimer); _jgPollTimer = null;
+    _jgAktifJob = null; try { localStorage.removeItem('jg-aktif-job'); } catch (e) {}
+    _jgProcBitir();
+    const goster = (_jgIsGosterKey && _jgAnalizSeti[_jgIsGosterKey]) ? _jgIsGosterKey
+      : (d.keyler || []).find(k => _jgAnalizSeti[k]);
+    if (goster) _jgSonucGoster(goster);
+    const panelAcik = document.getElementById('jg-preview-card').style.display !== 'none';
+    const chip = document.getElementById('jg-suren-chip');
+    if (!panelAcik && chip) {
+      // Arka planda bitti → panel kapalı; kullanıcıya bildir (çip + toast)
+      chip.classList.toggle('bitti', d.durum !== 'durduruldu');
+      document.getElementById('jg-suren-metin').textContent =
+        d.durum === 'durduruldu' ? 'Analiz durduruldu' : '✓ Analiz tamamlandı — sonucu görmek için Göster';
+      chip.classList.add('acik');
+      if (d.durum !== 'durduruldu') toast('Analiz tamamlandı — Task Analizi\'nde', 'success');
+    } else if (chip) { chip.classList.remove('acik', 'bitti'); }
+    if (d.durum === 'durduruldu' && panelAcik) toast('Analiz durduruldu', 'info');
+  }
+}
+async function _jgDurdur() {
+  if (!_jgAktifJob) { _jgProcBitir(); return; }
+  try { await fetch('/api/jira/gorev/is/durdur', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job: _jgAktifJob }) }); } catch (e) {}
+  toast('Durduruluyor…', 'info');   // poll bir sonraki turda 'durduruldu' görüp temizler
+}
+// Task Analizi ekranına dönünce süren işe yeniden bağlan (polling kesintisiz sürer, bu güvence).
+function _jgReattach() {
+  if (_jgAktifJob) { _jgPollBaslat(); return; }
+  let saved = null; try { saved = localStorage.getItem('jg-aktif-job'); } catch (e) {}
+  if (saved) { _jgAktifJob = saved; _jgPollBaslat(); }
+}
+
+// Seçilen task'ları AYRI AYRI (arka planda) analiz et — her biri kendi katmanı + diğerleri bağlam.
+async function jgIliskiliAnalizBaslat() {
+  const birincil = _jgSecimBirincil;
+  if (!birincil) return;
+  const secili = [{ key: birincil, katman: (document.getElementById('jg-kat-' + birincil) || {}).value || 'belirsiz' }];
+  document.querySelectorAll('#jg-secim-liste .jg-ss-chk:checked').forEach(chk => {
+    secili.push({ key: chk.dataset.key, katman: (document.getElementById('jg-kat-' + chk.dataset.key) || {}).value || 'belirsiz' });
+  });
+  const adimlar = secili.map(t => ({
+    key: t.key, mode: 'analiz', katman: t.katman,
+    iliskili_keys: secili.filter(x => x.key !== t.key).map(x => x.key),
+    gorev: _jgGorevler[t.key] || null
+  }));
+  _jgIsBaslat(adimlar, 'İlişkili analiz üretiliyor', birincil, true);
+}
+
+// Modal sekme: 'ana' (analiz çıktısı) ↔ 'sorular' (cevaplanabilir açık sorular)
 function jgModalTab(ad) {
   document.querySelectorAll('.jg-modal-tab').forEach(t =>
     t.classList.toggle('aktif', t.dataset.tab === ad));
   document.getElementById('jg-preview-editor').style.display = ad === 'ana' ? '' : 'none';
-  document.getElementById('jg-preview-sorular').style.display = ad === 'sorular' ? '' : 'none';
+  document.getElementById('jg-preview-sorular-wrap').style.display = ad === 'sorular' ? '' : 'none';
 }
 
+// Görev analizi bağlam filtresini OKUR ama Task Analizi ekranı onu KAYDETMEZ → çalıştırmadan önce
+// ekrandaki filtreyi diske yaz (Süreç ekranındaki 'Başlat' ile AYNI desen). Yoksa analiz eski kayıtlı
+// değeri (ör. 'log button') okur, analistin yeni yazdığı kelimeleri "görmez".
+async function _jgFiltreKaydet() {
+  try {
+    await fetch('/api/context-filter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildContextFilter())
+    });
+  } catch (e) { /* sessiz — filtre kaydı analizi engellemesin */ }
+}
 function jgFormatla(key) {
-  return _jgIslem(key, '/api/jira/gorev/formatla', 'Standart Format', 'Standart formata çevriliyor…');
+  _jgIsBaslat([{ key: key, mode: 'formatla', gorev: _jgGorevler[key] || null }],
+             'Standart formata çevriliyor · ' + key, key, true);
 }
 function jgAnaliz(key) {
-  return _jgIslem(key, '/api/jira/gorev/analiz', 'Teknik Analiz', 'Teknik analiz üretiliyor — bu işlem birkaç dakika sürebilir…');
+  const g = _jgGorevler[key] || {};
+  const bagli = (g.baglantililar || []).filter(b => b.key);
+  if (bagli.length) { _jgSecimGoster(key); return; }   // bağlı task varsa → önce SEÇİM paneli
+  _jgIsBaslat([{ key: key, mode: 'analiz', gorev: g }], 'Teknik analiz üretiliyor · ' + key, key, true);
 }
 
+// Açık soruları SORU-BAZLI kartlara ayır: her soru için ayrı cevap kutusu. Dönen: soru sayısı.
+function _jgSorulariAyristir(md) {
+  const sorular = [];
+  // Her "### Q-..." başlığından böl; ilk parçadaki (varsa) giriş metni atlanır.
+  for (const blok of String(md || '').split(/\n(?=###\s+Q-)/)) {
+    const m = blok.match(/###\s+(Q-[A-Za-z0-9-]+)\s*:?\s*(.*)/);
+    if (!m) continue;
+    const govde = blok.replace(/###\s+Q-[A-Za-z0-9-]+\s*:?\s*.*\n?/, '');
+    const al = (etiket) => {
+      const r = govde.match(new RegExp('-\\s*' + etiket + '\\s*:\\s*(.+)', 'i'));
+      return r ? r[1].trim() : '';
+    };
+    sorular.push({
+      id: m[1], baslik: (m[2] || '').trim(),
+      onem: al('Önem'), bagli: al('Bağlı bölüm') || al('Bağlı'),
+      soru: al('Soru') || (m[2] || '').trim(),
+      beklenen: al('Beklenen yanıt') || al('Beklenen'),
+    });
+  }
+  return sorular;
+}
+function _jgSorulariRender(md) {
+  const kap = document.getElementById('jg-sorular-liste');
+  const sorular = _jgSorulariAyristir(md);
+  if (!sorular.length) {
+    // Ayrıştırılamadıysa ham metni yedek göster (tek kutuya cevap)
+    kap.innerHTML = '';
+    const yedek = document.getElementById('jg-preview-sorular');
+    if (md && md.trim()) {
+      yedek.value = md; yedek.style.display = '';
+      kap.innerHTML = '<label class="jg-soru-lbl">Cevaplarınız (soru no ile yazın)</label>'
+        + '<textarea id="jg-cevaplar" class="jg-editor jg-sk-cevap" placeholder="Örn: Q-T-001: ..."></textarea>';
+    } else { yedek.value = ''; yedek.style.display = 'none'; }
+    return sorular.length;
+  }
+  document.getElementById('jg-preview-sorular').style.display = 'none';
+  const onemSinif = o => /kritik/i.test(o) ? 'kritik' : /yüksek|yuksek/i.test(o) ? 'yuksek' : '';
+  kap.innerHTML = sorular.map(s => `
+    <div class="jg-soru-kart" data-qid="${escHtml(s.id)}">
+      <div><span class="jg-sk-id">${escHtml(s.id)}</span>${s.onem ? `<span class="jg-sk-onem ${onemSinif(s.onem)}">${escHtml(s.onem)}</span>` : ''}</div>
+      <div class="jg-sk-soru">${escHtml(s.soru || s.baslik)}</div>
+      ${(s.bagli || s.beklenen) ? `<div class="jg-sk-detay">${s.bagli ? 'Bağlı: ' + escHtml(s.bagli) : ''}${s.bagli && s.beklenen ? ' · ' : ''}${s.beklenen ? 'Beklenen: ' + escHtml(s.beklenen) : ''}</div>` : ''}
+      <textarea class="jg-editor jg-sk-cevap" data-qid="${escHtml(s.id)}" placeholder="Bu soruya cevabınız (boş = atla)"
+        oninput="this.closest('.jg-soru-kart').classList.toggle('cevapli', !!this.value.trim())"></textarea>
+    </div>`).join('');
+  return sorular.length;
+}
+
+// Açık sorulara verilen cevapları işle → AKTİF analizi cevaplara göre YENİDEN yaz (belirsizlikleri çözer).
+async function jgCevaplariIsle() {
+  if (!_jgAktifAnalizKey) return;
+  // Soru-bazlı kutuları topla: "Q-T-001: cevap" satırları. Yedek tek-kutu varsa onu kullan.
+  let cev = '';
+  const kutular = document.querySelectorAll('#jg-sorular-liste .jg-sk-cevap[data-qid]');
+  if (kutular.length) {
+    cev = [...kutular].map(t => t.value.trim() ? `${t.dataset.qid}: ${t.value.trim()}` : '')
+      .filter(Boolean).join('\n');
+  } else {
+    const tek = document.getElementById('jg-cevaplar');
+    cev = tek ? tek.value.trim() : '';
+  }
+  if (!cev) { toast('Önce en az bir soruyu cevaplayın', 'info'); return; }
+  const key = _jgAktifAnalizKey, s = _jgAnalizSeti[key] || {};
+  const digerleri = Object.keys(_jgAnalizSeti).filter(k => k !== key);
+  _jgIsBaslat([{ key: key, mode: 'analiz', katman: s.katman || '', iliskili_keys: digerleri,
+                 cevaplar: cev, onceki_sorular: s.acik_sorular || '',   // YAKINSAMA: önceki soruları geç
+                 gorev: _jgGorevler[key] || null }],
+             'Cevaplara göre yeniden yazılıyor', key, false);   // seti korunur (merge)
+}
+
+// İteratif düzelt: AKTİF analizin YALNIZ ilgili kısmını talimata göre düzeltir (arka planda).
+async function jgAnalizDuzelt() {
+  if (!_jgAktifAnalizKey) return;
+  const key = _jgAktifAnalizKey;
+  const inp = document.getElementById('jg-duzelt');
+  const talimat = (inp.value || '').trim();
+  if (!talimat) { toast('Bir düzeltme yazın', 'info'); return; }
+  const markdown = document.getElementById('jg-preview-editor').value.trim();
+  if (!markdown) { toast('Düzeltilecek analiz yok', 'info'); return; }
+  const s = _jgAnalizSeti[key] || {};
+  inp.value = '';
+  _jgIsBaslat([{ key: key, mode: 'duzelt', markdown: markdown, talimat: talimat,
+                 acik_sorular: s.acik_sorular || '', katman: s.katman || '',
+                 gorev: _jgGorevler[key] || { key: key, summary: s.summary || '' } }],
+             'Analiz düzeltiliyor', key, false);
+}
+
+// Paneli KAPAT — iş sürüyorsa arka planda DEVAM EDER (çip gösterilir); iş yoksa temizlenir.
 function jgPreviewKapat() {
-  // Süren analiz isteği varsa iptal et — "İşlemi kapat" (limit/asılı kalma durumunda takılı kalmasın).
-  if (_jgAbort) { try { _jgAbort.abort(); } catch (_) {} _jgAbort = null; }
-  document.getElementById('jg-preview-card').style.display = 'none';
+  _jgPanelGizle();
+  document.body.style.overflow = '';
+  if (_jgAktifJob) { _jgSurenChipGuncelle(true); return; }   // iş sürüyor → kesme, çip göster
+  _jgProcBitir();
   document.getElementById('jg-preview-editor').value = '';
   document.getElementById('jg-preview-sorular').value = '';
-  document.body.style.overflow = '';
+  const dz = document.getElementById('jg-duzelt'); if (dz) dz.value = '';
+  document.getElementById('jg-secim').style.display = 'none';
+  document.getElementById('jg-analiz-switcher').style.display = 'none';
+  document.querySelector('.jg-modal-aksiyon').style.display = '';
   _jgCurrent = null;
+  _jgAnalizSeti = {}; _jgAktifAnalizKey = null; _jgSecimBirincil = null;
 }
 
 // Esc tuşuyla modal kapansın (UX standardı)
@@ -4335,6 +5092,7 @@ document.addEventListener('keydown', e => {
 
 async function jgJiraGuncelle() {
   if (!_jgCurrent) return;
+  if (_jgMesgul()) { toast('İşlem sürüyor — bitince Jira güncellenebilir', 'info'); return; }   // op bitmeden Jira'ya YAZMA
   const markdown = document.getElementById('jg-preview-editor').value.trim();
   if (!markdown) { _jgMsg('jg-preview-msg', 'İçerik boş.', 'err'); return; }
   if (!confirm(`${_jgCurrent.key} görevinin Jira açıklaması ÜZERİNE YAZILACAK. Devam edilsin mi?`)) return;
@@ -4358,6 +5116,15 @@ async function jgJiraGuncelle() {
 
 // ─── UAT Mutabakat ──────────────────────────────────────────────────────
 let _bsSonuc = null;      // son mutabakat sonucu (export için saklanır)
+let _bsJiraSite = '';     // Jira site adresi (link için) — sonuçtan bağımsız yedek (/api/jira/config.site_url)
+// Ekrana girince site adresini bağımsız çek → eski/boş jira_url'li sonuçlarda bile key'ler linklenir.
+async function _bsJiraSiteYukle() {
+  try {
+    const d = await (await fetch('/api/jira/config')).json();
+    const yedek = String(d.jira_url || '').includes('.atlassian.net') ? d.jira_url : '';
+    _bsJiraSite = (d.site_url || yedek || '').replace(/\/+$/, '');
+  } catch (e) { /* sessiz */ }
+}
 
 function bsMsg(html, tip) {
   const el = document.getElementById('bs-msg');
@@ -4390,7 +5157,8 @@ function _bsEsc(s) {
 
 function _bsKeyLink(key) {
   const k = _bsEsc(key);
-  const base = _bsSonuc && _bsSonuc.jira_url;
+  // Sonuçtaki jira_url öncelikli; boşsa ekran girişinde çekilen bağımsız site adresine düş.
+  const base = (_bsSonuc && _bsSonuc.jira_url) || _bsJiraSite;
   return base
     ? `<a class="bs-key" href="${base}/browse/${k}" target="_blank" rel="noopener" title="Jira'da aç: ${k}">${k}</a>`
     : `<strong>${k}</strong>`;
@@ -4502,14 +5270,14 @@ function _bsTabloEsles(satirlar, tid) {
     const r0 = grup[0];
     if (grup.length === 1) { govde += _bsTekSatir(r0); continue; }
     // Çok hedefli → özet satır (tıkla-genişlet) + gizli detay satırları.
-    const onizle = grup.slice(0, 4).map(r => r.hedef_key).join(', ') + (grup.length > 4 ? ' …' : '');
+    const onizle = grup.slice(0, 4).map(r => _bsKeyLink(r.hedef_key)).join(', ') + (grup.length > 4 ? ' …' : '');
     govde += `<tr class="bs-ozet-sat" data-uat="${_bsEsc(uk)}" data-fuat="${_bsEsc(_bsDurumNorm(r0.uat_durum))}" data-fatanan="${_bsEsc(_bsDurumNorm(r0.uat_atanan))}" onclick="_bsGrupAc(this, event)" title="Detayları göster/gizle">
       <td class="bs-sira">${_bsEsc(r0.sira)}</td>
       <td>${_bsKeyLink(r0.uat_key)}</td>
       <td class="bs-cell-ozet">${_bsEsc(r0.uat_ozet)}</td>
       <td><strong>${_bsEsc(r0.uat_durum)}</strong></td>
       ${_bsAtananHucre(r0.uat_atanan)}
-      <td class="bs-grp-toggle" colspan="7"><span class="bs-grp-ok">▸</span> <span class="bs-grp-rozet">${grup.length} eşleşen iş</span> <span class="bs-grp-keys">${_bsEsc(onizle)}</span></td></tr>`;
+      <td class="bs-grp-toggle" colspan="7"><span class="bs-grp-ok">▸</span> <span class="bs-grp-rozet">${grup.length} eşleşen iş</span> <span class="bs-grp-keys">${onizle}</span></td></tr>`;
     grup.forEach(r => {
       govde += `<tr class="bs-detay-sat" data-uat="${_bsEsc(uk)}" data-fhedef="${_bsEsc(_bsDurumNorm(r.hedef_durum))}" data-fhatanan="${_bsEsc(_bsDurumNorm(r.hedef_atanan))}" style="display:none">
         <td></td><td class="bs-detay-im">↳</td><td></td><td></td><td></td>
@@ -4733,7 +5501,7 @@ const _ONBOARD_BANNER = {
   },
   output: {
     icon: '📂',
-    baslik: 'Çıktılar Sekmesi',
+    baslik: 'Çıktı Dosyaları',
     icerik: 'Üretilen analizler burada — sekmelerden seçip görüntüleyebilir, düzenleyebilir, indirebilirsiniz. ' +
             '"📋 Sorular" sekmesinde AI\'nın belirsiz bulduğu konuları cevaplayabilirsiniz.'
   },
@@ -4872,6 +5640,74 @@ function _setVisible(id, visible) {
   if (el) el.style.display = visible ? '' : 'none';
 }
 
+// ─── Kalıcı işlem çipi + İşlem Modu (JARVIS HUD) ──────────────────────────────
+let _islemModuAcik = false;
+let _oncekiCalisiyor = false;      // çalışıyor→çalışıyor geçişini yakala (İşlem Modu'nu bir kez otomatik aç)
+let _hudManuelKapatildi = false;   // analist HUD'u kapattıysa aynı koşuda tekrar açma
+const _STEP_NO = {
+  surec_analizi_calisiyor:'1/4', onay_bekleniyor:'2/4', teknik_analiz_calisiyor:'3/4',
+  teknik_analiz_onay_bekleniyor:'3/4', jira_gonderiliyor:'4/4',
+  brd_analizi_calisiyor:'1/2', brd_revize_bekleniyor:'1/2', kapsam_analizi_calisiyor:'2/2'
+};
+function _setTxt(id, t){ const e = document.getElementById(id); if (e) e.textContent = t; }
+function _updateRunChip(s){
+  const chip = document.getElementById('run-chip');
+  const sep  = document.getElementById('run-chip-sep');
+  if (!chip) return;
+  const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
+  const running  = s.calisiyor && !bekliyor;
+  const lbl  = document.getElementById('run-chip-label');
+  const meta = document.getElementById('run-chip-meta');
+  if (running) {
+    chip.className = 'run-chip show running';
+    if (lbl)  lbl.textContent  = s.etiket || 'Analiz çalışıyor';
+    const bas = _stepStart[s.durum];
+    if (meta) meta.textContent = bas ? _fmtSure(Date.now() - bas) : '';
+    if (sep) sep.style.display = '';
+    // Yeni bir çalışma başladıysa (çalışmıyor → çalışıyor) İşlem Modu'nu (JARVIS HUD)
+    // öne getir — analist analiz sırasında zengin görseli görsün. Kapatırsa arka planda sürer.
+    if (!_oncekiCalisiyor) _hudManuelKapatildi = false;
+    if (!_islemModuAcik && !_hudManuelKapatildi) islemModuAc();
+    _oncekiCalisiyor = true;
+  } else if (bekliyor) {
+    chip.className = 'run-chip show waiting';
+    if (lbl) lbl.textContent = 'Onayınızda';
+    if (sep) sep.style.display = '';
+    _oncekiCalisiyor = false;
+    if (_islemModuAcik) islemModuKapat();
+  } else {
+    chip.className = 'run-chip';
+    if (sep) sep.style.display = 'none';
+    _oncekiCalisiyor = false;
+    if (_islemModuAcik) islemModuKapat();
+  }
+  if (_islemModuAcik && running) {
+    const st = _STEP_NO[s.durum] || '';
+    _setTxt('im-title', s.etiket || 'Analiz çalışıyor');
+    _setTxt('im-step', st || '•');
+    _setTxt('im-sub',  st ? 'ADIM' : 'İŞLENİYOR');
+    const bas = _stepStart[s.durum];
+    _setTxt('im-sure', bas ? _fmtSure(Date.now() - bas) : '00:00');
+  }
+}
+function _runChipTikla(){
+  const s = _lastState || {};
+  const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
+  if (s.calisiyor && !bekliyor) islemModuAc();
+  else if (bekliyor) switchTab(_activePipeline === 'brd' ? 'brd' : 'surec');
+}
+function islemModuAc(){
+  const el = document.getElementById('islem-modu'); if (!el) return;
+  _islemModuAcik = true; el.classList.add('show');
+  if (_lastState) _updateRunChip(_lastState);
+}
+function islemModuKapat(){
+  const el = document.getElementById('islem-modu'); if (el) el.classList.remove('show');
+  _islemModuAcik = false;
+  _hudManuelKapatildi = true;   // aynı koşuda otomatik tekrar açma (yeni koşuda sıfırlanır)
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && _islemModuAcik) islemModuKapat(); });
+
 function updateUI(s) {
   const bekliyor = s.onay_bekleniyor || s.teknik_onay_bekleniyor || s.brd_revize_bekleniyor;
   const cls = s.calisiyor ? 'status-running'
@@ -4885,6 +5721,9 @@ function updateUI(s) {
     const _tbStat = document.getElementById('topbar-status'); if (_tbStat) _tbStat.textContent = s.etiket;
     const _tbDot = document.getElementById('topbar-dot'); if (_tbDot) _tbDot.className = 'status-dot ' + cls;
   }
+
+  // Kalıcı işlem çipi + İşlem Modu HUD — her ekranda (jira sekmesi dahil)
+  _updateRunChip(s);
 
   const surecDurumlar = ['surec_analizi_calisiyor','onay_bekleniyor','teknik_analiz_calisiyor',
     'teknik_analiz_onay_bekleniyor','jira_gonderiliyor','jira_tamamlandi'];
@@ -4902,6 +5741,10 @@ function updateUI(s) {
   _setVisible('surec-act-running',     surecCalis);
   _setVisible('surec-act-onay',        !!s.onay_bekleniyor);
   _setVisible('surec-act-teknik-onay', !!s.teknik_onay_bekleniyor);
+  // Onay kapısı gizliyken inline soru render bayrağını sıfırla → yeniden görününce taze çizilir
+  if (!s.onay_bekleniyor) { const k = document.getElementById('onay-sorular-surec'); if (k) k.dataset.dolu = ''; }
+  if (!s.teknik_onay_bekleniyor) { const k = document.getElementById('onay-sorular-teknik'); if (k) k.dataset.dolu = ''; }
+  if (s.onay_bekleniyor || s.teknik_onay_bekleniyor) _onayBaglamYukle(s.onay_bekleniyor ? 'surec' : 'teknik');
   if (s.teknik_onay_bekleniyor) {
     const rev = document.getElementById('teknik-onay-review');
     const jira = document.getElementById('teknik-jira-soru');
@@ -4930,15 +5773,16 @@ function updateUI(s) {
     if (doneEl) doneEl.textContent = s.etiket || 'Tamamlandı';
   }
   if (s.durum === 'hata') {
-    const errMsg = s.hata || s.mesaj || 'Bilinmeyen hata';
+    const errHtml = _hataKartiHtml(s);
     const surErr = document.getElementById('surec-error-msg');
-    if (surErr && isSurec) surErr.textContent = errMsg;
+    if (surErr && isSurec) surErr.innerHTML = errHtml;
     const brdErr = document.getElementById('brd-error-msg');
-    if (brdErr && isBrd) brdErr.textContent = errMsg;
+    if (brdErr && isBrd) brdErr.innerHTML = errHtml;
   }
 
   updateSteps(s.durum);
   _stepSureTakip(s.durum);
+  _rayRender('surec', s); _rayRender('brd', s);
 
   const busy = s.calisiyor || bekliyor;
   document.getElementById('btn-surec').disabled = busy || !selectedFiles.surec;
@@ -4953,7 +5797,7 @@ function updateUI(s) {
   if (s.durum === 'hata') {
     // Toast'u SADECE hataya GEÇİŞTE göster — sekme değişimi/yeniden render'da tekrar atma.
     // İlk render'da eski/mevcut hatayı toast'lama; header (topbar) zaten "Hata oluştu" gösterir.
-    if (!_wfIlkRender && _oncekiWfDurum !== 'hata') toast('Hata: ' + (s.hata || 'Bilinmeyen hata'), 'error');
+    if (!_wfIlkRender && _oncekiWfDurum !== 'hata') toast('Hata: ' + _hataBaslik(s), 'error');
     stopPoll();
   }
   _oncekiWfDurum = s.durum;
@@ -5047,6 +5891,11 @@ function _stepSureTakip(durum) {
 function resetWorkflowUI() {
   const _tbDot2 = document.getElementById('topbar-dot');     if (_tbDot2)  _tbDot2.className = 'status-dot status-idle';
   const _tbStat2 = document.getElementById('topbar-status'); if (_tbStat2) _tbStat2.textContent = 'Hazır';
+  // Kalıcı işlem çipini gizle + İşlem Modu HUD'u kapat (Durdur sonrası "çalışıyor" kalmasın)
+  const _rc = document.getElementById('run-chip'); if (_rc) _rc.className = 'run-chip';
+  const _rcSep = document.getElementById('run-chip-sep'); if (_rcSep) _rcSep.style.display = 'none';
+  if (typeof islemModuKapat === 'function') islemModuKapat();
+  _lastState = null;
   _activePipeline = null;
   _stepStart = {}; _lastDurum = null;
   document.querySelectorAll('.step-dur').forEach(el => el.textContent = '');
@@ -5058,7 +5907,143 @@ function resetWorkflowUI() {
   _setVisible('brd-act-idle', true);
   for (let i=1;i<=4;i++) setStep('surec',i,'');
   for (let i=1;i<=3;i++) setStep('brd',i,'');
+  _rayRender('surec', null); _rayRender('brd', null);
 }
+
+// ─── RAY GÖRÜNÜMÜ — tek kolon adım akışı (ek katman, geri dönüşlü) ──────────────
+// İlke: Klasik yapı DOM'da KORUNUR (.gorunum-klasik gizlenir). Aksiyon blokları (surec-act-* / brd-act-*)
+// KOPYALANMAZ, aktif adımın .ray-body'sine TAŞINIR → onay/adım sohbeti/prototip sohbeti/Sadece Teknik Analiz/
+// Durdur/Jira akışlarının tamamı aynı DOM ve aynı fonksiyonlarla çalışır. "Klasik görünüm" düğmesi blokları
+// orijinal panele geri taşır (localStorage 'gorunum'). Durum makinesine (updateUI/_setVisible) dokunulmaz.
+const _RAY = {
+  surec: {
+    steps: [
+      {t:'Girdi dokümanı',          s:'PDF · DOCX · MD · TXT'},
+      {t:'Süreç analizi',           s:'AI süreç dokümanını analiz eder'},
+      {t:'Analist onayı — süreç',   s:'İncele, hedefli düzelt, devam et'},
+      {t:'Teknik analiz',           s:'Süreçten FE/BE teknik analiz'},
+      {t:'Analist onayı — teknik',  s:'İncele, düzelt veya süreç adımına dön'},
+      {t:'Jira hiyerarşisi',        s:'Epic / Story / Subtask oluştur'},
+    ],
+    nodes: ['surec-act-idle','surec-act-running','surec-act-onay','surec-act-teknik-onay','surec-act-done','surec-act-error'],
+    idx: {idle:0, surec_analizi_calisiyor:1, onay_bekleniyor:2, teknik_analiz_calisiyor:3,
+          teknik_analiz_onay_bekleniyor:4, jira_gonderiliyor:5, jira_tamamlandi:6, surec_tamamlandi:6},
+    run: ['surec_analizi_calisiyor','teknik_analiz_calisiyor','jira_gonderiliyor'],
+    turn: ['onay_bekleniyor','teknik_analiz_onay_bekleniyor'],
+    dur: {1:'dur-surec-1', 2:'dur-surec-2', 3:'dur-surec-3', 5:'dur-surec-4'},
+    dosya: 'uploaded-surec-name',
+    ac: {1:'surec-analizi.md', 2:'surec-analizi.md', 3:'teknik-analiz.md', 4:'teknik-analiz.md', 5:'jira-sonuc.txt'},
+  },
+  brd: {
+    steps: [
+      {t:'Girdi dokümanı',        s:'BRD · PDF · DOCX · MD'},
+      {t:'BRD analizi + sorular', s:'AI BRD\'yi analiz eder, PO soruları üretir'},
+      {t:'PO revizyonu',          s:'Soruları PO ile kapat, revize BRD yükle veya devam et'},
+      {t:'Kapsam analizi',        s:'Revize BRD\'den kapsam analizi'},
+    ],
+    nodes: ['brd-act-idle','brd-act-running','brd-act-revize','brd-act-done','brd-act-error'],
+    idx: {idle:0, brd_analizi_calisiyor:1, brd_revize_bekleniyor:2, kapsam_analizi_calisiyor:3, brd_tamamlandi:4},
+    run: ['brd_analizi_calisiyor','kapsam_analizi_calisiyor'],
+    turn: ['brd_revize_bekleniyor'],
+    dur: {1:'dur-brd-1', 2:'dur-brd-2', 3:'dur-brd-3'},
+    dosya: 'uploaded-brd-name',
+    ac: {1:'brd-analizi.md', 2:'brd-sorular.md', 3:'kapsam-analizi.md'},
+  },
+};
+let _rayAktif = true;
+try { _rayAktif = (localStorage.getItem('gorunum') || 'ray') === 'ray'; } catch (e) {}
+const _rayOrijinal = {};   // pipeline → aksiyon bloklarının klasik ebeveyni (panel-body)
+const _raySon = {};        // pipeline → son aktif adım (hata durumunda yerinde kalsın)
+const _raySlot = {};       // pipeline → blokların şu an durduğu slot indeksi
+
+function _rayChip(t, c) { return `<span class="ray-chip ${c||''}"><span class="d"></span>${escHtml(t)}</span>`; }
+
+function _rayInit(p) {
+  const cfg = _RAY[p], kap = document.getElementById(p + '-ray');
+  if (!cfg || !kap || kap.dataset.hazir) return;
+  const ilk = document.getElementById(cfg.nodes[0]);
+  if (ilk) _rayOrijinal[p] = ilk.parentNode;
+  kap.innerHTML = cfg.steps.map((st, i) => `
+    <div class="ray-st next" id="${p}-ray-${i}" data-i="${i}">
+      <div class="ray-num">${i + 1}</div>
+      <div><div class="ray-t">${escHtml(st.t)}</div><div class="ray-s">${escHtml(st.s)}</div></div>
+      <div class="ray-r" id="${p}-ray-r-${i}"></div>
+      <div class="ray-body" id="${p}-ray-b-${i}"></div>
+    </div>`).join('') +
+    `<div class="ray-st final active" id="${p}-ray-${cfg.steps.length}" style="display:none"><div class="ray-body" id="${p}-ray-b-${cfg.steps.length}"></div></div>`;
+  // Biten adıma tıkla → ilgili çıktı dosyasını aç (geri bakmak için)
+  kap.querySelectorAll('.ray-st[data-i]').forEach(el => el.addEventListener('click', ev => {
+    if (!el.classList.contains('done') || ev.target.closest('button,a,input,textarea,select')) return;
+    const d = cfg.ac[+el.dataset.i]; if (d) switchTab('output', d);
+  }));
+  kap.dataset.hazir = '1';
+}
+
+// Aksiyon bloklarını hedef slota taşı (yalnız slot değişince — odak/yazılan metin korunur)
+function _rayTasi(p, slot) {
+  const cfg = _RAY[p];
+  const hedef = slot === null ? _rayOrijinal[p] : document.getElementById(`${p}-ray-b-${slot}`);
+  if (!hedef || _raySlot[p] === slot) return;
+  cfg.nodes.forEach(id => { const n = document.getElementById(id); if (n) hedef.appendChild(n); });
+  _raySlot[p] = slot;
+}
+
+function _rayRender(p, s) {
+  const cfg = _RAY[p]; if (!cfg) return;
+  _rayInit(p);
+  if (!_rayAktif) return;
+  const durum = s ? s.durum : 'idle';
+  const benim = s && (durum === 'hata' ? _activePipeline === p : cfg.idx[durum] !== undefined);
+  let idx = benim ? cfg.idx[durum] : 0;
+  const hata = benim && durum === 'hata';
+  if (hata) idx = _raySon[p] ?? 0;
+  if (idx === undefined) idx = 0;
+  _raySon[p] = idx;
+  const N = cfg.steps.length, bitti = idx >= N;
+  for (let i = 0; i < N; i++) {
+    const el = document.getElementById(`${p}-ray-${i}`), r = document.getElementById(`${p}-ray-r-${i}`);
+    if (!el) continue;
+    let cls = 'ray-st ', right = '';
+    if (bitti || i < idx) {
+      cls += 'done';
+      const dEl = cfg.dur[i] && document.getElementById(cfg.dur[i]);
+      const sure = dEl && dEl.textContent.trim();
+      if (i === 0) { const f = document.getElementById(cfg.dosya); right = _rayChip((f && f.textContent.trim()) || 'Hazır', 'ok'); }
+      else right = _rayChip(sure || 'tamam', 'ok');
+    } else if (i === idx) {
+      if (hata) { cls += 'active err'; right = _rayChip('hata', 'run'); }
+      else if (cfg.run.includes(durum)) { cls += 'active run'; right = _rayChip('çalışıyor', 'run'); }
+      else if (cfg.turn.includes(durum)) { cls += 'active turn'; right = _rayChip('sıra sende', 'turn'); }
+      else cls += 'active';
+    } else cls += 'next';
+    el.className = cls; el.querySelector('.ray-num').textContent = (bitti || i < idx) ? '✓' : String(i + 1);
+    if (r) r.innerHTML = right;
+  }
+  const fin = document.getElementById(`${p}-ray-${N}`); if (fin) fin.style.display = bitti ? '' : 'none';
+  _rayTasi(p, bitti ? N : idx);
+}
+
+function _rayUygula(on) {
+  _rayAktif = on;
+  try { localStorage.setItem('gorunum', on ? 'ray' : 'klasik'); } catch (e) {}
+  document.body.classList.toggle('gorunum-ray', on);
+  document.querySelectorAll('.gorunum-btn').forEach(b => b.textContent = on ? 'Klasik görünüm' : 'Ray görünümü');
+  ['surec', 'brd'].forEach(p => {
+    _rayInit(p);
+    const kap = document.getElementById(p + '-ray'); if (kap) kap.style.display = on ? '' : 'none';
+    if (on) { _raySlot[p] = undefined; _rayRender(p, _lastState); }
+    else { _rayTasi(p, null); }
+  });
+}
+function gorunumDegistir() { _rayUygula(!_rayAktif); toast(_rayAktif ? 'Ray görünümü (tek kolon adım akışı)' : 'Klasik görünüm — eski yapı', 'info'); }
+document.addEventListener('DOMContentLoaded', () => _rayUygula(_rayAktif));
+// Görev analiz panelini GÖMÜLÜ moda al: Task Analizi ekranına taşı (pop-up değil) + süren işe bağlan.
+document.addEventListener('DOMContentLoaded', () => {
+  const card = document.getElementById('jg-preview-card');
+  const chip = document.getElementById('jg-suren-chip');
+  if (card && chip) { card.classList.add('jg-inline'); card.style.display = 'none'; chip.after(card); }
+  if (typeof _jgReattach === 'function') _jgReattach();
+});
 
 // ─── File upload ──────────────────────────────────────────────────────────────
 function dosyaSec(input, pipeline) {
@@ -5104,6 +6089,22 @@ function handleDrop(e, pipeline) {
   dosyaSec(input, pipeline);
 }
 
+// ── Analist-dostu hata kartı (Faz 4) — backend `hata_ozet` (skills/hatalar.py) varsa başlık + ne oldu +
+// ne yapmalı; ham teknik iz katlanabilir <details> içinde (log'da zaten tam). Yoksa ham metnin ilk satırı.
+function _hataBaslik(s) {
+  const h = s && s.hata_ozet;
+  if (h && h.baslik) return h.baslik;
+  return ((s && (s.hata || s.mesaj)) || 'Bilinmeyen hata').split('\n')[0].slice(0, 160);
+}
+function _hataKartiHtml(s) {
+  const h = s && s.hata_ozet, ham = (s && (s.hata || s.mesaj)) || '';
+  if (!h) return escHtml(ham.split('\n')[0] || 'Bilinmeyen hata');
+  return `<div style="font-weight:600">${escHtml(h.baslik)}</div>
+    <div style="color:var(--text2);font-size:12.5px;margin-top:4px">${escHtml(h.aciklama)}</div>
+    <div style="color:var(--text);font-size:12.5px;margin-top:6px"><b>Ne yapmalı:</b> ${escHtml(h.oneri)}</div>
+    ${ham ? `<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11.5px;color:var(--text3)">Teknik ayrıntı</summary>
+      <pre style="white-space:pre-wrap;font-size:11px;color:var(--text3);max-height:180px;overflow:auto;margin:4px 0 0">${escHtml(ham.slice(0, 3000))}</pre></details>` : ''}`;
+}
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -5429,6 +6430,142 @@ async function reddet() {
   resetWorkflowUI();
 }
 
+// ── ADIM SOHBETİ — basit, adım-bağlı hedefli düzeltme (Faz 2) ──────────────────
+// Niyet yönlendirme YOK: hedef dosya adımdan belli. Talimattaki ID/bölüm adına göre yalnız o
+// bölüm düzenlenir ve OTOMATİK uygulanır (revizyon sürümü → Geri Al mümkün). Bölüm bulunamazsa
+// analiste tam yeniden-üretim (son çare) önerilir — asla sessizce tümü yeniden yazılmaz.
+async function adimDuzelt(dosya, inputId, msgId) {
+  const inp = document.getElementById(inputId), msg = document.getElementById(msgId);
+  const btn = document.getElementById(inputId + '-btn');
+  const talimat = (inp ? inp.value : '').trim();
+  if (!talimat) { toast('Bir düzeltme yazın — bölüm ID\'si (örn. PA-003) veya bölüm adı geçsin', 'info'); return; }
+  const setMsg = (t, cls) => { if (msg) { msg.className = 'mockup-gen-msg' + (cls ? ' ' + cls : ''); msg.textContent = t; } };
+  if (btn) btn.disabled = true; if (inp) inp.disabled = true;
+  setMsg('Hedef bölüm bulunuyor…');
+  try {
+    const r = await fetch('/api/adim/duzelt', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({dosya, talimat})});
+    const d = await r.json();
+    if (!d.ok) { setMsg(d.error || 'Düzeltilemedi', 'err'); return; }
+    if (d.tam_uretim_gerekli) {
+      setMsg('⚠ ' + d.mesaj + ' Talimata bir ID/bölüm adı ekleyin ya da "Tam yeniden üret"i kullanın.', 'err');
+      return;
+    }
+    setMsg(`"${d.anahtar}" bölümü düzenleniyor… (~20-40 sn)`);
+    // İlerleme: revizyon oturumu calisiyor=false olunca bitti
+    for (let i = 0; i < 90; i++) {
+      await new Promise(res => setTimeout(res, 2000));
+      const s = await (await fetch('/api/revizyon/' + dosya)).json();
+      if (!s.calisiyor) {
+        if (s.hata) { setMsg('Hata: ' + s.hata, 'err'); return; }
+        setMsg(`✓ "${d.anahtar}" düzeltildi ve uygulandı · Geri Al: Revizyon ekranı`, 'ok');
+        if (inp) inp.value = '';
+        refreshOutputTabs();
+        if (currentOutputFile === dosya && typeof outputSec === 'function') {
+          const t = document.querySelector('.output-tab.active'); if (t) outputSec(t);
+        }
+        return;
+      }
+    }
+    setMsg('Zaman aşımı — Revizyon ekranından durumu kontrol edin', 'err');
+  } catch (e) { setMsg('Hata: ' + e.message, 'err'); }
+  finally { if (btn) btn.disabled = false; if (inp) { inp.disabled = false; inp.focus(); } }
+}
+// Onay bağlamı (Faz 3): karar vermeden önce analiste "kaç açık/kritik soru, bekleyen revizyon var mı" göster.
+// /api/pano'dan; en fazla 15 sn'de bir tazelenir (poll her 1.5 sn çağırır).
+let _onayBaglamZaman = 0;
+async function _onayBaglamYukle(adim) {
+  const el = document.getElementById('onay-baglam-' + adim);
+  if (!el) return;
+  if (Date.now() - _onayBaglamZaman < 15000 && el.textContent) return;
+  _onayBaglamZaman = Date.now();
+  try {
+    const d = await (await fetch('/api/pano')).json();
+    if (!d.ok) return;
+    const so = d.sorular || {}, rev = d.bekleyen_revizyon || [];
+    const parca = [];
+    if (so.kritik) parca.push(`<span style="color:var(--red)">⚠ ${so.kritik} kritik açık soru</span>`);
+    parca.push(`${so.acik} açık soru`);
+    if (so.uygulanmamis) parca.push(`<span style="color:var(--yellow)">${so.uygulanmamis} cevap analize işlenmedi</span>`);
+    if (rev.length) parca.push(`<span style="color:var(--yellow)">${rev.length} bekleyen revizyon önerisi</span>`);
+    el.innerHTML = 'Karar bağlamı: ' + parca.join(' · ') +
+      (so.acik ? ` · <a href="#" onclick="switchTab('output','__sorular__');return false">Sorular sekmesinde aç</a>` : '');
+  } catch (e) { /* sessiz — bağlam satırı zorunlu değil */ }
+  _onaySorulariRender(adim);   // onay kapısında tek-tek cevaplama (inline)
+}
+
+// ── Onay kapısında AÇIK SORULARI tek-tek cevapla (süreç + teknik; Sorular sekmesiyle
+//    AYNI backend: /api/sorular/<id> kaydet + /api/sorular/uygula uygula). Self-contained. ──
+async function _onaySorulariRender(adim, zorla) {
+  const kap = document.getElementById('onay-sorular-' + adim);
+  if (!kap) return;
+  // Analist kutulara yazarken 15 sn'lik yenilemede ezme — bir kez render et, apply sonrası zorla tazele.
+  if (!zorla && kap.dataset.dolu === '1') return;
+  try {
+    const d = await (await fetch('/api/sorular')).json();
+    const sorular = (d.sorular || []).filter(s => (s.durum || 'acik') === 'acik' || s.durum === 'bekleniyor');
+    if (!sorular.length) { kap.style.display = 'none'; kap.innerHTML = ''; kap.dataset.dolu = ''; return; }
+    kap.style.display = '';
+    kap.dataset.dolu = '1';
+    kap.innerHTML =
+      `<div class="jg-soru-yardim" style="margin:6px 0 8px">Açık soruları burada tek tek cevaplayın; boş bıraktıklarınız <b>atlanır</b>. `
+      + `<b>Cevapları Uygula</b> → AI ilgili bölümleri günceller (30-90 sn), sonra <b>Devam Et</b>. `
+      + `Tüm aksiyonlar (Beklet/Varsayım/Atla) için “Sorular sekmesinde aç”.</div>`
+      + `<div id="onay-sorular-liste-${adim}" style="display:flex;flex-direction:column;gap:10px">`
+      + sorular.map(_onaySoruKart).join('') + `</div>`
+      + `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="_onaySorulariUygula('${adim}', this)">`
+      + `<svg class="ico"><use href="#i-play"/></svg> Cevapları Uygula</button>`;
+  } catch (e) { kap.style.display = 'none'; }
+}
+
+function _onaySoruKart(s) {
+  const onem = (typeof _oncelikRozet === 'function') ? _oncelikRozet(s.oncelik) : '';
+  const mevcut = (s.durum === 'cevaplandi' && s.cevap) ? s.cevap : (s.durum === 'varsayim' && s.varsayim) ? s.varsayim : '';
+  return `<div class="jg-soru-kart" data-qid="${escHtml(s.id)}">
+      <div><span class="jg-sk-id">${escHtml(s.id)}</span>${onem}${s.durum === 'bekleniyor' ? '<span class="jg-sk-onem">beklet</span>' : ''}</div>
+      <div class="jg-sk-soru">${escHtml(s.soru || s.baslik || s.id)}</div>
+      ${s.bagli_id ? `<div class="jg-sk-detay">Bağlı: ${escHtml(s.bagli_id)}</div>` : ''}
+      <textarea class="jg-editor jg-sk-cevap" data-id="${escHtml(s.id)}" data-kaynak="${escHtml(s.kaynak_dosya)}"
+        placeholder="Bu soruya cevabınız (boş = atla)"
+        oninput="this.closest('.jg-soru-kart').classList.toggle('cevapli', !!this.value.trim())">${escHtml(mevcut)}</textarea>
+    </div>`;
+}
+
+async function _onaySorulariUygula(adim, btn) {
+  const kap = document.getElementById('onay-sorular-liste-' + adim);
+  const dolu = kap ? [...kap.querySelectorAll('textarea[data-id]')].filter(t => t.value.trim()) : [];
+  if (!dolu.length) { toast('Önce en az bir soruyu cevaplayın (boş bıraktıklarınız atlanır)', 'info'); return; }
+  if (!confirm(`${dolu.length} cevap analiz dosyalarına işlenecek. AI ilgili bölümleri güncelleyecek (30-90 sn). Devam?`)) return;
+  const eski = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Kaydediliyor...';
+  try {
+    // 1) DOLU cevapları backend'e kaydet (Sorular sekmesiyle aynı uç)
+    for (const t of dolu) {
+      await fetch('/api/sorular/' + encodeURIComponent(t.dataset.id), {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ kaynak_dosya: t.dataset.kaynak, durum: 'cevaplandi', cevap: t.value.trim() })
+      });
+    }
+    // 2) Uygula (arka plan + poll) — mevcut mekanizma
+    btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor...';
+    const r = await fetch('/api/sorular/uygula', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const d = await r.json();
+    if (!d.ok || !d.baslatildi) { toast(d.mesaj || d.error || 'Uygulanacak cevap yok', 'info'); return; }
+    const sonuc = await _sorularUygulaBekle();
+    toast(sonuc.mesaj || 'Cevaplar analize işlendi', 'success');
+    await _onaySorulariRender(adim, true);      // kalan sorular (yakınsama) — zorla tazele
+    _onayBaglamZaman = 0; _onayBaglamYukle(adim);
+  } catch (e) { toast('Hata: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = eski; }
+}
+// Teknik onayından SÜREÇ onayına geri dön — süreç analizi YENİDEN ÇALIŞMAZ, teknik dosyası korunur.
+async function surecAdiminaGeriDon() {
+  if (!confirm('Süreç analizi adımına dönülecek. Süreç analizi yeniden ÇALIŞTIRILMAZ; teknik analiz dosyası korunur.\n\nSüreçte hedefli düzeltme yapıp "Devam Et" ile teknik analizi güncelleyebilirsiniz. Devam?')) return;
+  const r = await fetch('/api/geri-don', {method:'POST'});
+  const d = await r.json();
+  if (!r.ok) { toast(d.error || 'Geri dönülemedi', 'error'); return; }
+  toast('Süreç analizi adımına dönüldü — düzeltip "Devam Et" deyin', 'info');
+  startPoll();
+}
+
 // ─── BRD Revize ──────────────────────────────────────────────────────────────
 function revizeDosyaSecildi(input) {
   revizeDosya = input.files[0];
@@ -5516,6 +6653,7 @@ async function outputSec(tab) {
   jiraRes.textContent = '';
   mockupRow.style.display = 'none';
   mockupMsg.textContent = '';
+  const _mcChat = document.getElementById('mockup-chat-row'); if (_mcChat) _mcChat.style.display = 'none';
   sorularPanel.style.display = 'none';
 
   // ── Özel: Sorular sekmesi (dosya yerine soru defteri paneli) ──
@@ -5549,6 +6687,10 @@ async function outputSec(tab) {
     mockupRow.style.display = 'flex';
     document.getElementById('mockup-gen-btn').textContent = 'Yeniden Üret';
     document.getElementById('mockup-indir-btn').style.display = '';
+    // Sohbetle iteratif düzeltme satırını göster (prototip mevcut)
+    const _mcChat2 = document.getElementById('mockup-chat-row');
+    if (_mcChat2) { _mcChat2.style.display = 'flex'; document.getElementById('mockup-geri-btn').style.display = 'none';
+                    document.getElementById('mockup-chat-msg').textContent = ''; }
     return;
   }
   document.getElementById('btn-duzelt').style.display = '';
@@ -5558,6 +6700,8 @@ async function outputSec(tab) {
   content.className = 'output-content';
   content.innerHTML = `<div class="md-body">${marked.parse(md)}</div>`;
   mermaidRender(content);
+  _kanitCipleriIsle(content);                        // [K: …] → renkli kanıt çipleri + özet
+  _gozlemRozetiGoster(content, currentOutputFile);   // canlı gözlem GERÇEKTEN yapıldı mı
   actions.style.display = 'flex';
 
   // Jira hiyerarşi satırını göster (sadece teknik-analiz.md için)
@@ -5565,6 +6709,76 @@ async function outputSec(tab) {
 
   // Confluence space varsa yayımla satırını göster
   _confPublishRowGuncelle();
+}
+
+// ─── Kanıt çipleri — [K: …] kaynak etiketlerini görünür kanıta çevir ───────────
+// "Gerçek veri > BRD" ilkesini analiste HİSSETTİRİR: kaynaksız/doğrulanmamış iddia tek bakışta.
+function _kanitSinif(ic) {
+  const s = ic.toLowerCase();
+  if (s.includes('belirsiz') || s.includes('❓')) return 'belirsiz';
+  if (s.includes('türetilmiş') || s.includes('turetilmis') || s.includes('🔍')) return 'turetilmis';
+  if (s.includes('swagger') || s.includes('network') || s.includes('canlı') || s.includes('canli')) return 'gercek';
+  if (s.includes('confluence')) return 'doc';
+  if (s.includes('jira')) return 'jira';
+  return 'brd';
+}
+function _kanitCipleriIsle(root) {
+  const body = root.querySelector('.md-body'); if (!body) return;
+  const say = { gercek:0, doc:0, brd:0, jira:0, turetilmis:0, belirsiz:0 };
+  // Yalnız METİN düğümlerinde değiştir — tag/attribute'lara dokunmaz (güvenli)
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  const hedefler = [];
+  let n; while ((n = walker.nextNode())) { if (/\[(?:K:\s*)?[^\]]*(?:§|Swagger|Confluence|Canlı|Network|Jira|Türetilmiş|Belirsiz|❓|🔍)[^\]]*\]/.test(n.nodeValue)) hedefler.push(n); }
+  const re = /\[(?:K:\s*)?([^\]]*(?:§|Swagger|Confluence|Canlı|Network|Jira|Türetilmiş|Belirsiz|❓|🔍)[^\]]*)\]/g;
+  hedefler.forEach(t => {
+    if (t.parentElement && t.parentElement.closest('code, pre, .k-chip')) return;
+    const frag = document.createDocumentFragment(); let son = 0, m;
+    const txt = t.nodeValue; re.lastIndex = 0;
+    while ((m = re.exec(txt))) {
+      if (m.index > son) frag.appendChild(document.createTextNode(txt.slice(son, m.index)));
+      const cls = _kanitSinif(m[1]); say[cls]++;
+      const sp = document.createElement('span'); sp.className = 'k-chip ' + cls;
+      sp.title = { gercek:'Gerçek veri (Swagger / canlı gözlem) — en güvenilir', doc:'Confluence dokümantasyonu',
+                   brd:'BRD / süreç dokümanı — isteği tarif eder, hatalı olabilir', jira:'Jira geçmiş kararı',
+                   turetilmis:'Dolaylı çıkarsama — doğrulanmalı', belirsiz:'KAYNAKSIZ — hiçbir kaynakta yok, doğrulanmalı' }[cls];
+      sp.textContent = m[1].replace(/^\s*K:\s*/, '').trim();
+      frag.appendChild(sp); son = re.lastIndex;
+    }
+    if (son < txt.length) frag.appendChild(document.createTextNode(txt.slice(son)));
+    t.parentNode.replaceChild(frag, t);
+  });
+  const toplam = Object.values(say).reduce((a,b)=>a+b, 0);
+  if (!toplam) return;
+  const dogrulanmamis = say.turetilmis + say.belirsiz;
+  const ozet = document.createElement('div'); ozet.className = 'k-ozet'; ozet.id = 'k-ozet';
+  ozet.innerHTML = `<span class="k-t">Kanıt</span><span><b>${toplam}</b> kaynak etiketi</span><span class="sep"></span>
+    <span class="k-chip gercek">${say.gercek} gerçek veri</span>
+    ${say.doc ? `<span class="k-chip doc">${say.doc} Confluence</span>` : ''}
+    ${say.brd ? `<span class="k-chip brd">${say.brd} BRD/süreç</span>` : ''}
+    ${say.jira ? `<span class="k-chip jira">${say.jira} Jira</span>` : ''}
+    ${say.turetilmis ? `<span class="k-chip turetilmis">${say.turetilmis} türetilmiş</span>` : ''}
+    ${say.belirsiz ? `<span class="k-chip belirsiz">${say.belirsiz} kaynaksız</span>` : ''}
+    ${dogrulanmamis ? `<span class="sep"></span><span style="color:var(--yellow)">⚠ <b>${dogrulanmamis}</b> iddia doğrulanmalı</span>` : ''}`;
+  body.parentNode.insertBefore(ozet, body);
+}
+// Canlı gözlem gerçekten yapıldı mı? (makine-doğrulanmış — /api/oturum.gozlem). Süreç/teknik için.
+async function _gozlemRozetiGoster(root, dosya) {
+  if (!['surec-analizi.md', 'teknik-analiz.md'].includes(dosya)) return;
+  try {
+    const d = await (await fetch('/api/oturum')).json();
+    const g = d.gozlem; if (!g) return;
+    let ozet = root.querySelector('#k-ozet');
+    if (!ozet) { ozet = document.createElement('div'); ozet.className = 'k-ozet'; ozet.id = 'k-ozet';
+                 ozet.innerHTML = '<span class="k-t">Kanıt</span>'; const b = root.querySelector('.md-body'); if (b) b.parentNode.insertBefore(ozet, b); }
+    const r = document.createElement('span');
+    r.className = 'gozlem-rozet ' + (g.yapildi ? 'ok' : 'yok');
+    r.textContent = g.yapildi ? `🌐 Canlı gözlem yapıldı · ${g.num_turns} tur`
+                              : '⚠ Canlı gözlem YAPILAMADI — URL iddiaları doğrulanmadı';
+    r.title = g.yapildi ? 'MCP/Chrome ile gerçek uygulama gezildi (araç kullanımı doğrulandı)'
+                        : 'MCP/Chrome erişilemedi veya tarayıcı aracı reddedildi (num_turns=' + g.num_turns + ')';
+    ozet.appendChild(document.createElement('span')).className = 'sep';
+    ozet.appendChild(r);
+  } catch (e) {}
 }
 
 function _confPublishRowGuncelle() {
@@ -6144,41 +7358,48 @@ async function sorularUygula() {
   const eskiMetin = btn.innerHTML;
   btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor...';
 
-  const ctrl = new AbortController();
-  const tid = setTimeout(() => ctrl.abort(), 240000);  // 4 dk
-
   try {
+    // İş ARKA PLANDA yürür (sunucu istek thread'ini tutmaz) — başlat + durum sorgula.
     const r = await fetch('/api/sorular/uygula', {
-      method: 'POST', signal: ctrl.signal,
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({})
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
     });
     const d = await r.json();
-    const basariliSayisi = (d.sonuclar || []).filter(s => s.ok).length;
-    if (d.ok) {
-      const detay = (d.sonuclar || []).map(s =>
-        s.ok ? `  ✓ ${s.kaynak_dosya} (${s.uygulanan_sayi} soru)`
-             : `  ✗ ${s.kaynak_dosya}: ${s.error}`
-      ).join('\n');
-      toast(d.mesaj, basariliSayisi === (d.sonuclar || []).length ? 'success' : 'info');
-      console.log('Sorular uygulandı:\n' + detay);
-      // Çıktı sekmesini yenile (içerik değişti) + soruları yeniden tara
-      await sorularYukleVeListele();
-      // Aktif outputu görüntülüyorsak yenile
-      const aktifTab = document.querySelector('.output-tab.active');
-      if (aktifTab && aktifTab.dataset.file !== '__sorular__') {
-        outputSec(aktifTab);
-      }
-    } else {
-      toast('Uygulama başarısız: ' + (d.error || d.mesaj || ''), 'error');
-    }
+    if (!d.ok) { toast('Uygulama başlatılamadı: ' + (d.error || ''), 'error'); return; }
+    if (!d.baslatildi) { toast(d.mesaj || 'Uygulanacak cevap yok', 'info'); return; }
+
+    const sonuc = await _sorularUygulaBekle();
+    const sonuclar = sonuc.sonuclar || [];
+    const basariliSayisi = sonuclar.filter(s => s.ok).length;
+    const detay = sonuclar.map(s =>
+      s.ok ? `  ✓ ${s.kaynak_dosya} (${s.uygulanan_sayi} soru)` : `  ✗ ${s.kaynak_dosya}: ${s.error}`
+    ).join('\n');
+    toast(sonuc.mesaj || 'Tamamlandı', basariliSayisi === sonuclar.length ? 'success' : 'info');
+    console.log('Sorular uygulandı:\n' + detay);
+    await sorularYukleVeListele();
+    const aktifTab = document.querySelector('.output-tab.active');
+    if (aktifTab && aktifTab.dataset.file !== '__sorular__') outputSec(aktifTab);
   } catch (e) {
-    toast(e.name === 'AbortError' ? 'Zaman aşımı (4 dk)' : ('Hata: ' + e.message), 'error');
+    toast('Hata: ' + e.message, 'error');
   } finally {
-    clearTimeout(tid);
     btn.disabled = false;
     btn.innerHTML = eskiMetin;
   }
+}
+
+// Arka plan cevap-uygulama bitene kadar durum sorgular; ilerlemeyi butonda gösterir.
+function _sorularUygulaBekle() {
+  return new Promise((resolve) => {
+    const btn = document.getElementById('btn-cevaplari-uygula');
+    const t = setInterval(async () => {
+      try {
+        const d = await (await fetch('/api/sorular/uygula/durum')).json();
+        if (btn && d.calisiyor && d.toplam) {
+          btn.innerHTML = `<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor ${d.tamamlanan}/${d.toplam}...`;
+        }
+        if (!d.calisiyor) { clearInterval(t); resolve(d); }
+      } catch (e) { /* geçici hata — bir sonraki tick'te tekrar dener */ }
+    }, 2000);
+  });
 }
 
 async function sorularPaylasimAc() {
@@ -6305,6 +7526,66 @@ async function mockupOlustur() {
 function mockupIptal() {
   if (!confirm('Prototip üretimi durdurulsun mu?')) return;
   if (_mockupAbortCtrl) _mockupAbortCtrl.abort();
+}
+
+// ── Prototipi SOHBETLE düzelt (iteratif; istediği hale gelene kadar + onay) ──
+async function _mockupIframeTazele() {
+  try {
+    const resp = await fetch('/api/output/mockup.html');
+    if (resp.ok) {
+      const iframe = document.getElementById('mockup-iframe');
+      if (iframe) { iframe.srcdoc = await resp.text(); iframe.style.display = 'block'; }
+      const c = document.getElementById('output-content'); if (c) c.style.display = 'none';
+    }
+  } catch (e) {}
+}
+async function mockupDuzelt() {
+  const inp = document.getElementById('mockup-chat-input');
+  const talimat = (inp ? inp.value : '').trim();
+  if (!talimat) { toast('Bir düzeltme talimatı yazın (örn: "başlığı büyüt")', 'info'); return; }
+  const btn = document.getElementById('mockup-chat-btn');
+  const geriBtn = document.getElementById('mockup-geri-btn');
+  const msg = document.getElementById('mockup-chat-msg');
+  const eski = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Düzeltiliyor…'; }
+  if (inp) inp.disabled = true;
+  if (msg) { msg.className = 'mockup-gen-msg'; msg.textContent = 'AI prototipi düzeltiyor… (~30-60 sn)'; }
+  try {
+    const r = await fetch('/api/mockup/duzelt', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({talimat})
+    });
+    const d = await r.json();
+    if (!d.ok) { if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = d.error || 'Düzeltilemedi'; } return; }
+    if (msg) { msg.className = 'mockup-gen-msg ok'; msg.textContent = '✓ Düzeltildi — sonucu inceleyin, gerekiyorsa tekrar yazın'; }
+    if (geriBtn) geriBtn.style.display = '';
+    if (inp) inp.value = '';
+    await _mockupIframeTazele();
+  } catch (e) {
+    if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = 'Hata: ' + e.message; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = eski || 'Uygula'; }
+    if (inp) { inp.disabled = false; inp.focus(); }
+  }
+}
+async function mockupGeriAl() {
+  const msg = document.getElementById('mockup-chat-msg');
+  try {
+    const r = await fetch('/api/mockup/geri-al', {method: 'POST'});
+    const d = await r.json();
+    if (!d.ok) { if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = d.error || 'Geri alınamadı'; } return; }
+    document.getElementById('mockup-geri-btn').style.display = 'none';
+    if (msg) { msg.className = 'mockup-gen-msg'; msg.textContent = '↶ Son düzeltme geri alındı'; }
+    await _mockupIframeTazele();
+  } catch (e) {
+    if (msg) { msg.className = 'mockup-gen-msg err'; msg.textContent = 'Hata: ' + e.message; }
+  }
+}
+function mockupOnayla() {
+  // Prototip mockup.html olarak zaten güncel/geçerli — bu onay analistin kabul jestidir
+  // (teknik analiz bu prototipi kaynak alır). Yumuşak onay: net geri bildirim.
+  const msg = document.getElementById('mockup-chat-msg');
+  if (msg) { msg.className = 'mockup-gen-msg ok'; msg.textContent = '✓ Prototip onaylandı — bu hâliyle geçerli (teknik analize kaynak olur)'; }
+  if (typeof toast === 'function') toast('Prototip onaylandı', 'success');
 }
 
 // ─── Düzenleme (doğrudan edit) ────────────────────────────────────────────────
@@ -6644,6 +7925,21 @@ async function settingsYukle() {
     cliStatus.textContent = 'ℹ claude CLI bulunamadı — CLI modunu kullanmak için '
       + 'Claude Code CLI kurun (npm install -g @anthropic-ai/claude-code).';
     cliStatus.style.color = 'var(--text3)';
+  }
+
+  // CLI hangi hesaba bağlı — analizler bu hesabın aboneliğinden çalışır (info)
+  const hesapEl = document.getElementById('cli-hesap-info');
+  if (hesapEl) {
+    if (d.cli_hesap && d.cli_hesap.email) {
+      const org = d.cli_hesap.org ? ` · ${escHtml(d.cli_hesap.org)}` : '';
+      hesapEl.innerHTML = `<b>Aktif Claude CLI hesabı:</b> ${escHtml(d.cli_hesap.email)}${org}`
+        + `<div style="color:var(--text3);margin-top:3px">Analizler bu hesabın aboneliği/kotasıyla çalışır. Değiştirmek için bir terminalde <code>claude</code> → <code>/login</code>.</div>`;
+      hesapEl.style.display = '';
+    } else {
+      hesapEl.innerHTML = `<b>Aktif Claude CLI hesabı:</b> okunamadı — henüz giriş yapılmamış olabilir. `
+        + `Bir terminalde <code>claude</code> ile Claude.ai hesabınıza giriş yapın.`;
+      hesapEl.style.display = '';
+    }
   }
 
   // API key bölümü CLI moduna göre göster/gizle
@@ -7135,13 +8431,17 @@ async function ctxFilterYukle() {
       el.value = (d.live_app?.extra_urls || [])[i] || '';
     });
     document.getElementById('ctx-live-username').value = d.live_app_auth?.username || '';
-    document.getElementById('ctx-live-password').value = d.live_app_auth?.password || '';
+    // GÜVENLİK: parola sunucudan GELMEZ (maskeli). Kayıtlıysa placeholder göster, değeri boş bırak —
+    // yalnız YENİ parola yazılırsa kaydedilir; boş bırakınca mevcut korunur.
+    const _pw = document.getElementById('ctx-live-password');
+    _pw.value = '';
+    _pw.placeholder = d.live_app_auth?.has_password ? '•••••••• (kayıtlı — değiştirmek için yazın)' : 'Şifre';
     // Katlanmış bölümler: içlerinde kayıtlı değer varsa otomatik AÇIK gelsin —
     // dolu alan gizli kalırsa analist "kayboldu" sanır (özellik kaybı algısı).
     const urlsDetails = document.getElementById('ctx-more-urls');
     if (urlsDetails && (d.live_app?.extra_urls || []).length) urlsDetails.open = true;
     const authDetails = document.getElementById('ctx-more-auth');
-    if (authDetails && (d.live_app_auth?.username || d.live_app_auth?.password)) authDetails.open = true;
+    if (authDetails && (d.live_app_auth?.username || d.live_app_auth?.has_password)) authDetails.open = true;
     ctxSampleToggle(d.live_app?.use_as_sample === true);
     updateCtxBadge();
   } catch {}
@@ -7173,7 +8473,7 @@ async function ctxFilterTemizle() {
     body: JSON.stringify({
       keywords:[], jira_keys:[], confluence_pages:[],
       live_app:{target_url:'', extra_urls:[], use_as_sample:false, gozlem_kapsami:''},
-      live_app_auth:{username:'', password:''},
+      live_app_auth:{username:'', password:''}, sifre_temizle:true,   // parolayı da AÇIKÇA temizle
     })
   });
   if (r.ok) {
@@ -7211,7 +8511,18 @@ async function jiraConfigYukle() {
     document.getElementById('jira-client-id').value   = d.client_id || '';
     document.getElementById('jira-project-key').value = d.project_key || '';
     document.getElementById('jira-url').value         = d.jira_url || '';
-    jiraUrlUyar();   // mevcut değer site adresi değilse uyarıyı göster
+    jiraUrlUyar();   // mevcut değer site adresi değilse uyarıyı göster (Gelişmiş içinde)
+    // Otomatik algılanan siteyi salt-okunur göster
+    const siteEl = document.getElementById('jira-site-auto');
+    if (siteEl) {
+      if (d.site_url) {
+        siteEl.innerHTML = `<b>${escHtml(d.site_url)}</b> <span style="color:var(--text3)">— otomatik algılandı</span>`;
+      } else if (d.connected) {
+        siteEl.innerHTML = 'Bağlı — site otomatik algılanamadı (ağ/izin). Gerekirse aşağıda “Gelişmiş”ten elle girin.';
+      } else {
+        siteEl.textContent = 'Bağlandıktan sonra otomatik algılanır.';
+      }
+    }
 
     // Secret alanı: kaydedilmişse placeholder göster, input boş bırak
     const secEl = document.getElementById('jira-client-secret');
@@ -7350,7 +8661,7 @@ async function confluenceDiagnose() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-  switchTab('surec');
+  switchTab('pano');
   await refreshOutputTabs();
   await ctxFilterYukle();
   await ozelPromptYukle();

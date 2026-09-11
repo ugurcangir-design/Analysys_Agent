@@ -11,6 +11,7 @@ Kullanım:
 """
 
 import os
+import signal
 import sys
 import time
 import traceback
@@ -18,6 +19,24 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
+
+
+def _durdur_sinyali(signum, frame):
+    """SIGTERM/SIGINT (ör. app._surec_durdur killpg) → çalışan claude CLI çocuğunu öldür, sonra çık.
+    claude start_new_session ile ayrı gruba düştüğü için killpg(run.py) ona ulaşmaz; elle öldürülür (madde 4)."""
+    try:
+        from skills.base import cli_tum_durdur
+        cli_tum_durdur()
+    except Exception:
+        pass
+    os._exit(143)
+
+
+try:
+    signal.signal(signal.SIGTERM, _durdur_sinyali)
+    signal.signal(signal.SIGINT, _durdur_sinyali)
+except Exception:
+    pass
 
 import workflow
 from workflow import Durum
@@ -46,9 +65,16 @@ def _telemetri_emit(mod: str, durum: str, sure_ms: int) -> None:
         if mod == "jira_gonder":
             jira = telemetri.jira_sayac_oku()   # {toplam, keyler}
             jira["islem"] = "acildi"
+        # Token/maliyet (P0 madde 2): subprocess taze başlar → sayaç = bu koşunun toplamı.
+        try:
+            from skills.base import token_sayac_oku
+            _tk = token_sayac_oku()
+            token = _tk if _tk.get("cagri") else None
+        except Exception:
+            token = None
         telemetri.olay_yaz(
             olay=mod, durum=durum, sure_ms=sure_ms,
-            model=model, ai_modu=ai_modu, jira=jira, baglam=baglam or None,
+            model=model, ai_modu=ai_modu, jira=jira, baglam=baglam or None, token=token,
         )
     except Exception:
         pass

@@ -181,7 +181,10 @@ def jira_site_url(cloud_id: str = "") -> str:
         if ".atlassian.net" in ju:        # yalnızca gerçek site gibiyse yedek al
             url = ju
 
-    _site_url_cache[onbellek_anahtari] = url
+    # YALNIZ başarılı (boş olmayan) sonucu cache'le — aksi hâlde tek bir geçici hata (token/ağ)
+    # site adresini SÜREÇ BOYUNCA kalıcı boş bırakır → UAT Mutabakat link'leri hiç üretilmez.
+    if url:
+        _site_url_cache[onbellek_anahtari] = url
     return url
 
 

@@ -15,6 +15,7 @@ import secrets
 import shlex
 import subprocess
 import threading
+import uuid
 import tempfile
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -58,6 +59,56 @@ logging.basicConfig(
     handlers=[_log_handler, logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
+
+class _SirRedaksiyonFiltre(logging.Filter):
+    """P1-D: her log kaydından bilinen sır değerlerini (API anahtarı, canlı-app şifresi) ve anahtar
+    desenlerini temizler. Defense-in-depth — sır yanlışlıkla loglanırsa diske/konsola sızmaz."""
+    def filter(self, record):
+        try:
+            from skills.base import sir_redakte
+            msg = record.getMessage()
+            red = sir_redakte(msg)
+            if red != msg:
+                record.msg = red
+                record.args = ()
+        except Exception:
+            pass
+        return True
+
+
+for _h in logging.getLogger().handlers:
+    _h.addFilter(_SirRedaksiyonFiltre())
+
+
+def _sirlari_yukle() -> None:
+    """Redaksiyon için bilinen sırları kaydet: ANTHROPIC_API_KEY + canlı-uygulama şifresi. Fail-safe."""
+    try:
+        from skills.base import sir_kaydet, load_context_filter
+        sir_kaydet(os.getenv("ANTHROPIC_API_KEY", ""))
+        _ctx = load_context_filter() or {}
+        sir_kaydet((_ctx.get("live_app_auth") or {}).get("password", ""))
+    except Exception:
+        pass
+
+
+def _hassas_dosya_izinlerini_sertlestir() -> None:
+    """P1-D: .env ve reference/context_filter.json 0600 değilse sıkılaştır (grup/diğer erişimi kes)."""
+    import stat as _stat
+    for yol in (Path(__file__).parent / ".env", Path(__file__).parent / "reference" / "context_filter.json"):
+        try:
+            if not yol.exists():
+                continue
+            mod = yol.stat().st_mode
+            if mod & (_stat.S_IRWXG | _stat.S_IRWXO):   # grup veya diğer için herhangi bir bit
+                os.chmod(yol, 0o600)
+                logger.warning("Güvenlik: %s izinleri 0600'e sıkılaştırıldı (grup/diğer erişimi vardı).", yol.name)
+        except OSError:
+            pass
+
+
+_sirlari_yukle()
+_hassas_dosya_izinlerini_sertlestir()
 
 
 def _eski_loglari_temizle(gun: int = 30) -> None:
@@ -182,10 +233,37 @@ def _auth_aktif_mi() -> bool:
 def _usage_yetkili_mi() -> bool:
     """Kullanım (telemetri) dashboard'unu yalnız OWNER görür.
 
-    AUTH'tan BAĞIMSIZ ayrı bayrak: yalnız owner'ın .env'inde USAGE_DASHBOARD=true olur.
-    Analist build'lerinde bu bayrak yoktur → sekme gizli + endpoint 403. Böylece güncelleme
-    aldıklarında ekip bu ekranı GÖREMEZ (admin_gerekli AUTH kapalıyken herkesi geçirirdi)."""
-    return os.getenv("USAGE_DASHBOARD", "false").lower() in ("1", "true", "yes")
+    AUTH'tan BAĞIMSIZ ayrı bayrak: yalnız owner'ın .env'inde **OWNER_KONSOL=true** olur.
+    Analist build'lerinde bu bayrak yoktur → sekme gizli + endpoint 403.
+    NOT: Eski `USAGE_DASHBOARD` bayrağı ARTIK OKUNMAZ — analist makinelerine yanlışlıkla kopyalanan
+    owner `.env`'i bu ekranları açıyordu; bayrak yenilendi ki kopyalanan eski değer bir işe yaramasın.
+    Owner'lar `.env`'lerinde `OWNER_KONSOL=true` satırını eklemelidir."""
+    return os.getenv("OWNER_KONSOL", "false").lower() in ("1", "true", "yes")
+
+
+def _yetki_paneli_mi() -> bool:
+    """Yetki ekranı (görünürlük yönetimi) yalnız OWNER kurulumunda görünür.
+
+    Kendi bilgisayarına kuran analist AUTH kapalı olduğu için teknik olarak 'owner'dır — bu yüzden
+    rol yetmez; `OWNER_KONSOL` gibi AUTH'tan BAĞIMSIZ bayrak gerekir. `YETKI_PANELI` verilmezse
+    `OWNER_KONSOL`'a düşer (analist build'inde ikisi de yok)."""
+    v = os.getenv("YETKI_PANELI")
+    if v is None:
+        return _usage_yetkili_mi()
+    return v.lower() in ("1", "true", "yes")
+
+
+def yetki_gerekli(fn):
+    """Yetki (görünürlük) endpoint'leri için owner-kurulum decorator'ı: bayrak yoksa 403."""
+    from functools import wraps
+
+    @wraps(fn)
+    def _sarici(*args, **kwargs):
+        if not _yetki_paneli_mi() or not _owner_mi():
+            return jsonify({"error": "Yetkisiz"}), 403
+        return fn(*args, **kwargs)
+
+    return _sarici
 
 
 def usage_gerekli(fn):
@@ -201,15 +279,109 @@ def usage_gerekli(fn):
     return _sarici
 
 
+# ─── Roller & Görünürlük — v2 Faz 2.4 ─────────────────────────────────────────
+# İki rol: OWNER (AUTH kapalıyken tek kullanıcı; AUTH açıkken ADMIN_USER) ve ANALİST
+# (diğer herkes). Analist, owner'ın gorunurluk.json'da gizlediği ekran/aksiyonlar
+# HARİÇ her şeyi kullanır. Gizleme hem UI'da (nav/element) hem sunucuda (endpoint
+# ön eki) uygulanır. (Denetim/audit kaydı v2'de kaldırıldı — analist iş takibi
+# Kullanım Raporu'ndadır: skills/telemetri.)
+GORUNURLUK_PATH = BASE_DIR / "gorunurluk.json"
+# id = nav-item / element id (UI gizleme) · endpoints = sunucu tarafı engellenen ön ekler
+GIZLENEBILIR_KATALOG = [
+    {"id": "delta",           "ad": "Delta / CR Analizi",   "grup": "Analiz",   "aciklama": "Mevcut teknik analiz üzerine değişiklik isteği", "endpoints": ["/api/delta-analiz"]},
+    {"id": "brd",             "ad": "BRD Analizi",          "grup": "Analiz",   "aciklama": "BRD → Kapsam akışı", "endpoints": ["/api/run/brd", "/api/brd"]},
+    {"id": "revizyon",        "ad": "Revizyon",             "grup": "Çıktılar", "aciklama": "Sohbetle bölüm-hedefli düzeltme + onay", "endpoints": ["/api/revizyon"]},
+    {"id": "history",         "ad": "Geçmiş",               "grup": "Çıktılar", "aciklama": "Önceki oturum arşivi", "endpoints": ["/api/history"]},
+    {"id": "jira-gorevler",   "ad": "Task Analizi",         "grup": "Jira",     "aciklama": "Task çekme / görev analizi / güncelleme", "endpoints": ["/api/jira/gorev"]},
+    {"id": "backlog-senkron", "ad": "UAT Mutabakat",        "grup": "Jira",     "aciklama": "UAT ↔ hedef board karşılaştırma", "endpoints": ["/api/backlog"]},
+    {"id": "referanslar",     "ad": "Referanslar",          "grup": "Kaynaklar","aciklama": "Confluence/Jira kaynak senkronu", "endpoints": ["/api/sources/sync"]},
+    {"id": "btn-mockup-onay", "ad": "Prototip üretme",      "grup": "Aksiyon",  "aciklama": "Süreç analizinden HTML prototip (Chrome MCP)", "endpoints": ["/api/mockup/generate"]},
+    {"id": "conf-publish-row","ad": "Confluence'a yayınla", "grup": "Aksiyon",  "aciklama": "Çıktıyı Confluence sayfası olarak yaz", "endpoints": ["/api/confluence/publish"]},
+    {"id": "prompts",         "ad": "Sistem Promptları",    "grup": "Yönetim",  "aciklama": "Kalıcı prompt düzenleme (Yönetim grubu zaten owner-only)", "endpoints": ["/api/prompts"]},
+]
+
+
+def _owner_mi() -> bool:
+    """AUTH kapalı → tek kullanıcı owner'dır; AUTH açık → ADMIN_USER."""
+    return (not _auth_aktif_mi()) or _admin_mi()
+
+
+def _rol() -> str:
+    return "owner" if _owner_mi() else "analist"
+
+
+def _gorunurluk_oku() -> list[str]:
+    try:
+        if GORUNURLUK_PATH.exists():
+            g = json.loads(GORUNURLUK_PATH.read_text(encoding="utf-8")).get("gizli", [])
+            return [x for x in g if isinstance(x, str)]
+    except Exception:
+        pass
+    return []
+
+
+def _gorunurluk_yaz(gizli: list[str]) -> None:
+    gecerli = {k["id"] for k in GIZLENEBILIR_KATALOG}
+    veri = {
+        "_aciklama": "v2 Faz 2.4 — Owner'ın analistlerden gizlediği ekran/aksiyon id'leri. "
+                     "UI: Yönetim › Yetki & Denetim. Repoda izlenir; analistlere güncellemeyle iner.",
+        "gizli": sorted({x for x in gizli if x in gecerli}),
+    }
+    tmp = GORUNURLUK_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(veri, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(GORUNURLUK_PATH)
+
+
+def _denetim(islem: str, hedef: str = "", **detay) -> None:
+    """No-op — denetim (audit) kaydı kaldırıldı (v2). Analist iş takibi Kullanım
+    Raporu'ndadır (skills/telemetri). Çağrı yerleri zararsız kalsın diye imza korunur."""
+    return None
+
+
+@app.before_request
+def gorunurluk_kontrol():
+    """Analist için gizlenen ekranların endpoint'lerini sunucu tarafında engeller."""
+    if _owner_mi() or not request.path.startswith("/api/"):
+        return None
+    gizli = set(_gorunurluk_oku())
+    if not gizli:
+        return None
+    for k in GIZLENEBILIR_KATALOG:
+        if k["id"] in gizli and any(request.path.startswith(p) for p in k["endpoints"]):
+            return jsonify({"error": "Bu işlem sizin için kapalı (owner tarafından gizlendi)", "gizli": k["id"]}), 403
+    return None
+
+
+def _token_bas() -> bool:
+    """AI çağrısı öncesi bu thread için token capture başlat (paralel-doğru; P1-C). Fail-safe.
+    Dönen True yalnızca 'capture başlatıldı' işaretidir — _telemetri_olay(token_bas=...) ile eşleşir."""
+    try:
+        from skills.base import token_capture_baslat
+        token_capture_baslat()
+        return True
+    except Exception:
+        return False
+
+
 def _telemetri_olay(olay: str, durum: str, sure_ms: int,
                     model: str | None = None, ai_modu: str | None = None,
-                    baglam: dict | None = None, jira: dict | None = None) -> None:
-    """In-process analizler (görev analiz, mutabakat, görev güncelle) için emit — fail-safe."""
+                    baglam: dict | None = None, jira: dict | None = None,
+                    token_bas: bool | None = None) -> None:
+    """In-process analizler (görev analiz, mutabakat, görev güncelle) için emit — fail-safe.
+    `token_bas`: _token_bas() ile bu thread'de capture başlatıldıysa True; biriken token olaya eklenir."""
     try:
         from skills import telemetri
         analist = session.get("username") or None  # None → telemetri analist.json/env'e düşer
+        token = None
+        if token_bas:
+            try:
+                from skills.base import token_capture_al
+                _d = token_capture_al()
+                token = _d if (_d and _d.get("cagri")) else None
+            except Exception:
+                token = None
         telemetri.olay_yaz(olay=olay, durum=durum, analist=analist, sure_ms=sure_ms,
-                           model=model, ai_modu=ai_modu, baglam=baglam, jira=jira)
+                           model=model, ai_modu=ai_modu, baglam=baglam, jira=jira, token=token)
     except Exception:
         pass
 
@@ -322,7 +494,7 @@ def _runtime_config_seed() -> None:
     """Makineye özel çalışma-zamanı config dosyaları (context_filter/prompts/sources)
     git'te İZLENMEZ — pull çakışmasını önler. Eksiklerse .example varsayılanından
     oluşturulur. Böylece taze klon + güncelleme sonrası ekip varsayılanları korunur."""
-    for ad in ("context_filter.json", "prompts.json", "sources.json"):
+    for ad in ("context_filter.json", "prompts.json", "sources.json", "kod_kaynagi.json", "analiz_mcp.json"):
         gercek = REF_DIR / ad
         ornek = REF_DIR / f"{ad}.example"
         if not gercek.exists() and ornek.exists():
@@ -498,6 +670,7 @@ _heartbeat_lock = threading.Lock()
 _suspended = False          # True → tarayıcı 2+ dakikadır bağlı değil
 _process: subprocess.Popen | None = None
 _process_lock = threading.Lock()
+_durduruldu = False          # analist "Durdur" dedi → _bekle bunu hata sanmasın, run.py state'i geri yazamasın
 
 SUSPEND_SURE = 30           # saniye — bu kadar heartbeat gelmezse uyku (overlay)
 # KAPAT_SURE: Chrome, 5+ dk arka planda kalan sekmelerde timer'ları 1/dakikaya
@@ -609,7 +782,7 @@ def _surec_calistir(mod: str) -> None:
         )
 
     def _bekle():
-        global _process
+        global _process, _durduruldu
         hata_mesaji: str | None = None
         # Zaman aşımı MOD-BAZLI: teknik/brd analizi ÇOK AŞAMALIDIR (Aşama 1 teknik +
         # canlı-uygulama MCP gezinme, Aşama 2 açık sorular = 2 ayrı claude çağrısı,
@@ -645,6 +818,12 @@ def _surec_calistir(mod: str) -> None:
             hata_mesaji = f"Beklenmeyen hata: {e}"
             logger.error(f"[{mod}] {hata_mesaji}", exc_info=True)
 
+        # Analist "Durdur" dediyse: bu bir hata DEĞİL. State'e dokunma (reset zaten IDLE'a
+        # çekti), run.py'nin geri-yazması engellendi (process öldürüldü), telemetriye hata yazma.
+        if _durduruldu:
+            _durduruldu = False
+            logger.info(f"[{mod}] analist tarafından durduruldu — IDLE korunuyor.")
+            return
         # Eğer alt süreç workflow state'i temizleyemediyse HATA'ya çek.
         if hata_mesaji:
             try:
@@ -741,6 +920,7 @@ def yeniden_baslat():
     if _auth_aktif_mi() and not _giris_yapildi_mi():
         return jsonify({"error": "Yetkisiz"}), 403
     logger.info("Manuel yeniden başlatma istendi.")
+    _denetim("yeniden_baslat", "uygulama")
     _yeniden_baslat_zamanla()
     return jsonify({"ok": True, "yeniden_basliyor": True})
 
@@ -782,6 +962,7 @@ def guncelle():
         )
 
         logger.info("Güncelleme tamamlandı, uygulama yeniden başlatılıyor...")
+        _denetim("guncelleme", "git pull", ozet=cikti[:200])
         _yeniden_baslat_zamanla()
         return jsonify({"ok": True, "guncelleme_var": True, "mesaj": cikti, "yeniden_basliyor": True})
 
@@ -830,6 +1011,11 @@ def upload():
     if suffix not in IZIN_VERILEN_UZANTILAR:
         return jsonify({"error": f"Desteklenmeyen dosya türü: {suffix}"}), 400
 
+    # Çalışan bir analiz varken doküman değiştirilemez (state tutarsızlığı önlenir).
+    import workflow as wf
+    if wf.calisiyor_mu() and _analiz_calisiyor_mu():
+        return jsonify({"error": "Bir analiz çalışıyor. Bitince ya da 'Durdur' ile durdurunca yeni dosya yükleyin."}), 409
+
     # Mevcut input'u temizle
     for eski in INPUT_DIR.iterdir():
         if eski.is_file():
@@ -838,7 +1024,11 @@ def upload():
     guvenli_ad = Path(f.filename).name
     hedef = INPUT_DIR / guvenli_ad
     f.save(str(hedef))
-    logger.info(f"Dosya yüklendi: {guvenli_ad}")
+    # YENİ doküman = YENİ oturum → önceki koşuya ait bayat workflow durumunu
+    # (onay_bekleniyor / tamamlandı vb.) SIFIRLA. Yoksa Çıktılar/oturum bu yeni
+    # dosya için yanlışlıkla "Analist onayı bekleniyor" gösterirdi (henüz analiz yok).
+    wf.sifirla()
+    logger.info(f"Dosya yüklendi: {guvenli_ad} (yeni oturum — workflow sıfırlandı)")
     return jsonify({"ok": True, "dosya": guvenli_ad})
 
 
@@ -1044,6 +1234,19 @@ def reject():
     return jsonify({"ok": True, "durum": state["durum"]})
 
 
+@app.route("/api/geri-don", methods=["POST"])
+def geri_don():
+    """Teknik onayından SÜREÇ onayına geri dön — süreç analizi YENİDEN ÇALIŞMAZ, teknik dosyası
+    korunur. Analist süreçte hedefli düzeltme yapıp 'Devam Et' ile teknik analizi günceller."""
+    import workflow as wf
+    try:
+        state = wf.surec_adimina_geri_don()
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+    logger.info("Analist süreç adımına geri döndü (yeniden çalıştırma yok).")
+    return jsonify({"ok": True, "durum": state["durum"]})
+
+
 @app.route("/api/upload-revised-brd", methods=["POST"])
 def upload_revised_brd():
     import workflow as wf
@@ -1101,12 +1304,44 @@ def skip_kapsam():
     return jsonify({"ok": True})
 
 
+def _surec_durdur() -> None:
+    """Çalışan analiz alt-sürecini (varsa) PROCESS GRUBUYLA sonlandırır — manuel 'Durdur' için.
+    start_new_session=True olduğundan grup lideri = pid; killpg tüm torunları da (claude CLI,
+    Playwright) öldürür. `_durduruldu` bayrağı: _bekle bunu hata sanmasın; sifirla'dan ÖNCE
+    öldürülür ki run.py durumu tekrar 'çalışıyor'a yazamasın (aksi halde analiz kendi başlar)."""
+    global _durduruldu
+    with _process_lock:
+        p = _process
+    if not (p and p.poll() is None):
+        return
+    _durduruldu = True
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except Exception:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+    try:
+        p.wait(timeout=5)
+    except Exception:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except Exception:
+            try:
+                p.kill()
+            except Exception:
+                pass
+    logger.info("Analiz alt-süreci durduruldu (analist).")
+
+
 @app.route("/api/reset", methods=["POST"])
 @admin_gerekli
 def reset():
     import workflow as wf
-    wf.sifirla()
-    logger.info("Workflow sıfırlandı.")
+    _surec_durdur()          # ÖNCE çalışan alt-süreci öldür — yoksa run.py durumu geri yazar (kendi başlar)
+    wf.sifirla()             # SONRA state'i IDLE'a çek
+    logger.info("Workflow sıfırlandı (analiz durduruldu).")
     return jsonify({"ok": True})
 
 
@@ -1243,6 +1478,7 @@ def rerun():
 
     threading.Thread(target=_calistir, daemon=True).start()
     logger.info(f"Yeniden çalıştırma başlatıldı: {dosya_adi}")
+    _denetim("yeniden_uret", dosya_adi, not_uzunlugu=len(duzeltme))
     return jsonify({"ok": True, "dosya": dosya_adi})
 
 
@@ -1255,6 +1491,934 @@ def rerun_status(dosya_adi: str):
     if not yol.exists():
         return jsonify({"var": False})
     return jsonify({"var": True, "guncelleme": yol.stat().st_mtime})
+
+
+# ─── Revizyon Oturumu — v2 Faz 1 (sohbetle bölüm-hedefli düzeltme + onay) ─────
+# Belkemiği: skills/revizyon.py (deterministik) · AI düzenleme: skills/revizyon_ai.py
+# Mevcut /api/rerun (tam yeniden-üretim) akışına DOKUNMAZ — yanına eklenir.
+_revizyon_lock = threading.Lock()
+_revizyon_durum: dict = {}   # {dosya_adi: {"calisiyor": bool, "hata": str|None}}
+
+
+@app.route("/api/revizyon/<dosya_adi>", methods=["GET"])
+def revizyon_ozet_endpoint(dosya_adi: str):
+    """Revizyon oturumu özeti (versiyonlar, geçmiş, bekleyen öneri) + çalışma durumu."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    from skills import revizyon
+    oz = revizyon.ozet(dosya_adi)
+    durum = _revizyon_durum.get(dosya_adi, {})
+    return jsonify({
+        "ok": True, "var": oz is not None, "oturum": oz,
+        "calisiyor": durum.get("calisiyor", False), "hata": durum.get("hata"),
+    })
+
+
+@app.route("/api/revizyon/<dosya_adi>/baslat", methods=["POST"])
+def revizyon_baslat_endpoint(dosya_adi: str):
+    """Mevcut çıktı dosyasından revizyon oturumu açar (v1 = mevcut içerik). Idempotent."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    yol = OUTPUT_DIR / dosya_adi
+    if not yol.exists():
+        return jsonify({"ok": False, "error": "Çıktı dosyası yok"}), 404
+    from skills import revizyon
+    revizyon.baslat(dosya_adi, yol.read_text(encoding="utf-8"))
+    return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+
+
+@app.route("/api/revizyon/<dosya_adi>/bolum-duzenle", methods=["POST"])
+def revizyon_bolum_duzenle_endpoint(dosya_adi: str):
+    """Hedef bölümü AI ile düzenle → BEKLEMEDE öneri. Body: {anahtar, talimat}.
+
+    AI çağrısı içerdiğinden arka planda çalışır (rerun deseni). Sonucu GET ile
+    izle: `calisiyor` false olunca oturumda yeni `bekleyen` öneri belirir.
+    """
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    anahtar = (payload.get("anahtar") or "").strip()
+    talimat = (payload.get("talimat") or "").strip()
+    if not anahtar or not talimat:
+        return jsonify({"ok": False, "error": "anahtar ve talimat zorunlu"}), 400
+    if not _revizyon_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Başka bir düzenleme devam ediyor"}), 409
+    _revizyon_durum[dosya_adi] = {"calisiyor": True, "hata": None}
+
+    def _calistir():
+        try:
+            from skills import revizyon_ai
+            revizyon_ai.bolum_duzenle(dosya_adi, anahtar, talimat)
+            _revizyon_durum[dosya_adi] = {"calisiyor": False, "hata": None}
+            logger.info("Bölüm düzenleme tamamlandı: %s / %s", dosya_adi, anahtar)
+        except Exception as e:
+            logger.error("Bölüm düzenleme hatası: %s", e)
+            _revizyon_durum[dosya_adi] = {"calisiyor": False, "hata": str(e)}
+        finally:
+            _revizyon_lock.release()
+
+    threading.Thread(target=_calistir, daemon=True).start()
+    return jsonify({"ok": True, "calisiyor": True})
+
+
+_ADIM_ID_DESEN = re.compile(r"\b((?:PA|BR|EK|EF|AF|AC|FR|NFR|Q|PO|T-FE|T-BE)-\d{1,4})\b", re.IGNORECASE)
+
+
+def _adim_hedef_bolum(dosya_adi: str, talimat: str) -> str | None:
+    """Adım-sohbet talimatından hedef bölümü türet: önce yapısal ID (PA-003…), yoksa talimatta
+    geçen bir bölüm başlığı. Bulunamazsa None → çağıran tam yeniden-üretime düşer."""
+    from skills.revizyon_ai import bolumlere_ayir
+    m = _ADIM_ID_DESEN.search(talimat)
+    if m:
+        return m.group(1).upper()
+    yol = OUTPUT_DIR / dosya_adi
+    if not yol.exists():
+        return None
+    t = talimat.casefold()
+    en_iyi = None
+    for b in bolumlere_ayir(yol.read_text(encoding="utf-8", errors="replace")):
+        if b["seviye"] == 0:
+            continue
+        bas = b["baslik"].strip().casefold()
+        # başlığın anlamlı (≥4 harf) kelimelerinden biri talimatta geçiyorsa aday
+        kelimeler = [k for k in re.split(r"\W+", bas) if len(k) >= 4]
+        if kelimeler and any(k in t for k in kelimeler):
+            if en_iyi is None or len(bas) > len(en_iyi):
+                en_iyi = b["baslik"].strip()
+    return en_iyi
+
+
+@app.route("/api/adim/duzelt", methods=["POST"])
+def adim_duzelt():
+    """ADIM SOHBETİ — basit, adım-bağlı düzeltme (niyet yönlendirme YOK). Body: {dosya, talimat}.
+    Hedef bölüm talimattaki ID/başlıktan türetilir → yalnız o bölüm AI ile düzenlenir ve
+    OTOMATİK uygulanır (revizyon oturumunda sürüm olur; Geri Al mümkün). Bölüm bulunamazsa
+    `tam_uretim_gerekli` döner; UI mevcut /api/rerun (tam yeniden-üretim) yolunu önerir.
+    Arka planda çalışır; ilerleme GET /api/revizyon/<dosya> (`calisiyor`) ile izlenir."""
+    data = request.get_json(silent=True) or {}
+    dosya = (data.get("dosya") or "").strip()
+    talimat = (data.get("talimat") or "").strip()
+    if dosya not in IZIN_VERILEN_CIKTILAR or not dosya.endswith(".md"):
+        return jsonify({"ok": False, "error": "Geçersiz dosya"}), 400
+    if not talimat:
+        return jsonify({"ok": False, "error": "Düzeltme talimatı boş"}), 400
+    if not (OUTPUT_DIR / dosya).exists():
+        return jsonify({"ok": False, "error": "Bu adımın çıktısı henüz yok"}), 400
+    anahtar = _adim_hedef_bolum(dosya, talimat)
+    if not anahtar:
+        return jsonify({"ok": True, "tam_uretim_gerekli": True,
+                        "mesaj": "Talimatta bir bölüm ID'si (örn. PA-003) veya bölüm adı geçmiyor — "
+                                 "hedefli düzeltme yapılamadı."})
+    if not _revizyon_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Başka bir düzenleme devam ediyor"}), 409
+    _revizyon_durum[dosya] = {"calisiyor": True, "hata": None}
+
+    def _calistir():
+        try:
+            from skills import revizyon, revizyon_ai
+            rev = revizyon_ai.bolum_duzenle(dosya, anahtar, talimat)
+            revizyon.onayla(dosya, rev["id"])          # otomatik uygula → gerçek çıktıya yaz
+            _revizyon_durum[dosya] = {"calisiyor": False, "hata": None, "anahtar": anahtar}
+            logger.info("Adım düzeltmesi uygulandı: %s / %s", dosya, anahtar)
+        except Exception as e:
+            logger.error("Adım düzeltme hatası (%s/%s): %s", dosya, anahtar, e)
+            _revizyon_durum[dosya] = {"calisiyor": False, "hata": str(e)}
+        finally:
+            _revizyon_lock.release()
+
+    threading.Thread(target=_calistir, daemon=True).start()
+    return jsonify({"ok": True, "calisiyor": True, "anahtar": anahtar})
+
+
+@app.route("/api/revizyon/<dosya_adi>/onayla", methods=["POST"])
+def revizyon_onayla_endpoint(dosya_adi: str):
+    """Bekleyen revizyonu onayla → aktif yap ve GERÇEK çıktı dosyasına yaz.
+    Body: {revizyon_id}."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    revizyon_id = (payload.get("revizyon_id") or "").strip()
+    if not revizyon_id:
+        return jsonify({"ok": False, "error": "revizyon_id zorunlu"}), 400
+    from skills import revizyon
+    try:
+        revizyon.onayla(dosya_adi, revizyon_id)
+        # Onaylı içeriği gerçek çıktı dosyasına yansıt (dosya_adi zaten allowlist'te)
+        (OUTPUT_DIR / dosya_adi).write_text(revizyon.onayli_icerik(dosya_adi), encoding="utf-8")
+        logger.info("Revizyon onaylandı ve yazıldı: %s / %s", dosya_adi, revizyon_id)
+        _denetim("revizyon_onay", dosya_adi, revizyon=revizyon_id)
+        return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error("Revizyon onay hatası: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/revizyon/<dosya_adi>/reddet", methods=["POST"])
+def revizyon_reddet_endpoint(dosya_adi: str):
+    """Bekleyen revizyonu reddet → aktif içerik değişmez. Body: {revizyon_id}."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    revizyon_id = (payload.get("revizyon_id") or "").strip()
+    if not revizyon_id:
+        return jsonify({"ok": False, "error": "revizyon_id zorunlu"}), 400
+    from skills import revizyon
+    try:
+        revizyon.reddet(dosya_adi, revizyon_id)
+        _denetim("revizyon_ret", dosya_adi, revizyon=revizyon_id)
+        return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/revizyon/<dosya_adi>/geri-al", methods=["POST"])
+def revizyon_geri_al_endpoint(dosya_adi: str):
+    """Aktif içeriği eski bir versiyona döndür ve çıktı dosyasına yaz.
+    Body: {versiyon_id}."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    payload = request.get_json(silent=True) or {}
+    versiyon_id = (payload.get("versiyon_id") or "").strip()
+    if not versiyon_id:
+        return jsonify({"ok": False, "error": "versiyon_id zorunlu"}), 400
+    from skills import revizyon
+    try:
+        revizyon.geri_al(dosya_adi, versiyon_id)
+        (OUTPUT_DIR / dosya_adi).write_text(revizyon.onayli_icerik(dosya_adi), encoding="utf-8")
+        logger.info("Revizyon geri alındı: %s → %s", dosya_adi, versiyon_id)
+        _denetim("revizyon_geri_al", dosya_adi, versiyon=versiyon_id)
+        return jsonify({"ok": True, "oturum": revizyon.ozet(dosya_adi)})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/revizyon/<dosya_adi>/diff", methods=["GET"])
+def revizyon_diff_endpoint(dosya_adi: str):
+    """İki versiyon arası unified diff. Query: ?a=v1&b=v2."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    a = (request.args.get("a") or "").strip()
+    b = (request.args.get("b") or "").strip()
+    if not a or not b:
+        return jsonify({"ok": False, "error": "a ve b query parametreleri zorunlu"}), 400
+    from skills import revizyon
+    try:
+        return jsonify({"ok": True, "diff": revizyon.diff(dosya_adi, a, b)})
+    except FileNotFoundError as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+
+
+# ─── Analiz Oturumu — v2 Faz 2.1 (çıktı tazeliği / kökeni / aktif iş) ────────
+# "Hangi çıktı güncel, neden orada?" sorusunun deterministik cevabı (0 token):
+# oturum başlangıcı = workflow'un ilk adımı (yoksa girdi dokümanının yüklenmesi);
+# çıktı mtime >= başlangıç → GÜNCEL, aksi halde ÖNCEKİ oturumdan kalma (eski).
+_CIKTI_KATALOGU = [
+    # (dosya, etiket, kaynak/köken etiketi)
+    ("surec-analizi.md",      "Süreç Analizi",        "girdi dokümanı"),
+    ("teknik-analiz.md",      "Teknik Analiz",        "süreç analizi"),
+    ("acik-sorular.md",       "Açık Sorular",         "teknik analiz"),
+    ("brd-analizi.md",        "BRD Analizi",          "girdi dokümanı"),
+    ("brd-sorular.md",        "BRD Soruları",         "BRD analizi"),
+    ("kapsam-analizi.md",     "Kapsam Analizi",       "BRD analizi"),
+    ("alternatif-surecler.md","Alternatif Süreçler",  "kapsam analizi"),
+    ("mockup.html",           "Prototip",             "süreç analizi"),
+    ("jira-sonuc.txt",        "Jira Sonucu",          "teknik analiz"),
+]
+
+
+def _oturum_baslangic() -> float | None:
+    """Aktif oturumun başlangıç zamanı (epoch): workflow ilk adımı, yoksa girdi dokümanı mtime.
+    Çıktı/soru tazelik filtresinde eşik olarak kullanılır — bu eşikten ESKİ üretilen çıktılar
+    (önceki oturuma ait) bayat sayılır. oturum_ozeti'ndeki `baslangic` ile aynı mantık."""
+    import workflow as _wf
+    st = _wf.oku()
+    adimlar = st.get("adimlar") or []
+    if adimlar:
+        return adimlar[0].get("zaman")
+    try:
+        girdiler = [f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
+        if girdiler:
+            return max(f.stat().st_mtime for f in girdiler)
+    except Exception:
+        pass
+    return None
+
+
+@app.route("/api/oturum", methods=["GET"])
+def oturum_ozeti():
+    """Aktif analiz oturumu: girdi dokümanı, başlangıç, workflow durumu, çıktıların
+    tazeliği (güncel/eski) + revizyon sürümü, önceki oturum arşivi özeti."""
+    import re as _re
+    import workflow as _wf
+    from skills import revizyon
+
+    dokuman = None
+    try:
+        girdiler = sorted(
+            (f for f in INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith(".")),
+            key=lambda f: f.stat().st_mtime, reverse=True,
+        )
+        if girdiler:
+            dokuman = {"ad": girdiler[0].name, "yuklendi": girdiler[0].stat().st_mtime}
+    except Exception:
+        pass
+
+    st = _wf.oku()
+    adimlar = st.get("adimlar") or []
+    baslangic = adimlar[0]["zaman"] if adimlar else (dokuman["yuklendi"] if dokuman else None)
+    ozet = _wf.ozet()
+    jira_key = None
+    if ozet.get("jira_tamamlandi"):
+        m = _re.search(r"\b[A-Z][A-Z0-9]+-\d+\b", st.get("mesaj") or "")
+        jira_key = m.group(0) if m else None
+
+    ciktilar = []
+    for ad, etiket, kaynak in _CIKTI_KATALOGU:
+        yol = OUTPUT_DIR / ad
+        var = yol.exists()
+        mtime = yol.stat().st_mtime if var else None
+        if not var:
+            tazelik = "yok"
+        elif baslangic is None or mtime >= baslangic:
+            tazelik = "guncel"
+        else:
+            tazelik = "eski"
+        rev = revizyon.ozet(ad) if ad.endswith(".md") and revizyon.oturum_var_mi(ad) else None
+        ciktilar.append({
+            "dosya": ad, "etiket": etiket, "kaynak": kaynak, "var": var,
+            "guncelleme": mtime, "tazelik": tazelik,
+            "aktif_versiyon": rev["aktif_versiyon"] if rev else None,
+            "bekleyen": bool(rev and rev.get("bekleyen")),
+            "onayli_revizyon": (sum(1 for g in rev["gecmis"] if g["onay_durumu"] == "onaylandi") - 1)
+                                if rev else 0,
+        })
+
+    # YETİM DURUM UZLAŞTIRMASI: workflow "onay bekliyor / tamamlandı" diyor ama backing
+    # çıktı GÜNCEL değil (0 güncel çıktı — çıktı önceki oturumdan, bayat). Bu durumda statü
+    # tutarsız görünür ("Analist onayı bekleniyor" ama GÜNCEL ÇIKTI 0). Kendini iyileştir:
+    # workflow'u sıfırla, idle göster. (Çalışan analiz DOKUNULMAZ.)
+    _guncel_sayi = sum(1 for c in ciktilar if c["var"] and c["tazelik"] == "guncel")
+    _settled = (ozet.get("onay_bekleniyor") or ozet.get("teknik_onay_bekleniyor")
+                or ozet.get("brd_revize_bekleniyor") or ozet.get("tamamlandi"))
+    if _settled and not ozet.get("calisiyor") and _guncel_sayi == 0:
+        try:
+            _wf.sifirla()
+            ozet = _wf.ozet()
+            jira_key = None
+            logger.info("Yetim workflow durumu (settled ama 0 güncel çıktı) — sıfırlandı, idle gösteriliyor.")
+        except Exception:
+            pass
+
+    arsiv = []
+    try:
+        for d in sorted(HISTORY_DIR.iterdir(), reverse=True):
+            meta_yol = d / "meta.json"
+            if meta_yol.exists():
+                meta = json.loads(meta_yol.read_text())
+                arsiv.append({"id": d.name, "zaman": meta.get("zaman"), "dosyalar": meta.get("dosyalar", [])})
+    except Exception:
+        pass
+
+    # Canlı gözlem raporu (makine-doğrulanmış; yalnız bu oturuma aitse)
+    try:
+        from skills.base import gozlem_durum_oku, GOZLEM_DURUM_DOSYA
+        gozlem = gozlem_durum_oku()
+        if gozlem and baslangic and GOZLEM_DURUM_DOSYA.exists() \
+                and GOZLEM_DURUM_DOSYA.stat().st_mtime < baslangic:
+            gozlem = None   # önceki oturuma ait — gösterme
+    except Exception:
+        gozlem = None
+
+    # AKTİF OTURUM ayrımı: workflow idle ise (çalışan/onay-bekleyen/tamamlanan yok) ORTADA AKTİF
+    # OTURUM YOKTUR — girdi dizininde önceki oturumdan kalan doküman + güncel çıktı DURSA BİLE.
+    # (Kullanıcı: "aktif oturum yok ama eski doküman görünüyor".) Yeni yüklenip henüz çalıştırılmamış
+    # doküman da idle'dır → pano bunu "analiz bekliyor" olarak gösterir, "aktif oturum" DEMEZ.
+    aktif = bool(ozet.get("calisiyor") or ozet.get("onay_bekleniyor") or ozet.get("teknik_onay_bekleniyor")
+                 or ozet.get("brd_revize_bekleniyor") or ozet.get("tamamlandi"))
+
+    return jsonify({
+        "ok": True,
+        "dokuman": dokuman,
+        "aktif": aktif,
+        "baslangic": baslangic,
+        "workflow": ozet,
+        "gozlem": gozlem,
+        "jira_key": jira_key,
+        "ciktilar": ciktilar,
+        "arsiv": arsiv[:HISTORY_LIMIT],
+    })
+
+
+@app.route("/api/oturum/temizle", methods=["POST"])
+def oturum_temizle():
+    """Yüklü girdi dokümanını siler ve workflow'u sıfırlar — 'aktif oturum yok' durumunda
+    kalıntı dokümanı kaldırmak için (pano → Kaldır). Analiz çalışıyorsa 409."""
+    import workflow as wf
+    if wf.calisiyor_mu() and _analiz_calisiyor_mu():
+        return jsonify({"ok": False, "error": "Analiz çalışıyor. Önce durdurun."}), 409
+    silinen = 0
+    try:
+        for f in INPUT_DIR.iterdir():
+            if f.is_file() and not f.name.startswith("."):
+                f.unlink()
+                silinen += 1
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    wf.sifirla()
+    logger.info("Oturum temizlendi: %d girdi dokümanı silindi, workflow sıfırlandı.", silinen)
+    return jsonify({"ok": True, "silinen": silinen})
+
+
+# ─── Görünürlük & Denetim — v2 Faz 2.4 (owner-only) ──────────────────────────
+
+@app.route("/api/gorunurluk", methods=["GET"])
+@yetki_gerekli
+def gorunurluk_getir():
+    """Gizlenebilir katalog + owner'ın gizlediği id listesi."""
+    return jsonify({"ok": True, "katalog": GIZLENEBILIR_KATALOG, "gizli": _gorunurluk_oku()})
+
+
+@app.route("/api/gorunurluk", methods=["POST"])
+@yetki_gerekli
+def gorunurluk_kaydet():
+    """Body: {gizli: [id,...]} → gorunurluk.json (repoda izlenir; analistlere güncellemeyle iner)."""
+    data = request.get_json(silent=True) or {}
+    gizli = data.get("gizli")
+    if not isinstance(gizli, list):
+        return jsonify({"ok": False, "error": "gizli listesi zorunlu"}), 400
+    onceki = set(_gorunurluk_oku())
+    _gorunurluk_yaz(gizli)
+    yeni = set(_gorunurluk_oku())
+    _denetim("gorunurluk", "gorunurluk.json",
+             gizlendi=",".join(sorted(yeni - onceki)) or "-", acildi=",".join(sorted(onceki - yeni)) or "-")
+    return jsonify({"ok": True, "gizli": sorted(yeni)})
+
+
+# ─── Otomatik Güncelleme — v2 Faz 2.5 (bildirimli otomatik) ──────────────────
+# Arka planda periyodik `git fetch`; uzak dal öndeyse "yeni sürüm hazır" bildirimi.
+# İş YOKKEN (workflow çalışmıyor + rerun/revizyon kilidi boş) sessizce `pull --ff-only`
+# + pip + temiz restart (_yeniden_baslat_zamanla). İş sürerken bekler, bitince uygular.
+# Güvenlik: yerel değişiklik (dirty tree) veya push edilmemiş commit varsa (owner'ın
+# geliştirme makinesi) ASLA otomatik pull yapmaz — yalnız bildirir.
+AUTO_UPDATE = os.getenv("AUTO_UPDATE", "true").lower() in ("1", "true", "yes")
+AUTO_UPDATE_ARALIK = max(60, int(os.getenv("AUTO_UPDATE_INTERVAL", "600") or 600))   # sn
+_guncelleme_lock = threading.Lock()
+_guncelleme_durumu: dict = {
+    "otomatik": AUTO_UPDATE, "yeni_surum": False, "behind": 0, "ahead": 0,
+    "uzak": None, "degisiklikler": [], "engel": None, "son_kontrol": None,
+    "uygulaniyor": False, "hata": None,
+}
+
+
+def _mesgul_mu() -> str | None:
+    """Uygulama şu an iş yapıyor mu? Dönen metin = bekleme nedeni; None = boş."""
+    try:
+        import workflow as _wf
+        if _wf.calisiyor_mu():
+            return "analiz sürüyor"
+    except Exception:
+        pass
+    if _rerun_lock.locked():
+        return "yeniden üretim sürüyor"
+    if _revizyon_lock.locked():
+        return "revizyon düzenlemesi sürüyor"
+    return None
+
+
+def _guncelleme_kontrol(fetch: bool = True) -> dict:
+    """Uzak dalı kontrol eder, _guncelleme_durumu'nu günceller (0 token)."""
+    d = _guncelleme_durumu
+    if not (BASE_DIR / ".git").exists():
+        d.update(engel="git deposu değil", son_kontrol=time.time())
+        return d
+    if fetch:
+        f = _git_calistir(["fetch", "origin", "--quiet"], timeout=60)
+        if not f["ok"]:
+            d.update(hata=(f.get("stderr") or "fetch başarısız")[:200], son_kontrol=time.time())
+            return d
+    branch = _git_calistir(["rev-parse", "--abbrev-ref", "HEAD"])
+    dal = branch["stdout"] if branch["ok"] else "main"
+    sayim = _git_calistir(["rev-list", "--left-right", "--count", f"HEAD...origin/{dal}"])
+    ahead, behind = 0, 0
+    if sayim["ok"] and "\t" in sayim["stdout"]:
+        try:
+            a, b = sayim["stdout"].split("\t")
+            ahead, behind = int(a), int(b)
+        except ValueError:
+            pass
+    kirli = _git_calistir(["status", "--porcelain", "--untracked-files=no"])
+    yerel_degisiklik = bool(kirli["ok"] and kirli["stdout"].strip())
+    uzak = None
+    degisiklikler: list[str] = []
+    if behind:
+        u = _git_calistir(["log", "-1", f"origin/{dal}", "--pretty=format:%h|%s|%ci"])
+        if u["ok"] and "|" in u["stdout"]:
+            h, s, c = u["stdout"].split("|", 2)
+            uzak = {"hash": h, "mesaj": s, "tarih": c[:19]}
+        lg = _git_calistir(["log", f"HEAD..origin/{dal}", "--pretty=format:%s", "-n", "10"])
+        if lg["ok"]:
+            degisiklikler = [x for x in lg["stdout"].splitlines() if x.strip()]
+    engel = None
+    if yerel_degisiklik:
+        engel = "yerel değişiklik var (geliştirme makinesi) — otomatik pull kapalı"
+    elif ahead:
+        engel = "push edilmemiş yerel commit var — otomatik pull kapalı"
+    d.update(yeni_surum=behind > 0, behind=behind, ahead=ahead, uzak=uzak, dal=dal,
+             degisiklikler=degisiklikler, engel=engel, son_kontrol=time.time(), hata=None)
+    return d
+
+
+def _guncelleme_uygula(kaynak: str = "otomatik") -> tuple[bool, str]:
+    """pull --ff-only + pip + restart. Dönen: (ok, mesaj)."""
+    if not _guncelleme_lock.acquire(blocking=False):
+        return False, "Güncelleme zaten uygulanıyor"
+    try:
+        _guncelleme_durumu["uygulaniyor"] = True
+        pull = _git_calistir(["pull", "--ff-only"], timeout=120)
+        cikti = (pull["stdout"] + "\n" + pull.get("stderr", "")).strip()
+        if not pull["ok"]:
+            _guncelleme_durumu.update(uygulaniyor=False, hata=cikti[:300])
+            return False, cikti[:300]
+        subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(BASE_DIR / "requirements.txt"), "-q"],
+                       capture_output=True, timeout=180)
+        logger.info("Otomatik güncelleme uygulandı (%s): %s", kaynak, cikti[:120])
+        _yeniden_baslat_zamanla()
+        return True, cikti[:300]
+    finally:
+        _guncelleme_lock.release()
+
+
+def _oto_guncelleme_dongusu() -> None:
+    """Arka plan thread'i: periyodik kontrol; yeni sürüm + iş yok + engel yok → uygula."""
+    time.sleep(45)   # boot'u rahat bırak
+    bekleme = AUTO_UPDATE_ARALIK
+    while True:
+        try:
+            d = _guncelleme_kontrol(fetch=True)
+            if d.get("yeni_surum") and not d.get("engel"):
+                neden = _mesgul_mu()
+                if neden:
+                    d["bekleme_nedeni"] = neden
+                    bekleme = 60          # iş bitince hızlı yakala
+                else:
+                    d["bekleme_nedeni"] = None
+                    ok, _ = _guncelleme_uygula("otomatik")
+                    if ok:
+                        return            # süreç yeniden başlıyor
+                    bekleme = AUTO_UPDATE_ARALIK
+            else:
+                d["bekleme_nedeni"] = None
+                bekleme = AUTO_UPDATE_ARALIK
+        except Exception as e:
+            logger.warning("Otomatik güncelleme kontrolü hatası: %s", e)
+            bekleme = AUTO_UPDATE_ARALIK
+        time.sleep(bekleme)
+
+
+def _oto_guncelleme_baslat() -> None:
+    if AUTO_UPDATE and (BASE_DIR / ".git").exists():
+        threading.Thread(target=_oto_guncelleme_dongusu, daemon=True, name="oto-guncelleme").start()
+        logger.info("Otomatik güncelleme açık (kontrol aralığı %ss; iş yokken uygulanır).", AUTO_UPDATE_ARALIK)
+
+
+# ─── Zamanlanmış disk temizliği (v2 Faz 3) — makine dolmasına karşı ───────────
+# Yalnız yeniden-üretilebilir/arşiv dosyaları (bkz. skills/disk_temizlik.py); analiz çıktısı ASLA.
+# DISK_TEMIZLIK=false ile kapatılır; DISK_TEMIZLIK_ARALIK sn (vars. 24 saat). İş varken ertelenir.
+def _disk_temizlik_dongusu() -> None:
+    from skills import disk_temizlik
+    time.sleep(90)   # boot + otomatik güncelleme kontrolünü rahat bırak
+    aralik = disk_temizlik.zamanlama_ayarlari()["aralik_sn"]
+    while True:
+        try:
+            if _mesgul_mu():
+                time.sleep(300)          # analiz sürüyor → 5 dk sonra tekrar bak
+                continue
+            p = disk_temizlik.plan()
+            if p["adet"]:
+                s = disk_temizlik.uygula("zamanlanmis")
+                logger.info("Zamanlanmış disk temizliği: %s dosya, %.1f MB", s["silinen"], s["kazanilan_mb"])
+        except Exception as e:
+            logger.warning("Disk temizliği hatası: %s", e)
+        time.sleep(aralik)
+
+
+def _disk_temizlik_baslat() -> None:
+    from skills import disk_temizlik
+    a = disk_temizlik.zamanlama_ayarlari()
+    if a["aktif"]:
+        threading.Thread(target=_disk_temizlik_dongusu, daemon=True, name="disk-temizlik").start()
+        logger.info("Zamanlanmış disk temizliği açık (aralık %ss; iş yokken çalışır).", a["aralik_sn"])
+
+
+@app.route("/api/disk/durum", methods=["GET"])
+@admin_gerekli
+def disk_durum():
+    """Disk sağlığı + temizlik planı (kuru çalışma): {dosya_sistemi, plan, son, zamanlama}."""
+    from skills import disk_temizlik
+    return jsonify({"ok": True, "dosya_sistemi": disk_temizlik.dosya_sistemi(), "plan": disk_temizlik.plan(),
+                    "son": disk_temizlik.son_calisma(), "zamanlama": disk_temizlik.zamanlama_ayarlari()})
+
+
+@app.route("/api/disk/temizle", methods=["POST"])
+@admin_gerekli
+def disk_temizle():
+    """Elle temizlik — analiz sürüyorsa 409 (çıktı/önbellek yarışına girmez)."""
+    from skills import disk_temizlik
+    neden = _mesgul_mu()
+    if neden:
+        return jsonify({"ok": False, "error": f"Şu an temizlenemez: {neden}"}), 409
+    s = disk_temizlik.uygula("elle")
+    return jsonify({"ok": True, **s})
+
+
+# ─── Jira Köprüsü — Jira'yı web-chat gibi kullan (polling + taslak/onay) ──────
+# Task yorumuna `/analyst_agent analiz` yazılır → app JQL taramasıyla bulur,
+# analiz eder, sonucu Jira yorumu olarak yazar. Inbound/webhook GEREKMEZ.
+# Varsayılan KAPALI: JIRA_KOPRU=false. Owner .env'de açar; owner-gate endpoint'ler.
+def _jira_kopru_dongusu() -> None:
+    from skills import jira_kopru
+    time.sleep(100)   # boot + güncelleme + disk kontrolünü rahat bırak
+    while True:
+        try:
+            ayar = jira_kopru.ayarlar()
+            if not ayar["aktif"]:
+                return
+            aralik = ayar["aralik_sn"]
+            if _mesgul_mu():
+                time.sleep(min(aralik, 120))     # analiz sürüyor → köprüyü ertele
+                continue
+            # Pencere = aralığı rahatça kapsasın (kaçan yorum olmasın).
+            ozet = jira_kopru.tek_tur(pencere_dk=max(ayar["pencere_dk"], (aralik // 60) + 5))
+            if ozet.get("islenen"):
+                logger.info("Jira Köprüsü: %s komut işlendi (%s task tarandı).",
+                            len(ozet["islenen"]), ozet.get("taranan_task"))
+        except Exception as e:
+            logger.warning("Jira Köprüsü tur hatası: %s", e)
+            aralik = 60
+        time.sleep(aralik)
+
+
+def _jira_kopru_baslat() -> None:
+    from skills import jira_kopru
+    a = jira_kopru.ayarlar()
+    if a["aktif"]:
+        if not a["projeler"]:
+            logger.warning("Jira Köprüsü açık ama JIRA_KOPRU_PROJELER boş — çalışmaz.")
+            return
+        threading.Thread(target=_jira_kopru_dongusu, daemon=True, name="jira-kopru").start()
+        logger.info("Jira Köprüsü açık (aralık %ss; projeler %s; komut '%s').",
+                    a["aralik_sn"], ",".join(a["projeler"]), a["komut"])
+
+
+@app.route("/api/jira-kopru/durum", methods=["GET"])
+@admin_gerekli
+def jira_kopru_durum():
+    """Köprü durumu + ayarları (owner). Token harcamaz."""
+    from skills import jira_kopru
+    return jsonify({"ok": True, **jira_kopru.son_durum()})
+
+
+@app.route("/api/jira-kopru/tara", methods=["POST"])
+@admin_gerekli
+def jira_kopru_tara():
+    """Elle tek tur — komutlu yeni yorumları hemen tara/işle (döngüyü beklemeden
+    doğrulama için). Analiz sürüyorsa 409."""
+    from skills import jira_kopru
+    neden = _mesgul_mu()
+    if neden:
+        return jsonify({"ok": False, "error": f"Şu an taranamaz: {neden}"}), 409
+    try:
+        pencere = (request.get_json(silent=True) or {}).get("pencere_dk")
+        ozet = jira_kopru.tek_tur(pencere_dk=int(pencere) if pencere else None)
+        return jsonify(ozet)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+# ─── Jira Köprüsü — Agent UI kanalı (açık soruları arayüzden cevapla) ─────────
+# Tek beyin, iki kanal: Jira yorumu (/analyst_agent …) ve bu UI aynı jira_kopru.ui_komut'u
+# çağırır. Analiz/cevap uzun (AI) → arka plan işi + polling (Task Analizi deseni).
+_kopru_isler: dict = {}          # job_id → durum sözlüğü (son 24 tutulur)
+
+
+def _kopru_is_calistir(job_id: str) -> None:
+    from skills import jira_kopru
+    job = _kopru_isler.get(job_id)
+    if not job:
+        return
+    try:
+        r = jira_kopru.ui_komut(job["komut"], job["key"], job.get("arg", ""))
+        job["sonuc"] = r
+        job["durum"] = "bitti" if r.get("ok") else "hata"
+        if not r.get("ok"):
+            job["hata"] = r.get("error")
+    except Exception as e:
+        job["durum"] = "hata"
+        job["hata"] = str(e)
+
+
+@app.route("/api/jira-kopru/liste", methods=["GET"])
+@admin_gerekli
+def jira_kopru_liste():
+    """Köprü analizleri (key · zaman · açık sorular · bekleyen taslak). 0 token."""
+    from skills import jira_kopru
+    return jsonify(jira_kopru.liste())
+
+
+@app.route("/api/jira-kopru/is", methods=["POST"])
+@admin_gerekli
+def jira_kopru_is_baslat():
+    """Köprü komutunu (analiz/cevap/düzelt/güncelle/ilişkili-aç/onayla/iptal) arka planda
+    çalıştırır (uzun; AI). {job_id} döner → /api/jira-kopru/is/<job_id> ile polling."""
+    from skills import jira_kopru
+    d = request.get_json(silent=True) or {}
+    komut = (d.get("komut") or "").strip().lower()
+    key = (d.get("key") or "").strip().upper()
+    arg = (d.get("arg") or "").strip()
+    if komut not in jira_kopru._UI_KOMUTLAR:
+        return jsonify({"ok": False, "error": f"Geçersiz komut: {komut}"}), 400
+    if not jira_kopru._ID_DESENI.match(key):
+        return jsonify({"ok": False, "error": f"Geçersiz Jira anahtarı: {key}"}), 400
+    job_id = uuid.uuid4().hex[:12]
+    _kopru_isler[job_id] = {"durum": "calisiyor", "key": key, "komut": komut, "arg": arg,
+                            "sonuc": None, "hata": None, "zaman": time.time()}
+    # bellek sınırı: son 24 iş
+    if len(_kopru_isler) > 24:
+        for eski in sorted(_kopru_isler, key=lambda j: _kopru_isler[j]["zaman"])[:-24]:
+            _kopru_isler.pop(eski, None)
+    threading.Thread(target=_kopru_is_calistir, args=(job_id,), daemon=True, name=f"kopru-{job_id}").start()
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.route("/api/jira-kopru/is/<job_id>", methods=["GET"])
+@admin_gerekli
+def jira_kopru_is_durum(job_id):
+    """Köprü işi durumu/sonucu (polling)."""
+    job = _kopru_isler.get(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "iş bulunamadı"}), 404
+    return jsonify({"ok": True, "durum": job["durum"], "key": job["key"], "komut": job["komut"],
+                    "sonuc": job.get("sonuc"), "hata": job.get("hata")})
+
+
+@app.route("/api/pano", methods=["GET"])
+def pano_ozet():
+    """Rol-duyarlı Ana Sayfa özeti (HERKES): analistin sırada ne yapacağı — bekleyen onay adımı,
+    açık/kritik soru sayısı, bekleyen revizyon önerileri, çalışan iş. Sağlık kartları ayrı (/api/saglik, owner)."""
+    import workflow as _wf
+    from skills import revizyon
+    from skills.sorular import parse_ve_birlestir, istatistik_hesapla
+    wf = _wf.ozet()
+    try:
+        sorular = parse_ve_birlestir(taze_esik=_oturum_baslangic()).get("sorular", [])
+        ist = istatistik_hesapla(sorular)
+    except Exception:
+        ist = {"acik": 0, "bekleniyor": 0, "kritik_acik": 0, "uygulanmamis": 0}
+    bekleyen_rev = []
+    for ad in ("surec-analizi.md", "teknik-analiz.md", "brd-analizi.md", "kapsam-analizi.md"):
+        try:
+            o = revizyon.ozet(ad)
+            if o and o.get("bekleyen"):
+                bekleyen_rev.append(ad)
+        except Exception:
+            pass
+    onay_adimi = None
+    if wf.get("onay_bekleniyor"):
+        onay_adimi = {"adim": "surec", "etiket": "Süreç analizi onayı", "dosya": "surec-analizi.md"}
+    elif wf.get("teknik_onay_bekleniyor"):
+        onay_adimi = {"adim": "teknik", "etiket": "Teknik analiz onayı", "dosya": "teknik-analiz.md"}
+    elif wf.get("brd_revize_bekleniyor"):
+        onay_adimi = {"adim": "brd", "etiket": "BRD revize kararı", "dosya": "brd-analizi.md"}
+    return jsonify({
+        "ok": True, "rol": _rol(),
+        "workflow": {"durum": wf.get("durum"), "etiket": wf.get("etiket"), "calisiyor": wf.get("calisiyor"),
+                     "tamamlandi": wf.get("tamamlandi")},
+        "onay": onay_adimi,
+        "sorular": {"acik": ist.get("acik", 0) + ist.get("bekleniyor", 0), "kritik": ist.get("kritik_acik", 0),
+                    "uygulanmamis": ist.get("uygulanmamis", 0)},
+        "bekleyen_revizyon": bekleyen_rev,
+    })
+
+
+@app.route("/api/guncelleme/durum", methods=["GET"])
+def guncelleme_durum():
+    """Banner için: yeni sürüm var mı, neden bekliyor, değişiklik özeti. ?kontrol=1 → taze fetch."""
+    if request.args.get("kontrol") == "1":
+        _guncelleme_kontrol(fetch=True)
+    d = dict(_guncelleme_durumu)
+    d["bekleme_nedeni"] = d.get("bekleme_nedeni") or (_mesgul_mu() if d.get("yeni_surum") else None)
+    return jsonify({"ok": True, **d})
+
+
+@app.route("/api/guncelleme/simdi", methods=["POST"])
+def guncelleme_simdi():
+    """Kullanıcı 'Şimdi güncelle' dedi: iş yoksa hemen uygula (yerel değişiklik engeli yine geçerli)."""
+    d = _guncelleme_kontrol(fetch=True)
+    if not d.get("yeni_surum"):
+        return jsonify({"ok": True, "guncelleme_var": False, "mesaj": "Zaten en güncel sürümdesiniz."})
+    if d.get("engel"):
+        return jsonify({"ok": False, "error": d["engel"]}), 409
+    neden = _mesgul_mu()
+    if neden:
+        return jsonify({"ok": False, "error": f"Şu an {neden}; bitince otomatik uygulanacak."}), 409
+    ok, mesaj = _guncelleme_uygula("kullanıcı")
+    return jsonify({"ok": ok, "guncelleme_var": True, "mesaj": mesaj, "yeniden_basliyor": ok}), (200 if ok else 500)
+
+
+# ─── Sistem Sağlığı — v2 Faz 2.6 (owner-only; 0 token, deterministik) ────────
+def _dizin_boyut(d: Path) -> tuple[int, int]:
+    """(bayt, dosya sayısı) — sembolik linkleri izlemez."""
+    toplam, adet = 0, 0
+    try:
+        for p in d.rglob("*"):
+            if p.is_file() and not p.is_symlink():
+                toplam += p.stat().st_size
+                adet += 1
+    except Exception:
+        pass
+    return toplam, adet
+
+
+@app.route("/api/saglik", methods=["GET"])
+@admin_gerekli
+def saglik():
+    """Tek bakışta sistem durumu: sürüm, AI/CLI, güncelleme, workflow, MCP, disk, auth."""
+    import platform
+    from flask import __version__ as flask_surumu
+    from skills.base import USE_CLAUDE_CLI, cli_durum_oku, aktif_cli_model, MODEL_ANALIZ, CLI_MODEL_SECENEKLER
+    import workflow as _wf
+
+    v = version_bilgi().get_json()
+    g = dict(_guncelleme_durumu)
+    wf = _wf.ozet()
+    cli = cli_durum_oku()
+    mcp = {
+        "chrome_config": (BASE_DIR / ".mcp.live-app.json").exists(),
+        "mcp_json": (BASE_DIR / ".mcp.json").exists(),
+        "live_app_profil": (BASE_DIR / ".live-app-profile").exists(),
+    }
+    disk = {}
+    for ad in ("output", "logs", "history", "input", "reference", ".api_cache", "backlog"):
+        b, n = _dizin_boyut(BASE_DIR / ad)
+        disk[ad] = {"mb": round(b / 1_048_576, 1), "dosya": n}
+    try:
+        from skills import disk_temizlik
+        disk_temizlik_bilgi = {"dosya_sistemi": disk_temizlik.dosya_sistemi(),
+                               "temizlenebilir_mb": disk_temizlik.plan()["toplam_mb"],
+                               "son": disk_temizlik.son_calisma(), "zamanlama": disk_temizlik.zamanlama_ayarlari()}
+    except Exception:
+        disk_temizlik_bilgi = {}
+    users = _kullanicilari_oku()
+    try:
+        from skills import analiz_mcp, kod_kaynagi
+        veri_kaynak = {"analiz_mcp": analiz_mcp.durum(), "kod_repo": kod_kaynagi.yapilandirildi_mi()}
+    except Exception:
+        veri_kaynak = {}
+    return jsonify({
+        "ok": True,
+        "veri_kaynak": veri_kaynak,
+        "surum": {"hash": v.get("hash"), "mesaj": v.get("mesaj"), "tarih": v.get("tarih"), "dal": g.get("dal")},
+        "ai": {"modu": "cli" if USE_CLAUDE_CLI else "api",
+               "model": aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ,
+               "model_secenekler": list(CLI_MODEL_SECENEKLER) if USE_CLAUDE_CLI else [],
+               "cli_uygun": cli.get("available"), "cli_reset": cli.get("reset"), "cli_kontrol": cli.get("checked_at")},
+        "guncelleme": {"otomatik": g.get("otomatik"), "yeni_surum": g.get("yeni_surum"), "behind": g.get("behind"),
+                       "engel": g.get("engel"), "son_kontrol": g.get("son_kontrol"), "hata": g.get("hata")},
+        "workflow": {"durum": wf.get("durum"), "etiket": wf.get("etiket"), "calisiyor": wf.get("calisiyor"),
+                     "mesgul": _mesgul_mu()},
+        "mcp": mcp,
+        "disk": disk,
+        "disk_temizlik": disk_temizlik_bilgi,
+        "auth": {"aktif": _auth_aktif_mi(), "kullanici_sayisi": len(users), "rol": _rol(),
+                 "gizli_sayisi": len(_gorunurluk_oku())},
+        "ortam": {"python": platform.python_version(), "flask": flask_surumu, "port": request.host.split(":")[-1]},
+    })
+
+
+# ─── Kod Kaynağı — v2 Faz 3.a (salt-okuma; config owner-only) ─────────────────
+@app.route("/api/kod/repolar", methods=["GET"])
+def kod_repolar():
+    from skills import kod_kaynagi
+    return jsonify({"ok": True, "repolar": kod_kaynagi.repolar(), "yapilandi": kod_kaynagi.yapilandirildi_mi()})
+
+
+@app.route("/api/kod/repolar", methods=["POST"])
+@admin_gerekli
+def kod_repolar_kaydet():
+    from skills import kod_kaynagi
+    data = request.get_json(silent=True) or {}
+    repolar = data.get("repolar")
+    if not isinstance(repolar, list):
+        return jsonify({"ok": False, "error": "repolar listesi zorunlu"}), 400
+    kod_kaynagi.konfig_yaz(repolar)
+    _denetim("kod_kaynagi_config", "kod_kaynagi.json", repo_sayisi=len(kod_kaynagi.konfig_oku().get("repolar", [])))
+    return jsonify({"ok": True, "repolar": kod_kaynagi.repolar()})
+
+
+@app.route("/api/kod/agac", methods=["GET"])
+def kod_agac():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.dosya_agaci(request.args.get("repo", ""), request.args.get("yol", "")))
+
+
+@app.route("/api/kod/dosya", methods=["GET"])
+def kod_dosya():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.dosya_oku(request.args.get("repo", ""), request.args.get("yol", "")))
+
+
+@app.route("/api/kod/ara", methods=["GET"])
+def kod_ara():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.ara(request.args.get("repo", ""), request.args.get("sorgu", "")))
+
+
+@app.route("/api/kod/gecmis", methods=["GET"])
+def kod_gecmis():
+    from skills import kod_kaynagi
+    return jsonify(kod_kaynagi.git_gecmis(request.args.get("repo", ""), request.args.get("yol", "")))
+
+
+@app.route("/api/etki/<dosya_adi>", methods=["GET"])
+def etki_analizi_endpoint(dosya_adi: str):
+    """Etki analizi iskeleti (0 token): çıktıdaki varlıklar → kod isabetleri. ?repo= opsiyonel."""
+    if dosya_adi not in IZIN_VERILEN_CIKTILAR:
+        return jsonify({"ok": False, "error": "Geçersiz dosya adı"}), 400
+    from skills import etki_analizi
+    return jsonify(etki_analizi.analiz(dosya_adi, repo=request.args.get("repo") or None))
+
+
+# ─── Analiz Veri Kaynakları (Postgres/Jira MCP) — v2 Faz 3.c (owner-only) ────
+@app.route("/api/analiz-mcp", methods=["GET"])
+@admin_gerekli
+def analiz_mcp_getir():
+    """Durum (aktiflik + hazır sunucular). Bağlantı dizesi AÇIKLANMAZ."""
+    from skills import analiz_mcp
+    cfg = analiz_mcp.konfig_oku()
+    return jsonify({"ok": True, "durum": analiz_mcp.durum(),
+                    "postgres_baglanti_var": bool(cfg["postgres"].get("baglanti")),
+                    "jira_komut": cfg["jira"].get("komut", ""), "jira_args": cfg["jira"].get("args", []),
+                    "postgres_aktif": cfg["postgres"].get("aktif"), "jira_aktif": cfg["jira"].get("aktif")})
+
+
+@app.route("/api/analiz-mcp", methods=["POST"])
+@admin_gerekli
+def analiz_mcp_kaydet():
+    """Body: {postgres:{aktif,baglanti}, jira:{aktif,komut,args}}. Boş baglanti gelirse mevcut korunur."""
+    from skills import analiz_mcp
+    data = request.get_json(silent=True) or {}
+    mevcut = analiz_mcp.konfig_oku()
+    pg = data.get("postgres") or {}
+    # Bağlantı dizesi UI'a hiç gönderilmediğinden boş gelirse mevcut sırrı koru.
+    if not (pg.get("baglanti") or "").strip():
+        pg["baglanti"] = mevcut["postgres"].get("baglanti", "")
+    analiz_mcp.konfig_yaz({"postgres": pg, "jira": data.get("jira") or {}})
+    _denetim("analiz_mcp_config", "analiz_mcp.json",
+             postgres=bool(analiz_mcp.konfig_oku()["postgres"].get("aktif")),
+             jira=bool(analiz_mcp.konfig_oku()["jira"].get("aktif")))
+    return jsonify({"ok": True, "durum": analiz_mcp.durum()})
 
 
 
@@ -1332,12 +2496,16 @@ def auth_login():
     session["username"] = username
     session.permanent = True
     logger.info(f"Giriş: {username}")
+    _denetim("giris", username)
     return jsonify({"ok": True, "username": username})
 
 
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
-    username = session.pop("username", None)
+    username = session.get("username")
+    if username:
+        _denetim("cikis", username)
+    session.pop("username", None)
     if username:
         logger.info(f"Çıkış: {username}")
     return jsonify({"ok": True})
@@ -1346,7 +2514,9 @@ def auth_logout():
 @app.route("/api/auth/me", methods=["GET"])
 def auth_me():
     return jsonify({"username": session.get("username"), "is_admin": _admin_mi(),
-                    "usage_admin": _usage_yetkili_mi()})
+                    "usage_admin": _usage_yetkili_mi(),
+                    "yetki_admin": _yetki_paneli_mi() and _owner_mi(),
+                    "rol": _rol(), "gizli": [] if _owner_mi() else _gorunurluk_oku()})
 
 
 @app.route("/api/analist", methods=["GET"])
@@ -1428,10 +2598,14 @@ def usage_export():
                   "gorev_guncelle": "Görev Güncelleme",
                   "jira_gonder": "Task Açma", "mutabakat": "UAT Mutabakat"}
     ws.append(["ID", "Analist", "Toplam İşlem", "Başarılı", "Hatalı",
-               "Açılan Task", "Toplam Süre (sn)"])
+               "Açılan Task", "Toplam Süre (sn)",
+               "Girdi Token", "Çıktı Token", "Cache Okuma", "Tahmini Maliyet (USD)"])
     for a in stat["analistler"]:
+        _t = a.get("token") or {}
         ws.append([a.get("id"), a["analist"], a["toplam"], a["basarili"], a["hatali"],
-                   a["jira_task"], round(a["sure_ms_toplam"] / 1000, 1)])
+                   a["jira_task"], round(a["sure_ms_toplam"] / 1000, 1),
+                   _t.get("girdi", 0), _t.get("cikti", 0), _t.get("cache_oku", 0),
+                   round(_t.get("maliyet_usd", 0.0), 4)])
 
     # Analist × Tür matrisi (kim hangi işi kaç kez)
     wsm = wb.create_sheet("Analist × Tür")
@@ -1498,6 +2672,7 @@ def kullanici_ekle():
     users[username] = generate_password_hash(password)
     _kullanicilari_yaz(users)
     logger.info(f"Kullanıcı eklendi: {username}")
+    _denetim("kullanici_ekle", username)
     return jsonify({"ok": True, "username": username})
 
 
@@ -1514,6 +2689,7 @@ def kullanici_sil(username):
     del users[username]
     _kullanicilari_yaz(users)
     logger.info(f"Kullanıcı silindi: {username}")
+    _denetim("kullanici_sil", username)
     return jsonify({"ok": True})
 
 
@@ -1535,8 +2711,23 @@ def kullanici_sifre_degistir(username):
     return jsonify({"ok": True})
 
 
+def _cli_hesap_oku() -> dict | None:
+    """Claude CLI'ın (analiz motoru) hangi hesaba bağlı olduğunu ~/.claude.json'dan okur — YALNIZ
+    kimlik alanları (e-posta + organizasyon), token/secret OKUNMAZ. Ayarlar'da info için."""
+    try:
+        d = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    acc = d.get("oauthAccount") or {}
+    email = acc.get("emailAddress") or acc.get("email")
+    if not email:
+        return None
+    return {"email": email, "org": acc.get("organizationName")}
+
+
 @app.route("/api/settings", methods=["GET"])
 def settings_oku():
+    from skills.base import aktif_cli_model, CLI_MODEL_SECENEKLER
     env = _env_oku()
     api_key = env.get("ANTHROPIC_API_KEY", "")
     cli_mod = env.get("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "yes")
@@ -1546,7 +2737,10 @@ def settings_oku():
         "api_key_masked": _maskele(api_key) if api_key else "",
         "cli_mod": cli_mod,
         "claude_cli_var": _claude_cli_var_mi(),
+        "cli_hesap": _cli_hesap_oku(),                  # CLI'ın bağlı olduğu hesap (e-posta/org) — info
         "extended_thinking": thinking,
+        "cli_model": aktif_cli_model(),                 # CLI modunda analiz modeli (API key gerekmez)
+        "cli_model_secenekler": list(CLI_MODEL_SECENEKLER),
     })
 
 
@@ -1572,12 +2766,21 @@ def settings_kaydet():
         degisiklikler["EXTENDED_THINKING"] = deger
         os.environ["EXTENDED_THINKING"] = deger
 
+    if "cli_model" in data:
+        from skills.base import cli_model_gecerli_mi
+        m = (data.get("cli_model") or "").strip()
+        if not cli_model_gecerli_mi(m):
+            return jsonify({"error": "Geçersiz model değeri"}), 400
+        degisiklikler["CLAUDE_CLI_MODEL"] = m
+        os.environ["CLAUDE_CLI_MODEL"] = m   # canlı okuma (aktif_cli_model) hemen görür — restart gerekmez
+
     if not degisiklikler:
         return jsonify({"error": "Değiştirilecek ayar yok"}), 400
 
     _env_yaz(degisiklikler)
     logger.info(f"Ayarlar güncellendi: {list(degisiklikler.keys())}")
 
+    from skills.base import aktif_cli_model
     env = _env_oku()
     api_key_guncel = env.get("ANTHROPIC_API_KEY", "")
     return jsonify({
@@ -1585,6 +2788,7 @@ def settings_kaydet():
         "masked": _maskele(api_key_guncel) if api_key_guncel else "",
         "cli_mod": env.get("USE_CLAUDE_CLI", "false").lower() in ("1", "true", "yes"),
         "extended_thinking": env.get("EXTENDED_THINKING", "false").lower() in ("1", "true", "yes"),
+        "cli_model": aktif_cli_model(),
     })
 
 
@@ -1592,25 +2796,23 @@ def settings_kaydet():
 
 @app.route("/api/sorular", methods=["GET"])
 def sorular_getir():
-    """Soru defterini döndürür. ?parse=true ile çıktıları yeniden tarar."""
-    from skills.sorular import sorular_yukle, parse_ve_birlestir
-    if request.args.get("parse") in ("1", "true", "yes"):
-        try:
-            data = parse_ve_birlestir()
-        except Exception as e:
-            logger.error("Soru parse hatası: %s", e)
-            return jsonify({"ok": False, "error": str(e)}), 500
-    else:
-        data = sorular_yukle()
+    """Soru defterini döndürür — YALNIZ bu oturuma ait TAZE çıktıların soruları
+    (bayat önceki-oturum soruları elenir; süreç analizi tamamlanmadan hayalet soru olmaz)."""
+    from skills.sorular import parse_ve_birlestir
+    try:
+        data = parse_ve_birlestir(taze_esik=_oturum_baslangic())
+    except Exception as e:
+        logger.error("Soru parse hatası: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True, **data})
 
 
 @app.route("/api/sorular/parse", methods=["POST"])
 def sorular_parse():
-    """Çıktıları yeniden tarar ve soru defterini günceller."""
+    """Çıktıları yeniden tarar ve soru defterini günceller (tazelik filtreli)."""
     from skills.sorular import parse_ve_birlestir
     try:
-        data = parse_ve_birlestir()
+        data = parse_ve_birlestir(taze_esik=_oturum_baslangic())
         return jsonify({"ok": True, **data})
     except Exception as e:
         logger.error("Soru parse hatası: %s", e)
@@ -1665,89 +2867,129 @@ def soru_sil_endpoint(soru_id):
 def sorular_tumunu_sil():
     """Soru defterini tamamen temizler. Body opsiyonel: {"durum": "atlandi"}
     verilirse yalnız o durumdakiler silinir; yoksa hepsi silinir."""
-    from skills.sorular import sorular_yukle, sorular_kaydet, istatistik_hesapla
+    from skills.sorular import tumunu_sil
     payload = request.get_json(silent=True) or {}
     durum_filtre = (payload.get("durum") or "").strip()
-
-    data = sorular_yukle()
-    onceki = len(data.get("sorular", []))
-    if durum_filtre:
-        data["sorular"] = [s for s in data.get("sorular", []) if s.get("durum") != durum_filtre]
-    else:
-        data["sorular"] = []
-    silinen = onceki - len(data["sorular"])
-    data["istatistik"] = istatistik_hesapla(data["sorular"])
-    sorular_kaydet(data)
+    # tumunu_sil mezar-taşı da bırakır → silinen sorular parse_ve_birlestir ile markdown'dan GERİ GELMEZ
+    # (eskiden defter temizleniyordu ama sonraki /api/sorular yeniden parse edip geri ekliyordu → "işlem yapmıyor").
+    silinen = tumunu_sil(durum_filtre)
     logger.info("Soru defteri temizlendi: %d soru silindi (filtre=%s).", silinen, durum_filtre or "hepsi")
     return jsonify({"ok": True, "silinen": silinen})
 
 
+# Cevap uygulama ARKA PLANDA yürür — bloklayan refine (yeniden_calistir, timeout 1200 sn)
+# istek thread'ini tutmasın (rerun deseni). UI /api/sorular/uygula/durum ile ilerlemeyi sorgular.
+# Soru kaynağı → cevabın işleneceği ANALİZ dosyası (hedefli düzeltme için)
+_SORU_HEDEF_ANALIZ = {"acik-sorular.md": "teknik-analiz.md", "brd-sorular.md": "brd-analizi.md"}
+
+
+def _sorulari_hedefli_uygula(kaynak: str, sorular: list[dict]) -> dict:
+    """Cevapları TAM YENİDEN ÜRETİM yerine hedefli işle: her sorunun `bagli_id` bölümü analiz
+    dosyasında bulunursa yalnız o bölüm AI ile düzenlenir (revizyon oturumu, Geri Al mümkün);
+    bulunamayanlar toplanıp mevcut `yeniden_calistir` yoluna düşer (son çare)."""
+    from skills.sorular import duzeltme_notu_olustur
+    from skills import revizyon, revizyon_ai
+    from skills.base import yeniden_calistir
+    hedef = _SORU_HEDEF_ANALIZ.get(kaynak)
+    hedefli, kalan = 0, []
+    hedef_yol = OUTPUT_DIR / hedef if hedef else None
+    for s in sorular:
+        bid = (s.get("bagli_id") or "").strip()
+        if hedef_yol and hedef_yol.exists() and bid:
+            metin = hedef_yol.read_text(encoding="utf-8", errors="replace")
+            if revizyon_ai.bolum_bul(metin, bid):
+                try:
+                    rev = revizyon_ai.bolum_duzenle(hedef, bid, duzeltme_notu_olustur([s]))
+                    revizyon.onayla(hedef, rev["id"])
+                    hedefli += 1
+                    continue
+                except Exception as e:
+                    logger.warning("Hedefli soru uygulaması düşüyor (%s/%s): %s", hedef, bid, e)
+        kalan.append(s)
+    if kalan:
+        yeniden_calistir(kaynak, duzeltme_notu_olustur(kalan))
+    return {"hedefli": hedefli, "tam": len(kalan)}
+
+
+_sorular_uygula_lock = threading.Lock()
+_sorular_uygula_durum = {"calisiyor": False, "toplam": 0, "tamamlanan": 0,
+                         "sonuclar": [], "mesaj": "", "bitti": None}
+
+
 @app.route("/api/sorular/uygula", methods=["POST"])
 def sorular_uygula():
-    """Cevaplanmış/varsayım sorularını refine ile ilgili analize işler.
+    """Cevaplanmış/varsayım sorularını refine ile ilgili analize ARKA PLANDA işler.
 
     Body: {"zorla": false}  → True ise zaten uygulanmış olanları da tekrar uygular.
     Her kaynak_dosya için ayrı refine çağrısı yapılır (atomik değil — birinde hata
-    olursa diğerleri devam eder; sonuç listesi durumu gösterir).
-    """
+    olursa diğerleri devam eder). İlerleme: /api/sorular/uygula/durum."""
     import workflow as wf
-    from skills.sorular import (
-        uygulanacak_sorular, duzeltme_notu_olustur, uygulandi_isaretle,
-        parse_ve_birlestir,
-    )
-    from skills.base import yeniden_calistir
+    from skills.sorular import uygulanacak_sorular
 
     if wf.ozet()["calisiyor"]:
         return jsonify({"ok": False, "error": "Başka bir analiz çalışıyor. Bitince tekrar deneyin."}), 409
+    if _sorular_uygula_durum["calisiyor"] or not _sorular_uygula_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Cevap uygulama zaten sürüyor."}), 409
 
     payload = request.get_json(silent=True) or {}
     zorla = bool(payload.get("zorla", False))
-
     gruplar = uygulanacak_sorular(zorla=zorla)
     if not gruplar:
-        return jsonify({
-            "ok": True,
-            "mesaj": "Uygulanacak yeni cevap/varsayım yok.",
-            "sonuclar": [],
-        })
+        _sorular_uygula_lock.release()
+        return jsonify({"ok": True, "baslatildi": False,
+                        "mesaj": "Uygulanacak yeni cevap/varsayım yok.", "sonuclar": []})
 
-    sonuclar = []
-    for kaynak, sorular in gruplar.items():
-        # Sadece bilinen analiz dosyalarına refine uygula
-        if kaynak not in IZIN_VERILEN_CIKTILAR:
-            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Bilinmeyen dosya, atlandı"})
-            continue
-        if not (OUTPUT_DIR / kaynak).exists():
-            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Dosya bulunamadı"})
-            continue
+    _sorular_uygula_durum.update({"calisiyor": True, "toplam": len(gruplar),
+                                  "tamamlanan": 0, "sonuclar": [], "mesaj": "", "bitti": None})
+
+    def _calistir(gruplar):
+        from skills.sorular import (uygulandi_isaretle, parse_ve_birlestir)
+        sonuclar = []
         try:
-            not_metni = duzeltme_notu_olustur(sorular)
-            yeniden_calistir(kaynak, not_metni)
-            for s in sorular:
-                uygulandi_isaretle(s["id"], kaynak)
-            sonuclar.append({
-                "kaynak_dosya": kaynak,
-                "ok": True,
-                "uygulanan_sayi": len(sorular),
-                "uygulanan_ids": [s["id"] for s in sorular],
-            })
-            logger.info("Sorular uygulandı: %s — %d soru", kaynak, len(sorular))
-        except Exception as e:
-            logger.error("Refine hatası (%s): %s", kaynak, e)
-            sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": str(e)})
+            for kaynak, sorular in gruplar.items():
+                if kaynak not in IZIN_VERILEN_CIKTILAR:
+                    sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Bilinmeyen dosya, atlandı"})
+                elif not (OUTPUT_DIR / kaynak).exists():
+                    sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": "Dosya bulunamadı"})
+                else:
+                    try:
+                        ozet = _sorulari_hedefli_uygula(kaynak, sorular)   # hedefli; kalan → tam üretim
+                        for s in sorular:
+                            uygulandi_isaretle(s["id"], kaynak)
+                        sonuclar.append({"kaynak_dosya": kaynak, "ok": True,
+                                         "uygulanan_sayi": len(sorular),
+                                         "hedefli": ozet["hedefli"], "tam_uretim": ozet["tam"],
+                                         "uygulanan_ids": [s["id"] for s in sorular]})
+                        logger.info("Sorular uygulandı: %s — %d soru", kaynak, len(sorular))
+                    except Exception as e:
+                        logger.error("Refine hatası (%s): %s", kaynak, e)
+                        sonuclar.append({"kaynak_dosya": kaynak, "ok": False, "error": str(e)})
+                _sorular_uygula_durum["tamamlanan"] = len(sonuclar)
+                _sorular_uygula_durum["sonuclar"] = list(sonuclar)
+            # AI çıktıyı değiştirdi — parser güncel veriyi alsın (tazelik filtreli)
+            try:
+                parse_ve_birlestir(taze_esik=_oturum_baslangic())
+            except Exception:
+                pass
+        finally:
+            basari = sum(1 for s in sonuclar if s.get("ok"))
+            _sorular_uygula_durum.update({"calisiyor": False, "sonuclar": sonuclar,
+                                          "mesaj": f"{basari}/{len(sonuclar)} dosya güncellendi",
+                                          "bitti": time.time()})
+            _sorular_uygula_lock.release()
 
-    # Soruları yeniden tara — AI çıktıyı değiştirdi, parser güncel veriyi alsın
-    try:
-        parse_ve_birlestir()
-    except Exception:
-        pass
+    threading.Thread(target=_calistir, args=(gruplar,), daemon=True).start()
+    return jsonify({"ok": True, "baslatildi": True, "toplam": len(gruplar)})
 
-    basari_sayisi = sum(1 for s in sonuclar if s["ok"])
-    return jsonify({
-        "ok": basari_sayisi > 0,
-        "mesaj": f"{basari_sayisi}/{len(sonuclar)} dosya güncellendi",
-        "sonuclar": sonuclar,
-    })
+
+@app.route("/api/sorular/uygula/durum")
+def sorular_uygula_durum():
+    """Arka plan cevap-uygulama ilerlemesi (UI polling). NOT: yol 3-segmentli —
+    2-segmentli olsaydı dinamik `/api/sorular/<id>` (POST/DELETE) ile çakışır, GET 405 verirdi."""
+    d = _sorular_uygula_durum
+    return jsonify({"ok": True, "calisiyor": d["calisiyor"], "toplam": d["toplam"],
+                    "tamamlanan": d["tamamlanan"], "sonuclar": d["sonuclar"],
+                    "mesaj": d["mesaj"], "bitti": d["bitti"]})
 
 
 @app.route("/api/sorular/paylasim", methods=["GET"])
@@ -2203,13 +3445,17 @@ def context_filter_oku():
             data.setdefault("live_app_auth", {"username": "", "password": ""})
             data.setdefault("ozel_prompt", {"surec": "", "teknik": ""})
             data.setdefault("gorev_analist_notu", "")
+            # GÜVENLİK: canlı-uygulama parolasını TARAYICIYA GÖNDERME — maskele (yalnız "kayıtlı mı").
+            _la = data.get("live_app_auth") or {}
+            data["live_app_auth"] = {"username": str(_la.get("username", "")).strip(),
+                                     "has_password": bool(str(_la.get("password", "")).strip())}
             return jsonify(data)
         except Exception:
             pass
     return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [],
                      "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False},
                      "live_app_gorev": {"target_url": ""},
-                     "live_app_auth": {"username": "", "password": ""},
+                     "live_app_auth": {"username": "", "has_password": False},
                      "ozel_prompt": {"surec": "", "teknik": ""}})
 
 
@@ -2222,8 +3468,10 @@ def live_app_durum():
     ?scope=gorev → Jira Görevleri'nin KENDİ hedefi (live_app_gorev) kontrol edilir;
     varsayılan (scope yok) → Süreç/Teknik Analiz'in live_app'i. Profil/npx durumu
     ikisi için de aynı Chrome profilini paylaştığından ortak, yalnızca urls/hedef değişir."""
-    from skills.base import _npx_yolu_bul, live_app_urls, gorev_live_app_urls, live_app_profil_var_mi
+    from skills.base import (_npx_yolu_bul, live_app_urls, gorev_live_app_urls,
+                             live_app_profil_var_mi, _claude_yolu_bul, USE_CLAUDE_CLI)
     npx = bool(_npx_yolu_bul())
+    claude_var = bool(_claude_yolu_bul())
     urls = gorev_live_app_urls() if request.args.get("scope") == "gorev" else live_app_urls()
     profil = live_app_profil_var_mi()
     return jsonify({
@@ -2231,7 +3479,10 @@ def live_app_durum():
         "npx": npx,
         "urls": urls,
         "profil": profil,   # profil hazır (giriş yapıldığını KANITLAMAZ)
-        "hazir": bool(npx and urls and profil),
+        "cli_modu": bool(USE_CLAUDE_CLI),   # canlı gözlem yalnız CLI yolunda (claude -p) çalışır
+        "claude_var": claude_var,
+        # hazir: canlı gözlemin FİİLEN mümkün olması için CLI modu + claude + npx + url + profil
+        "hazir": bool(npx and urls and profil and USE_CLAUDE_CLI and claude_var),
         "hedef": urls[0] if urls else "",
     })
 
@@ -2363,7 +3614,11 @@ def context_filter_kaydet():
         },
         "live_app_auth": {
             "username": str(live_app_auth.get("username", "")).strip(),
-            "password": str(live_app_auth.get("password", "")).strip(),
+            # GÜVENLİK: parola BOŞ gelirse mevcut korunur (maskeli UI'dan gelen boş değer silmesin);
+            # `sifre_temizle` bayrağı gelirse AÇIKÇA boşaltılır (Temizle butonu).
+            "password": "" if data.get("sifre_temizle") else
+                        (str(live_app_auth.get("password", "")).strip()
+                         or str((mevcut.get("live_app_auth") or {}).get("password", "")).strip()),
         },
         "ozel_prompt": {
             "surec": str(ozel_prompt.get("surec", "")).strip(),
@@ -2375,6 +3630,12 @@ def context_filter_kaydet():
     try:
         os.chmod(p, 0o600)
     except OSError:
+        pass
+    # Yeni/değişen canlı-uygulama şifresini log redaksiyon sır listesine ekle (P1-D).
+    try:
+        from skills.base import sir_kaydet
+        sir_kaydet(filtre["live_app_auth"]["password"])
+    except Exception:
         pass
     logger.info("Bağlam filtresi güncellendi.")
     return jsonify({"ok": True, "filtre": filtre})
@@ -2389,13 +3650,24 @@ JIRA_ENV_KEYS = ["JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_PROJECT_KEY",
 @app.route("/api/jira/config", methods=["GET"])
 def jira_config_oku():
     env = _env_oku()
+    connected = bool(env.get("JIRA_ACCESS_TOKEN") and env.get("JIRA_CLOUD_ID"))
+    # Site adresi OTOMATİK algılanır (accessible-resources). Elle "Jira URL" alanı yalnız yedek;
+    # bağlıysa gerçek siteyi verip UI'da salt-okunur gösterelim (elle giriş 'Gelişmiş' altında kalır).
+    site_url = ""
+    if connected:
+        try:
+            from skills.atlassian import jira_site_url
+            site_url = jira_site_url()
+        except Exception:
+            site_url = ""
     return jsonify({
         "client_id":     env.get("JIRA_CLIENT_ID", ""),
         "client_secret": "***" if env.get("JIRA_CLIENT_SECRET") else "",
         "project_key":   env.get("JIRA_PROJECT_KEY", ""),
         "jira_url":      env.get("JIRA_URL", ""),
+        "site_url":      site_url,                 # otomatik algılanan gerçek site (varsa)
         "cloud_id":      env.get("JIRA_CLOUD_ID", ""),
-        "connected":     bool(env.get("JIRA_ACCESS_TOKEN") and env.get("JIRA_CLOUD_ID")),
+        "connected":     connected,
     })
 
 
@@ -2488,7 +3760,10 @@ def jira_test():
     """Jira bağlantısını test et."""
     try:
         env = _env_oku()
-        statik_eksik = [k for k in ("JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_URL", "JIRA_PROJECT_KEY") if not env.get(k)]
+        # JIRA_URL (site) ARTIK ZORUNLU DEĞİL — site accessible-resources'tan otomatik algılanır
+        # (jira_site_url); elle alan yalnız yedektir. Zorunlu tutmak, callback URL'in yanlış alana
+        # yazılmasına yol açıyordu.
+        statik_eksik = [k for k in ("JIRA_CLIENT_ID", "JIRA_CLIENT_SECRET", "JIRA_PROJECT_KEY") if not env.get(k)]
         if statik_eksik:
             return jsonify({"ok": False, "error": f"Jira ayarları eksik: {', '.join(statik_eksik)}. Doldurup Kaydet'e basın."}), 400
         oauth_eksik = [k for k in ("JIRA_ACCESS_TOKEN", "JIRA_CLOUD_ID") if not env.get(k)]
@@ -2652,6 +3927,183 @@ def jira_gorevler_sadece_client():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# ─── Görev analizi — ARKA PLAN iş modeli (ekran kapansa/geçilse de kesilmez) ───────
+# Analiz/cevap/düzelt/formatla artık bir "iş" (job) olarak arka plan thread'inde çalışır; UI
+# durum sorgular (polling). Böylece analist paneli kapatıp başka ekrana geçebilir, iş sürer.
+_gorev_isler: dict = {}          # job_id → durum sözlüğü
+_gorev_is_lock = threading.Lock()
+_GOREV_IS_LIMIT = 12             # bellek: en yeni N işi tut
+
+
+# Paralel görev analizi (P1-C): ilişkili FE/BE task'ları eşzamanlı analiz edilir. Eşzamanlılık tavanı
+# GOREV_PARALEL (varsayılan 3) — CLI abonelik modunda çok yüksek olması 429 limitini hızlandırabilir.
+_GOREV_PARALEL = max(1, int(os.getenv("GOREV_PARALEL", "3")))
+
+
+def _gorev_is_calistir(job_id: str) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
+    job = _gorev_isler.get(job_id)
+    if not job:
+        return
+    job.setdefault("worker_tids", set())
+
+    def _adim_isle(i: int, adim: dict) -> None:
+        # Her adım kendi pool thread'inde çalışır. Gerçek 'Durdur' (madde 4) için thread ident'i
+        # job'a yaz ki Durdur endpoint'i o an süren claude CLI'ı killpg edebilsin (paralelde çoklu).
+        from skills.jira_gorevleri import (gorev_analiz_et, gorev_analiz_duzelt,
+                                           gorev_standart_formatla, gorev_getir)
+        from skills.base import DurdurulduError as _DurdurulduError
+        with _gorev_is_lock:
+            if job.get("iptal"):
+                return
+            job["worker_tids"].add(threading.get_ident())
+            job["aktif_index"] = i
+            job["aktif_key"] = adim["key"]
+        key = adim["key"]
+        _bas = time.time()
+        _tbas = _token_bas()   # bu thread için token capture (paralel-doğru)
+        try:
+            gorev = adim.get("gorev") or gorev_getir(key)
+            if not gorev:
+                raise ValueError(f"Görev okunamadı: {key}")
+            mode = adim.get("mode", "analiz")
+            if mode == "formatla":
+                md = gorev_standart_formatla(gorev)
+                sonuc = {"markdown": md, "acik_sorular": ""}
+            elif mode == "duzelt":
+                md = gorev_analiz_duzelt(gorev, adim.get("markdown", ""), adim.get("talimat", ""))
+                sonuc = {"markdown": md, "acik_sorular": adim.get("acik_sorular", "")}
+            else:
+                iliskili = []
+                for ik in adim.get("iliskili_keys", []):
+                    if ik and str(ik).upper() != key.upper():
+                        g = gorev_getir(ik)
+                        if g:
+                            iliskili.append(g)
+                r = gorev_analiz_et(gorev, cevaplar=adim.get("cevaplar", ""),
+                                    iliskili=iliskili, katman=adim.get("katman", ""),
+                                    onceki_sorular=adim.get("onceki_sorular", ""))
+                sonuc = {"markdown": r.get("markdown", ""), "acik_sorular": r.get("acik_sorular", "")}
+            with _gorev_is_lock:
+                job["sonuclar"][key] = {**sonuc, "summary": gorev.get("summary", ""),
+                                        "katman": adim.get("katman", "")}
+            _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
+                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key, "islem": adim.get("mode", "analiz")},
+                            token_bas=_tbas)
+        except _DurdurulduError:
+            # Analist 'Durdur' → süren claude CLI öldürüldü. Hata sayma; işi iptal işaretle.
+            logger.info("Görev analizi durduruldu (analist) — adım %s yarıda kesildi.", key)
+            with _gorev_is_lock:
+                job["iptal"] = True
+                job["durum"] = "durduruldu"
+        except Exception as e:
+            logger.error("Görev iş adımı hatası (%s): %s", key, e)
+            with _gorev_is_lock:
+                job["sonuclar"][key] = {"hata": str(e), "summary": adim.get("summary", ""),
+                                        "katman": adim.get("katman", "")}
+            _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
+                            model=_model, ai_modu=_ai_modu, baglam={"gorev": key}, token_bas=_tbas)
+
+    adimlar = list(enumerate(job["adimlar"]))
+    isci = min(_GOREV_PARALEL, len(adimlar)) or 1
+    if isci == 1:
+        for i, adim in adimlar:
+            if job.get("iptal"):
+                break
+            _adim_isle(i, adim)
+    else:
+        with ThreadPoolExecutor(max_workers=isci, thread_name_prefix="gorev") as ex:
+            list(ex.map(lambda ia: _adim_isle(ia[0], ia[1]), adimlar))
+    with _gorev_is_lock:
+        if job.get("iptal"):
+            if job.get("durum") == "calisiyor":
+                job["durum"] = "durduruldu"
+        else:
+            job["durum"] = "bitti"
+        job["aktif_key"] = None
+
+
+@app.route("/api/jira/gorev/is/baslat", methods=["POST"])
+def jira_gorev_is_baslat():
+    """Arka plan görev analizi işi başlat. Body: {adimlar:[{key, mode?, katman?, cevaplar?,
+    iliskili_keys?, markdown?, talimat?, gorev?}]}. Döner: {ok, job}."""
+    data = request.get_json(silent=True) or {}
+    adimlar = data.get("adimlar")
+    if not isinstance(adimlar, list) or not adimlar:
+        return jsonify({"ok": False, "error": "adimlar gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    temiz = []
+    for a in adimlar[:6]:
+        k = str((a or {}).get("key") or (a.get("gorev") or {}).get("key") or "").strip()
+        if not k:
+            continue
+        temiz.append({"key": k, "mode": (a.get("mode") or "analiz"),
+                      "katman": (a.get("katman") or "").lower(),
+                      "cevaplar": a.get("cevaplar", ""), "iliskili_keys": a.get("iliskili_keys", []),
+                      "onceki_sorular": a.get("onceki_sorular", ""),
+                      "markdown": a.get("markdown", ""), "talimat": a.get("talimat", ""),
+                      "gorev": a.get("gorev") if isinstance(a.get("gorev"), dict) else None,
+                      "summary": (a.get("gorev") or {}).get("summary", "")})
+    if not temiz:
+        return jsonify({"ok": False, "error": "Geçerli adım yok"}), 400
+    job_id = uuid.uuid4().hex[:12]
+    job = {"durum": "calisiyor", "olusturuldu": time.time(), "aktif_key": temiz[0]["key"],
+           "aktif_index": 0, "toplam": len(temiz), "adimlar": temiz, "sonuclar": {}, "iptal": False}
+    with _gorev_is_lock:
+        _gorev_isler[job_id] = job
+        # Eski işleri buda (bellek)
+        if len(_gorev_isler) > _GOREV_IS_LIMIT:
+            for eski in sorted(_gorev_isler, key=lambda j: _gorev_isler[j]["olusturuldu"])[:-_GOREV_IS_LIMIT]:
+                _gorev_isler.pop(eski, None)
+    threading.Thread(target=_gorev_is_calistir, args=(job_id,), daemon=True).start()
+    return jsonify({"ok": True, "job": job_id, "toplam": len(temiz),
+                    "keyler": [a["key"] for a in temiz]})
+
+
+@app.route("/api/jira/gorev/is/durum", methods=["GET"])
+def jira_gorev_is_durum():
+    """İş durumu (UI polling): {ok, durum, aktif_key, aktif_index, toplam, sonuclar{}}."""
+    job = _gorev_isler.get((request.args.get("job") or "").strip())
+    if not job:
+        return jsonify({"ok": False, "error": "İş bulunamadı (yeniden başlatılmış olabilir)"}), 404
+    return jsonify({"ok": True, "durum": job["durum"], "aktif_key": job["aktif_key"],
+                    "aktif_index": job["aktif_index"], "toplam": job["toplam"],
+                    "keyler": [a["key"] for a in job["adimlar"]],
+                    "katmanlar": {a["key"]: a["katman"] for a in job["adimlar"]},
+                    "sonuclar": job["sonuclar"]})
+
+
+@app.route("/api/jira/gorev/is/durdur", methods=["POST"])
+def jira_gorev_is_durdur():
+    """İşi durdur — kalan adımlar çalışmaz VE o an süren claude CLI süreci killpg ile ANINDA öldürülür
+    (madde 4: gerçek Durdur; token yakmayı hemen keser). CLI modunda süreç öldürülür; API modunda
+    çağrı kesilemez ama iptal bayrağıyla sonraki adımlar çalışmaz."""
+    data = request.get_json(silent=True) or {}
+    job = _gorev_isler.get((data.get("job") or "").strip())
+    if not job:
+        return jsonify({"ok": False, "error": "İş bulunamadı"}), 404
+    with _gorev_is_lock:
+        job["iptal"] = True
+        if job["durum"] == "calisiyor":
+            job["durum"] = "durduruldu"
+        _tids = list(job.get("worker_tids") or ([] if not job.get("worker_tid") else [job["worker_tid"]]))
+    # O an süren claude CLI alt-süreçlerini process-grubuyla öldür (paralelde birden çok olabilir).
+    oldurdu = 0
+    try:
+        from skills.base import cli_proc_durdur
+        for _tid in _tids:
+            if cli_proc_durdur(_tid):
+                oldurdu += 1
+    except Exception:
+        pass
+    return jsonify({"ok": True, "cli_oldurdu": oldurdu})
+
+
 @app.route("/api/jira/gorev/formatla", methods=["POST"])
 def jira_gorev_formatla():
     """Özellik 1 — görevi standart formata çevirir (önizleme; Jira'ya YAZMAZ)."""
@@ -2677,29 +4129,82 @@ def jira_gorev_analiz():
     AI çağrısı uzun sürebilir (özellikle CLI modunda)."""
     data = request.get_json(silent=True) or {}
     gorev = data.get("gorev")
-    if not isinstance(gorev, dict) or not gorev.get("key"):
-        return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
     hata = _jira_baglanti_eksik()
     if hata:
         return jsonify({"ok": False, "error": hata}), 400
+    from skills.jira_gorevleri import gorev_analiz_et, gorev_getir
+    # Analiz edilecek görev: tam dict verildiyse onu kullan; yalnız key verildiyse Jira'dan çek
+    # (ilişkili FE/BE analizinde, listede yüklü olmayan bağlı task'ı analiz etmek için).
+    if not isinstance(gorev, dict) or not gorev.get("key"):
+        gkey = (data.get("gorev_key") or "").strip()
+        if not gkey:
+            return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
+        gorev = gorev_getir(gkey)
+        if not gorev:
+            return jsonify({"ok": False, "error": f"Görev okunamadı: {gkey}"}), 400
     _bas = time.time()
-    from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    _tbas = _token_bas()
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
-    _model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    cevaplar = (data.get("cevaplar") or "").strip()   # açık sorulara analist cevapları (opsiyonel)
+    katman = (data.get("katman") or "").strip().lower()
+    # İlişkili (karşı katman) task'lar: key listesi → tam dict'leri çek (açıklama dahil, bağlam için)
+    iliskili = []
+    for ik in (data.get("iliskili_keys") or [])[:5]:
+        ik = str(ik).strip()
+        if ik and ik.upper() != str(gorev.get("key", "")).upper():
+            g = gorev_getir(ik)
+            if g:
+                iliskili.append(g)
     try:
-        from skills.jira_gorevleri import gorev_analiz_et
-        sonuc = gorev_analiz_et(gorev)
+        sonuc = gorev_analiz_et(gorev, cevaplar=cevaplar, iliskili=iliskili, katman=katman,
+                                onceki_sorular=(data.get("onceki_sorular") or ""))
         _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
                         model=_model, ai_modu=_ai_modu,
-                        baglam={"gorev": gorev.get("key")})
+                        baglam={"gorev": gorev.get("key")}, token_bas=_tbas)
         # Geriye uyumlu: hem markdown (teknik analiz) hem acik_sorular ayrı sekme için
         return jsonify({"ok": True, "key": gorev["key"],
                         "markdown": sonuc.get("markdown", ""),
                         "acik_sorular": sonuc.get("acik_sorular", "")})
     except Exception as e:
         _telemetri_olay("gorev_analiz", "error", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key")})
+                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key")}, token_bas=_tbas)
         logger.error(f"Görev analiz hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/jira/gorev/duzelt", methods=["POST"])
+def jira_gorev_duzelt():
+    """İteratif düzeltme (önizleme; Jira'ya YAZMAZ): {gorev, markdown, talimat} → talimattaki kısmı
+    düzeltilmiş tam analiz. Modaldeki 'Bu analizi düzelt' sohbeti."""
+    data = request.get_json(silent=True) or {}
+    gorev = data.get("gorev")
+    markdown = data.get("markdown") or ""
+    talimat = (data.get("talimat") or "").strip()
+    if not isinstance(gorev, dict) or not gorev.get("key"):
+        return jsonify({"ok": False, "error": "Geçersiz görev verisi"}), 400
+    if not markdown.strip() or not talimat:
+        return jsonify({"ok": False, "error": "markdown ve talimat gerekli"}), 400
+    hata = _jira_baglanti_eksik()
+    if hata:
+        return jsonify({"ok": False, "error": hata}), 400
+    _bas = time.time()
+    _tbas = _token_bas()
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    try:
+        from skills.jira_gorevleri import gorev_analiz_duzelt
+        yeni = gorev_analiz_duzelt(gorev, markdown, talimat)
+        _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
+                        model=_model, ai_modu=_ai_modu, baglam={"gorev": gorev.get("key"), "islem": "duzelt"},
+                        token_bas=_tbas)
+        return jsonify({"ok": True, "key": gorev["key"], "markdown": yeni})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Görev analiz düzeltme hatası: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
@@ -2855,19 +4360,71 @@ def mockup_generate():
     if not surec_dosya.exists():
         return jsonify({"ok": False, "error": "surec-analizi.md bulunamadı. Önce süreç analizi yapın."}), 400
     _bas = time.time()
-    from skills.base import USE_CLAUDE_CLI, CLAUDE_CLI_MODEL, MODEL_ANALIZ
+    _tbas = _token_bas()
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
     _ai = "cli" if USE_CLAUDE_CLI else "api"
-    _model = CLAUDE_CLI_MODEL if USE_CLAUDE_CLI else MODEL_ANALIZ
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
     try:
         from skills.html_mockup import html_mockup_uret
         yol = html_mockup_uret()
         _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai)
+                        model=_model, ai_modu=_ai, token_bas=_tbas)
         return jsonify({"ok": True, "dosya": yol.name, "boyut": yol.stat().st_size})
     except Exception as e:
         _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000),
-                        model=_model, ai_modu=_ai)
+                        model=_model, ai_modu=_ai, token_bas=_tbas)
         logger.error(f"Mockup üretim hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+_MOCKUP_BAK = "_mockup.bak.html"   # sohbetli düzeltme öncesi yedek (geri-al için); serve edilmez
+
+
+@app.route("/api/mockup/duzelt", methods=["POST"])
+def mockup_duzelt():
+    """Sohbetli iteratif prototip düzeltme: {talimat} → mockup.html güncellenir.
+    Düzeltmeden ÖNCE yedek alınır (geri-al mümkün). /api/mockup/generate ile aynı sync desen."""
+    data = request.get_json(silent=True) or {}
+    talimat = (data.get("talimat") or "").strip()
+    if not talimat:
+        return jsonify({"ok": False, "error": "Düzeltme talimatı boş olamaz."}), 400
+    mockup = OUTPUT_DIR / "mockup.html"
+    if not mockup.exists():
+        return jsonify({"ok": False, "error": "Önce 'HTML Prototip Oluştur' ile prototip üretin."}), 400
+    _bas = time.time()
+    _tbas = _token_bas()
+    from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    _ai = "cli" if USE_CLAUDE_CLI else "api"
+    _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
+    try:
+        # Geri-al için yedek (her düzeltmeden önce güncel hâli sakla)
+        try:
+            (OUTPUT_DIR / _MOCKUP_BAK).write_text(mockup.read_text(encoding="utf-8", errors="replace"),
+                                                  encoding="utf-8")
+        except Exception:
+            pass
+        from skills.html_mockup import html_mockup_duzelt
+        yol = html_mockup_duzelt(talimat)
+        _telemetri_olay("mockup", "ok", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai, token_bas=_tbas)
+        return jsonify({"ok": True, "dosya": yol.name, "boyut": yol.stat().st_size, "geri_al": True})
+    except Exception as e:
+        _telemetri_olay("mockup", "error", int((time.time() - _bas) * 1000), model=_model, ai_modu=_ai, token_bas=_tbas)
+        logger.error(f"Mockup düzeltme hatası: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/mockup/geri-al", methods=["POST"])
+def mockup_geri_al():
+    """Son sohbetli düzeltmeyi geri al — yedeği mockup.html'e geri yazar."""
+    bak = OUTPUT_DIR / _MOCKUP_BAK
+    if not bak.exists():
+        return jsonify({"ok": False, "error": "Geri alınacak bir düzeltme yok."}), 400
+    try:
+        (OUTPUT_DIR / "mockup.html").write_text(bak.read_text(encoding="utf-8", errors="replace"),
+                                                encoding="utf-8")
+        bak.unlink(missing_ok=True)   # tek adım geri-al (zincir değil)
+        return jsonify({"ok": True})
+    except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
@@ -3092,4 +4649,7 @@ if __name__ == "__main__":
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  |  Ağ: http://{local_ip}:{port}")
     else:
         logger.info(f"Analyst Studio başlatılıyor → http://localhost:{port}  (sadece yerel; LAN için .env'de HOST=0.0.0.0)")
+    _oto_guncelleme_baslat()   # v2 Faz 2.5 — bildirimli otomatik güncelleme (AUTO_UPDATE=false ile kapatılır)
+    _disk_temizlik_baslat()    # v2 Faz 3 — zamanlanmış disk temizliği (DISK_TEMIZLIK=false ile kapatılır)
+    _jira_kopru_baslat()       # Jira Köprüsü — komutlu yorum polling (JIRA_KOPRU=false ile KAPALI, vars.)
     app.run(host=host, port=port, debug=False)
