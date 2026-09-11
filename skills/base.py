@@ -3052,6 +3052,92 @@ def _api_usage_kaydet(yanit) -> None:
         pass
 
 
+# ─── Gerçek "Durdur" — çalışan claude CLI sürecini öldürme (P0 madde 4) ─────────
+# Görev analizi arka plan thread'inde çalışır; içindeki `claude -p` çağrısı bloklar.
+# 'Durdur'un GERÇEKTEN token yakmayı kesmesi için çalışan alt-süreci öldürmeliyiz.
+# Her CLI çağrısı kendi worker thread'inde Popen'ını buraya kaydeder; Durdur endpoint'i
+# (ayrı Flask thread'i) worker thread ident'i üzerinden killpg eder. start_new_session=True
+# → torunlar da (Playwright/MCP) grup ile ölür. _surec_durdur ile aynı desen, ama in-process.
+_cli_lock = threading.Lock()
+_CLI_PROC_REG: dict[int, subprocess.Popen] = {}   # worker thread ident → çalışan claude Popen
+
+
+class DurdurulduError(RuntimeError):
+    """Analist 'Durdur' ile CLI süreci öldürüldü — hata değil, kasıtlı iptal."""
+
+
+def cli_proc_durdur(thread_ident: int | None) -> bool:
+    """Belirtilen worker thread'inde çalışan claude CLI sürecini process-grubuyla sonlandırır.
+    True → bir süreç bulunup öldürüldü. Fail-safe."""
+    if thread_ident is None:
+        return False
+    with _cli_lock:
+        p = _CLI_PROC_REG.get(thread_ident)
+    if not (p and p.poll() is None):
+        return False
+    try:
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except Exception:
+        try:
+            p.terminate()
+        except Exception:
+            return False
+    logger.info("Görev analizi CLI süreci durduruldu (analist).")
+    return True
+
+
+def cli_tum_durdur() -> int:
+    """Kayıtlı TÜM çalışan claude CLI süreçlerini process-grubuyla öldürür → öldürülen sayısı.
+    run.py subprocess'i SIGTERM/SIGINT aldığında (ör. _surec_durdur killpg) kendi claude çocuğunu
+    bununla öldürür; start_new_session ile çocuk ayrı gruba düştüğü için killpg(run.py) ona ulaşmaz."""
+    with _cli_lock:
+        procs = list(_CLI_PROC_REG.values())
+    n = 0
+    for p in procs:
+        try:
+            if p and p.poll() is None:
+                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                n += 1
+        except Exception:
+            try:
+                p.terminate()
+            except Exception:
+                pass
+    return n
+
+
+def _cli_calistir(cmd: list, tam_prompt: str, cli_env: dict, timeout: int = 1200):
+    """subprocess.run yerine killable Popen — çalışan süreci thread-keyed registry'ye yazar
+    ki 'Durdur' killpg edebilsin. subprocess.CompletedProcess döndürür (çağıran değişmeden çalışır).
+    Signal ile öldürülürse (negatif returncode) DurdurulduError fırlatır."""
+    tid = threading.get_ident()
+    proc = subprocess.Popen(
+        cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, env=cli_env, start_new_session=True,
+    )
+    with _cli_lock:
+        _CLI_PROC_REG[tid] = proc
+    try:
+        out, err = proc.communicate(input=tam_prompt, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            proc.kill()
+        try:
+            proc.communicate(timeout=5)
+        except Exception:
+            pass
+        raise
+    finally:
+        with _cli_lock:
+            _CLI_PROC_REG.pop(tid, None)
+    if proc.returncode is not None and proc.returncode < 0:
+        # Sinyalle sonlandırıldı → analist 'Durdur' (veya dış kill). Hata sayma, iptal say.
+        raise DurdurulduError("Görev analizi analist tarafından durduruldu.")
+    return subprocess.CompletedProcess(cmd, proc.returncode, out or "", err or "")
+
+
 def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | None = None) -> str:
     claude_yolu = _claude_yolu_bul()
     if not claude_yolu:
@@ -3102,13 +3188,9 @@ def _api_cagri_cli(sistem: str, mesajlar: list, canli_uygulama_kapsami: str | No
     # --model DAİMA açıkça geçilir → Claude Code'un varsayılan (ör. Fable) modeli KULLANILMAZ.
     _aktif_model = aktif_cli_model()   # canlı okuma → arayüzden değişince restart gerekmez
     _model_args = ["--model", _aktif_model] if _aktif_model else []
-    proc = subprocess.run(
+    proc = _cli_calistir(
         [claude_yolu, "-p", "--output-format", "json", *_model_args, *_live_args, *_analiz_mcp_args],
-        input=tam_prompt,
-        capture_output=True,
-        text=True,
-        timeout=1200,
-        env=cli_env,
+        tam_prompt, cli_env, timeout=1200,
     )
     if proc.returncode != 0:
         # stdout JSON ise içinden okunabilir mesaj çıkar (429 limit, billing vb.)

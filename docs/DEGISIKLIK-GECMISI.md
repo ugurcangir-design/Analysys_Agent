@@ -21,6 +21,16 @@
   açıklama + analist notu) cevap/düzeltme turları arasında değişmez → refs breakpoint'ine ek olarak
   görev bloğuna da `cache_control` konur; cevap turlarında görev içeriği cache'ten okunur (sistem+refs+
   görev = 3 breakpoint, Anthropic tavanı 4). CLI modu cache_control'ü yok sayar (API modu kazanır).
+- **Madde 4 — gerçek "Durdur" (görev analizi hard-kill)** ✅: görev analizi arka plan thread'inde
+  çalışıyor; içindeki `claude -p` çağrısı önceden bloklu `subprocess.run`'dı → 'Durdur' bayrağı konsa da
+  süren AI çağrısı token yakarak tamamlanana dek sürüyordu. Artık `base._cli_calistir` killable Popen
+  (`start_new_session=True` → torunlarla ayrı grup) + thread-keyed registry (`_CLI_PROC_REG`);
+  `cli_proc_durdur(tid)` o worker'ın CLI sürecini killpg eder. `/api/jira/gorev/is/durdur` worker
+  thread ident'i üzerinden ANINDA öldürür (`cli_oldurdu` döner); worker `DurdurulduError`'ı iptal olarak
+  işler (hata değil). **Regresyon önlemi:** `start_new_session` claude'u run.py grubundan çıkardığından
+  `_surec_durdur`'un killpg(run.py)'ı artık claude'a ulaşmaz → run.py'ye SIGTERM/SIGINT handler eklendi,
+  `cli_tum_durdur()` ile kendi claude çocuğunu öldürüp çıkar (entegrasyon testiyle doğrulandı). API modu:
+  HTTP çağrısı kesilemez, iptal bayrağı sonraki adımları durdurur.
 
 ## UI v3 — yeniden tasarım + ekran/menü düzeni (YALNIZ v2) ✅
 - **Görsel dil:** slate + indigo palet (koyu/açık tema), Space Grotesk başlık, yüksek kontrast, 10px köşe;

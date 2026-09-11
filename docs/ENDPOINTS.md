@@ -55,7 +55,7 @@ POST /api/jira/gorev/is/baslat     ARKA PLAN iş başlat: {adimlar:[{key, mode:a
                                    iliskili_keys?, onceki_sorular?, markdown?, talimat?, gorev?}]} → thread; {ok, job}. Panel kapansa/geçilse de sürer.
                                    `onceki_sorular` (cevaplar ile) → soru YAKINSAMASI: cevaplanan sorular tekrar sorulmaz.
 GET  /api/jira/gorev/is/durum      ?job=<id> → {durum:calisiyor|bitti|durduruldu, aktif_key, aktif_index, toplam, sonuclar{}}
-POST /api/jira/gorev/is/durdur     {job} → kalan adımlar çalışmaz (o an süren AI çağrısı sunucuda biter, sonucu atılır)
+POST /api/jira/gorev/is/durdur     {job} → kalan adımlar çalışmaz + o an süren claude CLI süreci ANINDA öldürülür (killpg, madde 4) → {ok, cli_oldurdu}
 POST /api/jira/gorev/duzelt        İteratif düzelt (önizleme, YAZMAZ): {gorev, markdown, talimat} → yalnız ilgili kısmı
                                    düzeltilmiş tam analiz (HTML prototip 'sohbetle düzelt' deseninin görev karşılığı)
 POST /api/jira/gorev/guncelle      Onaydan sonra görev description'ını Jira'da güncelle (markdown→ADF)

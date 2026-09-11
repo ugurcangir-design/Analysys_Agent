@@ -3747,11 +3747,16 @@ def _gorev_is_calistir(job_id: str) -> None:
     from skills.jira_gorevleri import (gorev_analiz_et, gorev_analiz_duzelt,
                                        gorev_standart_formatla, gorev_getir)
     from skills.base import USE_CLAUDE_CLI, aktif_cli_model, MODEL_ANALIZ
+    from skills.base import DurdurulduError as _DurdurulduError
     _model = aktif_cli_model() if USE_CLAUDE_CLI else MODEL_ANALIZ
     _ai_modu = "cli" if USE_CLAUDE_CLI else "api"
     job = _gorev_isler.get(job_id)
     if not job:
         return
+    # Gerçek 'Durdur' (madde 4): worker thread ident'i kaydet ki Durdur endpoint'i o an süren
+    # claude CLI sürecini killpg edebilsin (yoksa AI çağrısı token yakarak tamamlanana dek sürerdi).
+    with _gorev_is_lock:
+        job["worker_tid"] = threading.get_ident()
     for i, adim in enumerate(job["adimlar"]):
         with _gorev_is_lock:
             if job.get("iptal"):
@@ -3791,6 +3796,14 @@ def _gorev_is_calistir(job_id: str) -> None:
             _telemetri_olay("gorev_analiz", "ok", int((time.time() - _bas) * 1000),
                             model=_model, ai_modu=_ai_modu, baglam={"gorev": key, "islem": adim.get("mode", "analiz")},
                             token_bas=_tbas)
+        except _DurdurulduError:
+            # Analist 'Durdur' → süren claude CLI öldürüldü. Hata sayma; işi durdur, döngüyü kır.
+            logger.info("Görev analizi durduruldu (analist) — adım %s yarıda kesildi.", key)
+            with _gorev_is_lock:
+                job["iptal"] = True
+                job["durum"] = "durduruldu"
+                job["aktif_key"] = None
+            return
         except Exception as e:
             logger.error("Görev iş adımı hatası (%s): %s", key, e)
             with _gorev_is_lock:
@@ -3858,8 +3871,9 @@ def jira_gorev_is_durum():
 
 @app.route("/api/jira/gorev/is/durdur", methods=["POST"])
 def jira_gorev_is_durdur():
-    """İşi durdur — kalan adımlar çalışmaz. NOT: o an süren AI çağrısı sunucuda tamamlanana kadar
-    sürebilir (sonucu atılır); tam süreç-öldürme ayrı iş."""
+    """İşi durdur — kalan adımlar çalışmaz VE o an süren claude CLI süreci killpg ile ANINDA öldürülür
+    (madde 4: gerçek Durdur; token yakmayı hemen keser). CLI modunda süreç öldürülür; API modunda
+    çağrı kesilemez ama iptal bayrağıyla sonraki adımlar çalışmaz."""
     data = request.get_json(silent=True) or {}
     job = _gorev_isler.get((data.get("job") or "").strip())
     if not job:
@@ -3868,7 +3882,15 @@ def jira_gorev_is_durdur():
         job["iptal"] = True
         if job["durum"] == "calisiyor":
             job["durum"] = "durduruldu"
-    return jsonify({"ok": True})
+        _tid = job.get("worker_tid")
+    # O an süren claude CLI alt-sürecini process-grubuyla öldür (varsa).
+    oldurdu = False
+    try:
+        from skills.base import cli_proc_durdur
+        oldurdu = cli_proc_durdur(_tid)
+    except Exception:
+        pass
+    return jsonify({"ok": True, "cli_oldurdu": oldurdu})
 
 
 @app.route("/api/jira/gorev/formatla", methods=["POST"])

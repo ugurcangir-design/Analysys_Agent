@@ -11,6 +11,7 @@ Kullanım:
 """
 
 import os
+import signal
 import sys
 import time
 import traceback
@@ -18,6 +19,24 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
+
+
+def _durdur_sinyali(signum, frame):
+    """SIGTERM/SIGINT (ör. app._surec_durdur killpg) → çalışan claude CLI çocuğunu öldür, sonra çık.
+    claude start_new_session ile ayrı gruba düştüğü için killpg(run.py) ona ulaşmaz; elle öldürülür (madde 4)."""
+    try:
+        from skills.base import cli_tum_durdur
+        cli_tum_durdur()
+    except Exception:
+        pass
+    os._exit(143)
+
+
+try:
+    signal.signal(signal.SIGTERM, _durdur_sinyali)
+    signal.signal(signal.SIGINT, _durdur_sinyali)
+except Exception:
+    pass
 
 import workflow
 from workflow import Durum
