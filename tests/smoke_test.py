@@ -88,6 +88,9 @@ kontrol("saglik disk_temizlik alanı", "disk_temizlik" in json_al(istemci.get("/
 ot = json_al(istemci.get("/api/oturum"))
 kontrol("oturum aktif alanı var (idle → False)", "aktif" in ot and ot.get("aktif") is False)
 kontrol("settings cli_hesap alanı var", "cli_hesap" in json_al(istemci.get("/api/settings")))
+cf = json_al(istemci.get("/api/context-filter"))
+kontrol("context-filter parola maskeli (browser'a sızmıyor)",
+        "password" not in cf.get("live_app_auth", {}) and "has_password" in cf.get("live_app_auth", {}))
 _sm = importlib.import_module("skills.sorular")
 kontrol("sorular: tombstone fonksiyonları", hasattr(_sm, "tumunu_sil") and hasattr(_sm, "_tombstone_ekle"))
 

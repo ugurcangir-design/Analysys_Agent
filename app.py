@@ -3240,13 +3240,17 @@ def context_filter_oku():
             data.setdefault("live_app_auth", {"username": "", "password": ""})
             data.setdefault("ozel_prompt", {"surec": "", "teknik": ""})
             data.setdefault("gorev_analist_notu", "")
+            # GÜVENLİK: canlı-uygulama parolasını TARAYICIYA GÖNDERME — maskele (yalnız "kayıtlı mı").
+            _la = data.get("live_app_auth") or {}
+            data["live_app_auth"] = {"username": str(_la.get("username", "")).strip(),
+                                     "has_password": bool(str(_la.get("password", "")).strip())}
             return jsonify(data)
         except Exception:
             pass
     return jsonify({"keywords": [], "jira_keys": [], "confluence_pages": [],
                      "live_app": {"target_url": "", "extra_urls": [], "use_as_sample": False},
                      "live_app_gorev": {"target_url": ""},
-                     "live_app_auth": {"username": "", "password": ""},
+                     "live_app_auth": {"username": "", "has_password": False},
                      "ozel_prompt": {"surec": "", "teknik": ""}})
 
 
@@ -3405,7 +3409,11 @@ def context_filter_kaydet():
         },
         "live_app_auth": {
             "username": str(live_app_auth.get("username", "")).strip(),
-            "password": str(live_app_auth.get("password", "")).strip(),
+            # GÜVENLİK: parola BOŞ gelirse mevcut korunur (maskeli UI'dan gelen boş değer silmesin);
+            # `sifre_temizle` bayrağı gelirse AÇIKÇA boşaltılır (Temizle butonu).
+            "password": "" if data.get("sifre_temizle") else
+                        (str(live_app_auth.get("password", "")).strip()
+                         or str((mevcut.get("live_app_auth") or {}).get("password", "")).strip()),
         },
         "ozel_prompt": {
             "surec": str(ozel_prompt.get("surec", "")).strip(),

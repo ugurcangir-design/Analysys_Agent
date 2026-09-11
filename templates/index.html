@@ -8343,13 +8343,17 @@ async function ctxFilterYukle() {
       el.value = (d.live_app?.extra_urls || [])[i] || '';
     });
     document.getElementById('ctx-live-username').value = d.live_app_auth?.username || '';
-    document.getElementById('ctx-live-password').value = d.live_app_auth?.password || '';
+    // GÜVENLİK: parola sunucudan GELMEZ (maskeli). Kayıtlıysa placeholder göster, değeri boş bırak —
+    // yalnız YENİ parola yazılırsa kaydedilir; boş bırakınca mevcut korunur.
+    const _pw = document.getElementById('ctx-live-password');
+    _pw.value = '';
+    _pw.placeholder = d.live_app_auth?.has_password ? '•••••••• (kayıtlı — değiştirmek için yazın)' : 'Şifre';
     // Katlanmış bölümler: içlerinde kayıtlı değer varsa otomatik AÇIK gelsin —
     // dolu alan gizli kalırsa analist "kayboldu" sanır (özellik kaybı algısı).
     const urlsDetails = document.getElementById('ctx-more-urls');
     if (urlsDetails && (d.live_app?.extra_urls || []).length) urlsDetails.open = true;
     const authDetails = document.getElementById('ctx-more-auth');
-    if (authDetails && (d.live_app_auth?.username || d.live_app_auth?.password)) authDetails.open = true;
+    if (authDetails && (d.live_app_auth?.username || d.live_app_auth?.has_password)) authDetails.open = true;
     ctxSampleToggle(d.live_app?.use_as_sample === true);
     updateCtxBadge();
   } catch {}
@@ -8381,7 +8385,7 @@ async function ctxFilterTemizle() {
     body: JSON.stringify({
       keywords:[], jira_keys:[], confluence_pages:[],
       live_app:{target_url:'', extra_urls:[], use_as_sample:false, gozlem_kapsami:''},
-      live_app_auth:{username:'', password:''},
+      live_app_auth:{username:'', password:''}, sifre_temizle:true,   // parolayı da AÇIKÇA temizle
     })
   });
   if (r.ok) {
