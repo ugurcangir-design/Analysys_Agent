@@ -194,7 +194,14 @@ GET  /api/disk/durum   owner — {dosya_sistemi, plan{adaylar[],adet,toplam_mb} 
 POST /api/disk/temizle owner — planı uygular; analiz sürüyorsa 409. {silinen, kazanilan_mb, hata[]}
 GET  /api/jira-kopru/durum owner — {ok, ayarlar{aktif,aralik_sn,pencere_dk,projeler,komut,yazar_allowlist}, son_tur, son_ozet, islenen_toplam}
 POST /api/jira-kopru/tara  owner — elle tek tur (komutlu yeni yorumları hemen tara/işle); analiz sürüyorsa 409, projesiz ok:False. {ok, taranan_task, islenen[], atlanan, hata[]}
+GET  /api/jira-kopru/liste owner — Agent UI: köprü analizleri {ok, kayitlar[{key,zaman,acik,acik_var,taslak_var,taslak_tip}], aktif, komut}. 0 token
+POST /api/jira-kopru/is    owner — köprü komutunu arka planda çalıştır {komut,key,arg} → {job_id}; geçersiz komut/key 400 (Agent UI kanalı = jira_kopru.ui_komut, Jira'ya da yazar)
+GET  /api/jira-kopru/is/<job_id> owner — köprü işi durumu/sonucu (polling): {ok, durum(calisiyor|bitti|hata), key, komut, sonuc, hata}
 ```
+**Agent UI kanalı** (`screens/kopru.html`, nav "Jira Köprüsü", owner): açık sorular arayüzde de görünür, oradan
+cevaplanıp (Cevapla&Devam) analiz sürdürülür — Jira yorumu (`/analyst_agent …`) ile **aynı beyin**
+(`jira_kopru.ui_komut` → `_komut_uygula` + `jira_yorum_ekle`, `_TUR_LOCK` ile döngüyle serileşir). Uzun işler
+(analiz/cevap) arka plan işi + polling (`_kopru_isler`).
 **Jira Köprüsü:** `skills/jira_kopru.py` — Jira task YORUMUNA `/analyst_agent analiz` yazılınca app JQL taramasıyla
 (`_jira_kopru_dongusu`, `JIRA_KOPRU=false` ile KAPALI vars.) bulur → `gorev_getir` + `gorev_analiz_et` → sonucu Jira
 YORUMU olarak yazar (`jira_yorum_ekle`, canonical `atlassian_post`). Inbound/webhook GEREKMEZ (polling + OAuth).

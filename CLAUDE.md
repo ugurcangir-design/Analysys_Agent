@@ -163,8 +163,11 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   steering `analiz <talimat>`. (Ekran akışları `ekran_baglami=True` ile aynen korunur.) **Korkuluk:** yorum=KOMUT ·
   YENİ task açma yalnız `onayla` sonrası · çift-uygulama önlemi · eşzamanlı `_TUR_LOCK` · döngü koruması (kendi
   `🤖` yanıtı prefiksle başlamaz + işlenen yorum id'leri `output/jira-kopru/durum.json`) · `JIRA_KOPRU_YAZAR_ALLOWLIST`.
-  Env: `JIRA_KOPRU_PROJELER` (zorunlu) / `_ARALIK` / `_PENCERE_DK` / `_KOMUT`. Test: `tests/test_jira_kopru.py`
-  (offline durum-makinesi, 0 token). Tam uç dökümü → `docs/ENDPOINTS.md` "Jira Köprüsü".
+  Env: `JIRA_KOPRU_PROJELER` (zorunlu) / `_ARALIK` / `_PENCERE_DK` / `_KOMUT`. **Agent UI kanalı** (2. kanal):
+  `screens/kopru.html` (nav "Jira Köprüsü", owner) — açık sorular arayüzde de görünür, oradan cevaplanıp analiz
+  sürdürülür; Jira yorumu ile AYNI beyin (`jira_kopru.ui_komut`→`_komut_uygula`+`jira_yorum_ekle`, `_TUR_LOCK`);
+  `GET /api/jira-kopru/liste` + arka plan iş `POST /api/jira-kopru/is`→`GET /api/jira-kopru/is/<id>` (`_kopru_isler`).
+  Test: `tests/test_jira_kopru.py` (offline durum-makinesi, 0 token). Tam uç dökümü → `docs/ENDPOINTS.md` "Jira Köprüsü".
 
 ## Komutlar
 - Kurulum: `bash setup.sh` · Başlat: `./start.sh` (veya Analyst Studio.app)
