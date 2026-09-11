@@ -111,6 +111,13 @@ kontrol("context-filter parola maskeli (browser'a sızmıyor)",
         "password" not in cf.get("live_app_auth", {}) and "has_password" in cf.get("live_app_auth", {}))
 _sm = importlib.import_module("skills.sorular")
 kontrol("sorular: tombstone fonksiyonları", hasattr(_sm, "tumunu_sil") and hasattr(_sm, "_tombstone_ekle"))
+# Numaralı liste açık soruları (yapısal format yoksa fallback) — analist geri bildirimi
+_ls = _sm._parse_liste_sorulari("## 5. Açık Sorular\n1. X mi çalışıyor?\n2. Y neden null?\n\n## 6. Sonraki\n", "teknik-analiz.md")
+kontrol("sorular: numaralı liste fallback (2 soru)", len(_ls) == 2 and _ls[0]["id"] == "Q-001" and "null" in _ls[1]["soru"])
+_pp = Path(tempfile.mktemp(suffix=".md"))
+_pp.write_text("### Q-T-001: Başlık\n- Soru: Z?\n## Açık Sorular\n1. bambaşka\n", encoding="utf-8")
+kontrol("sorular: yapısal varsa numaralı fallback devreye girmez",
+        [s["id"] for s in _sm.parse_md_sorular(_pp)] == ["Q-T-001"])
 
 # ── Faz 4: analist-dostu hata mesajları (deterministik sınıflandırma) ──
 _ht = importlib.import_module("skills.hatalar")

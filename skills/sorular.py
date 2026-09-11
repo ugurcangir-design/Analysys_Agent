@@ -127,12 +127,52 @@ def _parse_tablo_sorulari(metin: str, dosya_adi: str) -> list[dict]:
     return sonuc
 
 
+# "Açık Sorular" başlığı + altındaki NUMARALI liste — bazı analizler (ve özel
+# promptlar) soruları `### Q-XXX` / `| Q-XXX |` yerine düz numaralı liste olarak
+# üretiyor ("## 5. Açık Sorular\n1. ...\n2. ..."). Yapısal format bulunamazsa bu
+# fallback devreye girer → sorular yine de yakalanıp cevaplanabilir.
+_ACIK_BASLIK = re.compile(r"^#{1,6}[^\n]*[Aa]ç[ıİIi]k\s+[Ss]oru", re.MULTILINE)
+_NUM_ITEM = re.compile(r"^\s{0,3}(\d{1,3})[.)]\s+(.+?)\s*$", re.MULTILINE)
+
+
+def _parse_liste_sorulari(metin: str, dosya_adi: str) -> list[dict]:
+    """"Açık Sorular" başlığı altındaki NUMARALI liste öğelerini soru olarak yakalar.
+    Yapısal (### / tablo) format YOKKEN fallback. ID yoksa sıra numarasından türetilir
+    (Q-001…); merge (id, kaynak_dosya) ile anahtarladığından dosyalar arası çakışmaz."""
+    hm = _ACIK_BASLIK.search(metin)
+    if not hm:
+        return []
+    blok_bas = metin.find("\n", hm.start())
+    if blok_bas == -1:
+        return []
+    sonraki = re.search(r"^#{1,6}\s", metin[blok_bas + 1:], re.MULTILINE)
+    blok = metin[blok_bas + 1: blok_bas + 1 + sonraki.start()] if sonraki else metin[blok_bas + 1:]
+    sonuc = []
+    for i, m in enumerate(_NUM_ITEM.finditer(blok), start=1):
+        ham = m.group(2).strip()
+        if not ham:
+            continue
+        qid_m = re.match(r"^(Q-[A-Za-z0-9-]+|PO-\d+)\b\s*[:.\-)]?\s*(.*)", ham)
+        if qid_m and qid_m.group(2).strip():
+            sid, soru = qid_m.group(1), qid_m.group(2).strip()
+        else:
+            sid, soru = f"Q-{i:03d}", ham
+        sonuc.append({
+            "id": sid, "kaynak_dosya": dosya_adi,
+            "baslik": soru[:80], "kategori": "", "katman": "",
+            "oncelik": "", "bagli_id": "", "soru": soru,
+            "mevcut_durum": "", "beklenen_yanit": "", "sorumlu": "", "etki": "",
+        })
+    return sonuc
+
+
 def parse_md_sorular(md_yol: Path) -> list[dict]:
     """Bir .md dosyasından yapılandırılmış soru bloklarını çıkarır.
 
-    İki format destekler:
+    Üç format destekler (öncelik sırasıyla):
     1. Yapılandırılmış blok: `### Q-T-001: Başlık` (teknik analiz, BRD soruları)
     2. Tablo satırı: `| Q-001 | ...` (süreç analizi Bölüm 12)
+    3. FALLBACK — "Açık Sorular" başlığı altında düz NUMARALI liste (yapısal yoksa)
 
     Aynı id iki formatta varsa blok formatı kazanır (daha zengin veri).
     """
@@ -179,6 +219,12 @@ def parse_md_sorular(md_yol: Path) -> list[dict]:
     for tablo_soru in _parse_tablo_sorulari(metin, md_yol.name):
         if tablo_soru["id"] not in gorulen_idler:
             sonuc.append(tablo_soru)
+            gorulen_idler.add(tablo_soru["id"])
+
+    # 3) FALLBACK — yapısal (blok/tablo) HİÇ soru bulunamadıysa, "Açık Sorular"
+    # başlığı altındaki numaralı listeyi yakala (özel prompt / model sapması).
+    if not sonuc:
+        sonuc = _parse_liste_sorulari(metin, md_yol.name)
 
     return sonuc
 

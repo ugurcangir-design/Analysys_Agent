@@ -401,6 +401,11 @@ Doküman yüklemeden, **mevcut** Jira Epic/Story altındaki görevleri çekip tr
   **Onayla** → `gorev_jiraya_yaz` Jira description'ı ÜZERİNE YAZAR (atlassian_put + markdown_to_adf; HTML yorumları silinir).
 
 Soru Defteri durumları: `acik / bekleniyor / cevaplandi / atlandi / varsayim` (kalıcı `output/sorular.json`, atomik).
+**Parse formatları (`parse_md_sorular`, öncelik sırasıyla):** (1) `### Q-T-001:` yapısal blok, (2) `| Q-001 |`
+tablo satırı, (3) **fallback** — yapısal HİÇ soru yoksa `_parse_liste_sorulari`: "Açık Sorular" başlığı altındaki
+düz NUMARALI liste (`1. …`) soruları yakalar, ID yoksa sıra numarasından türetir (`Q-001…`; merge (id,kaynak_dosya)
+ile anahtarladığından dosyalar arası çakışmaz). Analiz açık soruları numaralı liste ürettiğinde (özel prompt/model
+sapması) "Sorular" sekmesi artık boş kalmaz. Yapısal format varsa fallback TETİKLENMEZ (regresyon yok).
 
 ## Canlı Uygulama (Chrome MCP) — ekran + servis gözlemi
 Bağlam filtresinde `live_app.target_url` (+ en fazla 5 `extra_urls`) doluysa süreç/teknik analiz
