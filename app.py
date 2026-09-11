@@ -2137,6 +2137,72 @@ def jira_kopru_tara():
         return jsonify({"ok": False, "error": str(e)}), 400
 
 
+# ─── Jira Köprüsü — Agent UI kanalı (açık soruları arayüzden cevapla) ─────────
+# Tek beyin, iki kanal: Jira yorumu (/analyst_agent …) ve bu UI aynı jira_kopru.ui_komut'u
+# çağırır. Analiz/cevap uzun (AI) → arka plan işi + polling (Task Analizi deseni).
+_kopru_isler: dict = {}          # job_id → durum sözlüğü (son 24 tutulur)
+
+
+def _kopru_is_calistir(job_id: str) -> None:
+    from skills import jira_kopru
+    job = _kopru_isler.get(job_id)
+    if not job:
+        return
+    try:
+        r = jira_kopru.ui_komut(job["komut"], job["key"], job.get("arg", ""))
+        job["sonuc"] = r
+        job["durum"] = "bitti" if r.get("ok") else "hata"
+        if not r.get("ok"):
+            job["hata"] = r.get("error")
+    except Exception as e:
+        job["durum"] = "hata"
+        job["hata"] = str(e)
+
+
+@app.route("/api/jira-kopru/liste", methods=["GET"])
+@admin_gerekli
+def jira_kopru_liste():
+    """Köprü analizleri (key · zaman · açık sorular · bekleyen taslak). 0 token."""
+    from skills import jira_kopru
+    return jsonify(jira_kopru.liste())
+
+
+@app.route("/api/jira-kopru/is", methods=["POST"])
+@admin_gerekli
+def jira_kopru_is_baslat():
+    """Köprü komutunu (analiz/cevap/düzelt/güncelle/ilişkili-aç/onayla/iptal) arka planda
+    çalıştırır (uzun; AI). {job_id} döner → /api/jira-kopru/is/<job_id> ile polling."""
+    from skills import jira_kopru
+    d = request.get_json(silent=True) or {}
+    komut = (d.get("komut") or "").strip().lower()
+    key = (d.get("key") or "").strip().upper()
+    arg = (d.get("arg") or "").strip()
+    if komut not in jira_kopru._UI_KOMUTLAR:
+        return jsonify({"ok": False, "error": f"Geçersiz komut: {komut}"}), 400
+    if not jira_kopru._ID_DESENI.match(key):
+        return jsonify({"ok": False, "error": f"Geçersiz Jira anahtarı: {key}"}), 400
+    job_id = uuid.uuid4().hex[:12]
+    _kopru_isler[job_id] = {"durum": "calisiyor", "key": key, "komut": komut, "arg": arg,
+                            "sonuc": None, "hata": None, "zaman": time.time()}
+    # bellek sınırı: son 24 iş
+    if len(_kopru_isler) > 24:
+        for eski in sorted(_kopru_isler, key=lambda j: _kopru_isler[j]["zaman"])[:-24]:
+            _kopru_isler.pop(eski, None)
+    threading.Thread(target=_kopru_is_calistir, args=(job_id,), daemon=True, name=f"kopru-{job_id}").start()
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.route("/api/jira-kopru/is/<job_id>", methods=["GET"])
+@admin_gerekli
+def jira_kopru_is_durum(job_id):
+    """Köprü işi durumu/sonucu (polling)."""
+    job = _kopru_isler.get(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "iş bulunamadı"}), 404
+    return jsonify({"ok": True, "durum": job["durum"], "key": job["key"], "komut": job["komut"],
+                    "sonuc": job.get("sonuc"), "hata": job.get("hata")})
+
+
 @app.route("/api/pano", methods=["GET"])
 def pano_ozet():
     """Rol-duyarlı Ana Sayfa özeti (HERKES): analistin sırada ne yapacağı — bekleyen onay adımı,

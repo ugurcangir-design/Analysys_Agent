@@ -1,0 +1,143 @@
+    <!-- EKRAN: Jira Köprüsü — açık soruları AGENT UI'ından da cevapla/analizi sürdür.
+         Tek beyin, iki kanal: Jira yorumu (/analyst_agent …) ve bu ekran aynı
+         backend'i (jira_kopru.ui_komut) çağırır. Uzun işler arka planda + polling.
+         Owner-only (admin_gerekli). Backend: /api/jira-kopru/liste|is|is/<id>. -->
+    <div class="page" id="page-kopru">
+      <div class="ph">
+        <div class="ph-text">
+          <h1>Jira Köprüsü</h1>
+          <p>Jira task'larını buradan analiz et, açık soruları cevapla, analizi sürdür — Jira yorumlarıyla (<code>/analyst_agent</code>) aynı beyin.</p>
+        </div>
+        <div class="ph-actions">
+          <input id="kopru-key" class="ds-inp" placeholder="MBSTRADE-1234" style="width:150px;text-transform:uppercase">
+          <input id="kopru-talimat" class="ds-inp" placeholder="(ops.) analiz talimatı" style="width:190px">
+          <button class="btn btn-primary btn-sm" onclick="kopruIs('analiz')">Analiz Et</button>
+          <button class="btn btn-outline btn-sm" onclick="kopruYukle()">Yenile</button>
+        </div>
+      </div>
+
+      <div id="kopru-durum" class="ds-hint" style="margin-bottom:10px"></div>
+
+      <div id="kopru-proc" class="panel" style="display:none;margin-bottom:12px">
+        <div class="panel-head"><span class="panel-title">İşlem</span><span class="panel-spacer"></span>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('kopru-proc').style.display='none'">Kapat</button></div>
+        <div class="panel-body" id="kopru-proc-body" style="white-space:normal"></div>
+      </div>
+
+      <div id="kopru-liste"></div>
+    </div>
+
+    <style>
+      .kopru-acik pre { white-space:pre-wrap; word-break:break-word; background:var(--surface2); border:1px solid var(--border);
+        border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.5; max-height:320px; overflow:auto; margin:8px 0; }
+      .kopru-acik textarea { width:100%; margin:4px 0 8px; }
+      .kopru-actions .ds-inp { padding:5px 10px; }
+    </style>
+
+    <script>
+    let _kopruPoll = null;
+
+    function _kopruEsc(s){ return String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    function _kopruMd(s){
+      return _kopruEsc(s).replace(/\n/g,'<br>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    }
+
+    async function kopruYukle(){
+      const el = document.getElementById('kopru-liste');
+      try {
+        const r = await fetch('/api/jira-kopru/liste');
+        const d = await r.json();
+        const du = document.getElementById('kopru-durum');
+        du.innerHTML = d.aktif
+          ? `<span class="i">i</span>Köprü açık · komut <code>${_kopruEsc(d.komut)}</code>. Jira yorumundan ya da buradan çalıştırabilirsiniz.`
+          : `<span class="i">!</span>Köprü KAPALI — <code>.env</code>'de <code>JIRA_KOPRU=true</code> + Yeniden Başlat. (Analizler yine burada listelenir.)`;
+        du.className = 'ds-hint';
+        if (!d.kayitlar || !d.kayitlar.length){
+          el.innerHTML = '<div class="panel"><div class="panel-body ds-hint">Henüz köprü analizi yok. Yukarıdan bir task anahtarı girip <b>Analiz Et</b>’e basın, ya da Jira’da task yorumuna <code>/analyst_agent analiz</code> yazın.</div></div>';
+          return;
+        }
+        el.innerHTML = d.kayitlar.map(kopruKart).join('');
+      } catch(e){ el.innerHTML = '<div class="panel"><div class="panel-body ds-hint">Liste alınamadı: '+_kopruEsc(e)+'</div></div>'; }
+    }
+
+    function kopruKart(k){
+      const zaman = k.zaman ? k.zaman.replace('T',' ').replace('Z','') : '';
+      const acik = k.acik_var
+        ? `<div class="kopru-acik"><b>Açık Sorular</b><pre>${_kopruEsc(k.acik)}</pre>
+             <textarea id="cev-${k.key}" class="ds-inp" rows="3" placeholder="Cevaplarınız — örn. Q-T-001: Event Name korunur, freeText destekleyici"></textarea>
+             <button class="btn btn-primary btn-sm" onclick="kopruIs('cevap','${k.key}')">Cevapla &amp; Devam Et</button>
+           </div>`
+        : '<div class="ds-hint" style="margin:2px 0 8px">✓ Açık soru yok.</div>';
+      const taslak = k.taslak_var
+        ? `<button class="btn btn-primary btn-sm" onclick="kopruIs('onayla','${k.key}')">Onayla</button>
+           <button class="btn btn-ghost btn-sm" onclick="kopruIs('iptal','${k.key}')">İptal</button>`
+        : '';
+      const taslakRozet = k.taslak_var ? `<span class="ds-chip">bekleyen taslak: ${_kopruEsc(k.taslak_tip)}</span>` : '';
+      return `<div class="panel" style="margin-bottom:12px"><div class="panel-head">
+          <span class="panel-title mono">${k.key}</span>
+          <span class="ds-panel-tag">${zaman}</span>
+          <span class="panel-spacer"></span>${taslakRozet}</div>
+        <div class="panel-body">
+          ${acik}
+          <div class="kopru-actions" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <input id="duz-${k.key}" class="ds-inp" placeholder="düzeltme talimatı (yalnız ilgili kısım)" style="width:260px">
+            <button class="btn btn-outline btn-sm" onclick="kopruIs('duzelt','${k.key}')">Düzelt</button>
+            <span class="topbar-sep" style="height:18px"></span>
+            <button class="btn btn-outline btn-sm" onclick="kopruIs('analiz','${k.key}')">Yeniden Analiz</button>
+            <button class="btn btn-outline btn-sm" onclick="kopruIs('iliskili-ac','${k.key}')">İlişkili Aç</button>
+            ${taslak}
+          </div>
+        </div></div>`;
+    }
+
+    async function kopruIs(komut, key){
+      const ustAnaliz = !key;
+      key = (key || document.getElementById('kopru-key').value.trim()).toUpperCase();
+      if (!key){ alert('Task anahtarı gerekli (örn. MBSTRADE-1234).'); return; }
+      let arg = '';
+      if (komut === 'cevap'){
+        const t = document.getElementById('cev-' + key); arg = t ? t.value.trim() : '';
+        if (!arg){ alert('Önce cevaplarınızı yazın.'); return; }
+      } else if (komut === 'duzelt'){
+        const t = document.getElementById('duz-' + key); arg = t ? t.value.trim() : '';
+        if (!arg){ alert('Düzeltme talimatını yazın.'); return; }
+      } else if (komut === 'analiz' && ustAnaliz){
+        arg = document.getElementById('kopru-talimat').value.trim();
+      }
+      const etiket = {analiz:'analiz', cevap:'cevaplara göre güncelleniyor', duzelt:'düzeltiliyor',
+                      'iliskili-ac':'ilişkili task önerileri', onayla:'onaylanıyor', iptal:'iptal', guncelle:'gövde güncelleniyor'}[komut] || komut;
+      _kopruProc(`${key} · ${etiket}…`);
+      try {
+        const r = await fetch('/api/jira-kopru/is', {method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({komut, key, arg})});
+        const d = await r.json();
+        if (!d.ok){ _kopruProcBitir('⚠ ' + (d.error || 'başlatılamadı')); return; }
+        _kopruPollDurum(d.job_id);
+      } catch(e){ _kopruProcBitir('⚠ ' + e); }
+    }
+
+    async function _kopruPollDurum(job){
+      clearTimeout(_kopruPoll);
+      try {
+        const r = await fetch('/api/jira-kopru/is/' + job);
+        const d = await r.json();
+        if (d.durum === 'calisiyor'){ _kopruPoll = setTimeout(() => _kopruPollDurum(job), 2500); return; }
+        if (d.durum === 'hata'){ _kopruProcBitir('⚠ ' + (d.hata || 'hata')); kopruYukle(); return; }
+        const s = d.sonuc || {};
+        _kopruProcBitir(s.yanit || '✓ tamamlandı');
+        kopruYukle();
+      } catch(e){ _kopruProcBitir('⚠ ' + e); }
+    }
+
+    function _kopruProc(msg){
+      const p = document.getElementById('kopru-proc');
+      document.getElementById('kopru-proc-body').innerHTML = '⏳ ' + _kopruEsc(msg);
+      p.style.display = '';
+    }
+    function _kopruProcBitir(msg){
+      document.getElementById('kopru-proc').style.display = '';
+      document.getElementById('kopru-proc-body').innerHTML = _kopruMd(msg);
+    }
+    </script>

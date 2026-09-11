@@ -2053,6 +2053,10 @@ function temaDegistir() {
         <svg class="ico"><use href="#i-refresh"/></svg>
         <span class="nav-label">UAT Mutabakat</span>
       </div>
+      <div class="nav-item" id="nav-kopru" onclick="switchTab('kopru')" style="display:none">
+        <svg class="ico"><use href="#i-ticket"/></svg>
+        <span class="nav-label">Jira Köprüsü</span>
+      </div>
 
       <div class="nav-section" data-grup="referanslar">Kaynaklar</div>
       <div class="nav-item" id="nav-referanslar" onclick="switchTab('referanslar')">
@@ -3666,6 +3670,7 @@ python cli.py ui ~/export.zip</pre>
     {% include "screens/yetki.html" %}
     {% include "screens/pano.html" %}
     {% include "screens/kod.html" %}
+    {% include "screens/kopru.html" %}
     {% include "screens/_palet.html" %}
     {% include "screens/ciktilar.html" %}
     {% include "screens/revizyon.html" %}
@@ -3759,6 +3764,7 @@ function switchTab(tab, hedefDosya) {
   if (tab === 'yetki')         ytYukle();
   if (tab === 'pano')          panoYukle();
   if (tab === 'kod')           kodYukle();
+  if (tab === 'kopru')         kopruYukle();
 }
 
 // Kılavuz iframe'i ilk açılışta yükle (lazy). Güncel kod çekilince otomatik tazelenir.
@@ -3966,6 +3972,7 @@ const _YONETIM_NAV = ['settings', 'jira-settings', 'prompts', 'update', 'kullani
 function _rolUygula(me) {
   const akRol = document.getElementById('ak-rol'); if (akRol) akRol.textContent = (me.rol === 'owner') ? 'Owner' : 'Analist';
   if (me.usage_admin) { const n = document.getElementById('nav-kullanim'); if (n) n.style.display = ''; }
+  if (me.usage_admin || me.yetki_admin) { const n = document.getElementById('nav-kopru'); if (n) n.style.display = ''; }
   if (me.yetki_admin) { const n = document.getElementById('nav-yetki'); if (n) n.style.display = ''; }
   if (me.rol === 'owner') return;
   const sec = document.querySelector('.nav-section[data-grup="settings"]'); if (sec) sec.style.display = 'none';

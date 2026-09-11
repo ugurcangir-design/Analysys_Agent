@@ -52,8 +52,9 @@ def json_al(r):
 r = istemci.get("/")
 kontrol("GET / 200", r.status_code == 200)
 govde = r.get_data(as_text=True)
-for pid in ("page-pano", "page-surec", "page-ciktilar", "page-revizyon", "page-delta", "page-yetki", "og-banner", "pl-overlay"):
+for pid in ("page-pano", "page-surec", "page-ciktilar", "page-revizyon", "page-delta", "page-yetki", "page-kopru", "og-banner", "pl-overlay"):
     kontrol(f"render {pid}", f'id="{pid}"' in govde)
+kontrol("Jira Köprüsü nav item", 'id="nav-kopru"' in govde and "kopruYukle()" in govde)
 kontrol("ds.css link", "/static/ds.css" in govde)
 kontrol("ray görünümü kapları + klasik paneller korunmuş",
         'id="surec-ray"' in govde and 'id="brd-ray"' in govde and govde.count('gorunum-klasik') >= 4
@@ -96,6 +97,10 @@ kontrol("jira-kopru/tara projesiz → ok:False (Jira'ya gitmeden)",
 _jkm = importlib.import_module("skills.jira_kopru")
 kontrol("jira_kopru: kendi 🤖 yanıtı komut sayılmaz (döngü koruması)",
         _jkm._komut_coz(_jkm.ROBOT_IMZA + " — Teknik Analiz", "/analyst_agent") is None)
+jkl = json_al(istemci.get("/api/jira-kopru/liste"))
+kontrol("jira-kopru/liste ok + kayitlar alanı", jkl.get("ok") and "kayitlar" in jkl)
+jkis = istemci.post("/api/jira-kopru/is", json={"komut": "sil", "key": "MBSTRADE-1"}, headers=ORIGIN)
+kontrol("jira-kopru/is geçersiz komut → 400", jkis.status_code == 400)
 
 # ── Oturum 'aktif' bayrağı + Ayarlar CLI hesap alanı + soru mezar-taşı ──
 ot = json_al(istemci.get("/api/oturum"))

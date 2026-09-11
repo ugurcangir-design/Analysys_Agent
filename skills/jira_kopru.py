@@ -660,5 +660,69 @@ def son_durum() -> dict:
             "islenen_toplam": len(d.get("islenen", {}))}
 
 
+# ─── Agent UI kanalı — açık soruları arayüzden de cevapla (tek beyin, iki kanal) ──
+
+_UI_KOMUTLAR = {"analiz", "cevap", "duzelt", "guncelle", "iliskili-ac", "onayla", "iptal"}
+
+
+def _acik_var(acik: str) -> bool:
+    a = (acik or "").strip().lower()
+    return bool(a) and a not in ("açık soru tespit edilmedi.", "acik soru tespit edilmedi.")
+
+
+def liste() -> dict:
+    """Agent UI için köprü analizlerini listeler (0 token) — key · son analiz zamanı ·
+    açık sorular · bekleyen ilişkili taslak. En yeni önce."""
+    d = _durum_yukle()
+    son = d.get("son_analiz", {}) or {}
+    taslaklar = d.get("taslaklar", {}) or {}
+    kayitlar = []
+    for key, v in son.items():
+        acik = (v or {}).get("acik", "")
+        kayitlar.append({
+            "key": key,
+            "zaman": (v or {}).get("zaman", ""),
+            "acik": acik,
+            "acik_var": _acik_var(acik),
+            "taslak_var": key in taslaklar,
+            "taslak_tip": (taslaklar.get(key) or {}).get("tip", ""),
+        })
+    kayitlar.sort(key=lambda r: r.get("zaman", ""), reverse=True)
+    return {"ok": True, "kayitlar": kayitlar, "aktif": ayarlar()["aktif"], "komut": ayarlar()["komut"]}
+
+
+def ui_komut(komut: str, key: str, arg: str = "") -> dict:
+    """Agent UI'dan köprü komutu çalıştırır — Jira yorumuyla AYNI mantık (`_komut_uygula`),
+    ayrıca Jira'ya aynı bilgilendirme yorumunu bırakır (iki kanal tutarlı). Uzun sürebilir
+    (AI); app tarafında arka plan işinde çağrılmalı. `_TUR_LOCK` ile döngüyle serileşir."""
+    komut = (komut or "").strip().lower()
+    key = (key or "").strip().upper()
+    if komut not in _UI_KOMUTLAR:
+        return {"ok": False, "error": f"Geçersiz komut: {komut}"}
+    if not _ID_DESENI.match(key):
+        return {"ok": False, "error": f"Geçersiz Jira anahtarı: {key}"}
+    prefix = ayarlar()["komut"]
+    _TUR_LOCK.acquire()
+    try:
+        durum = _durum_yukle()
+        try:
+            yanit = _komut_uygula(komut, arg, key, prefix, durum)
+        except Exception as e:
+            _durum_yaz(durum)
+            return {"ok": False, "error": str(e), "key": key, "komut": komut}
+        # UI kanalı da Jira'ya aynı yorumu bıraksın (analist Jira'da da görsün)
+        try:
+            jira_yorum_ekle(key, yanit)
+        except Exception:
+            pass
+        _durum_yaz(durum)
+        acik = (durum.get("son_analiz", {}).get(key, {}) or {}).get("acik", "")
+        return {"ok": True, "key": key, "komut": komut, "yanit": yanit,
+                "acik": acik, "acik_var": _acik_var(acik),
+                "taslak_var": key in (durum.get("taslaklar", {}) or {})}
+    finally:
+        _TUR_LOCK.release()
+
+
 def _simdi() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
