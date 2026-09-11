@@ -719,7 +719,7 @@ _KATMAN_ETIKET = {"fe": "Frontend (FE)", "be": "Backend (BE)", "belirsiz": ""}
 
 
 def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = None,
-                    katman: str = "", onceki_sorular: str = "") -> dict:
+                    katman: str = "", onceki_sorular: str = "", ekran_baglami: bool = True) -> dict:
     """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
     görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
     tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
@@ -736,7 +736,11 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = Non
     # referansları topla. referans_dosyalari_hazirla() zaten load_context_filter()
     # + filtrele_referanslar() çağırıyor — atlamıyor. Burada ayrıca filtre durumunu
     # log ve çıktı meta yorumu için yakalıyoruz (analist şeffaflığı).
-    ctx = load_context_filter() or {}
+    # Jira Köprüsü (ekran_baglami=False): analiz KENDİ KENDİNE YETERLİ olmalı —
+    # ekranda kayıtlı bağlam filtresine + analist notuna BAĞLI KALMAZ (Jira'dan komut
+    # veren kişi onları göremez/değiştiremez → yanlış task'a ait filtre analizi saptırır).
+    # Bağlam yalnız task'ın kendi içeriği + komut argümanı (cevaplar). RAG filtresiz (task-güdümlü).
+    ctx = (load_context_filter() or {}) if ekran_baglami else {}
     aktif_filtreler = []
     if ctx.get("keywords"):
         aktif_filtreler.append(f"kelime:{','.join(ctx['keywords'])}")
@@ -748,7 +752,7 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = Non
     stable_bloklar: list[dict] = []
     referans_sayisi = 0
     try:
-        ref_dosyalar = referans_dosyalari_hazirla()
+        ref_dosyalar = referans_dosyalari_hazirla(ctx_override=None if ekran_baglami else {})
         referans_sayisi = len(ref_dosyalar)
         if aktif_filtreler:
             print(f"  🔍 Bağlam filtresi aktif — {' | '.join(aktif_filtreler)}")

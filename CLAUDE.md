@@ -148,6 +148,10 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   (`JIRA_KOPRU=false`; owner açar), owner-gate `/api/jira-kopru/durum|tara`.
   **Komutlar:** `analiz [talimat]` → `gorev_getir`+`gorev_analiz_et`, sonucu yorum (okuma, oto; çıktı
   `son_analiz` önbelleğine — `güncelle`/`ilişkili-aç` `_ANALIZ_TAZE_DK`=60dk içinde yeniden analiz etmez) ·
+  **KENDİ KENDİNE YETERLİ bağlam** (`gorev_analiz_et(ekran_baglami=False)`): Jira'dan komut veren kişi
+  birinin ekranındaki bağlam filtresini/analist notunu göremediğinden bridge bunları YOK SAYAR — RAG
+  filtresiz/task-güdümlü (`referans_dosyalari_hazirla(ctx_override={})`), steering yalnız task içeriği +
+  `analiz <talimat>`. (Task Analizi EKRANI davranışı `ekran_baglami=True` ile aynen korunur.) ·
   `güncelle` → analizi task açıklamasına yazmayı **önerir (taslak)** · `ilişkili-aç` → analizden ilişkili
   YENİ task'lar **önerir (taslak)** (`_iliskili_task_onerileri` AI, ≤`_MAX_ILISKILI`=5) · `onayla` → bekleyen
   taslağı UYGULAR (güncelle→`gorev_jiraya_yaz`; ilişkili-aç→`_issue_olustur` + `jira_issue_link` Relates,

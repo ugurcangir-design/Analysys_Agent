@@ -229,7 +229,7 @@ def _analiz_md_getir(key: str, arg: str, durum: dict, taze_zorla: bool = False) 
     gorev = gorev_getir(key)
     if not gorev:
         raise RuntimeError(f"`{key}` okunamadı (yetki/erişim?).")
-    md = (gorev_analiz_et(gorev, cevaplar=arg or "").get("markdown") or "").strip()
+    md = (gorev_analiz_et(gorev, cevaplar=arg or "", ekran_baglami=False).get("markdown") or "").strip()
     onbellek[key] = {"md": md, "zaman": _simdi()}
     return md, True
 
@@ -240,7 +240,7 @@ def _analiz_islet(key: str, arg: str, durum: dict) -> str:
     gorev = gorev_getir(key)
     if not gorev:
         return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı (yetki/erişim?). Analiz yapılamadı."
-    sonuc = gorev_analiz_et(gorev, cevaplar=arg or "")
+    sonuc = gorev_analiz_et(gorev, cevaplar=arg or "", ekran_baglami=False)
     md = (sonuc.get("markdown") or "").strip()
     acik = (sonuc.get("acik_sorular") or "").strip()
     durum.setdefault("son_analiz", {})[key] = {"md": md, "zaman": _simdi()}

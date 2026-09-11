@@ -2571,7 +2571,11 @@ def filtrele_referanslar(all_files: list, ctx: dict) -> list:
     return filtered
 
 
-def referans_dosyalari_hazirla() -> list[Path]:
+def referans_dosyalari_hazirla(ctx_override: dict | None = None) -> list[Path]:
+    """Referans dosyalarını (RAG) toplar. `ctx_override` verilmezse (None) ekranda
+    KAYITLI bağlam filtresi (load_context_filter) uygulanır — varsayılan davranış.
+    `{}` verilirse HİÇ filtre uygulanmaz (tüm dosyalar; task-güdümlü/bağımsız analiz —
+    Jira Köprüsü buradan yararlanır: birinin ekranındaki bayat filtreye bağlı kalmaz)."""
     uzantilar = ["*.md", "*.txt", "*.pdf", "*.html", "*.json", "*.yaml", "*.yml"]
     tum_dosyalar: list[Path] = []
     for dizin in [CONF_DIR, JIRA_REF_DIR, SERVIS_DIR, LIVE_APP_DIR]:
@@ -2585,7 +2589,7 @@ def referans_dosyalari_hazirla() -> list[Path]:
                     tum_dosyalar.append(f)
     if not tum_dosyalar:
         return []
-    ctx = load_context_filter()
+    ctx = ctx_override if ctx_override is not None else load_context_filter()
     if ctx:
         filtreli = filtrele_referanslar(tum_dosyalar, ctx)
         aktif = []

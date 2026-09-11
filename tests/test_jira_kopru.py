@@ -30,9 +30,17 @@ yazilan_aciklama: dict = {}      # key → güncellenen açıklama md
 acilan_tasklar: list = []        # oluşturulan issue'lar
 kurulan_linkler: list = []       # (inward, outward, tip)
 
+analiz_cagrilari: list = []      # gorev_analiz_et'e geçen ekran_baglami'yı yakala
+
 jk.gorev_getir = lambda key: {"key": key, "summary": f"{key} başlık", "description": "açıklama"}
-jk.gorev_analiz_et = lambda gorev, cevaplar="", **kw: {
-    "markdown": f"# Analiz {gorev['key']}\n\n(cevap arg: {cevaplar or 'yok'})", "acik_sorular": ""}
+
+
+def _sahte_analiz(gorev, cevaplar="", **kw):
+    analiz_cagrilari.append(kw.get("ekran_baglami", "YOK"))
+    return {"markdown": f"# Analiz {gorev['key']}\n\n(cevap arg: {cevaplar or 'yok'})", "acik_sorular": ""}
+
+
+jk.gorev_analiz_et = _sahte_analiz
 jk.gorev_jiraya_yaz = lambda key, md: yazilan_aciklama.__setitem__(key, md) or True
 jk._iliskili_task_onerileri = lambda md, gorev: [
     {"summary": "BE endpoint ekle", "description": "market servisi", "katman": "BE"},
@@ -59,6 +67,7 @@ durum: dict = {}
 r = jk._komut_uygula("analiz", "", "MBSTRADE-1", PFX, durum)
 kontrol("analiz yorumu üretiliyor", "Teknik Analiz" in r and "MBSTRADE-1" in r)
 kontrol("analiz çıktısı önbelleğe alındı", durum.get("son_analiz", {}).get("MBSTRADE-1", {}).get("md"))
+kontrol("bridge analizi KENDİ KENDİNE YETERLİ (ekran_baglami=False)", analiz_cagrilari[-1] is False)
 
 # ── güncelle → taslak (henüz YAZILMADI) ──────────────────────────────────────
 r = jk._komut_uygula("guncelle", "", "MBSTRADE-1", PFX, durum)
