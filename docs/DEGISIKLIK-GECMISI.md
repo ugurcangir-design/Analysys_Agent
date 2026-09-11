@@ -13,6 +13,14 @@
   toplamı), app.py in-process (`_telemetri_olay(..., token_bas=_token_bas())` → delta). `telemetri.istatistik`
   artık `token_ozet` (genel) + her analistte `token{}` döndürür (0-token deterministik özet). Gelecek maliyet
   dashboard'ının temeli.
+- **Madde 3 — getirim bütçesi + prompt-cache genişletme** ✅: (a) `MAX_CHARS_REF_GLOBAL`
+  (`.env`, varsayılan 140000) — tüm referans tiplerinin TOPLAMI için tavan. Per-tip limitler tek
+  başına 280K karakter (~70K token) getirebiliyordu; `_ref_bloklari_olustur` artık tipleri sırayla
+  (Confluence→Jira→Servis→Canlı→Diğer) global bütçe dolana dek doldurur, sonra keser (0/negatif →
+  sınırsız, eski davranış). (b) Görev analizinde ikinci cache breakpoint: görev içeriği (key/başlık/
+  açıklama + analist notu) cevap/düzeltme turları arasında değişmez → refs breakpoint'ine ek olarak
+  görev bloğuna da `cache_control` konur; cevap turlarında görev içeriği cache'ten okunur (sistem+refs+
+  görev = 3 breakpoint, Anthropic tavanı 4). CLI modu cache_control'ü yok sayar (API modu kazanır).
 
 ## UI v3 — yeniden tasarım + ekran/menü düzeni (YALNIZ v2) ✅
 - **Görsel dil:** slate + indigo palet (koyu/açık tema), Space Grotesk başlık, yüksek kontrast, 10px köşe;

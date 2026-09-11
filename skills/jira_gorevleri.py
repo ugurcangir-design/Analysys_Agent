@@ -789,6 +789,12 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = Non
             f"Not:\n{analist_notu}"
         )})
 
+    # Prompt-cache genişletme (P0 madde 3): görev içeriği (key/başlık/açıklama + analist notu) tur'lar
+    # arasında DEĞİŞMEZ; yalnız cevaplar/önceki-sorular değişir. Buraya ikinci cache breakpoint koyarak
+    # (refs breakpoint'ine ek) cevap/düzeltme turlarında görev içeriği de cache'ten okunur — her turda
+    # yeniden token ödemek yerine. Sistem(1)+refs(1)+görev(1) = 3 breakpoint (Anthropic tavanı 4).
+    icerik[-1]["cache_control"] = {"type": "ephemeral"}
+
     # Analist cevapları (opsiyonel) — modaldeki "Açık Sorular"a verilen cevaplar. Doluysa, analizi
     # bu cevaplara göre YENİDEN yaz: cevaplanan belirsizlikleri ÇÖZ, ilgili bölümü netleştir.
     cevaplar = (cevaplar or "").strip()

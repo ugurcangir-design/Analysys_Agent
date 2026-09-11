@@ -153,6 +153,13 @@ MAX_CHARS_SERVIS_TOT =  60_000   # Swagger/OpenAPI toplamı
 MAX_CHARS_LIVE_APP_TOT = 60_000   # Claude MCP/Chrome canlı uygulama gözlemi
 MAX_CHARS_DIGER_TOT  =  20_000   # Diğer referanslar toplamı
 
+# GETİRİM BÜTÇESİ (P0 madde 3) — TÜM referans tiplerinin TOPLAMI için tavan.
+# Per-tip limitler tek başına 80+60+60+60+20 = 280K karakter (~70K token) getirebilir;
+# her AI çağrısında bu ham maliyet. Global bütçe toplamı sınırlar (token/perf). Tipler
+# TIP_KONFIG sırasıyla (Confluence→Jira→Servis→Canlı→Diğer) doldurulur; bütçe dolunca kesilir.
+# .env `MAX_CHARS_REF_GLOBAL` ile ayarlanır (0/negatif → sınırsız, eski davranış).
+MAX_CHARS_REF_GLOBAL = int(os.getenv("MAX_CHARS_REF_GLOBAL", "140000"))
+
 MAX_TOKENS_UZUN     = 16_000   # süreç analizi: Confluence şablonu (AMAÇ/MOCKUP/GEREKSİNİMLER/DB/NOTLAR) + ekranlar + açık sorular +
                                # izlenebilirlik matrisi. 8K kesiliyordu.
 MAX_TOKENS_KISA     =  3_000
@@ -1881,10 +1888,18 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
 
     bloklari: list[dict] = []
     kullanilan: list[str] = []
+    # Getirim bütçesi (madde 3): tüm tipler boyunca birikimli tavan. <=0 → sınırsız.
+    global_kalan = MAX_CHARS_REF_GLOBAL if MAX_CHARS_REF_GLOBAL > 0 else None
 
     for baslik, aciklama, dosya_listesi, tip_limit, jira_modu in TIP_KONFIG:
         if not dosya_listesi:
             continue
+        if global_kalan is not None and global_kalan <= 0:
+            logger.info("Getirim bütçesi (%d) doldu — kalan referans tipleri atlandı.", MAX_CHARS_REF_GLOBAL)
+            break
+        # Bu tipin limiti global kalanın üstüne çıkamaz.
+        if global_kalan is not None:
+            tip_limit = min(tip_limit, global_kalan)
 
         metinler: list[str] = []
         toplam = 0
@@ -1929,6 +1944,9 @@ def _ref_bloklari_olustur(ref_dosyalar: list[Path]) -> tuple[list[dict], list[st
             metinler.append(f"#### {rel}\n{metin}")
             kullanilan.append(rel)
             toplam += len(metin)
+
+        if global_kalan is not None:
+            global_kalan -= toplam
 
         if metinler:
             bloklari.append({

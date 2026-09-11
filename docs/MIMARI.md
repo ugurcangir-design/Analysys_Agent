@@ -59,6 +59,8 @@ MAX_CHARS_BRD=100_000  MAX_CHARS_GENEL=30_000
 MAX_CHARS_REF=15_000   # dosya başına
 MAX_CHARS_CONF_TOT=80_000  MAX_CHARS_JIRA_TOT=60_000  MAX_CHARS_SERVIS_TOT=60_000
 MAX_CHARS_LIVE_APP_TOT=60_000  MAX_CHARS_DIGER_TOT=20_000
+MAX_CHARS_REF_GLOBAL=140_000  # GETİRİM BÜTÇESİ: tüm tiplerin TOPLAM tavanı (.env; 0=sınırsız).
+                              # _ref_bloklari_olustur tipleri sırayla doldurur, bütçe dolunca keser.
 
 # Token limitleri
 MAX_TOKENS_UZUN=16_000  (süreç analizi)   MAX_TOKENS_KISA=3_000
@@ -121,6 +123,9 @@ doğrulama/şeffaflık bilgisidir, gereksinim değildir. Her Jira yazma yolu iki
   detaylandırılır. Ham UI kaynak kodu okuma/yükleme arayüzü kaldırılmıştır.
 - **Prompt caching:** system prompt → `cache_control: ephemeral`; stable user blocks (ref+MCP hedefleri+mockup) son
   bloğa cache breakpoint; `anthropic-beta: prompt-caching-2024-07-31`. 5 dk içi tekrar ~%90 tasarruf.
+  **Görev analizinde 2. breakpoint (madde 3):** görev içeriği (key/başlık/açıklama + analist notu) cevap/düzeltme
+  turları arasında değişmez → refs breakpoint'ine ek olarak görev bloğuna da konur; cevap turlarında görev
+  içeriği cache'ten okunur (sistem+refs+görev = 3 breakpoint, tavan 4). CLI modu cache_control yok sayar.
   THINKING yolunda da aktif (`_api_cagri_direct`) — eskiden yalnızca non-thinking yol cache'liyordu,
   EXTENDED_THINKING açıkken her çağrı tam input token maliyeti ödüyordu.
 - **Tüm analiz skill'leri RAG kullanır:** `surec_analizi`, `teknik_analiz`, `brd_analizi`, `kapsam_analizi`
