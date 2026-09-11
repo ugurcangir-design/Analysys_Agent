@@ -2292,6 +2292,8 @@ function temaDegistir() {
           <div id="surec-act-onay" style="display:none">
             <div class="action-desc">Süreç analizi tamamlandı. İnceledikten sonra teknik analiz için devam edin.</div>
             <div class="mono-meta onay-baglam" id="onay-baglam-surec" style="margin:2px 0 6px;font-size:12px"></div>
+            <!-- AÇIK SORULAR — süreç onayında tek-tek cevapla (Sorular sekmesiyle aynı backend) -->
+            <div class="onay-sorular" id="onay-sorular-surec" style="display:none"></div>
             <!-- ADIM SOHBETİ — basit: yalnız bu adımın çıktısını, ID/bölüm hedefli düzelt; otomatik uygulanır -->
             <div class="mockup-gen-row" style="margin:8px 0 10px">
               <span class="mono-meta" style="white-space:nowrap">Bu adımı düzelt:</span>
@@ -2325,6 +2327,8 @@ function temaDegistir() {
             <div id="teknik-onay-review">
               <div class="action-desc">Teknik analiz oluşturuldu. İnceleyip onaylayın; gerekiyorsa bu adımı hedefli düzeltin veya süreç adımına dönün.</div>
               <div class="mono-meta onay-baglam" id="onay-baglam-teknik" style="margin:2px 0 6px;font-size:12px"></div>
+              <!-- AÇIK SORULAR — teknik onayında tek-tek cevapla (Sorular sekmesiyle aynı backend) -->
+              <div class="onay-sorular" id="onay-sorular-teknik" style="display:none"></div>
               <!-- ADIM SOHBETİ (teknik) — hedefli bölüm düzeltmesi, otomatik uygulanır -->
               <div class="mockup-gen-row" style="margin:8px 0 6px">
                 <span class="mono-meta" style="white-space:nowrap">Bu adımı düzelt:</span>
@@ -5737,6 +5741,9 @@ function updateUI(s) {
   _setVisible('surec-act-running',     surecCalis);
   _setVisible('surec-act-onay',        !!s.onay_bekleniyor);
   _setVisible('surec-act-teknik-onay', !!s.teknik_onay_bekleniyor);
+  // Onay kapısı gizliyken inline soru render bayrağını sıfırla → yeniden görününce taze çizilir
+  if (!s.onay_bekleniyor) { const k = document.getElementById('onay-sorular-surec'); if (k) k.dataset.dolu = ''; }
+  if (!s.teknik_onay_bekleniyor) { const k = document.getElementById('onay-sorular-teknik'); if (k) k.dataset.dolu = ''; }
   if (s.onay_bekleniyor || s.teknik_onay_bekleniyor) _onayBaglamYukle(s.onay_bekleniyor ? 'surec' : 'teknik');
   if (s.teknik_onay_bekleniyor) {
     const rev = document.getElementById('teknik-onay-review');
@@ -6481,8 +6488,73 @@ async function _onayBaglamYukle(adim) {
     if (so.uygulanmamis) parca.push(`<span style="color:var(--yellow)">${so.uygulanmamis} cevap analize işlenmedi</span>`);
     if (rev.length) parca.push(`<span style="color:var(--yellow)">${rev.length} bekleyen revizyon önerisi</span>`);
     el.innerHTML = 'Karar bağlamı: ' + parca.join(' · ') +
-      (so.acik ? ` · <a href="#" onclick="switchTab('output','__sorular__');return false">Sorulara git</a>` : '');
+      (so.acik ? ` · <a href="#" onclick="switchTab('output','__sorular__');return false">Sorular sekmesinde aç</a>` : '');
   } catch (e) { /* sessiz — bağlam satırı zorunlu değil */ }
+  _onaySorulariRender(adim);   // onay kapısında tek-tek cevaplama (inline)
+}
+
+// ── Onay kapısında AÇIK SORULARI tek-tek cevapla (süreç + teknik; Sorular sekmesiyle
+//    AYNI backend: /api/sorular/<id> kaydet + /api/sorular/uygula uygula). Self-contained. ──
+async function _onaySorulariRender(adim, zorla) {
+  const kap = document.getElementById('onay-sorular-' + adim);
+  if (!kap) return;
+  // Analist kutulara yazarken 15 sn'lik yenilemede ezme — bir kez render et, apply sonrası zorla tazele.
+  if (!zorla && kap.dataset.dolu === '1') return;
+  try {
+    const d = await (await fetch('/api/sorular')).json();
+    const sorular = (d.sorular || []).filter(s => (s.durum || 'acik') === 'acik' || s.durum === 'bekleniyor');
+    if (!sorular.length) { kap.style.display = 'none'; kap.innerHTML = ''; kap.dataset.dolu = ''; return; }
+    kap.style.display = '';
+    kap.dataset.dolu = '1';
+    kap.innerHTML =
+      `<div class="jg-soru-yardim" style="margin:6px 0 8px">Açık soruları burada tek tek cevaplayın; boş bıraktıklarınız <b>atlanır</b>. `
+      + `<b>Cevapları Uygula</b> → AI ilgili bölümleri günceller (30-90 sn), sonra <b>Devam Et</b>. `
+      + `Tüm aksiyonlar (Beklet/Varsayım/Atla) için “Sorular sekmesinde aç”.</div>`
+      + `<div id="onay-sorular-liste-${adim}" style="display:flex;flex-direction:column;gap:10px">`
+      + sorular.map(_onaySoruKart).join('') + `</div>`
+      + `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="_onaySorulariUygula('${adim}', this)">`
+      + `<svg class="ico"><use href="#i-play"/></svg> Cevapları Uygula</button>`;
+  } catch (e) { kap.style.display = 'none'; }
+}
+
+function _onaySoruKart(s) {
+  const onem = (typeof _oncelikRozet === 'function') ? _oncelikRozet(s.oncelik) : '';
+  const mevcut = (s.durum === 'cevaplandi' && s.cevap) ? s.cevap : (s.durum === 'varsayim' && s.varsayim) ? s.varsayim : '';
+  return `<div class="jg-soru-kart" data-qid="${escHtml(s.id)}">
+      <div><span class="jg-sk-id">${escHtml(s.id)}</span>${onem}${s.durum === 'bekleniyor' ? '<span class="jg-sk-onem">beklet</span>' : ''}</div>
+      <div class="jg-sk-soru">${escHtml(s.soru || s.baslik || s.id)}</div>
+      ${s.bagli_id ? `<div class="jg-sk-detay">Bağlı: ${escHtml(s.bagli_id)}</div>` : ''}
+      <textarea class="jg-editor jg-sk-cevap" data-id="${escHtml(s.id)}" data-kaynak="${escHtml(s.kaynak_dosya)}"
+        placeholder="Bu soruya cevabınız (boş = atla)"
+        oninput="this.closest('.jg-soru-kart').classList.toggle('cevapli', !!this.value.trim())">${escHtml(mevcut)}</textarea>
+    </div>`;
+}
+
+async function _onaySorulariUygula(adim, btn) {
+  const kap = document.getElementById('onay-sorular-liste-' + adim);
+  const dolu = kap ? [...kap.querySelectorAll('textarea[data-id]')].filter(t => t.value.trim()) : [];
+  if (!dolu.length) { toast('Önce en az bir soruyu cevaplayın (boş bıraktıklarınız atlanır)', 'info'); return; }
+  if (!confirm(`${dolu.length} cevap analiz dosyalarına işlenecek. AI ilgili bölümleri güncelleyecek (30-90 sn). Devam?`)) return;
+  const eski = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Kaydediliyor...';
+  try {
+    // 1) DOLU cevapları backend'e kaydet (Sorular sekmesiyle aynı uç)
+    for (const t of dolu) {
+      await fetch('/api/sorular/' + encodeURIComponent(t.dataset.id), {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ kaynak_dosya: t.dataset.kaynak, durum: 'cevaplandi', cevap: t.value.trim() })
+      });
+    }
+    // 2) Uygula (arka plan + poll) — mevcut mekanizma
+    btn.innerHTML = '<svg class="ico"><use href="#i-refresh"/></svg> Uygulanıyor...';
+    const r = await fetch('/api/sorular/uygula', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const d = await r.json();
+    if (!d.ok || !d.baslatildi) { toast(d.mesaj || d.error || 'Uygulanacak cevap yok', 'info'); return; }
+    const sonuc = await _sorularUygulaBekle();
+    toast(sonuc.mesaj || 'Cevaplar analize işlendi', 'success');
+    await _onaySorulariRender(adim, true);      // kalan sorular (yakınsama) — zorla tazele
+    _onayBaglamZaman = 0; _onayBaglamYukle(adim);
+  } catch (e) { toast('Hata: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = eski; }
 }
 // Teknik onayından SÜREÇ onayına geri dön — süreç analizi YENİDEN ÇALIŞMAZ, teknik dosyası korunur.
 async function surecAdiminaGeriDon() {
