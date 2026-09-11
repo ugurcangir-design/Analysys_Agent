@@ -123,6 +123,13 @@ og = jk._orijinal_gorev({"key": "MBSTRADE-9", "summary": "s",
 kontrol("gövdeye analiz yazılmışsa girdi = orijinal talep", og["description"] == "ORJ metin")
 kontrol("gövdeden analiz bölümü ayıklanır (düzelt için)",
         jk._analiz_bolumu_ayikla("## 📌 Orijinal Talep\n\nX\n\n---\n\n## 🤖 Teknik Analiz (Analyst Agent)\n\nANALİZ GÖVDESİ") == "ANALİZ GÖVDESİ")
+# Jira ADF geri-okuma: '##' başlıkları DÜŞER → marker '#'siz de eşleşmeli (gerçek hata)
+_adf = "📌 Orijinal Talep\n\nfree-text isteniyor\n\n🤖 Teknik Analiz (Analyst Agent)\n\neski analiz"
+kontrol("ADF-okuma (#'siz) orijinal ayıklama", jk._orijinal_talep_ayikla(_adf) == "free-text isteniyor")
+kontrol("ADF-okuma (#'siz) analiz bölümü ayıklama", jk._analiz_bolumu_ayikla(_adf) == "eski analiz")
+# çift '📌 Orijinal Talep' kaz-boynu → tek orijinale iner (self-heal)
+kontrol("çift orijinal başlık self-heal",
+        jk._orijinal_talep_ayikla("📌 Orijinal Talep\n\n📌 Orijinal Talep\n\nORJ\n\n🤖 Teknik Analiz\n\nA") == "ORJ")
 
 # ── cevap → analizi cevaplarla YENİDEN üretir, soruları yakınsar, gövdeye yazar ──
 durum2: dict = {}

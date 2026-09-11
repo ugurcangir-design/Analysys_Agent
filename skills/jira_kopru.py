@@ -292,7 +292,7 @@ def _orijinal_gorev(gorev: dict) -> dict:
 def _analiz_bolumu_ayikla(desc: str) -> str:
     """Gövdedeki `## 🤖 Teknik Analiz` bölümünü (analiz metni) döndürür — `düzelt`
     önbellek boşsa gövdeden mevcut analizi alır. Yoksa ''. """
-    parcalar = re.split(r"\n*#{1,6}\s*🤖\s*Teknik Analiz[^\n]*\n", desc or "", maxsplit=1)
+    parcalar = re.split(r"\n*(?:#{1,6}\s*)?🤖\s*Teknik Analiz[^\n]*\n", desc or "", maxsplit=1)
     return parcalar[1].strip() if len(parcalar) > 1 else ""
 
 
@@ -335,13 +335,17 @@ def _analiz_md_getir(key: str, arg: str, durum: dict) -> str:
 
 def _orijinal_talep_ayikla(desc: str) -> str:
     """Task açıklamasından ORİJİNAL talebi çıkarır — önceki bir bridge analizi
-    yazıldıysa (`## 🤖 Teknik Analiz` bölümü) onun ÜSTÜNDEKİ orijinal metni döndürür;
-    yoksa açıklamanın tamamı orijinaldir. Tekrar analizde orijinal korunur (#1)."""
+    yazıldıysa (`🤖 Teknik Analiz` bölümü) onun ÜSTÜNDEKİ orijinal metni döndürür;
+    yoksa açıklamanın tamamı orijinaldir. Tekrar analizde orijinal korunur (#1).
+    ÖNEMLİ: Jira, yazdığımız markdown başlıklarını (`## 📌`/`## 🤖`) ADF'ye çevirir;
+    geri OKURKEN `##` işaretleri DÜŞER → marker'ları `#`'li VE `#`'siz eşleştir.
+    Ayrıca kaz-boynu ekleme (çift '📌 Orijinal Talep') olmasın diye baştaki
+    BİR VEYA DAHA ÇOK orijinal başlığı temizlenir."""
     d = (desc or "").strip()
     if not d:
         return ""
-    ust = re.split(r"\n*#{1,6}\s*🤖\s*Teknik Analiz", d, maxsplit=1)[0]
-    ust = re.sub(r"^\s*#{1,6}\s*📌\s*Orijinal Talep\s*\n+", "", ust)
+    ust = re.split(r"\n*(?:#{1,6}\s*)?🤖\s*Teknik Analiz", d, maxsplit=1)[0]
+    ust = re.sub(r"^(?:\s*(?:#{1,6}\s*)?📌\s*Orijinal Talep\s*\n+)+", "", ust)
     ust = re.sub(r"\n*-{3,}\s*$", "", ust).strip()
     return ust
 
