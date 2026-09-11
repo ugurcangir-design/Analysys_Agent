@@ -11,7 +11,7 @@
 | Mimari, sabitler, RAG, promptlar, 3-aşamalı teknik analiz, **canlı uygulama (Chrome MCP)**, cache/TL;DR | `docs/MIMARI.md` |
 | Tam endpoint kataloğu (~80) | `docs/ENDPOINTS.md` |
 | Auth / CSRF / güvenlik / dağıtım | `docs/GUVENLIK-DAGITIM.md` |
-| Faz / değişiklik geçmişi | `docs/DEGISIKLIK-GECMISI.md` |
+| Faz / değişiklik geçmişi | `docs/DEGISIKLIK-GECMISI.md` (özet + son işler) · `docs/DEGISIKLIK-ARSIV.md` (tam metin) |
 
 ## Kritik hatırlatmalar (tam liste CLAUDE.md'de)
 - Analizler **Claude Code CLI** ile çalışır (`.env` `USE_CLAUDE_CLI=true` → **Claude.ai** aboneliği).

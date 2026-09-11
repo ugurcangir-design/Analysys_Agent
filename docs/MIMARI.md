@@ -548,7 +548,7 @@ gibi "temizle" akışları hâlâ çalışır çünkü ilgili alanı açıkça b
 - History limiti 5 (sabit, `save_to_history()`). Tek input dosyası (çok yüklenirse ilk).
 - Atlassian-only (Azure DevOps/GitHub Issues yok). macOS-only dağıtım. Tek aktif analiz (sunucu modunda).
 ## Task Analizi (Jira görev analizi) — UI akışı
-> Backend çekme/sınıflandırma: yukarıdaki "Jira Görevleri Özelliği". Bu bölüm UI akışıdır. Dağınık tek-seferlik düzeltmeler `docs/DEGISIKLIK-GECMISI.md`'de. Değişince güncelle.
+> Backend çekme/sınıflandırma: yukarıdaki "Jira Görevleri Özelliği". Bu bölüm UI akışıdır. Dağınık tek-seferlik düzeltmeler `docs/DEGISIKLIK-ARSIV.md`'de (özet index: `docs/DEGISIKLIK-GECMISI.md`). Değişince güncelle.
 
 - **Modal-içi JARVIS reaktör:** üretim/düzeltme sırasında `#jg-proc` (`_jgProcBaslat/_jgProcBitir` + geçen-süre + model readout).
 - **İlişkili FE/BE analizi:** görevin bağlı task'ları varsa 'Teknik Analiz Et' önce **seçim paneli** açar (`_jgSecimGoster`): birincil + bağlı task'lar, her biri katman (FE/BE, tahmin `_jgKatmanTahmin`). 'Seçilenleri Analiz Et' her task'ı AYRI analiz eder (`jgIliskiliAnalizBaslat`), diğerleri `iliskili_keys` bağlamı olur; karşı katman yalnız `## Bağımlılık ve Arayüz (FE↔BE)` sözleşmesi olarak yazılır (`gorev_analiz_et(gorev, iliskili, katman)` + `gorev_getir`). Sonuçlar `_jgAnalizSeti`'te; task DEĞİŞTİRİCİ (`_jgSwitcherRender`/`_jgSonucGoster`), her analiz KENDİ Jira görevine ayrı yazılır.

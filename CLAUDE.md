@@ -114,7 +114,7 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   yalnız yeniden-üretilebilir/arşiv dosyaları — `output/ input/ logs/usage/` ve referans kaynakları ASLA) +
   `_disk_temizlik_dongusu` zamanlayıcı (`DISK_TEMIZLIK=true`, `DISK_TEMIZLIK_ARALIK=86400`; iş varken erteler).
   Endpoint'ler `/api/disk/durum` (GET) · `/api/disk/temizle` (POST, meşgulse 409) — artık UI'dan çağrılmıyor. Durum `logs/disk-temizlik-durum.json`.
-  **Task Analizi / test düzeltmeleri (özet):** görev analizi akışı — JARVIS reaktör, ilişkili FE/BE **seçim paneli** (`_jgSecimGoster`), **gömülü** panel (`#jg-preview-card.jg-inline`), arka plan iş (`_gorev_is_calistir`) + **paralel** (ThreadPoolExecutor, `GOREV_PARALEL`), açık soru **yakınsaması** (`_gorev_acik_sorular_uret onceki_sorular`), **gerçek Durdur** (killpg). Ayrıca: soru mezar-taşı, `/api/oturum` `aktif` bayrağı, CLI hesabı bilgisi, Jira Ayarları sadeleştirme (site otomatik), UAT key link'leri, bağlam-filtresi kaydı (`_jgFiltreKaydet`). **Tam akış + tüm alt-düzeltmeler → `docs/MIMARI.md` "Task Analizi" + `docs/DEGISIKLIK-GECMISI.md`.**
+  **Task Analizi / test düzeltmeleri (özet):** görev analizi akışı — JARVIS reaktör, ilişkili FE/BE **seçim paneli** (`_jgSecimGoster`), **gömülü** panel (`#jg-preview-card.jg-inline`), arka plan iş (`_gorev_is_calistir`) + **paralel** (ThreadPoolExecutor, `GOREV_PARALEL`), açık soru **yakınsaması** (`_gorev_acik_sorular_uret onceki_sorular`), **gerçek Durdur** (killpg). Ayrıca: soru mezar-taşı, `/api/oturum` `aktif` bayrağı, CLI hesabı bilgisi, Jira Ayarları sadeleştirme (site otomatik), UAT key link'leri, bağlam-filtresi kaydı (`_jgFiltreKaydet`). **Tam akış + tüm alt-düzeltmeler → `docs/MIMARI.md` "Task Analizi" + `docs/DEGISIKLIK-ARSIV.md`.**
   **Ray görünümü (tek kolon adım akışı, geri dönüşlü):** `#surec-ray` (6 adım) / `#brd-ray` (4 adım) — `_RAY` konfig,
   `_rayInit/_rayRender/_rayTasi/_rayUygula/gorunumDegistir` (index.html). Klasik paneller `.gorunum-klasik` (DOM'da
   KORUNUR, `body.gorunum-ray` gizler); aksiyon blokları `surec-act-*`/`brd-act-*` aktif adımın `.ray-body`'sine
@@ -179,7 +179,7 @@ Görev başında geniş dizinleri (`reference/`, `venv/`, `logs/`, `output/`) ta
 - Mimari / sabitler / RAG / promptlar / workflow / 3-aşamalı teknik analiz / Jira Görevleri / **Task Analizi akış detayı** / **telemetri + skills modül sorumlulukları (tam metin)** / cache / TL;DR → **`docs/MIMARI.md`**
 - Tam endpoint kataloğu (~80) → **`docs/ENDPOINTS.md`**
 - Auth / CSRF / güvenlik / dağıtım / onboarding → **`docs/GUVENLIK-DAGITIM.md`**
-- Faz / değişiklik geçmişi → **`docs/DEGISIKLIK-GECMISI.md`**
+- Faz / değişiklik geçmişi → **`docs/DEGISIKLIK-GECMISI.md`** (özet index + son işler); eski işlerin tam metni → **`docs/DEGISIKLIK-ARSIV.md`**
 - Belirli iş mantığı → ilgili tek `skills/<modül>.py` (önce o dosyayı oku, base.py'yi sadece gerekirse).
 
 ## CLAUDE.md / docs bakımı (zorunlu)
