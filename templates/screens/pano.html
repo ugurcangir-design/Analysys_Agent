@@ -140,17 +140,6 @@
       }catch(e){ toast('Bağlantı hatası','error'); }
     }
 
-    // Elle disk temizliği (owner) — analiz sürüyorsa backend 409 döner.
-    async function panoDiskTemizle(btn){
-      if(!confirm('Eskimiş önbellek, log, rapor ve arşiv dosyaları silinecek (analiz çıktıları ve girdiler DOKUNULMAZ). Devam?')) return;
-      if(btn) btn.disabled=true;
-      try{
-        const r=await fetch('/api/disk/temizle',{method:'POST'}); const d=await r.json();
-        if(d.ok) toast(`Temizlendi: ${d.silinen} öğe · ${d.kazanilan_mb} MB`,'success'); else toast(d.error||'Temizlenemedi','error');
-      }catch(e){ toast('Bağlantı hatası','error'); }
-      finally{ if(btn) btn.disabled=false; _panoSaglik(); }
-    }
-
     async function _panoOturum(){
       const el=document.getElementById('pano-oturum');
       let d; try{ d=await (await fetch('/api/oturum')).json(); }catch(e){ el.innerHTML=''; return; }
@@ -192,7 +181,7 @@
       let d; try{ d=await (await fetch('/api/saglik')).json(); }catch(e){ bolum.style.display='none'; return; }
       if(!d.ok){ bolum.style.display='none'; return; }   // owner değil → sağlık gizli
       bolum.style.display='';
-      const ai=d.ai,g=d.guncelleme,w=d.workflow,vk=(d.veri_kaynak||{}).analiz_mcp||{};
+      const ai=d.ai,g=d.guncelleme,w=d.workflow;
       const aiChip=ai.modu==='api'?_pnChip('API modu','ok'):ai.cli_uygun===true?_pnChip('CLI hazır','ok'):ai.cli_uygun===false?_pnChip('CLI limitte','bad'):_pnChip('CLI bilinmiyor','warn');
       // CLI modunda analiz modeli arayüzden seçilir (API key gerekmez; kredi-gerektiren modeller listede yok).
       let modelHtml='<b>'+_pnEsc(ai.model||'—')+'</b>';
@@ -205,31 +194,14 @@
       }
       const gChip=g.hata?_pnChip('Kontrol hatası','bad'):g.yeni_surum?_pnChip(`Yeni sürüm (${g.behind})`,'warn'):_pnChip(g.otomatik?'Güncel':'Elle','ok');
       const wChip=w.calisiyor?_pnChip(w.etiket,'warn'):_pnChip(w.etiket||'Hazır','ok');
-      const diskToplam=Object.values(d.disk||{}).reduce((s,x)=>s+x.mb,0);
-      const kodRepo=(d.veri_kaynak||{}).kod_repo;
-      const vkChip=(vk.hazir_sunucular&&vk.hazir_sunucular.length)?_pnChip('MCP bağlı','ok'):_pnChip('kapalı','neu');
+      // Not: "Veri kaynakları", "Disk" ve "Disk temizlik" kartları kaldırıldı (analiste gereksiz
+      // sistem gürültüsü; disk temizliği arka planda zaten otomatik, loglar Güncelleme ekranında).
       el.innerHTML=[
         _pnStatCard('Sürüm',_pnChip(d.surum.hash||'?','ok'),'<b>'+_pnEsc(d.surum.hash||'?')+'</b>',`dal ${d.surum.dal||'—'} · ${d.surum.tarih||'—'}`),
         `<div class="pano-card"><div class="pc-head"><span class="pc-label">AI / Kota</span>${aiChip}</div>
           <div class="pc-value">${modelHtml}</div><div class="pc-sub">mod ${_pnEsc(ai.modu)} · reset ${_pnEsc(ai.cli_reset||'—')}</div></div>`,
         _pnStatCard('Güncelleme',gChip,'<b>'+(g.otomatik?'otomatik':'elle')+'</b>',`engel ${g.engel||'—'} · son kontrol ${_pnZ(g.son_kontrol)}`),
         _pnStatCard('İş akışı',wChip,'<b>'+_pnEsc(w.durum||'idle')+'</b>',`meşgul: ${w.mesgul||'hayır'}`),
-        _pnStatCard('Veri kaynakları',vkChip,'<b>'+((vk.hazir_sunucular&&vk.hazir_sunucular.length)?'bağlı':'kapalı')+'</b>',`Postgres ${vk.postgres&&vk.postgres.aktif?'açık':'kapalı'} · Jira ${vk.jira&&vk.jira.aktif?'açık':'kapalı'} · Kod ${kodRepo?'bağlı':'yok'}`),
-        _pnStatCard('Disk',_pnChip(diskToplam.toFixed(0)+' MB',diskToplam>2048?'warn':'ok'),'<b>'+diskToplam.toFixed(0)+' MB</b>',Object.entries(d.disk||{}).filter(([k,v])=>v.mb>0).map(([k,v])=>`${k} ${v.mb}MB`).join(' · ')||'boş'),
-        _panoDiskTemizlikKart(d.disk_temizlik||{}),
       ].join('');
-    }
-    // Disk temizlik kartı: birimin boş alanı + temizlenebilir miktar + son çalışma + zamanlama; "Şimdi temizle".
-    function _panoDiskTemizlikKart(t){
-      const fs=t.dosya_sistemi||{}, z=t.zamanlama||{}, son=t.son;
-      const bosYuzde=fs.bos_yuzde??null;
-      const chip=bosYuzde===null?_pnChip('bilinmiyor','warn'):bosYuzde<10?_pnChip(`%${bosYuzde} boş`,'bad'):bosYuzde<20?_pnChip(`%${bosYuzde} boş`,'warn'):_pnChip(`%${bosYuzde} boş`,'ok');
-      const temiz=t.temizlenebilir_mb??0;
-      const sonTxt=son?`son: ${_pnZ(son.zaman)} (${son.tetik}, ${son.silinen} öğe, ${son.kazanilan_mb} MB)`:'henüz çalışmadı';
-      const zamanTxt=z.aktif?`zamanlanmış: her ${Math.round((z.aralik_sn||86400)/3600)} sa (iş yokken)`:'zamanlanmış görev KAPALI (DISK_TEMIZLIK=false)';
-      return `<div class="pano-card"><div class="pc-head"><span class="pc-label">Disk temizlik</span>${chip}</div>
-        <div class="pc-value"><b>${fs.bos_gb??'—'} GB</b> <span style="font-size:12px;color:var(--text3)">/ ${fs.toplam_gb??'—'} GB boş</span></div>
-        <div class="pc-sub">temizlenebilir ${temiz} MB · ${_pnEsc(sonTxt)} · ${_pnEsc(zamanTxt)}</div>
-        <div class="pc-act"><button class="btn btn-outline btn-xs" onclick="panoDiskTemizle(this)" ${temiz>0?'':'disabled title="Temizlenecek eskimiş dosya yok"'}>Şimdi temizle</button></div></div>`;
     }
     </script>

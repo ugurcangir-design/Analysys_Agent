@@ -2715,7 +2715,7 @@ function temaDegistir() {
             <div class="ctx-field-label" style="display:flex;align-items:center;gap:8px">
               Analist Notu <span style="font-weight:400;color:var(--text3)">— opsiyonel, Teknik Analiz Et'e özel</span>
               <span class="panel-spacer"></span>
-              <button class="btn-link" id="jg-not-temizle" onclick="jgAnalistNotuTemizle()" style="display:none">Temizle</button>
+              <button class="btn btn-outline btn-sm" id="jg-not-temizle" onclick="jgAnalistNotuTemizle()" style="display:none">Temizle</button>
             </div>
             <div class="ctx-field-sub">Bu göreve özel bir yorum, odak noktası veya detaylı bakılması gereken bir akış varsa yazın. Doluysa <strong>"Teknik Analiz Et"</strong> bunu mevcut promptlarla <strong>birlikte</strong> dikkate alır (doğruluk kurallarını gevşetmeden). Boşsa yok sayılır.</div>
             <textarea class="ctx-input" id="jg-analist-notu" rows="2" placeholder="örn: Bu görevde 'Add User' modalındaki rol atama akışına ve validasyon mesajlarına özellikle odaklan; kaydet sonrası yetki tazeleme davranışını değerlendir." onchange="jgAnalistNotuKaydet()"></textarea>
