@@ -353,7 +353,7 @@ def _analiz_islet(key: str, arg: str, durum: dict) -> str:
     parcalar = [bas, "", f"_RAG anahtar kelimeleri: {', '.join(kws) if kws else '—'}_"]
     if acik and acik.lower() not in ("açık soru tespit edilmedi.", "acik soru tespit edilmedi."):
         parcalar += ["", "---", "**Açık Sorular** (tartışma için — gövdeye yazılmadı):", "", acik]
-    parcalar += ["", f"_İlişkili task önerileri için `{prefix} ilişkili-aç` (onay gerekir)._"]
+    parcalar += ["", f"İlişkili task önerileri için: `{prefix} ilişkili-aç` (onay gerekir)."]
     return "\n".join(parcalar)
 
 
