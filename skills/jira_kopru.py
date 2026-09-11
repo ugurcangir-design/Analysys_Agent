@@ -33,8 +33,15 @@ import re
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .atlassian import atlassian_get, atlassian_post
+from .base import (
+    canli_gozlem_kapsamini_cikar,
+    canli_uygulama_baglami_hazirla,
+    load_context_filter,
+    yonetici_ozetini_cikar,
+)
 from .jira_gorevleri import (
     _adf_to_text, _cloud_id, _ID_DESENI,
     gorev_getir, gorev_analiz_et, gorev_jiraya_yaz,
@@ -194,13 +201,14 @@ def _yazar_izinli(yorum: dict, izinliler: list[str]) -> bool:
 def _yardim_metni(prefix: str) -> str:
     return (
         f"{ROBOT_IMZA} — komutlar\n\n"
-        f"- `{prefix} analiz` — bu task'ı teknik analiz eder, sonucu yorum olarak yazar (okuma; alanlara dokunmaz).\n"
+        f"- `{prefix} analiz` — bu task'ı teknik analiz eder ve sonucu **task açıklamasına** yazar "
+        f"(orijinal talep korunur; açık sorular yorumda). Bağlam task'ın kendisinden (kimsenin ekranına bağlı değil).\n"
         f"- `{prefix} analiz <talimat>` — talimatlı analiz (örn. *sadece BE tarafını değerlendir*).\n"
-        f"- `{prefix} güncelle` — analizi task açıklamasına yazmayı **önerir** (taslak) → `{prefix} onayla` uygular.\n"
+        f"- `{prefix} güncelle` — son analizi task açıklamasına yeniden yazar (taze analiz varsa 0-token).\n"
         f"- `{prefix} ilişkili-aç` — analizden ilişkili yeni task'lar **önerir** (taslak) → `{prefix} onayla` açar + Relates bağlar.\n"
-        f"- `{prefix} onayla` / `{prefix} iptal` — bekleyen taslağı uygular / vazgeçer.\n"
+        f"- `{prefix} onayla` / `{prefix} iptal` — bekleyen ilişkili-task taslağını uygular / vazgeçer.\n"
         f"- `{prefix} yardım` — bu liste.\n\n"
-        f"_Güvenlik: yorum bir komuttur; task'ı değiştiren işlemler yalnız açık onaydan sonra yapılır._"
+        f"_Güvenlik: yorum bir komuttur; YENİ task açma yalnız açık onaydan sonra yapılır._"
     )
 
 
@@ -211,68 +219,159 @@ def _proje_key(key: str) -> str:
     return (key or "").split("-", 1)[0].upper()
 
 
-def _analiz_md_getir(key: str, arg: str, durum: dict, taze_zorla: bool = False) -> tuple[str, bool]:
-    """Güncelle/ilişkili-aç için analiz markdown'ı — TAZE `analiz` çıktısı varsa
-    (son _ANALIZ_TAZE_DK dk) yeniden ANALİZ ETMEZ (token tasarrufu), yoksa üretir
-    ve önbelleğe alır. Döner (markdown, taze_uretildi_mi)."""
+# Türkçe+İngilizce durak kelimeler — task'tan RAG anahtar kelimesi çıkarırken elenir.
+_STOPWORDS = {
+    "için", "ile", "ama", "veya", "gibi", "kadar", "daha", "çok", "bir", "bu", "şu", "olan",
+    "olarak", "üzerinde", "üzerine", "göre", "sonra", "önce", "hem", "her", "tüm", "bütün",
+    "değil", "yani", "ancak", "fakat", "ve", "de", "da", "ki", "mi", "mı", "the", "and", "for",
+    "with", "that", "this", "from", "into", "will", "shall", "should", "must", "when", "then",
+    "task", "görev", "ekran", "ekranı", "buton", "butonu", "alan", "alanı", "sayfa", "kullanıcı",
+    "işlem", "yeni", "eklenmesi", "eklenecek", "yapılması", "yapılacak", "olması", "gerekiyor",
+    "istenen", "isteniyor", "talebi", "talep", "açıklama", "başlık",
+}
+
+
+def _task_keywords(gorev: dict, azami: int = 12) -> list[str]:
+    """Task başlığı+açıklamasından RAG için anahtar kelimeler çıkarır (deterministik,
+    0 token). Durak kelimeler elenir; ≥4 harfli, en sık/ilk geçen terimler alınır.
+    filtrele_referanslar bunları alt-dize olarak referans içeriğinde arar (#3)."""
+    metin = f"{gorev.get('summary', '')} {gorev.get('summary', '')} {gorev.get('description', '')}".lower()
+    tokenler = re.findall(r"[a-zçğıiöşü0-9][a-zçğıiöşü0-9\-]{3,}", metin)
+    sayac: dict[str, int] = {}
+    sira: list[str] = []
+    for t in tokenler:
+        t = t.strip("-")
+        if len(t) < 4 or t in _STOPWORDS or t.isdigit():
+            continue
+        if t not in sayac:
+            sira.append(t)
+        sayac[t] = sayac.get(t, 0) + 1
+    # sıklığa göre (eşitlikte ilk görülme sırası) sırala, azami kadar al
+    sirali = sorted(sira, key=lambda w: (-sayac[w], sira.index(w)))
+    return sirali[:azami]
+
+
+def _canli_gorev_baglam(gorev: dict) -> str | None:
+    """#2 — Bridge canlı gözlem bağlamı: kayıtlı live-app URL'inden ANA giriş (base)
+    türetilir; hedef ekran task içeriğinden bulunur (login zaten live_app_auth ile).
+    Sabit `live_app_gorev` ekranına bağlı DEĞİL. Yapılandırma yoksa None."""
+    ctx = load_context_filter() or {}
+    url = ""
+    for k in ("live_app_gorev", "live_app"):
+        v = ctx.get(k) or {}
+        if isinstance(v, dict) and str(v.get("target_url", "")).strip():
+            url = str(v["target_url"]).strip()
+            break
+    if not url:
+        return None
+    p = urlparse(url)
+    if not (p.scheme and p.netloc):
+        return None
+    base = f"{p.scheme}://{p.netloc}"
+    hedef = f"{gorev.get('summary', '')}\n\n{gorev.get('description', '')}".strip()
+    return canli_uygulama_baglami_hazirla(base_url_override=base, hedef_tarif=hedef)
+
+
+def _bridge_uret(gorev: dict, arg: str) -> dict:
+    """Bridge analizini KENDİ KENDİNE YETERLİ üretir: task keyword'leriyle RAG (#3),
+    base-URL + task-güdümlü canlı gözlem (#2), ekran notu/filtresi YOK (#kapsam)."""
+    kws = _task_keywords(gorev)
+    canli = _canli_gorev_baglam(gorev)
+    sonuc = gorev_analiz_et(gorev, cevaplar=arg or "", ekran_baglami=False,
+                            rag_ctx={"keywords": kws} if kws else {},
+                            canli_baglam_override=canli)
+    sonuc["_keywords"] = kws
+    return sonuc
+
+
+def _analiz_md_getir(key: str, arg: str, durum: dict) -> str:
+    """güncelle için analiz markdown'ı — TAZE `analiz` çıktısı (son _ANALIZ_TAZE_DK dk)
+    varsa yeniden ANALİZ ETMEZ (token tasarrufu), yoksa üretir + önbelleğe alır."""
     onbellek = durum.setdefault("son_analiz", {})
     kayit = onbellek.get(key)
-    if kayit and not taze_zorla and not arg:
+    if kayit and not arg:
         try:
             yas_dk = (datetime.now(timezone.utc)
                       - datetime.strptime(kayit["zaman"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
                       ).total_seconds() / 60
             if yas_dk <= _ANALIZ_TAZE_DK and kayit.get("md"):
-                return kayit["md"], False
+                return kayit["md"]
         except Exception:
             pass
     gorev = gorev_getir(key)
     if not gorev:
         raise RuntimeError(f"`{key}` okunamadı (yetki/erişim?).")
-    md = (gorev_analiz_et(gorev, cevaplar=arg or "", ekran_baglami=False).get("markdown") or "").strip()
+    md = (_bridge_uret(gorev, arg).get("markdown") or "").strip()
     onbellek[key] = {"md": md, "zaman": _simdi()}
-    return md, True
+    return md
+
+
+def _orijinal_talep_ayikla(desc: str) -> str:
+    """Task açıklamasından ORİJİNAL talebi çıkarır — önceki bir bridge analizi
+    yazıldıysa (`## 🤖 Teknik Analiz` bölümü) onun ÜSTÜNDEKİ orijinal metni döndürür;
+    yoksa açıklamanın tamamı orijinaldir. Tekrar analizde orijinal korunur (#1)."""
+    d = (desc or "").strip()
+    if not d:
+        return ""
+    ust = re.split(r"\n*#{1,6}\s*🤖\s*Teknik Analiz", d, maxsplit=1)[0]
+    ust = re.sub(r"^\s*#{1,6}\s*📌\s*Orijinal Talep\s*\n+", "", ust)
+    ust = re.sub(r"\n*-{3,}\s*$", "", ust).strip()
+    return ust
+
+
+def _govdeye_yaz(key: str, analiz_md: str, mevcut_desc: str) -> None:
+    """#1 — Analizi task GÖVDESİNE (açıklama) yazar; ORİJİNAL talep korunur.
+    Açıklama = '## 📌 Orijinal Talep' + orijinal + '## 🤖 Teknik Analiz' + analiz.
+    Yönetici Özeti / Canlı Gözlem Kapsamı gövdeye YAZILMAZ (analist bilgisi)."""
+    temiz = canli_gozlem_kapsamini_cikar(yonetici_ozetini_cikar(analiz_md)).strip()
+    orijinal = _orijinal_talep_ayikla(mevcut_desc)
+    combined = (
+        f"## 📌 Orijinal Talep\n\n{orijinal or '(açıklama yok)'}\n\n"
+        f"---\n\n## 🤖 Teknik Analiz (Analyst Agent)\n\n{temiz}"
+    )
+    gorev_jiraya_yaz(key, combined)
 
 
 def _analiz_islet(key: str, arg: str, durum: dict) -> str:
-    """`analiz` — task'ı analiz eder, sonucu yorum olarak sunar. Jira ALANLARINA
-    yazmaz. Çıktıyı önbelleğe alır → sonraki `güncelle`/`ilişkili-aç` yeniden analiz etmez."""
+    """`analiz` — task'ı KENDİ KENDİNE YETERLİ analiz eder ve sonucu task GÖVDESİNE
+    yazar (orijinal talep korunur, #1). Yorum = kısa bilgilendirme + açık sorular."""
     gorev = gorev_getir(key)
     if not gorev:
         return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı (yetki/erişim?). Analiz yapılamadı."
-    sonuc = gorev_analiz_et(gorev, cevaplar=arg or "", ekran_baglami=False)
+    sonuc = _bridge_uret(gorev, arg)
     md = (sonuc.get("markdown") or "").strip()
     acik = (sonuc.get("acik_sorular") or "").strip()
+    kws = sonuc.get("_keywords") or []
     durum.setdefault("son_analiz", {})[key] = {"md": md, "zaman": _simdi()}
+    try:
+        _govdeye_yaz(key, md, gorev.get("description", ""))
+        bas = f"{ROBOT_IMZA} — Teknik analiz **task açıklamasına yazıldı** · `{key}` (orijinal talep korundu)."
+    except Exception as e:
+        bas = (f"{ROBOT_IMZA} — ⚠ Analiz üretildi ama açıklamaya yazılamadı: {e}\n\n"
+               f"Analiz metni aşağıdadır:\n\n{canli_gozlem_kapsamini_cikar(yonetici_ozetini_cikar(md)).strip()}")
     prefix = ayarlar()["komut"]
-    parcalar = [f"{ROBOT_IMZA} — Teknik Analiz · `{key}`", "", md]
+    parcalar = [bas, "", f"_RAG anahtar kelimeleri: {', '.join(kws) if kws else '—'}_"]
     if acik and acik.lower() not in ("açık soru tespit edilmedi.", "acik soru tespit edilmedi."):
-        parcalar += ["", "---", "**Açık Sorular**", "", acik]
-    parcalar += [
-        "", "---",
-        f"_Bu bir taslak analizdir; Jira alanları **değiştirilmedi**. "
-        f"Açıklamaya yazmak için `{prefix} güncelle`, ilişkili task önerileri için "
-        f"`{prefix} ilişkili-aç` (onay gerekir)._",
-    ]
+        parcalar += ["", "---", "**Açık Sorular** (tartışma için — gövdeye yazılmadı):", "", acik]
+    parcalar += ["", f"_İlişkili task önerileri için `{prefix} ilişkili-aç` (onay gerekir)._"]
     return "\n".join(parcalar)
 
 
-def _guncelle_taslak(key: str, arg: str, durum: dict, prefix: str) -> str:
-    """`güncelle` — analizi task AÇIKLAMASINA yazmayı ÖNERİR (taslak). Uygulamaz;
-    `onayla` bekler."""
-    md, _ = _analiz_md_getir(key, arg, durum)
+def _guncelle_islet(key: str, arg: str, durum: dict, prefix: str) -> str:
+    """`güncelle` — SON analizi (önbellek) task GÖVDESİNE (yeniden) yazar; orijinal
+    talep korunur. `analiz` zaten gövdeye yazar → bu, taze analiz varsa 0-token
+    yeniden uygulamadır (yoksa üretir). Onay gerekmez (task'ın kendi gövdesi)."""
+    gorev = gorev_getir(key)
+    if not gorev:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı (yetki/erişim?)."
+    try:
+        md = _analiz_md_getir(key, arg, durum)
+    except Exception as e:
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` analizi üretilemedi: {e}"
     if not md:
-        return f"{ROBOT_IMZA}\n\n⚠ `{key}` için analiz üretilemedi; güncelleme taslağı oluşturulamadı."
-    durum.setdefault("taslaklar", {})[key] = {
-        "tip": "guncelle", "aciklama_md": md, "zaman": _simdi(),
-    }
-    onizleme = md if len(md) <= 1200 else md[:1200] + " …"
-    return (
-        f"{ROBOT_IMZA} — Güncelleme taslağı · `{key}`\n\n"
-        f"Aşağıdaki analiz, onaylarsanız task **açıklamasının yerine** yazılacak "
-        f"(mevcut açıklama değişecektir):\n\n---\n\n{onizleme}\n\n---\n\n"
-        f"Uygulamak için: `{prefix} onayla` · vazgeçmek için: `{prefix} iptal`"
-    )
+        return f"{ROBOT_IMZA}\n\n⚠ `{key}` için analiz üretilemedi; gövde yazılamadı."
+    _govdeye_yaz(key, md, gorev.get("description", ""))
+    return f"{ROBOT_IMZA} ✅ `{key}` açıklaması son analizle güncellendi (orijinal talep korundu)."
 
 
 def _iliskili_task_onerileri(analiz_md: str, gorev: dict) -> list[dict]:
@@ -304,7 +403,7 @@ def _iliskili_taslak(key: str, arg: str, durum: dict, prefix: str) -> str:
     gorev = gorev_getir(key)
     if not gorev:
         return f"{ROBOT_IMZA}\n\n⚠ `{key}` okunamadı; ilişkili task önerisi üretilemedi."
-    md, _ = _analiz_md_getir(key, arg, durum)
+    md = _analiz_md_getir(key, arg, durum)
     oneriler = _iliskili_task_onerileri(md, gorev)
     if not oneriler:
         return (f"{ROBOT_IMZA} — İlişkili task · `{key}`\n\n"
@@ -328,14 +427,10 @@ def _onayla_uygula(key: str, durum: dict, prefix: str) -> str:
     """`onayla` — bekleyen taslağı UYGULAR (tek geri-döndürülemez yazma noktası)."""
     taslak = durum.get("taslaklar", {}).get(key)
     if not taslak:
-        return (f"{ROBOT_IMZA}\n\n`{key}` için bekleyen taslak yok. Önce `{prefix} güncelle` "
-                f"veya `{prefix} ilişkili-aç` çalıştırın.")
+        return (f"{ROBOT_IMZA}\n\n`{key}` için bekleyen taslak yok. Önce `{prefix} ilişkili-aç` çalıştırın.")
     tip = taslak.get("tip")
     # Uygulanmış say: sonuç ne olursa olsun taslağı düş (çift-uygulama önlemi).
     durum.get("taslaklar", {}).pop(key, None)
-    if tip == "guncelle":
-        gorev_jiraya_yaz(key, taslak["aciklama_md"])
-        return f"{ROBOT_IMZA} ✅ `{key}` açıklaması analizle güncellendi."
     if tip == "iliskili-ac":
         proje = taslak.get("proje") or _proje_key(key)
         cloud_id = _cloud_id()
@@ -372,7 +467,7 @@ def _komut_uygula(komut: str, arg: str, key: str, prefix: str, durum: dict) -> s
     if komut == "analiz":
         return _analiz_islet(key, arg, durum)
     if komut == "guncelle":
-        return _guncelle_taslak(key, arg, durum, prefix)
+        return _guncelle_islet(key, arg, durum, prefix)
     if komut == "iliskili-ac":
         return _iliskili_taslak(key, arg, durum, prefix)
     if komut == "onayla":

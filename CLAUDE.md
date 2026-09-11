@@ -146,19 +146,20 @@ Tüm v2 geliştirmesi burada, ayrı portta (`PORT=5003 ./start.sh`) yapılır. R
   inbound/webhook YOK — lokal + OAuth) ile bulur, işler, sonucu Jira **yorumu** olarak geri yazar
   (`jira_yorum_ekle`, canonical `atlassian_post` + `markdown_to_adf`). **Varsayılan KAPALI**
   (`JIRA_KOPRU=false`; owner açar), owner-gate `/api/jira-kopru/durum|tara`.
-  **Komutlar:** `analiz [talimat]` → `gorev_getir`+`gorev_analiz_et`, sonucu yorum (okuma, oto; çıktı
-  `son_analiz` önbelleğine — `güncelle`/`ilişkili-aç` `_ANALIZ_TAZE_DK`=60dk içinde yeniden analiz etmez) ·
-  **KENDİ KENDİNE YETERLİ bağlam** (`gorev_analiz_et(ekran_baglami=False)`): Jira'dan komut veren kişi
-  birinin ekranındaki bağlam filtresini/analist notunu göremediğinden bridge bunları YOK SAYAR — RAG
-  filtresiz/task-güdümlü (`referans_dosyalari_hazirla(ctx_override={})`), steering yalnız task içeriği +
-  `analiz <talimat>`. (Task Analizi EKRANI davranışı `ekran_baglami=True` ile aynen korunur.) ·
-  `güncelle` → analizi task açıklamasına yazmayı **önerir (taslak)** · `ilişkili-aç` → analizden ilişkili
-  YENİ task'lar **önerir (taslak)** (`_iliskili_task_onerileri` AI, ≤`_MAX_ILISKILI`=5) · `onayla` → bekleyen
-  taslağı UYGULAR (güncelle→`gorev_jiraya_yaz`; ilişkili-aç→`_issue_olustur` + `jira_issue_link` Relates,
-  kaynakla aynı projede) · `iptal`/`yardım`. **Güvenlik/korkuluk:** yorum=KOMUT (talimat değil; analiz girdisi
-  task'ın kendi içeriği) · geri-döndürülemez yazma YALNIZ `onayla` sonrası (taslak+onay, human-in-the-loop) ·
-  çift-uygulama önlemi (onayla taslağı hemen düşürür) · döngü koruması (kendi `🤖` yanıtı komut prefiksiyle
-  başlamaz + işlenen yorum id'leri `output/jira-kopru/durum.json`) · opsiyonel `JIRA_KOPRU_YAZAR_ALLOWLIST`.
+  **Komutlar:** `analiz [talimat]` → `_bridge_uret` (→`gorev_getir`+`gorev_analiz_et`) sonucu **task
+  GÖVDESİNE (açıklama) yazar** (`_govdeye_yaz`: `## 📌 Orijinal Talep` + orijinal KORUNUR + `## 🤖 Teknik
+  Analiz`; tekrar analizde `_orijinal_talep_ayikla` orijinali korur); açık sorular + RAG kelimeleri **yoruma**
+  yazılır. Çıktı `son_analiz` önbelleğine (`_ANALIZ_TAZE_DK`=60dk) · `güncelle` → son analizi gövdeye yeniden
+  yazar (taze varsa 0-token) · `ilişkili-aç` → ilişkili YENİ task **önerir (taslak)** (`_iliskili_task_onerileri`
+  AI ≤`_MAX_ILISKILI`=5) → `onayla` UYGULAR (`_issue_olustur`+`jira_issue_link` Relates, aynı proje) · `iptal`/`yardım`.
+  **KENDİ KENDİNE YETERLİ bağlam** (`gorev_analiz_et(ekran_baglami=False)`): Jira'dan komut veren birinin
+  ekranındaki filtreyi/analist notunu göremez → bridge bunları YOK SAYAR. Bağlam: **(#3)** task'tan çıkarılan
+  keyword'lerle RAG (`_task_keywords`→`rag_ctx`→`referans_dosyalari_hazirla(ctx_override)`) · **(#2)** canlı
+  gözlem sabit ekran yerine kayıtlı live-app URL'inden türetilen **ANA giriş (base)** + `live_app_auth` login +
+  task'tan hedef ekran (`_canli_gorev_baglam`→`canli_uygulama_baglami_hazirla(base_url_override, hedef_tarif)`) ·
+  steering `analiz <talimat>`. (Ekran akışları `ekran_baglami=True` ile aynen korunur.) **Korkuluk:** yorum=KOMUT ·
+  YENİ task açma yalnız `onayla` sonrası · çift-uygulama önlemi · eşzamanlı `_TUR_LOCK` · döngü koruması (kendi
+  `🤖` yanıtı prefiksle başlamaz + işlenen yorum id'leri `output/jira-kopru/durum.json`) · `JIRA_KOPRU_YAZAR_ALLOWLIST`.
   Env: `JIRA_KOPRU_PROJELER` (zorunlu) / `_ARALIK` / `_PENCERE_DK` / `_KOMUT`. Test: `tests/test_jira_kopru.py`
   (offline durum-makinesi, 0 token). Tam uç dökümü → `docs/ENDPOINTS.md` "Jira Köprüsü".
 

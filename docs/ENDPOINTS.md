@@ -198,13 +198,17 @@ POST /api/jira-kopru/tara  owner — elle tek tur (komutlu yeni yorumları hemen
 **Jira Köprüsü:** `skills/jira_kopru.py` — Jira task YORUMUNA `/analyst_agent analiz` yazılınca app JQL taramasıyla
 (`_jira_kopru_dongusu`, `JIRA_KOPRU=false` ile KAPALI vars.) bulur → `gorev_getir` + `gorev_analiz_et` → sonucu Jira
 YORUMU olarak yazar (`jira_yorum_ekle`, canonical `atlassian_post`). Inbound/webhook GEREKMEZ (polling + OAuth).
-Komutlar: `analiz [talimat]` (okuma → yorum, oto; çıktı `son_analiz` önbelleğine, 60dk taze) · `güncelle`
-(analizi açıklamaya yazmayı **önerir** — taslak) · `ilişkili-aç` (analizden ilişkili yeni task'lar **önerir**
-— taslak, `_iliskili_task_onerileri` AI ≤5) · `onayla` (bekleyen taslağı UYGULAR: güncelle→`gorev_jiraya_yaz`,
-ilişkili-aç→`_issue_olustur`+`jira_issue_link` Relates, aynı projede) · `iptal` · `yardım`. **Yazma yalnız
-`onayla` sonrası** (taslak+onay, human-in-the-loop); çift-uygulama önlemi (onayla taslağı hemen düşürür).
-Döngü koruması: kendi `🤖` yanıtlarımız komut prefiksiyle başlamaz + işlenen yorum id'leri
-`output/jira-kopru/durum.json`'da (tekrar işleme yok). Env: `JIRA_KOPRU_PROJELER` (zorunlu), `JIRA_KOPRU_ARALIK`,
+Komutlar: `analiz [talimat]` → sonucu **task GÖVDESİNE** yazar (`_govdeye_yaz`: `## 📌 Orijinal Talep` +
+orijinal KORUNUR + `## 🤖 Teknik Analiz`); açık sorular + RAG kelimeleri **yoruma**. Çıktı `son_analiz`
+önbelleğine (60dk) · `güncelle` (son analizi gövdeye yeniden yaz, taze varsa 0-token) · `ilişkili-aç`
+(ilişkili yeni task **önerir** — taslak, `_iliskili_task_onerileri` AI ≤5) · `onayla` (bekleyen ilişkili
+taslağı UYGULAR: `_issue_olustur`+`jira_issue_link` Relates, aynı projede) · `iptal` · `yardım`.
+**KENDİ KENDİNE YETERLİ bağlam** (`gorev_analiz_et(ekran_baglami=False)`, ekran filtresi/notu YOK):
+#3 task keyword'leriyle RAG (`_task_keywords`→`referans_dosyalari_hazirla(ctx_override)`); #2 canlı gözlem
+kayıtlı live-app'ten türetilen ANA giriş (base) + login + task'tan hedef ekran (`_canli_gorev_baglam`→
+`canli_uygulama_baglami_hazirla(base_url_override, hedef_tarif)`). **YENİ task açma yalnız `onayla` sonrası**;
+çift-uygulama önlemi + eşzamanlı `_TUR_LOCK`. Döngü koruması: kendi `🤖` yanıtı komut prefiksiyle başlamaz +
+işlenen yorum id'leri `output/jira-kopru/durum.json`. Env: `JIRA_KOPRU_PROJELER` (zorunlu), `JIRA_KOPRU_ARALIK`,
 `JIRA_KOPRU_PENCERE_DK`, `JIRA_KOPRU_KOMUT`, `JIRA_KOPRU_YAZAR_ALLOWLIST`.
 **Disk temizliği (Faz 3):** `skills/disk_temizlik.py` — kurallar `_KURALLAR` (yalnız yeniden-üretilebilir/arşiv:
 `.api_cache/*.txt` TTL, `reference/_filtered_cache` 7g, `reference/live-app` 30g, `logs/*.log(.N)` 30g [son 24 saatte

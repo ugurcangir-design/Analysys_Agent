@@ -719,7 +719,8 @@ _KATMAN_ETIKET = {"fe": "Frontend (FE)", "be": "Backend (BE)", "belirsiz": ""}
 
 
 def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = None,
-                    katman: str = "", onceki_sorular: str = "", ekran_baglami: bool = True) -> dict:
+                    katman: str = "", onceki_sorular: str = "", ekran_baglami: bool = True,
+                    rag_ctx: dict | None = None, canli_baglam_override: str | None = None) -> dict:
     """Görevi YALIN teknik analize çevirir (gorev_teknik_analiz promptu — tek
     görev için, yalnızca ilgili bölümler, tüm şablonu doldurmaz → token/süre
     tasarrufu, kaliteden ödün yok). İki aşama: (1) Sonnet ile analiz (RAG dahil),
@@ -741,18 +742,26 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = Non
     # veren kişi onları göremez/değiştiremez → yanlış task'a ait filtre analizi saptırır).
     # Bağlam yalnız task'ın kendi içeriği + komut argümanı (cevaplar). RAG filtresiz (task-güdümlü).
     ctx = (load_context_filter() or {}) if ekran_baglami else {}
+    # RAG filtresi: ekranda → kayıtlı filtre; köprüde → task'tan türetilen keyword'ler
+    # (rag_ctx). rag_ctx None ise köprüde filtresiz (task-güdümlü tüm referanslar).
+    if ekran_baglami:
+        rag_override = None
+        filtre_kaynak = ctx
+    else:
+        rag_override = rag_ctx or {}
+        filtre_kaynak = rag_ctx or {}
     aktif_filtreler = []
-    if ctx.get("keywords"):
-        aktif_filtreler.append(f"kelime:{','.join(ctx['keywords'])}")
-    if ctx.get("jira_keys"):
-        aktif_filtreler.append(f"jira:{','.join(ctx['jira_keys'])}")
-    if ctx.get("confluence_pages"):
-        aktif_filtreler.append(f"conf:{','.join(ctx['confluence_pages'])}")
+    if filtre_kaynak.get("keywords"):
+        aktif_filtreler.append(f"kelime:{','.join(filtre_kaynak['keywords'])}")
+    if filtre_kaynak.get("jira_keys"):
+        aktif_filtreler.append(f"jira:{','.join(filtre_kaynak['jira_keys'])}")
+    if filtre_kaynak.get("confluence_pages"):
+        aktif_filtreler.append(f"conf:{','.join(filtre_kaynak['confluence_pages'])}")
 
     stable_bloklar: list[dict] = []
     referans_sayisi = 0
     try:
-        ref_dosyalar = referans_dosyalari_hazirla(ctx_override=None if ekran_baglami else {})
+        ref_dosyalar = referans_dosyalari_hazirla(ctx_override=rag_override)
         referans_sayisi = len(ref_dosyalar)
         if aktif_filtreler:
             print(f"  🔍 Bağlam filtresi aktif — {' | '.join(aktif_filtreler)}")
@@ -765,7 +774,10 @@ def gorev_analiz_et(gorev: dict, cevaplar: str = "", iliskili: list | None = Non
 
     # Canlı Uygulama (Chrome MCP) — Jira Görevleri ekranının KENDİ hedefi (live_app_gorev).
     # Süreç/Teknik Analiz ekranının URL'inden bağımsızdır; iki akış birbirini ezmez.
-    canli_baglam = canli_uygulama_baglami_hazirla(gorev=True)
+    # Köprü, base-URL + task-güdümlü hedef ile kendi canlı-gözlem bağlamını verir
+    # (canli_baglam_override); ekran akışı kendi live_app_gorev hedefini kullanır.
+    canli_baglam = canli_baglam_override if canli_baglam_override is not None \
+        else canli_uygulama_baglami_hazirla(gorev=True)
     if canli_baglam:
         print("  🌐 Canlı uygulama (görev bazlı) MCP/Chrome hedefi dahil ediliyor...")
         stable_bloklar.append({"type": "text", "text": canli_baglam})

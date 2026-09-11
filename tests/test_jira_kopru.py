@@ -48,6 +48,7 @@ jk._iliskili_task_onerileri = lambda md, gorev: [
 ]
 jk._proje_bilgi = lambda proje, cloud_id: {"task_id": "10001", "story_id": "10002"}
 jk._cloud_id = lambda: "cloud-x"
+jk._canli_gorev_baglam = lambda gorev: None   # live-app config'e bağlı kalma (offline)
 
 
 def _sahte_issue_olustur(summary, adf, type_id, proje, cloud_id, parent_key=None):
@@ -62,28 +63,27 @@ jk.jira_issue_link = lambda inw, outw, tip="Relates": kurulan_linkler.append((in
 PFX = "/analyst_agent"
 
 
-# ── analiz → önbellek ────────────────────────────────────────────────────────
+# ── analiz → task GÖVDESİNE yazar (yoruma değil), orijinal korunur (#1) ───────
 durum: dict = {}
 r = jk._komut_uygula("analiz", "", "MBSTRADE-1", PFX, durum)
-kontrol("analiz yorumu üretiliyor", "Teknik Analiz" in r and "MBSTRADE-1" in r)
+kontrol("analiz sonucu task GÖVDESİNE yazıldı", "MBSTRADE-1" in yazilan_aciklama)
+govde = yazilan_aciklama["MBSTRADE-1"]
+kontrol("gövdede orijinal talep + analiz bölümü", "Orijinal Talep" in govde and "Teknik Analiz" in govde)
+kontrol("analiz yorumu = gövdeye yazıldı bilgisi", "açıklamasına yazıldı" in r.lower() or "açıklamaya yaz" in r.lower())
 kontrol("analiz çıktısı önbelleğe alındı", durum.get("son_analiz", {}).get("MBSTRADE-1", {}).get("md"))
 kontrol("bridge analizi KENDİ KENDİNE YETERLİ (ekran_baglami=False)", analiz_cagrilari[-1] is False)
 
-# ── güncelle → taslak (henüz YAZILMADI) ──────────────────────────────────────
-r = jk._komut_uygula("guncelle", "", "MBSTRADE-1", PFX, durum)
-kontrol("güncelle taslağı oluşturuldu", durum["taslaklar"]["MBSTRADE-1"]["tip"] == "guncelle")
-kontrol("güncelle taslakken açıklama YAZILMADI", "MBSTRADE-1" not in yazilan_aciklama)
-kontrol("güncelle önizleme + onay ipucu", "onayla" in r)
-
-# ── onayla → açıklama yazılır, taslak düşer ──────────────────────────────────
-r = jk._komut_uygula("onayla", "", "MBSTRADE-1", PFX, durum)
-kontrol("onayla açıklamayı yazdı", "MBSTRADE-1" in yazilan_aciklama)
-kontrol("onaydan sonra taslak temizlendi", "MBSTRADE-1" not in durum.get("taslaklar", {}))
-
-# ── ikinci onayla → bekleyen taslak yok (çift-uygulama önlemi) ────────────────
+# ── güncelle → SON analizi gövdeye YENİDEN yazar (taslak DEĞİL, 0-token) ──────
 yazilan_aciklama.clear()
+oncesi = len(analiz_cagrilari)
+r = jk._komut_uygula("guncelle", "", "MBSTRADE-1", PFX, durum)
+kontrol("güncelle gövdeye yazdı, taslak oluşturmadı",
+        "MBSTRADE-1" in yazilan_aciklama and "MBSTRADE-1" not in durum.get("taslaklar", {}))
+kontrol("güncelle taze önbelleği kullandı (yeniden analiz yok)", len(analiz_cagrilari) == oncesi)
+
+# ── onayla → bekleyen ilişkili taslak yok ────────────────────────────────────
 r = jk._komut_uygula("onayla", "", "MBSTRADE-1", PFX, durum)
-kontrol("ikinci onayla no-op (bekleyen taslak yok)", "bekleyen taslak yok" in r and "MBSTRADE-1" not in yazilan_aciklama)
+kontrol("bekleyen taslak yokken onayla no-op", "bekleyen taslak yok" in r)
 
 # ── ilişkili-aç → taslak (henüz task AÇILMADI) ───────────────────────────────
 r = jk._komut_uygula("iliskili-ac", "", "MBSTRADE-2", PFX, durum)
@@ -98,10 +98,20 @@ kontrol("her yeni task kaynağa Relates bağlandı",
         len(kurulan_linkler) == 2 and all(o == "MBSTRADE-2" and t == "Relates" for _, o, t in kurulan_linkler))
 kontrol("ilişkili-aç onayından sonra taslak temizlendi", "MBSTRADE-2" not in durum.get("taslaklar", {}))
 
-# ── iptal → taslağı düşürür ──────────────────────────────────────────────────
-jk._komut_uygula("guncelle", "", "MBSTRADE-3", PFX, durum)
+# ── iptal → ilişkili taslağı düşürür ─────────────────────────────────────────
+jk._komut_uygula("iliskili-ac", "", "MBSTRADE-3", PFX, durum)
 r = jk._komut_uygula("iptal", "", "MBSTRADE-3", PFX, durum)
 kontrol("iptal bekleyen taslağı düşürdü", "MBSTRADE-3" not in durum.get("taslaklar", {}) and "iptal edildi" in r.lower())
+
+# ── #3: task'tan RAG anahtar kelimeleri çıkar ────────────────────────────────
+kws = jk._task_keywords({"summary": "Prematch Program free-text search input",
+                         "description": "freeText parametresi elastic search ile debounced"})
+kontrol("task keyword'leri çıkarıldı (durak kelimeler elenmiş)",
+        "search" in kws and "elastic" in kws and "için" not in kws)
+
+# ── #1: orijinal talep ayıklama (tekrar analizde korunur) ────────────────────
+onceki = "## 📌 Orijinal Talep\n\nfree-text search isteniyor\n\n---\n\n## 🤖 Teknik Analiz (Analyst Agent)\n\neski analiz"
+kontrol("orijinal talep tekrar analizde korunur", jk._orijinal_talep_ayikla(onceki) == "free-text search isteniyor")
 
 # ── döngü koruması: kendi 🤖 yanıtımız komut sayılmaz ────────────────────────
 kontrol("kendi yanıtı komut değil", jk._komut_coz(jk.ROBOT_IMZA + " ✅ güncellendi", PFX) is None)

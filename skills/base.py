@@ -2207,7 +2207,8 @@ def _context_filter_normalize(ctx: dict | None) -> dict:
     }
 
 
-def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
+def canli_uygulama_baglami_hazirla(gorev: bool = False, base_url_override: str = "",
+                                   hedef_tarif: str = "") -> str | None:
     """Bağlam filtresindeki canlı uygulama URL'lerinden Claude MCP/Chrome görevi üretir.
 
     `gorev=True` → Jira Görevleri (task bazlı) ekranının KENDİ `live_app_gorev` hedefini
@@ -2233,7 +2234,16 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         extra_urls = [u for u in extra_urls_raw if str(u).strip()] if isinstance(extra_urls_raw, list) else []
         use_as_sample = bool(live_app.get("use_as_sample"))
         gozlem_kapsami = str(live_app.get("gozlem_kapsami", "")).strip()
-    urls = _benzersiz_liste([target_url] + extra_urls)
+    # Jira Köprüsü (görev-güdümlü): sabit ekran URL'i yerine uygulamanın ANA girişini
+    # (base_url_override) kullan; hedef ekran task içeriğinden (hedef_tarif) türetilir →
+    # model login sonrası uygulamanın kendi menüsüyle ilgili ekrana gider. Ekran-bağımlı değil.
+    if base_url_override:
+        urls = _benzersiz_liste([base_url_override])
+        use_as_sample = False
+    else:
+        urls = _benzersiz_liste([target_url] + extra_urls)
+    if hedef_tarif.strip():
+        gozlem_kapsami = hedef_tarif.strip()   # task-güdümlü hedef → ODAKLI gözlem modu
     if not urls:
         return None
 
@@ -2333,6 +2343,16 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
         "o adımı atla ve raporda 'Canlı Gözlem Kapsamı' altında nedeniyle belirt.\n"
     )
 
+    nav_notu = ""
+    if base_url_override:
+        nav_notu = (
+            "### GİRİŞ VE HEDEF EKRANA GİDİŞ\n"
+            "Giriş noktası uygulamanın ANA adresidir (yukarıdaki URL). Gerekiyorsa önce giriş yap; "
+            "ardından aşağıda tarif edilen ekran/işlev ana sayfada DEĞİLSE uygulamanın KENDİ menüsü/"
+            "navigasyonuyla ilgili ekrana git. Doğru ekranı görünen menü/başlıklardan bul; ekranı "
+            "bulamazsan veya birden çok aday varsa VARSAYIM ÜRETME — Gözlem Kapsamı'nda belirt.\n\n"
+        )
+
     if gozlem_kapsami:
         # ODAKLI MOD: analist ekranın tamamını değil, belirli bir bölümü/akışı istiyor.
         # Tam tarama planı YERİNE tarif edilen kapsam derinlemesine incelenir — daha
@@ -2346,7 +2366,8 @@ def canli_uygulama_baglami_hazirla(gorev: bool = False) -> str | None:
             f"{sirali}\n\n"
             f"{ornek_ekran_notu}"
             f"{giris_notu}"
-            "ODAKLI GÖZLEM KAPSAMI (analist tanımladı):\n"
+            f"{nav_notu}"
+            "ODAKLI GÖZLEM KAPSAMI (hedef akış/ekran):\n"
             f"{gozlem_kapsami}\n\n"
             "Uygulama adımları (verimli sırayla — gereksiz tur yapma):\n"
             "1. Hedef URL'yi aç. TEK snapshot ile (gerekirse `browser_find`) kapsamdaki "
