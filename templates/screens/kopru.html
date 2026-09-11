@@ -28,9 +28,7 @@
     </div>
 
     <style>
-      .kopru-acik pre { white-space:pre-wrap; word-break:break-word; background:var(--surface2); border:1px solid var(--border);
-        border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.5; max-height:320px; overflow:auto; margin:8px 0; }
-      .kopru-acik textarea { width:100%; margin:4px 0 8px; }
+      .kopru-acik .jg-soru-yardim { margin-bottom:8px; }
       .kopru-actions .ds-inp { padding:5px 10px; }
     </style>
 
@@ -62,13 +60,35 @@
       } catch(e){ el.innerHTML = '<div class="panel"><div class="panel-body ds-hint">Liste alınamadı: '+_kopruEsc(e)+'</div></div>'; }
     }
 
+    // Task Analizi ekranıyla AYNI: her soru ayrı kart + kendi cevap kutusu + "boş = atla".
+    // Ayrıştırıcı (_jgSorulariAyristir) ve kart sınıfları (.jg-soru-kart) index.html'de global.
+    function _kopruSorularHtml(key, acik){
+      const sorular = (typeof _jgSorulariAyristir === 'function') ? _jgSorulariAyristir(acik) : [];
+      const onemSinif = o => /kritik/i.test(o) ? 'kritik' : /y[üu]ksek/i.test(o) ? 'yuksek' : '';
+      let kartlar;
+      if (sorular.length){
+        kartlar = sorular.map(s => `
+          <div class="jg-soru-kart">
+            <div><span class="jg-sk-id">${_kopruEsc(s.id)}</span>${s.onem ? `<span class="jg-sk-onem ${onemSinif(s.onem)}">${_kopruEsc(s.onem)}</span>` : ''}</div>
+            <div class="jg-sk-soru">${_kopruEsc(s.soru || s.baslik)}</div>
+            ${(s.bagli || s.beklenen) ? `<div class="jg-sk-detay">${s.bagli ? 'Bağlı: ' + _kopruEsc(s.bagli) : ''}${s.bagli && s.beklenen ? ' · ' : ''}${s.beklenen ? 'Beklenen: ' + _kopruEsc(s.beklenen) : ''}</div>` : ''}
+            <textarea class="jg-editor jg-sk-cevap" data-qid="${_kopruEsc(s.id)}" placeholder="Bu soruya cevabınız (boş = atla)"
+              oninput="this.closest('.jg-soru-kart').classList.toggle('cevapli', !!this.value.trim())"></textarea>
+          </div>`).join('');
+      } else {
+        kartlar = `<textarea id="cev-${key}" class="ds-inp" rows="3" style="width:100%" placeholder="Cevaplarınız (soru no ile) — örn. Q-T-001: ..."></textarea>`;
+      }
+      return `<div class="kopru-acik" id="kacik-${key}">
+          <div class="jg-soru-yardim">Her soruyu altındaki kutuda cevaplayın; boş bıraktıklarınız <b>atlanır</b>. <b>Cevapla &amp; Devam</b> deyince analiz cevaplara göre yeniden yazılır, sorular yakınsar.</div>
+          <div id="jgs-${key}" style="display:flex;flex-direction:column;gap:10px">${kartlar}</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="kopruIs('cevap','${key}')">Cevapla &amp; Devam Et</button>
+        </div>`;
+    }
+
     function kopruKart(k){
       const zaman = k.zaman ? k.zaman.replace('T',' ').replace('Z','') : '';
       const acik = k.acik_var
-        ? `<div class="kopru-acik"><b>Açık Sorular</b><pre>${_kopruEsc(k.acik)}</pre>
-             <textarea id="cev-${k.key}" class="ds-inp" rows="3" placeholder="Cevaplarınız — örn. Q-T-001: Event Name korunur, freeText destekleyici"></textarea>
-             <button class="btn btn-primary btn-sm" onclick="kopruIs('cevap','${k.key}')">Cevapla &amp; Devam Et</button>
-           </div>`
+        ? `<div style="font-weight:600;margin-bottom:6px">Açık Sorular</div>${_kopruSorularHtml(k.key, k.acik)}`
         : '<div class="ds-hint" style="margin:2px 0 8px">✓ Açık soru yok.</div>';
       const taslak = k.taslak_var
         ? `<button class="btn btn-primary btn-sm" onclick="kopruIs('onayla','${k.key}')">Onayla</button>
@@ -98,8 +118,15 @@
       if (!key){ alert('Task anahtarı gerekli (örn. MBSTRADE-1234).'); return; }
       let arg = '';
       if (komut === 'cevap'){
-        const t = document.getElementById('cev-' + key); arg = t ? t.value.trim() : '';
-        if (!arg){ alert('Önce cevaplarınızı yazın.'); return; }
+        // Task Analizi gibi: yalnız DOLU soru kutularını "Q-T-NNN: cevap" satırlarına çevir (boşlar atlanır).
+        const kap = document.getElementById('kacik-' + key);
+        const kutular = kap ? kap.querySelectorAll('.jg-sk-cevap[data-qid]') : [];
+        if (kutular.length){
+          arg = [...kutular].map(t => t.value.trim() ? `${t.dataset.qid}: ${t.value.trim()}` : '').filter(Boolean).join('\n');
+        } else {
+          const tek = document.getElementById('cev-' + key); arg = tek ? tek.value.trim() : '';
+        }
+        if (!arg){ alert('Önce en az bir soruyu cevaplayın (boş bıraktıklarınız atlanır).'); return; }
       } else if (komut === 'duzelt'){
         const t = document.getElementById('duz-' + key); arg = t ? t.value.trim() : '';
         if (!arg){ alert('Düzeltme talimatını yazın.'); return; }
